@@ -3,10 +3,15 @@ package com.yomu.app.ui.home
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.yomu.app.service.ModelManager
 import com.yomu.core.Constants
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class HomeUiState(
@@ -24,28 +29,22 @@ class HomeViewModel @Inject constructor(
     private val modelManager: ModelManager
 ) : ViewModel() {
     
-    var uiState: HomeUiState = HomeUiState()
-        private set
+    private val _uiState = MutableStateFlow(HomeUiState())
+    val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
     
     init {
-        loadState()
-    }
-    
-    private fun loadState() {
         val mode = sharedPreferences.getString(Constants.PREF_TRANSLATION_MODE, "local") ?: "local"
-        uiState = uiState.copy(
-            translationMode = mode
-        )
+        _uiState.value = HomeUiState(translationMode = mode)
     }
     
     fun toggleService() {
-        uiState = uiState.copy(
-            isServiceRunning = !uiState.isServiceRunning
+        _uiState.value = _uiState.value.copy(
+            isServiceRunning = !_uiState.value.isServiceRunning
         )
     }
     
     fun setTranslationMode(mode: String) {
         sharedPreferences.edit().putString(Constants.PREF_TRANSLATION_MODE, mode).apply()
-        uiState = uiState.copy(translationMode = mode)
+        _uiState.value = _uiState.value.copy(translationMode = mode)
     }
 }

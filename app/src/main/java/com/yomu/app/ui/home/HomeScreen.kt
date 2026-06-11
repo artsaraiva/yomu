@@ -15,7 +15,7 @@ fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel(),
     onNavigateToModels: () -> Unit = {}
 ) {
-    val state = viewModel.uiState
+    val state by viewModel.uiState.collectAsState()
     
     Column(
         modifier = Modifier

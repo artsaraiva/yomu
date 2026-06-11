@@ -24,6 +24,11 @@ import com.yomu.core.Constants
 import com.yomu.pipeline.TranslationPipeline
 import com.yomu.pipeline.typesetting.TypesetBubble
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -169,14 +174,28 @@ class OverlayService : Service() {
         if (isTranslating) return
         isTranslating = true
 
-        screenCaptureManager.captureScreen { bitmap ->
-            if (bitmap != null) {
-                val result = translationPipeline.processPage(bitmap)
-                if (result != null) {
-                    showTranslationOverlay(result.typesetBubbles)
+        kotlinx.coroutines.MainScope().launch(Dispatchers.Default) {
+            val bitmap = withContext(Dispatchers.Main) {
+                suspendCancellableCoroutine<android.graphics.Bitmap?> { cont ->
+                    screenCaptureManager.captureScreen { bitmap ->
+                        cont.resume(bitmap)
+                    }
                 }
             }
-            isTranslating = false
+
+            if (bitmap != null) {
+                val result = translationPipeline.processPage(bitmap)
+                withContext(Dispatchers.Main) {
+                    if (result != null) {
+                        showTranslationOverlay(result.typesetBubbles)
+                    }
+                    isTranslating = false
+                }
+            } else {
+                withContext(Dispatchers.Main) {
+                    isTranslating = false
+                }
+            }
         }
     }
 

@@ -57,12 +57,12 @@ class TranslationEngine(private val llamaBridge: LlamaBridge) {
         sb.appendLine("Translate this manga page:")
         sb.appendLine()
 
-        for ((index, block) in blocks.withIndex()) {
-            sb.appendLine("--- Conversation Block ${index + 1} ---")
-            for (bubbleId in block.readingOrder) {
-                val text = block.texts.find { it.text.isNotEmpty() }
-                if (text != null) {
-                    sb.appendLine("[${bubbleId}] ${text.text}")
+        for ((blockIndex, block) in blocks.withIndex()) {
+            sb.appendLine("--- Conversation Block ${blockIndex + 1} ---")
+            for ((textIndex, bubbleId) in block.readingOrder.withIndex()) {
+                val text = if (textIndex < block.texts.size) block.texts[textIndex].text else ""
+                if (text.isNotEmpty()) {
+                    sb.appendLine("[${bubbleId}] $text")
                 }
             }
             sb.appendLine()

@@ -32,26 +32,24 @@ class BubbleDetector(private val onnxRuntime: OnnxRuntime) {
     fun detect(bitmap: Bitmap): List<Bubble> {
         if (!isLoaded) return emptyList()
 
+        val origWidth = bitmap.width
+        val origHeight = bitmap.height
+
         val detections = onnxRuntime.runBitmapInference(MODEL_NAME, bitmap)
 
         return detections
             .filter { it.confidence >= CONFIDENCE_THRESHOLD }
             .mapIndexed { index, detection ->
+                val x = detection.bbox[0] / 640f * origWidth
+                val y = detection.bbox[1] / 640f * origHeight
+                val w = detection.bbox[2] / 640f * origWidth
+                val h = detection.bbox[3] / 640f * origHeight
+
                 Bubble(
                     id = index + 1,
-                    boundingBox = RectF(
-                        detection.bbox[0],
-                        detection.bbox[1],
-                        detection.bbox[0] + detection.bbox[2],
-                        detection.bbox[1] + detection.bbox[3]
-                    ),
+                    boundingBox = RectF(x, y, x + w, y + h),
                     confidence = detection.confidence,
-                    textRegion = RectF(
-                        detection.bbox[0],
-                        detection.bbox[1],
-                        detection.bbox[0] + detection.bbox[2],
-                        detection.bbox[1] + detection.bbox[3]
-                    )
+                    textRegion = RectF(x, y, x + w, y + h)
                 )
             }
     }

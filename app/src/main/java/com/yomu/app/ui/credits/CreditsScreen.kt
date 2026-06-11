@@ -14,7 +14,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 fun CreditsScreen(
     viewModel: CreditsViewModel = hiltViewModel()
 ) {
-    val state = viewModel.uiState
+    val state by viewModel.uiState.collectAsState()
 
     Column(
         modifier = Modifier
