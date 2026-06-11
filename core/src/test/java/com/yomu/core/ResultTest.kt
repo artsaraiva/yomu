@@ -106,7 +106,7 @@ class ResultTest {
     @Test
     fun map_preserves_error() {
         val e = RuntimeException("original")
-        val result = Result.Error<Int>(e).map { it * 2 }
+        val result = Result.Error(e).map<Int> { 0 }
         assertTrue(result is Result.Error)
         assertEquals(e, (result as Result.Error).exception)
     }

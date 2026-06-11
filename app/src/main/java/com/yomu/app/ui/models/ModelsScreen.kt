@@ -9,6 +9,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.yomu.app.db.entities.ModelEntity
 import com.yomu.app.db.entities.ModelStatus
 import com.yomu.core.toFileSizeString
 
@@ -98,7 +99,6 @@ private fun ModelCard(
                     }
                     ModelStatus.DOWNLOADING -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         CircularProgressIndicator(
-                            progress = { progress / 100f },
                             modifier = Modifier.size(24.dp),
                             strokeWidth = 2.dp
                         )
@@ -118,7 +118,6 @@ private fun ModelCard(
 
             if (isDownloading) {
                 LinearProgressIndicator(
-                    progress = { progress / 100f },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 8.dp)

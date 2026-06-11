@@ -2,8 +2,12 @@ package com.yomu.ml
 
 import android.content.Context
 import android.graphics.Bitmap
+import ai.onnxruntime.OrtEnvironment
+import ai.onnxruntime.OrtSession
+import ai.onnxruntime.OnnxTensor
 import com.yomu.core.Constants
 import java.io.File
+import java.nio.FloatBuffer
 
 class OnnxRuntime(private val context: Context) {
 
@@ -13,7 +17,7 @@ class OnnxRuntime(private val context: Context) {
     data class Detection(
         val label: String,
         val confidence: Float,
-        val bbox: FloatArray  // [x, y, w, h] normalized
+        val bbox: FloatArray
     )
 
     fun init() {
@@ -33,7 +37,8 @@ class OnnxRuntime(private val context: Context) {
         return try {
             init()
             val env = ortEnv ?: return false
-            val session = env.createSession(modelFile.absolutePath, OrtSession.SessionOptions())
+            val opts = OrtSession.SessionOptions()
+            val session = env.createSession(modelFile.absolutePath, opts)
             loadedModels[modelName] = session
             true
         } catch (e: Exception) {
@@ -50,10 +55,10 @@ class OnnxRuntime(private val context: Context) {
         val env = ortEnv ?: return null
 
         return try {
-            val inputTensor = OnnxTensor.createTensor(env, input, inputShape)
-            val result = session.run(mapOf("input" to inputTensor))
-            val output = result.get("output") as? OnnxTensor
-            output?.floatArray
+            val inputTensor = OnnxTensor.createTensor(env, FloatBuffer.wrap(input), inputShape)
+            val result = session.run(mapOf("images" to inputTensor))
+            val output = result.get("output0") as? OnnxTensor
+            output?.getFloatBuffer()?.array()
         } catch (e: Exception) {
             null
         }
@@ -64,7 +69,6 @@ class OnnxRuntime(private val context: Context) {
         val env = ortEnv ?: return emptyList()
 
         return try {
-            // Preprocess: resize to model input size, normalize, convert to float array
             val inputSize = 640
             val resized = Bitmap.createScaledBitmap(bitmap, inputSize, inputSize, true)
             val floatArray = FloatArray(inputSize * inputSize * 3)
@@ -80,12 +84,13 @@ class OnnxRuntime(private val context: Context) {
             }
 
             val shape = longArrayOf(1, 3, inputSize.toLong(), inputSize.toLong())
-            val inputTensor = OnnxTensor.createTensor(env, floatArray, shape)
+            val inputTensor = OnnxTensor.createTensor(env, FloatBuffer.wrap(floatArray), shape)
             val result = session.run(mapOf("images" to inputTensor))
             val output = result.get("output0") as? OnnxTensor
 
             if (output != null) {
-                parseDetections(output.floatArray, 0.5f)
+                val outputArray = output.getFloatBuffer().array()
+                parseDetections(outputArray, 0.5f)
             } else {
                 emptyList()
             }
@@ -95,7 +100,6 @@ class OnnxRuntime(private val context: Context) {
     }
 
     private fun parseDetections(output: FloatArray, confidenceThreshold: Float): List<Detection> {
-        // YOLO output format: [batch, num_detections, 6] where 6 = [x, y, w, h, confidence, class_id]
         val detections = mutableListOf<Detection>()
         val numDetections = output.size / 6
 
@@ -108,10 +112,10 @@ class OnnxRuntime(private val context: Context) {
                         label = "bubble",
                         confidence = confidence,
                         bbox = floatArrayOf(
-                            output[base],     // x
-                            output[base + 1], // y
-                            output[base + 2], // w
-                            output[base + 3]  // h
+                            output[base],
+                            output[base + 1],
+                            output[base + 2],
+                            output[base + 3]
                         )
                     )
                 )
@@ -126,7 +130,9 @@ class OnnxRuntime(private val context: Context) {
     }
 
     fun release() {
-        loadedModels.values.forEach { it.close() }
+        for ((_, session) in loadedModels) {
+            session.close()
+        }
         loadedModels.clear()
         ortEnv?.close()
         ortEnv = null

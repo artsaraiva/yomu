@@ -2,6 +2,7 @@ package com.yomu.core
 
 import android.content.Context
 import android.widget.Toast
+import java.util.Locale
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 
@@ -21,9 +22,9 @@ fun Long.toFileSizeString(): String {
     val gb = mb * 1024
     
     return when {
-        this >= gb -> String.format("%.2f GB", this / gb)
-        this >= mb -> String.format("%.2f MB", this / mb)
-        this >= kb -> String.format("%.2f KB", this / kb)
+        this >= gb -> String.format(Locale.US, "%.2f GB", this / gb)
+        this >= mb -> String.format(Locale.US, "%.2f MB", this / mb)
+        this >= kb -> String.format(Locale.US, "%.2f KB", this / kb)
         else -> "$this B"
     }
 }

@@ -68,7 +68,7 @@ fun HomeScreen(
                     )
                 }
                 
-                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+                Divider(modifier = Modifier.padding(vertical = 12.dp))
                 
                 Text("Mode: ${state.translationMode.replaceFirstChar { it.uppercase() }}",
                     fontSize = 14.sp)

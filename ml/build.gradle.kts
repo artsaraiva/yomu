@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace = "com.yomu.ml"
-    compileSdk = 34
+    compileSdk = 36
     defaultConfig {
         minSdk = 26
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
