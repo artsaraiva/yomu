@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.yomu.app.service.ModelManager
+import com.yomu.app.service.OverlayService
 import com.yomu.core.Constants
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -38,6 +39,11 @@ class HomeViewModel @Inject constructor(
     }
     
     fun toggleService() {
+        if (_uiState.value.isServiceRunning) {
+            OverlayService.stop(context)
+        } else {
+            OverlayService.start(context)
+        }
         _uiState.value = _uiState.value.copy(
             isServiceRunning = !_uiState.value.isServiceRunning
         )

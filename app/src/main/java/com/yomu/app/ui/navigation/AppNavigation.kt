@@ -40,7 +40,9 @@ val bottomNavItems = listOf(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AppNavigation() {
+fun AppNavigation(
+    onRequestScreenCapture: () -> Unit = {}
+) {
     val navController = rememberNavController()
 
     Scaffold(
@@ -73,7 +75,7 @@ fun AppNavigation() {
             startDestination = Screen.Home.route,
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable(Screen.Home.route) { HomeScreen() }
+            composable(Screen.Home.route) { HomeScreen(onRequestScreenCapture = onRequestScreenCapture) }
             composable(Screen.Models.route) { ModelsScreen() }
             composable(Screen.Credits.route) { CreditsScreen() }
             composable(Screen.History.route) { HistoryScreen() }

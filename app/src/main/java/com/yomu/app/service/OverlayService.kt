@@ -6,47 +6,46 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
 import android.graphics.PixelFormat
-import android.graphics.Point
+import android.graphics.Typeface
+import android.media.projection.MediaProjection
+import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.IBinder
 import android.view.Gravity
-import android.view.LayoutInflater
-import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
 import com.yomu.app.capture.ScreenCaptureManager
-import com.yomu.app.detection.MangaDetector
 import com.yomu.core.Constants
 import com.yomu.pipeline.TranslationPipeline
 import com.yomu.pipeline.typesetting.TypesetBubble
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlin.coroutines.resume
 import javax.inject.Inject
 
 @AndroidEntryPoint
 class OverlayService : Service() {
 
     @Inject lateinit var screenCaptureManager: ScreenCaptureManager
-    @Inject lateinit var mangaDetector: MangaDetector
     @Inject lateinit var translationPipeline: TranslationPipeline
 
     private lateinit var windowManager: WindowManager
-    private var floatingButton: View? = null
+    private var floatingButton: FrameLayout? = null
     private var overlayView: FrameLayout? = null
-    private var currentTypesetBubbles: List<TypesetBubble> = emptyList()
 
-    private var isShowingOverlay = false
     private var isTranslating = false
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     companion object {
+        const val EXTRA_MEDIA_PROJECTION_DATA = "media_projection_data"
+        const val EXTRA_RESULT_CODE = "result_code"
         private const val CHANNEL_NAME = "Yomu Overlay"
         private const val CHANNEL_DESC = "Yomu translation overlay service"
 
@@ -68,12 +67,23 @@ class OverlayService : Service() {
         super.onCreate()
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         createNotificationChannel()
-        showFloatingButton()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val notification = createNotification()
         startForeground(Constants.OVERLAY_NOTIFICATION_ID, notification)
+
+        val data = intent?.getParcelableExtra<Intent>(EXTRA_MEDIA_PROJECTION_DATA)
+        val resultCode = intent?.getIntExtra(EXTRA_RESULT_CODE, -1) ?: -1
+        if (data != null && resultCode == android.app.Activity.RESULT_OK) {
+            val manager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+            val projection = manager.getMediaProjection(resultCode, data)
+            if (projection != null) {
+                screenCaptureManager.startProjection(projection)
+            }
+        }
+
+        showFloatingButton()
         return START_STICKY
     }
 
@@ -83,6 +93,7 @@ class OverlayService : Service() {
         removeFloatingButton()
         removeOverlay()
         screenCaptureManager.stopProjection()
+        scope.run { kotlinx.coroutines.Job().cancel() }
         super.onDestroy()
     }
 
@@ -106,7 +117,6 @@ class OverlayService : Service() {
         } else {
             Notification.Builder(this)
         }
-
         return builder
             .setContentTitle("Yomu")
             .setContentText("Tap the floating button to translate manga")
@@ -118,11 +128,8 @@ class OverlayService : Service() {
     private fun showFloatingButton() {
         if (floatingButton != null) return
 
-        val inflater = getSystemService(LAYOUT_INFLATER_SERVICE) as LayoutInflater
-
         val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.WRAP_CONTENT,
+            56, 56,
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
             else
@@ -135,30 +142,13 @@ class OverlayService : Service() {
             y = 200
         }
 
-        floatingButton = View(this).apply {
-            setBackgroundColor(Color(0xFF, 0x57, 0x22).toArgb())
-            val size = 56
-            layoutParams = FrameLayout.LayoutParams(size, size)
+        floatingButton = FrameLayout(this).apply {
+            setBackgroundColor(0xFFFF5722.toInt())
+
             setOnClickListener {
                 if (!isTranslating) {
                     startTranslation()
                 }
-            }
-
-            setOnTouchListener { _, event ->
-                when (event.action) {
-                    MotionEvent.ACTION_DOWN -> {
-                        params.x = (event.rawX - size / 2).toInt()
-                        params.y = (event.rawY - size / 2).toInt()
-                        windowManager.updateViewLayout(this, params)
-                    }
-                    MotionEvent.ACTION_MOVE -> {
-                        params.x = (event.rawX - size / 2).toInt()
-                        params.y = (event.rawY - size / 2).toInt()
-                        windowManager.updateViewLayout(this, params)
-                    }
-                }
-                true
             }
         }
 
@@ -174,26 +164,20 @@ class OverlayService : Service() {
         if (isTranslating) return
         isTranslating = true
 
-        kotlinx.coroutines.MainScope().launch(Dispatchers.Default) {
-            val bitmap = withContext(Dispatchers.Main) {
-                suspendCancellableCoroutine<android.graphics.Bitmap?> { cont ->
-                    screenCaptureManager.captureScreen { bitmap ->
-                        cont.resume(bitmap)
+        scope.launch {
+            screenCaptureManager.captureScreen { bitmap ->
+                if (bitmap != null) {
+                    val result = translationPipeline.processPage(bitmap)
+                    kotlinx.coroutines.runBlocking(kotlinx.coroutines.Dispatchers.Main) {
+                        if (result != null) {
+                            showTranslationOverlay(result.typesetBubbles)
+                        }
+                        isTranslating = false
                     }
-                }
-            }
-
-            if (bitmap != null) {
-                val result = translationPipeline.processPage(bitmap)
-                withContext(Dispatchers.Main) {
-                    if (result != null) {
-                        showTranslationOverlay(result.typesetBubbles)
+                } else {
+                    kotlinx.coroutines.runBlocking(kotlinx.coroutines.Dispatchers.Main) {
+                        isTranslating = false
                     }
-                    isTranslating = false
-                }
-            } else {
-                withContext(Dispatchers.Main) {
-                    isTranslating = false
                 }
             }
         }
@@ -201,7 +185,6 @@ class OverlayService : Service() {
 
     private fun showTranslationOverlay(bubbles: List<TypesetBubble>) {
         removeOverlay()
-        currentTypesetBubbles = bubbles
 
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
@@ -215,21 +198,49 @@ class OverlayService : Service() {
             PixelFormat.TRANSPARENT
         )
 
-        overlayView = FrameLayout(this).apply {
-            setBackgroundColor(Color.Transparent.toArgb())
-            setOnClickListener {
-                removeOverlay()
+        overlayView = object : FrameLayout(this) {
+            private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+
+            override fun onDraw(canvas: Canvas) {
+                super.onDraw(canvas)
+                for (bubble in bubbles) {
+                    drawBubble(canvas, bubble, paint)
+                }
             }
+        }.apply {
+            setWillNotDraw(false)
+            setBackgroundColor(Color.TRANSPARENT)
+            setOnClickListener { removeOverlay() }
         }
 
         windowManager.addView(overlayView, params)
-        isShowingOverlay = true
+    }
+
+    private fun drawBubble(canvas: Canvas, bubble: TypesetBubble, paint: Paint) {
+        val bx = bubble.boundingBox[0]
+        val by = bubble.boundingBox[1]
+        val bw = bubble.boundingBox[2] - bubble.boundingBox[0]
+        val bh = bubble.boundingBox[3] - bubble.boundingBox[1]
+
+        paint.color = bubble.backgroundColor
+        paint.isAntiAlias = true
+        val radius = 8f
+        canvas.drawRoundRect(bx, by, bx + bw, by + bh, radius, radius, paint)
+
+        paint.color = bubble.textColor
+        paint.textSize = bubble.fontSize * resources.displayMetrics.density
+        paint.typeface = Typeface.DEFAULT
+
+        var textY = by + paint.textSize + 8f
+        for (line in bubble.textLines) {
+            val textX = bx + 8f
+            canvas.drawText(line, textX, textY, paint)
+            textY += paint.fontSpacing * 1.3f
+        }
     }
 
     private fun removeOverlay() {
         overlayView?.let { windowManager.removeView(it) }
         overlayView = null
-        isShowingOverlay = false
-        currentTypesetBubbles = emptyList()
     }
 }

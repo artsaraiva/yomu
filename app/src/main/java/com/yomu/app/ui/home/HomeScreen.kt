@@ -13,7 +13,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel(),
-    onNavigateToModels: () -> Unit = {}
+    onNavigateToModels: () -> Unit = {},
+    onRequestScreenCapture: () -> Unit = {}
 ) {
     val state by viewModel.uiState.collectAsState()
     

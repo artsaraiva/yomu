@@ -1,15 +1,38 @@
 package com.yomu.app
 
+import android.content.Intent
+import android.media.projection.MediaProjectionManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.graphics.Color
+import com.yomu.app.service.OverlayService
 import com.yomu.app.ui.navigation.AppNavigation
-import com.yomu.core.Constants
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    private var mediaProjectionIntent: Intent? = null
+
+    private val screenCaptureLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == RESULT_OK && result.data != null) {
+            mediaProjectionIntent = result.data
+            val intent = Intent(this, OverlayService::class.java).apply {
+                putExtra(OverlayService.EXTRA_MEDIA_PROJECTION_DATA, result.data)
+                putExtra(OverlayService.EXTRA_RESULT_CODE, result.resultCode)
+            }
+            startService(intent)
+        }
+    }
+
+    fun launchScreenCaptureConsent() {
+        val manager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+        screenCaptureLauncher.launch(manager.createScreenCaptureIntent())
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -27,7 +50,9 @@ class MainActivity : ComponentActivity() {
                     onBackground = Color(0xFFE0E0E0)
                 )
             ) {
-                AppNavigation()
+                AppNavigation(
+                    onRequestScreenCapture = { launchScreenCaptureConsent() }
+                )
             }
         }
     }
