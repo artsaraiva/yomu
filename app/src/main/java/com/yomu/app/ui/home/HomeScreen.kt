@@ -56,7 +56,12 @@ fun HomeScreen(
                     Text("Service Status", fontWeight = FontWeight.Medium)
                     Switch(
                         checked = state.isServiceRunning,
-                        onCheckedChange = { viewModel.toggleService() }
+                        onCheckedChange = { enabled ->
+                            if (enabled) {
+                                onRequestScreenCapture()
+                            }
+                            viewModel.toggleService()
+                        }
                     )
                 }
                 
