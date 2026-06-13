@@ -75,7 +75,12 @@ fun AppNavigation(
             startDestination = Screen.Home.route,
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable(Screen.Home.route) { HomeScreen(onRequestScreenCapture = onRequestScreenCapture) }
+            composable(Screen.Home.route) {
+                HomeScreen(
+                    onNavigateToModels = { navController.navigate(Screen.Models.route) },
+                    onRequestScreenCapture = onRequestScreenCapture
+                )
+            }
             composable(Screen.Models.route) { ModelsScreen() }
             composable(Screen.Credits.route) { CreditsScreen() }
             composable(Screen.History.route) { HistoryScreen() }

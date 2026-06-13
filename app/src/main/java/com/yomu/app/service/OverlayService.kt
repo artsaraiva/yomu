@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.provider.Settings
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -83,7 +84,11 @@ class OverlayService : Service() {
             }
         }
 
-        showFloatingButton()
+        if (Settings.canDrawOverlays(this)) {
+            showFloatingButton()
+        } else {
+            stopSelf()
+        }
         return START_STICKY
     }
 
