@@ -43,6 +43,12 @@ class ScreenCaptureManager @Inject constructor(
         mediaProjection?.stop()
         mediaProjection = projection
 
+        projection.registerCallback(object : MediaProjection.Callback() {
+            override fun onStop() {
+                stopProjection()
+            }
+        }, mainHandler)
+
         val metrics = DisplayMetrics()
         val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
         @Suppress("DEPRECATION")

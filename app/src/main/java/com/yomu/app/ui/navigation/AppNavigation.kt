@@ -2,8 +2,11 @@ package com.yomu.app.ui.navigation
 
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -24,9 +27,9 @@ import com.yomu.app.ui.settings.SettingsScreen
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
     data object Home : Screen("home", "Home", Icons.Default.Home)
-    data object Models : Screen("models", "Models", Icons.Default.Home)
-    data object Credits : Screen("credits", "Credits", Icons.Default.Home)
-    data object History : Screen("history", "History", Icons.Default.Home)
+    data object Models : Screen("models", "Models", Icons.Default.Build)
+    data object Credits : Screen("credits", "Credits", Icons.Default.Star)
+    data object History : Screen("history", "History", Icons.Default.DateRange)
     data object Settings : Screen("settings", "Settings", Icons.Default.Settings)
 }
 
