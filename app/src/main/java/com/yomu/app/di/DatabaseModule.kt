@@ -5,6 +5,7 @@ import androidx.room.Room
 import com.yomu.app.db.AppDatabase
 import com.yomu.app.db.HistoryDao
 import com.yomu.app.db.ModelDao
+import com.yomu.app.db.TranslationSessionDao
 import com.yomu.core.Constants
 import dagger.Module
 import dagger.Provides
@@ -24,7 +25,7 @@ object DatabaseModule {
             context,
             AppDatabase::class.java,
             Constants.DATABASE_NAME
-        ).build()
+        ).fallbackToDestructiveMigration().build()
     }
 
     @Provides
@@ -35,5 +36,10 @@ object DatabaseModule {
     @Provides
     fun provideHistoryDao(database: AppDatabase): HistoryDao {
         return database.historyDao()
+    }
+
+    @Provides
+    fun provideTranslationSessionDao(database: AppDatabase): TranslationSessionDao {
+        return database.translationSessionDao()
     }
 }

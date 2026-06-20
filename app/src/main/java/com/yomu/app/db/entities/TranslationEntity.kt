@@ -7,6 +7,7 @@ import androidx.room.PrimaryKey
 data class TranslationEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
+    val sessionId: Long = 0,
     val sourceImagePath: String,
     val translatedText: String,
     val sourceLanguage: String,

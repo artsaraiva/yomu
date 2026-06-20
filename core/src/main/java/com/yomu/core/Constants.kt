@@ -16,7 +16,7 @@ object Constants {
     const val TRANSLATION_MODEL_8BIT = "qwen3_1.7b_8bit.gguf"
     
     const val DATABASE_NAME = "yomu_db"
-    const val DATABASE_VERSION = 1
+    const val DATABASE_VERSION = 2
     
     const val OVERLAY_CHANNEL_ID = "overlay_service"
     const val OVERLAY_NOTIFICATION_ID = 1

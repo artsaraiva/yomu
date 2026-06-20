@@ -76,6 +76,7 @@ class TranslationPipeline(
 
     suspend fun processPage(
         bitmap: Bitmap,
+        sessionContext: List<Pair<String, String>> = emptyList(),
         callback: PipelineCallback? = null
     ): PipelineResult? {
         val startTime = System.currentTimeMillis()
@@ -148,7 +149,7 @@ class TranslationPipeline(
             // Stage 4: Translation
             currentStage = Stage.TRANSLATION
             callback?.onStageProgress(Stage.TRANSLATION, 0.6f)
-            val translationResult = translationEngine.translate(pageContext.blocks)
+            val translationResult = translationEngine.translate(pageContext.blocks, sessionContext)
             callback?.onStageProgress(Stage.TRANSLATION, 0.8f)
 
             // Stage 5: Typesetting

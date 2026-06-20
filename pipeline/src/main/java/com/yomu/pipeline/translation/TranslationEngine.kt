@@ -35,10 +35,13 @@ class TranslationEngine(private val llamaBridge: LlamaBridge) {
 
     fun isModelLoaded(): Boolean = isLoaded
 
-    fun translate(blocks: List<ConversationBlock>): TranslationResult {
+    fun translate(
+        blocks: List<ConversationBlock>,
+        sessionContext: List<Pair<String, String>> = emptyList()
+    ): TranslationResult {
         val startTime = System.currentTimeMillis()
 
-        val prompt = buildPrompt(blocks)
+        val prompt = buildPrompt(blocks, sessionContext)
         val response = llamaBridge.generate(prompt, MAX_TOKENS, TEMPERATURE)
         val translations = parseResponse(response, blocks)
 
@@ -50,10 +53,22 @@ class TranslationEngine(private val llamaBridge: LlamaBridge) {
         )
     }
 
-    private fun buildPrompt(blocks: List<ConversationBlock>): String {
+    private fun buildPrompt(
+        blocks: List<ConversationBlock>,
+        sessionContext: List<Pair<String, String>>
+    ): String {
         val sb = StringBuilder()
         sb.appendLine(SYSTEM_PROMPT)
         sb.appendLine()
+
+        if (sessionContext.isNotEmpty()) {
+            sb.appendLine("Previous translations in this session:")
+            for ((index, pair) in sessionContext.withIndex()) {
+                sb.appendLine("[${index + 1}] ${pair.first} → ${pair.second}")
+            }
+            sb.appendLine()
+        }
+
         sb.appendLine("Translate this manga page:")
         sb.appendLine()
 

@@ -17,11 +17,11 @@ import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.IBinder
 import android.view.Gravity
-import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.Toast
 import com.yomu.app.capture.ScreenCaptureManager
+import com.yomu.app.overlay.FloatingButtonView
 import com.yomu.core.Constants
 import com.yomu.pipeline.ModelPaths
 import com.yomu.pipeline.TranslationPipeline
@@ -42,7 +42,7 @@ class OverlayService : Service() {
     @Inject lateinit var translationPipeline: TranslationPipeline
 
     private lateinit var windowManager: WindowManager
-    private var floatingButton: FrameLayout? = null
+    private var floatingButton: FloatingButtonView? = null
     private var overlayView: FrameLayout? = null
 
     @Volatile
@@ -151,8 +151,9 @@ class OverlayService : Service() {
     private fun showFloatingButton() {
         if (floatingButton != null) return
 
+        val sizePx = (56 * resources.displayMetrics.density).toInt()
         val params = WindowManager.LayoutParams(
-            56, 56,
+            sizePx, sizePx,
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
             else
@@ -165,11 +166,9 @@ class OverlayService : Service() {
             y = 200
         }
 
-        floatingButton = FrameLayout(this).apply {
-            setBackgroundColor(0xFFFF5722.toInt())
-
+        floatingButton = FloatingButtonView(this).apply {
             setOnClickListener {
-                if (!isTranslating) {
+                if (currentState == FloatingButtonView.State.IDLE) {
                     startTranslation()
                 }
             }
@@ -186,6 +185,7 @@ class OverlayService : Service() {
     private fun startTranslation() {
         if (isTranslating) return
         isTranslating = true
+        floatingButton?.setState(FloatingButtonView.State.TRANSLATING)
 
         scope.launch(Dispatchers.IO) {
             screenCaptureManager.captureScreen { bitmap ->
@@ -198,6 +198,7 @@ class OverlayService : Service() {
                             showTranslationFailedToast()
                         }
                         isTranslating = false
+                        floatingButton?.setState(FloatingButtonView.State.IDLE)
                     }
                 }
             }
