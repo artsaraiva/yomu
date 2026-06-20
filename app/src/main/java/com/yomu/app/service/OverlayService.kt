@@ -87,6 +87,22 @@ class OverlayService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (!Settings.canDrawOverlays(this)) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
+
+        val notification = createNotification()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(
+                Constants.OVERLAY_NOTIFICATION_ID,
+                notification,
+                android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
+            )
+        } else {
+            startForeground(Constants.OVERLAY_NOTIFICATION_ID, notification)
+        }
+
         val data = intent?.getParcelableExtra<Intent>(EXTRA_MEDIA_PROJECTION_DATA)
         val resultCode = intent?.getIntExtra(EXTRA_RESULT_CODE, -1) ?: -1
         if (data != null && resultCode == android.app.Activity.RESULT_OK) {
@@ -97,13 +113,6 @@ class OverlayService : Service() {
             }
         }
 
-        if (!Settings.canDrawOverlays(this)) {
-            stopSelf()
-            return START_NOT_STICKY
-        }
-
-        val notification = createNotification()
-        startForeground(Constants.OVERLAY_NOTIFICATION_ID, notification)
         showFloatingButton()
         return START_STICKY
     }
