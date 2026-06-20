@@ -14,15 +14,16 @@ data class Bubble(
 class BubbleDetector(private val onnxRuntime: OnnxRuntime) {
 
     companion object {
-        private const val MODEL_NAME = "bubble_detection.onnx"
         private const val CONFIDENCE_THRESHOLD = 0.5f
     }
 
     private var isLoaded = false
+    private var modelPath: String? = null
 
-    fun loadModel(): Boolean {
+    fun loadModel(modelPath: String): Boolean {
         if (!isLoaded) {
-            isLoaded = onnxRuntime.loadModel(MODEL_NAME)
+            this.modelPath = modelPath
+            isLoaded = onnxRuntime.loadModel(modelPath)
         }
         return isLoaded
     }
@@ -31,11 +32,12 @@ class BubbleDetector(private val onnxRuntime: OnnxRuntime) {
 
     fun detect(bitmap: Bitmap): List<Bubble> {
         if (!isLoaded) return emptyList()
+        val path = modelPath ?: return emptyList()
 
         val origWidth = bitmap.width
         val origHeight = bitmap.height
 
-        val detections = onnxRuntime.runBitmapInference(MODEL_NAME, bitmap)
+        val detections = onnxRuntime.runBitmapInference(path, bitmap)
 
         return detections
             .filter { it.confidence >= CONFIDENCE_THRESHOLD }
@@ -55,7 +57,8 @@ class BubbleDetector(private val onnxRuntime: OnnxRuntime) {
     }
 
     fun release() {
-        onnxRuntime.releaseModel(MODEL_NAME)
+        modelPath?.let { onnxRuntime.releaseModel(it) }
         isLoaded = false
+        modelPath = null
     }
 }

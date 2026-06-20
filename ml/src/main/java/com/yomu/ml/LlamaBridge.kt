@@ -1,7 +1,6 @@
 package com.yomu.ml
 
 import android.content.Context
-import com.yomu.core.Constants
 import java.io.File
 
 class LlamaBridge(private val context: Context) {
@@ -25,16 +24,10 @@ class LlamaBridge(private val context: Context) {
 
     val isModelLoaded: Boolean get() = isLoaded
 
-    private fun getModelFile(modelName: String): File {
-        val modelsDir = File(context.filesDir, Constants.MODELS_DIR)
-        val llmDir = File(modelsDir, Constants.LLM_MODELS_DIR)
-        return File(llmDir, modelName)
-    }
-
-    fun loadModel(modelName: String, nCtx: Int = 2048, nGpuLayers: Int = 0): Boolean {
+    fun loadModel(modelPath: String, nCtx: Int = 2048, nGpuLayers: Int = 0): Boolean {
         if (!nativeLoaded) return false
 
-        val modelFile = getModelFile(modelName)
+        val modelFile = File(modelPath)
         if (!modelFile.exists()) return false
 
         isLoaded = nativeLoadModel(

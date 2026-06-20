@@ -1,9 +1,12 @@
 package com.yomu.app.ui.home
 
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.SharedPreferences
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.yomu.app.service.ModelManager
 import com.yomu.app.service.OverlayService
 import com.yomu.core.Constants
@@ -12,7 +15,6 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class HomeUiState(
@@ -33,24 +35,46 @@ class HomeViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
     
+    private val serviceStateReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            when (intent.action) {
+                OverlayService.ACTION_SERVICE_STARTED -> _uiState.value = _uiState.value.copy(isServiceRunning = true)
+                OverlayService.ACTION_SERVICE_STOPPED -> _uiState.value = _uiState.value.copy(isServiceRunning = false)
+            }
+        }
+    }
+
     init {
         val mode = sharedPreferences.getString(Constants.PREF_TRANSLATION_MODE, "local") ?: "local"
         _uiState.value = HomeUiState(translationMode = mode)
-    }
-    
-    fun toggleService() {
-        if (_uiState.value.isServiceRunning) {
-            OverlayService.stop(context)
-        } else {
-            OverlayService.start(context)
+        try {
+            ContextCompat.registerReceiver(
+                context,
+                serviceStateReceiver,
+                IntentFilter().apply {
+                    addAction(OverlayService.ACTION_SERVICE_STARTED)
+                    addAction(OverlayService.ACTION_SERVICE_STOPPED)
+                },
+                ContextCompat.RECEIVER_NOT_EXPORTED
+            )
+        } catch (_: Exception) {
         }
-        _uiState.value = _uiState.value.copy(
-            isServiceRunning = !_uiState.value.isServiceRunning
-        )
     }
-    
+
+    fun stopService() {
+        OverlayService.stop(context)
+    }
+
     fun setTranslationMode(mode: String) {
         sharedPreferences.edit().putString(Constants.PREF_TRANSLATION_MODE, mode).apply()
         _uiState.value = _uiState.value.copy(translationMode = mode)
+    }
+
+    override fun onCleared() {
+        try {
+            context.unregisterReceiver(serviceStateReceiver)
+        } catch (_: Exception) {
+        }
+        super.onCleared()
     }
 }

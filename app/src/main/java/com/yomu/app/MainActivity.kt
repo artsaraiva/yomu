@@ -15,21 +15,33 @@ import dagger.hilt.android.AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
     private var mediaProjectionIntent: Intent? = null
+    private var mediaProjectionResultCode: Int = RESULT_CANCELED
 
     private val screenCaptureLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        if (result.resultCode == RESULT_OK && result.data != null) {
-            mediaProjectionIntent = result.data
-            val intent = Intent(this, OverlayService::class.java).apply {
-                putExtra(OverlayService.EXTRA_MEDIA_PROJECTION_DATA, result.data)
-                putExtra(OverlayService.EXTRA_RESULT_CODE, result.resultCode)
-            }
-            startService(intent)
+        val data = result.data
+        if (result.resultCode == RESULT_OK && data != null) {
+            mediaProjectionIntent = data
+            mediaProjectionResultCode = result.resultCode
+            startOverlayService(data, result.resultCode)
         }
     }
 
+    private fun startOverlayService(data: Intent, resultCode: Int) {
+        val intent = Intent(this, OverlayService::class.java).apply {
+            putExtra(OverlayService.EXTRA_MEDIA_PROJECTION_DATA, data)
+            putExtra(OverlayService.EXTRA_RESULT_CODE, resultCode)
+        }
+        startService(intent)
+    }
+
     fun launchScreenCaptureConsent() {
+        val cachedIntent = mediaProjectionIntent
+        if (cachedIntent != null && mediaProjectionResultCode == RESULT_OK) {
+            startOverlayService(cachedIntent, mediaProjectionResultCode)
+            return
+        }
         val manager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
         screenCaptureLauncher.launch(manager.createScreenCaptureIntent())
     }

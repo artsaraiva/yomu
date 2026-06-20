@@ -1,6 +1,7 @@
 package com.yomu.pipeline.ocr
 
 import android.graphics.Bitmap
+import android.util.Log
 import com.yomu.ml.OnnxRuntime
 
 data class OcrResult(
@@ -12,15 +13,16 @@ data class OcrResult(
 class OcrEngine(private val onnxRuntime: OnnxRuntime) {
 
     companion object {
-        private const val MODEL_NAME = "manga_ocr.onnx"
         private const val CONFIDENCE_THRESHOLD = 0.3f
     }
 
     private var isLoaded = false
+    private var modelPath: String? = null
 
-    fun loadModel(): Boolean {
+    fun loadModel(modelPath: String): Boolean {
         if (!isLoaded) {
-            isLoaded = onnxRuntime.loadModel(MODEL_NAME)
+            this.modelPath = modelPath
+            isLoaded = onnxRuntime.loadModel(modelPath)
         }
         return isLoaded
     }
@@ -29,6 +31,7 @@ class OcrEngine(private val onnxRuntime: OnnxRuntime) {
 
     fun extractText(region: Bitmap): OcrResult? {
         if (!isLoaded) return null
+        val path = modelPath ?: return null
 
         val inputSize = 256
         val resized = Bitmap.createScaledBitmap(region, inputSize, inputSize, true)
@@ -45,14 +48,12 @@ class OcrEngine(private val onnxRuntime: OnnxRuntime) {
         }
 
         val shape = longArrayOf(1, 3, inputSize.toLong(), inputSize.toLong())
-        val output = onnxRuntime.runInference(MODEL_NAME, floatArray, shape)
+        val output = onnxRuntime.runInference(path, floatArray, shape)
 
         if (output == null || output.isEmpty()) {
             return null
         }
 
-        // MangaOCR output decoding - simplified for Phase 1
-        // In production, this needs proper CTC decoding of character probabilities
         val decodedText = decodeOutput(output)
 
         return OcrResult(
@@ -67,27 +68,13 @@ class OcrEngine(private val onnxRuntime: OnnxRuntime) {
     }
 
     private fun decodeOutput(output: FloatArray): String {
-        // Simplified decoder for Phase 1
-        // In production, use CTC beam search decoding with MangaOCR's character set
-        if (output.isEmpty()) return ""
-
-        val sb = StringBuilder()
-        var prevCharId = -1
-
-        // Simulated decoding: take argmax at each timestep, collapse repeats, remove blanks
-        for (i in output.indices) {
-            val charId = output[i].toInt()
-            if (charId != prevCharId && charId != 0) {
-                sb.append(Char(charId + 0x3000)) // Map to Unicode CJK range
-                prevCharId = charId
-            }
-        }
-
-        return sb.toString()
+        Log.w("OcrEngine", "OCR decode not implemented — awaiting MangaOCR model integration")
+        return "[OCR: awaiting model integration]"
     }
 
     fun release() {
-        onnxRuntime.releaseModel(MODEL_NAME)
+        modelPath?.let { onnxRuntime.releaseModel(it) }
         isLoaded = false
+        modelPath = null
     }
 }

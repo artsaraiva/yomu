@@ -24,7 +24,7 @@ class ContextAssembler {
         private const val VERTICAL_GAP_THRESHOLD = 0.05f
     }
 
-    private val panels = mutableListOf<RectF>()
+    internal val panels = mutableListOf<RectF>()
 
     fun assemble(
         bubbles: List<Bubble>,
@@ -38,9 +38,7 @@ class ContextAssembler {
 
         val panelBubbles = assignBubblesToPanels(bubbles)
 
-        val orderedBubbles = determineReadingOrder(panelBubbles)
-
-        val blocks = buildConversationBlocks(orderedBubbles, ocrResults)
+        val blocks = buildConversationBlocks(panelBubbles, ocrResults)
 
         return PageContext(
             blocks = blocks,
@@ -49,7 +47,7 @@ class ContextAssembler {
         )
     }
 
-    private fun detectPanels(bubbles: List<Bubble>, pageWidth: Int, pageHeight: Int) {
+    internal fun detectPanels(bubbles: List<Bubble>, pageWidth: Int, pageHeight: Int) {
         if (bubbles.isEmpty()) return
 
         val panelGap = (pageWidth * PANEL_GAP_THRESHOLD).toInt()
@@ -77,7 +75,7 @@ class ContextAssembler {
         panels.add(currentPanel)
     }
 
-    private fun assignBubblesToPanels(bubbles: List<Bubble>): List<Bubble> {
+    internal fun assignBubblesToPanels(bubbles: List<Bubble>): List<Bubble> {
         val rightToLeftPanels = panels.sortedByDescending { it.left }
 
         val assigned = mutableListOf<Bubble>()
@@ -95,10 +93,6 @@ class ContextAssembler {
         }
 
         return assigned
-    }
-
-    private fun determineReadingOrder(bubbles: List<Bubble>): List<Bubble> {
-        return bubbles
     }
 
     private fun buildConversationBlocks(

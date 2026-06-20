@@ -5,7 +5,6 @@ import android.graphics.Bitmap
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
 import ai.onnxruntime.OnnxTensor
-import com.yomu.core.Constants
 import java.io.File
 import java.nio.FloatBuffer
 
@@ -26,12 +25,8 @@ class OnnxRuntime(private val context: Context) {
         }
     }
 
-    private fun getModelsDir(): File {
-        return File(context.filesDir, "${Constants.MODELS_DIR}/${Constants.VISION_MODELS_DIR}")
-    }
-
-    fun loadModel(modelName: String): Boolean {
-        val modelFile = File(getModelsDir(), modelName)
+    fun loadModel(modelPath: String): Boolean {
+        val modelFile = File(modelPath)
         if (!modelFile.exists()) return false
 
         return try {
@@ -39,7 +34,7 @@ class OnnxRuntime(private val context: Context) {
             val env = ortEnv ?: return false
             val opts = OrtSession.SessionOptions()
             val session = env.createSession(modelFile.absolutePath, opts)
-            loadedModels[modelName] = session
+            loadedModels[modelPath] = session
             true
         } catch (e: Exception) {
             false

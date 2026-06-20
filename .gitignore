@@ -1,5 +1,6 @@
 .superpowers/
 .worktrees/
+.slim/deepwork/
 
 *.iml
 .gradle

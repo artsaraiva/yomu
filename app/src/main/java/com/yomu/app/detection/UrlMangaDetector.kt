@@ -7,7 +7,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class MangaDetector @Inject constructor(
+class UrlMangaDetector @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
 

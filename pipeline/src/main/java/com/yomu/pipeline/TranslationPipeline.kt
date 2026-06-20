@@ -8,6 +8,14 @@ import com.yomu.pipeline.translation.TranslationEngine
 import com.yomu.pipeline.translation.TranslationResult
 import com.yomu.pipeline.typesetting.TypesetBubble
 import com.yomu.pipeline.typesetting.Typesetter
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+
+data class ModelPaths(
+    val bubbleDetectionPath: String,
+    val ocrPath: String,
+    val translationPath: String
+)
 
 data class PipelineResult(
     val typesetBubbles: List<TypesetBubble>,
@@ -43,6 +51,8 @@ class TranslationPipeline(
 
     private var currentStage = Stage.ERROR
 
+    var modelPaths: ModelPaths? = null
+
     fun getCurrentStage(): Stage = currentStage
 
     fun isModelLoaded(): Boolean {
@@ -51,7 +61,14 @@ class TranslationPipeline(
                translationEngine.isModelLoaded()
     }
 
-    fun processPage(
+    suspend fun loadModels(paths: ModelPaths): Boolean = withContext(Dispatchers.IO) {
+        val bubbleLoaded = bubbleDetector.loadModel(paths.bubbleDetectionPath)
+        val ocrLoaded = ocrEngine.loadModel(paths.ocrPath)
+        val translationLoaded = translationEngine.loadModel(paths.translationPath)
+        bubbleLoaded && ocrLoaded && translationLoaded
+    }
+
+    suspend fun processPage(
         bitmap: Bitmap,
         callback: PipelineCallback? = null
     ): PipelineResult? {
@@ -60,6 +77,22 @@ class TranslationPipeline(
         val pageHeight = bitmap.height
 
         try {
+            if (!isModelLoaded()) {
+                val paths = modelPaths
+                if (paths == null) {
+                    callback?.onError(Stage.BUBBLE_DETECTION, "Model paths not configured")
+                    currentStage = Stage.ERROR
+                    return null
+                }
+                loadModels(paths)
+            }
+
+            if (!isModelLoaded()) {
+                callback?.onError(Stage.BUBBLE_DETECTION, "Failed to load models")
+                currentStage = Stage.ERROR
+                return null
+            }
+
             // Stage 1: Bubble Detection
             currentStage = Stage.BUBBLE_DETECTION
             callback?.onStageProgress(Stage.BUBBLE_DETECTION, 0.0f)

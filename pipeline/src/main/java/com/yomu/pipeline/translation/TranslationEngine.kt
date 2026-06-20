@@ -27,9 +27,9 @@ class TranslationEngine(private val llamaBridge: LlamaBridge) {
 
     private var isLoaded = false
 
-    fun loadModel(modelName: String): Boolean {
+    fun loadModel(modelPath: String): Boolean {
         if (!llamaBridge.isNativeAvailable) return false
-        isLoaded = llamaBridge.loadModel(modelName)
+        isLoaded = llamaBridge.loadModel(modelPath)
         return isLoaded
     }
 

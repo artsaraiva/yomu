@@ -59,8 +59,9 @@ fun HomeScreen(
                         onCheckedChange = { enabled ->
                             if (enabled) {
                                 onRequestScreenCapture()
+                            } else {
+                                viewModel.stopService()
                             }
-                            viewModel.toggleService()
                         }
                     )
                 }

@@ -20,15 +20,19 @@ import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
+import android.widget.Toast
 import com.yomu.app.capture.ScreenCaptureManager
 import com.yomu.core.Constants
+import com.yomu.pipeline.ModelPaths
 import com.yomu.pipeline.TranslationPipeline
 import com.yomu.pipeline.typesetting.TypesetBubble
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import java.io.File
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -41,10 +45,14 @@ class OverlayService : Service() {
     private var floatingButton: FrameLayout? = null
     private var overlayView: FrameLayout? = null
 
+    @Volatile
     private var isTranslating = false
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val mainScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     companion object {
+        const val ACTION_SERVICE_STARTED = "com.yomu.app.SERVICE_STARTED"
+        const val ACTION_SERVICE_STOPPED = "com.yomu.app.SERVICE_STOPPED"
         const val EXTRA_MEDIA_PROJECTION_DATA = "media_projection_data"
         const val EXTRA_RESULT_CODE = "result_code"
         private const val CHANNEL_NAME = "Yomu Overlay"
@@ -68,6 +76,12 @@ class OverlayService : Service() {
         super.onCreate()
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         createNotificationChannel()
+        translationPipeline.modelPaths = ModelPaths(
+            bubbleDetectionPath = File(filesDir, "${Constants.MODELS_DIR}/${Constants.VISION_MODELS_DIR}/${Constants.BUBBLE_DETECTION_MODEL}").absolutePath,
+            ocrPath = File(filesDir, "${Constants.MODELS_DIR}/${Constants.VISION_MODELS_DIR}/${Constants.OCR_MODEL}").absolutePath,
+            translationPath = File(filesDir, "${Constants.MODELS_DIR}/${Constants.LLM_MODELS_DIR}/${Constants.TRANSLATION_MODEL_4BIT}").absolutePath
+        )
+        sendBroadcast(Intent(ACTION_SERVICE_STARTED).setPackage(packageName))
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -95,10 +109,12 @@ class OverlayService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
+        sendBroadcast(Intent(ACTION_SERVICE_STOPPED).setPackage(packageName))
         removeFloatingButton()
         removeOverlay()
         screenCaptureManager.stopProjection()
-        scope.run { kotlinx.coroutines.Job().cancel() }
+        scope.cancel()
+        mainScope.cancel()
         super.onDestroy()
     }
 
@@ -169,23 +185,25 @@ class OverlayService : Service() {
         if (isTranslating) return
         isTranslating = true
 
-        scope.launch {
+        scope.launch(Dispatchers.IO) {
             screenCaptureManager.captureScreen { bitmap ->
-                if (bitmap != null) {
-                    val result = translationPipeline.processPage(bitmap)
-                    kotlinx.coroutines.runBlocking(kotlinx.coroutines.Dispatchers.Main) {
+                scope.launch(Dispatchers.IO) {
+                    val result = bitmap?.let { translationPipeline.processPage(it) }
+                    mainScope.launch {
                         if (result != null) {
                             showTranslationOverlay(result.typesetBubbles)
+                        } else {
+                            showTranslationFailedToast()
                         }
-                        isTranslating = false
-                    }
-                } else {
-                    kotlinx.coroutines.runBlocking(kotlinx.coroutines.Dispatchers.Main) {
                         isTranslating = false
                     }
                 }
             }
         }
+    }
+
+    private fun showTranslationFailedToast() {
+        Toast.makeText(applicationContext, "Translation failed", Toast.LENGTH_SHORT).show()
     }
 
     private fun showTranslationOverlay(bubbles: List<TypesetBubble>) {
