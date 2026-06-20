@@ -78,7 +78,9 @@ class OverlayService : Service() {
         createNotificationChannel()
         translationPipeline.modelPaths = ModelPaths(
             bubbleDetectionPath = File(filesDir, "${Constants.MODELS_DIR}/${Constants.VISION_MODELS_DIR}/${Constants.BUBBLE_DETECTION_MODEL}").absolutePath,
-            ocrPath = File(filesDir, "${Constants.MODELS_DIR}/${Constants.VISION_MODELS_DIR}/${Constants.OCR_MODEL}").absolutePath,
+            ocrEncoderPath = File(filesDir, "${Constants.MODELS_DIR}/${Constants.VISION_MODELS_DIR}/${Constants.OCR_ENCODER_MODEL}").absolutePath,
+            ocrDecoderPath = File(filesDir, "${Constants.MODELS_DIR}/${Constants.VISION_MODELS_DIR}/${Constants.OCR_DECODER_MODEL}").absolutePath,
+            ocrVocabPath = File(filesDir, "${Constants.MODELS_DIR}/${Constants.VISION_MODELS_DIR}/${Constants.OCR_VOCAB_FILE}").absolutePath,
             translationPath = File(filesDir, "${Constants.MODELS_DIR}/${Constants.LLM_MODELS_DIR}/${Constants.TRANSLATION_MODEL_4BIT}").absolutePath
         )
         sendBroadcast(Intent(ACTION_SERVICE_STARTED).setPackage(packageName))

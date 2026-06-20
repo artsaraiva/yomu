@@ -9,7 +9,9 @@ object Constants {
     const val LLM_MODELS_DIR = "llm"
     
     const val BUBBLE_DETECTION_MODEL = "bubble_detection.onnx"
-    const val OCR_MODEL = "manga_ocr.onnx"
+    const val OCR_ENCODER_MODEL = "manga_ocr_encoder.onnx"
+    const val OCR_DECODER_MODEL = "manga_ocr_decoder.onnx"
+    const val OCR_VOCAB_FILE = "vocab.txt"
     const val TRANSLATION_MODEL_4BIT = "qwen3_1.7b_4bit.gguf"
     const val TRANSLATION_MODEL_8BIT = "qwen3_1.7b_8bit.gguf"
     

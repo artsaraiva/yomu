@@ -42,16 +42,16 @@ class BubbleDetector(private val onnxRuntime: OnnxRuntime) {
         return detections
             .filter { it.confidence >= CONFIDENCE_THRESHOLD }
             .mapIndexed { index, detection ->
-                val x = detection.bbox[0] / 640f * origWidth
-                val y = detection.bbox[1] / 640f * origHeight
-                val w = detection.bbox[2] / 640f * origWidth
-                val h = detection.bbox[3] / 640f * origHeight
+                val x1 = detection.bbox[0] / 1280f * origWidth
+                val y1 = detection.bbox[1] / 1280f * origHeight
+                val x2 = detection.bbox[2] / 1280f * origWidth
+                val y2 = detection.bbox[3] / 1280f * origHeight
 
                 Bubble(
                     id = index + 1,
-                    boundingBox = RectF(x, y, x + w, y + h),
+                    boundingBox = RectF(x1, y1, x2, y2),
                     confidence = detection.confidence,
-                    textRegion = RectF(x, y, x + w, y + h)
+                    textRegion = RectF(x1, y1, x2, y2)
                 )
             }
     }

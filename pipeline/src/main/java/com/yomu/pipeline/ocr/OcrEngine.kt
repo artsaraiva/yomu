@@ -1,8 +1,8 @@
 package com.yomu.pipeline.ocr
 
 import android.graphics.Bitmap
-import android.util.Log
 import com.yomu.ml.OnnxRuntime
+import java.io.File
 
 data class OcrResult(
     val text: String,
@@ -13,68 +13,275 @@ data class OcrResult(
 class OcrEngine(private val onnxRuntime: OnnxRuntime) {
 
     companion object {
-        private const val CONFIDENCE_THRESHOLD = 0.3f
+        private const val INPUT_SIZE = 224
+        private const val CHANNELS = 3
+        private const val MAX_LENGTH = 128
+        private const val BOS_TOKEN_ID = 0
+        private const val EOS_TOKEN_ID = 102
+        private const val NORMALIZATION_MEAN = 0.5f
+        private const val NORMALIZATION_STD = 0.5f
     }
 
-    private var isLoaded = false
-    private var modelPath: String? = null
+    private var encoderLoaded = false
+    private var decoderLoaded = false
+    private var vocabLoaded = false
+    private var encoderPath: String? = null
+    private var decoderPath: String? = null
+    private var vocabPath: String? = null
+    private var vocab: Map<Int, String>? = null
 
-    fun loadModel(modelPath: String): Boolean {
-        if (!isLoaded) {
-            this.modelPath = modelPath
-            isLoaded = onnxRuntime.loadModel(modelPath)
-        }
-        return isLoaded
+    fun loadModel(encoderPath: String, decoderPath: String, vocabPath: String): Boolean {
+        this.encoderPath = encoderPath
+        this.decoderPath = decoderPath
+        this.vocabPath = vocabPath
+
+        encoderLoaded = onnxRuntime.loadModel(encoderPath)
+        decoderLoaded = onnxRuntime.loadModel(decoderPath)
+        vocabLoaded = loadVocab(vocabPath)
+
+        return encoderLoaded && decoderLoaded && vocabLoaded
     }
 
-    fun isModelLoaded(): Boolean = isLoaded
+    fun isModelLoaded(): Boolean = encoderLoaded && decoderLoaded && vocabLoaded
 
     fun extractText(region: Bitmap): OcrResult? {
-        if (!isLoaded) return null
-        val path = modelPath ?: return null
+        if (!isModelLoaded()) return null
+        val encoderPath = encoderPath ?: return null
+        val decoderPath = decoderPath ?: return null
+        val vocab = vocab ?: return null
 
-        val inputSize = 256
-        val resized = Bitmap.createScaledBitmap(region, inputSize, inputSize, true)
-        val floatArray = FloatArray(inputSize * inputSize * 3)
+        val pixelValues = preprocessImage(region)
+        val encoderOutput = runEncoder(encoderPath, pixelValues) ?: return null
+        val encoderOutputName = onnxRuntime.getOutputNames(encoderPath).firstOrNull() ?: return null
+        val encoderOutputShape = onnxRuntime.getOutputShape(encoderPath, encoderOutputName) ?: return null
 
-        val pixels = IntArray(inputSize * inputSize)
-        resized.getPixels(pixels, 0, inputSize, 0, 0, inputSize, inputSize)
-
-        for (i in pixels.indices) {
-            val pixel = pixels[i]
-            floatArray[i * 3] = ((pixel shr 16) and 0xFF) / 255.0f
-            floatArray[i * 3 + 1] = ((pixel shr 8) and 0xFF) / 255.0f
-            floatArray[i * 3 + 2] = (pixel and 0xFF) / 255.0f
-        }
-
-        val shape = longArrayOf(1, 3, inputSize.toLong(), inputSize.toLong())
-        val output = onnxRuntime.runInference(path, floatArray, shape)
-
-        if (output == null || output.isEmpty()) {
-            return null
-        }
-
-        val decodedText = decodeOutput(output)
+        val text = runDecoder(decoderPath, encoderOutput, encoderOutputShape, vocab)
 
         return OcrResult(
-            text = decodedText,
-            confidence = output.average().toFloat(),
+            text = text,
+            confidence = 1.0f,
             boundingBox = floatArrayOf(
                 region.width.toFloat(),
                 region.height.toFloat(),
-                0f, 0f
+                0f,
+                0f
             )
         )
     }
 
-    private fun decodeOutput(output: FloatArray): String {
-        Log.w("OcrEngine", "OCR decode not implemented — awaiting MangaOCR model integration")
-        return "[OCR: awaiting model integration]"
+    private fun preprocessImage(bitmap: Bitmap): FloatArray {
+        val resized = Bitmap.createScaledBitmap(bitmap, INPUT_SIZE, INPUT_SIZE, true)
+        val floatArray = FloatArray(CHANNELS * INPUT_SIZE * INPUT_SIZE)
+        val pixels = IntArray(INPUT_SIZE * INPUT_SIZE)
+        resized.getPixels(pixels, 0, INPUT_SIZE, 0, 0, INPUT_SIZE, INPUT_SIZE)
+
+        val planeSize = INPUT_SIZE * INPUT_SIZE
+        for (i in pixels.indices) {
+            val pixel = pixels[i]
+            val r = ((pixel shr 16) and 0xFF) / 255.0f
+            val g = ((pixel shr 8) and 0xFF) / 255.0f
+            val b = (pixel and 0xFF) / 255.0f
+
+            floatArray[i] = normalize(r)
+            floatArray[i + planeSize] = normalize(g)
+            floatArray[i + 2 * planeSize] = normalize(b)
+        }
+
+        return floatArray
+    }
+
+    private fun normalize(value: Float): Float {
+        return (value - NORMALIZATION_MEAN) / NORMALIZATION_STD
+    }
+
+    private fun runEncoder(encoderPath: String, pixelValues: FloatArray): FloatArray? {
+        val inputNames = onnxRuntime.getInputNames(encoderPath)
+        if (inputNames.isEmpty()) return null
+
+        val inputs = mutableMapOf<String, FloatArray>()
+        val inputShapes = mutableMapOf<String, LongArray>()
+        val inputShape = longArrayOf(1, CHANNELS.toLong(), INPUT_SIZE.toLong(), INPUT_SIZE.toLong())
+
+        for (name in inputNames) {
+            if (isPixelValuesInput(name)) {
+                inputs[name] = pixelValues
+                inputShapes[name] = inputShape
+            } else {
+                val shape = onnxRuntime.getInputShape(encoderPath, name) ?: inputShape
+                inputs[name] = FloatArray(shape.totalElements()) { 0f }
+                inputShapes[name] = shape
+            }
+        }
+
+        val outputs = onnxRuntime.runInferenceNamed(encoderPath, inputs, inputShapes)
+        return outputs?.values?.firstOrNull()
+    }
+
+    private fun runDecoder(
+        decoderPath: String,
+        encoderOutput: FloatArray,
+        encoderOutputShape: LongArray,
+        vocab: Map<Int, String>
+    ): String {
+        val inputNames = onnxRuntime.getInputNames(decoderPath)
+        if (inputNames.isEmpty()) return ""
+
+        val inputIds = mutableListOf<Long>(BOS_TOKEN_ID.toLong())
+        val generatedIds = mutableListOf<Int>()
+
+        for (step in 0 until MAX_LENGTH) {
+            val decoderInputIds = inputIds.toLongArray()
+            val seqLen = decoderInputIds.size.toLong()
+
+            val floatInputs = mutableMapOf<String, FloatArray>()
+            val floatInputShapes = mutableMapOf<String, LongArray>()
+            val longInputs = mutableMapOf<String, LongArray>()
+            val longInputShapes = mutableMapOf<String, LongArray>()
+
+            val encoderSeqLen = encoderOutputShape.getOrNull(1) ?: 1L
+
+            for (name in inputNames) {
+                val isLong = onnxRuntime.isInputLong(decoderPath, name)
+                if (isLong) {
+                    when {
+                        isDecoderInputIds(name) -> {
+                            longInputs[name] = decoderInputIds
+                            longInputShapes[name] = longArrayOf(1L, seqLen)
+                        }
+                        isEncoderAttentionMask(name) -> {
+                            longInputs[name] = LongArray(encoderSeqLen.toInt()) { 1L }
+                            longInputShapes[name] = longArrayOf(1L, encoderSeqLen)
+                        }
+                        isDecoderAttentionMask(name) -> {
+                            longInputs[name] = LongArray(seqLen.toInt()) { 1L }
+                            longInputShapes[name] = longArrayOf(1L, seqLen)
+                        }
+                        else -> {
+                            longInputs[name] = LongArray(seqLen.toInt()) { 1L }
+                            longInputShapes[name] = longArrayOf(1L, seqLen)
+                        }
+                    }
+                } else {
+                    if (isEncoderHiddenStates(name)) {
+                        floatInputs[name] = encoderOutput
+                        floatInputShapes[name] = encoderOutputShape
+                    } else {
+                        val shape = onnxRuntime.getInputShape(decoderPath, name) ?: encoderOutputShape
+                        floatInputs[name] = FloatArray(shape.totalElements()) { 0f }
+                        floatInputShapes[name] = shape
+                    }
+                }
+            }
+
+            val outputs = onnxRuntime.runInferenceMixed(
+                decoderPath,
+                floatInputs,
+                floatInputShapes,
+                longInputs,
+                longInputShapes
+            ) ?: break
+
+            val outputName = outputs.keys.firstOrNull() ?: break
+            val logits = outputs[outputName] ?: break
+            val outputShape = onnxRuntime.getOutputShape(decoderPath, outputName)
+                ?: longArrayOf(1L, seqLen, vocab.size.toLong())
+
+            val currentSeqLen = outputShape.getOrNull(1)?.toInt() ?: seqLen.toInt()
+            val currentVocabSize = outputShape.getOrNull(2)?.toInt() ?: vocab.size
+
+            val lastTimestepStart = (currentSeqLen - 1) * currentVocabSize
+            if (lastTimestepStart + currentVocabSize > logits.size) break
+
+            val nextTokenId = argmax(logits, lastTimestepStart, currentVocabSize)
+
+            if (nextTokenId == EOS_TOKEN_ID) break
+            generatedIds.add(nextTokenId)
+            inputIds.add(nextTokenId.toLong())
+        }
+
+        return decodeTokens(generatedIds, vocab)
+    }
+
+    private fun argmax(values: FloatArray, start: Int, count: Int): Int {
+        var bestIndex = 0
+        var bestValue = Float.NEGATIVE_INFINITY
+        for (i in 0 until count) {
+            val value = values[start + i]
+            if (value > bestValue) {
+                bestValue = value
+                bestIndex = i
+            }
+        }
+        return bestIndex
+    }
+
+    private fun decodeTokens(tokenIds: List<Int>, vocab: Map<Int, String>): String {
+        val builder = StringBuilder()
+        for (id in tokenIds) {
+            val token = vocab[id] ?: continue
+            when {
+                token.startsWith("##") -> builder.append(token.removePrefix("##"))
+                token.startsWith("[") && token.endsWith("]") -> builder.append(" ").append(token).append(" ")
+                else -> {
+                    if (builder.isNotEmpty()) builder.append(" ")
+                    builder.append(token)
+                }
+            }
+        }
+        return builder.toString().trim()
+    }
+
+    private fun loadVocab(vocabPath: String): Boolean {
+        return try {
+            val file = File(vocabPath)
+            if (!file.exists()) return false
+            val loadedVocab = file.readLines().mapIndexed { index, line ->
+                index to line.trim()
+            }.toMap()
+            vocab = loadedVocab
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    private fun isPixelValuesInput(name: String): Boolean {
+        return name == "pixel_values" || name.contains("pixel")
+    }
+
+    private fun isDecoderInputIds(name: String): Boolean {
+        return name == "decoder_input_ids" || name.contains("input_ids")
+    }
+
+    private fun isEncoderHiddenStates(name: String): Boolean {
+        return name == "encoder_hidden_states" || name.contains("encoder") || name.contains("hidden_states")
+    }
+
+    private fun isEncoderAttentionMask(name: String): Boolean {
+        return name == "encoder_attention_mask" || (name.contains("attention_mask") && name.contains("encoder"))
+    }
+
+    private fun isDecoderAttentionMask(name: String): Boolean {
+        return name == "decoder_attention_mask" || (name.contains("attention_mask") && name.contains("decoder"))
+    }
+
+    private fun LongArray.totalElements(): Int {
+        var total = 1L
+        for (dim in this) {
+            total *= dim
+        }
+        return total.toInt()
     }
 
     fun release() {
-        modelPath?.let { onnxRuntime.releaseModel(it) }
-        isLoaded = false
-        modelPath = null
+        encoderPath?.let { onnxRuntime.releaseModel(it) }
+        decoderPath?.let { onnxRuntime.releaseModel(it) }
+        encoderPath = null
+        decoderPath = null
+        vocabPath = null
+        vocab = null
+        encoderLoaded = false
+        decoderLoaded = false
+        vocabLoaded = false
     }
 }

@@ -22,7 +22,7 @@ class TranslationEngine(private val llamaBridge: LlamaBridge) {
     companion object {
         private const val MAX_TOKENS = 512
         private const val TEMPERATURE = 0.3f
-        private const val SYSTEM_PROMPT = "You are a manga translator. Translate the following Japanese manga dialogue into natural English. Maintain character voices, emotional tone, and conversational flow. Output only the translations, one per line, numbered."
+        private const val SYSTEM_PROMPT = "You are a manga translator. Translate the following Japanese manga dialogue into natural English. Maintain character voices, emotional tone, and conversational flow. Output only the translations, one per line, numbered. /no_think"
     }
 
     private var isLoaded = false
@@ -72,15 +72,20 @@ class TranslationEngine(private val llamaBridge: LlamaBridge) {
         return sb.toString()
     }
 
+    private fun stripThinkingBlocks(response: String): String {
+        return response.replace(Regex("<think>.*?</think>", RegexOption.DOT_MATCHES_ALL), "").trim()
+    }
+
     private fun parseResponse(
         response: String,
         blocks: List<ConversationBlock>
     ): List<TranslatedBubble> {
         val translations = mutableListOf<TranslatedBubble>()
 
+        val cleanResponse = stripThinkingBlocks(response)
         val lineRegex = Regex("""\[(\d+)\]\s*(.+)""")
 
-        for (line in response.lines()) {
+        for (line in cleanResponse.lines()) {
             val match = lineRegex.find(line.trim())
             if (match != null) {
                 val bubbleId = match.groupValues[1].toIntOrNull() ?: continue
