@@ -11,8 +11,8 @@ data class TypesetBubble(
     val fontSize: Float,
     val textLines: List<String>,
     val boundingBox: FloatArray,
-    val backgroundColor: Int = 0xCC000000.toInt(),
-    val textColor: Int = 0xFFFFFFFF.toInt()
+    val backgroundColor: Int = 0xF0FFFFFF.toInt(),
+    val textColor: Int = 0xFF000000.toInt()
 )
 
 class Typesetter {
@@ -20,9 +20,10 @@ class Typesetter {
     companion object {
         private const val MIN_FONT_SIZE = 10f
         private const val MAX_FONT_SIZE = 36f
-        private const val TARGET_LINE_LENGTH = 12
         private const val LINE_SPACING = 1.3f
         private const val PADDING = 0.1f
+        private val OCR_TOKEN_REGEX = Regex("""\[(CLS|SEP|PAD)\]""")
+        private val WHITESPACE_REGEX = Regex("""\s+""")
     }
 
     private val paint = Paint().apply {
@@ -38,44 +39,39 @@ class Typesetter {
             val bounds = bubbleBounds[translation.bubbleId]
                 ?: floatArrayOf(0f, 0f, 100f, 50f)
 
-            val fontSize = calculateFontSize(
-                translation.translatedText,
-                bounds
-            )
-
-            val textLines = wrapText(
-                translation.translatedText,
-                bounds,
-                fontSize
-            )
+            val cleaned = cleanText(translation.translatedText)
+            val maxWidth = (bounds[2] - bounds[0]) * (1 - PADDING * 2)
+            val maxHeight = (bounds[3] - bounds[1]) * (1 - PADDING * 2)
+            val fontSize = calculateFontSize(cleaned, maxWidth, maxHeight)
+            val lines = fitLines(wrapText(cleaned, maxWidth, fontSize), fontSize, maxHeight)
 
             TypesetBubble(
                 bubbleId = translation.bubbleId,
-                translatedText = translation.translatedText,
+                translatedText = cleaned,
                 originalText = translation.originalText,
                 fontSize = fontSize,
-                textLines = textLines,
+                textLines = lines,
                 boundingBox = bounds
             )
         }
     }
 
-    private fun calculateFontSize(text: String, bounds: FloatArray): Float {
-        val bubbleWidth = (bounds[2] - bounds[0]) * (1 - PADDING * 2)
-        val bubbleHeight = (bounds[3] - bounds[1]) * (1 - PADDING * 2)
+    private fun cleanText(text: String): String =
+        OCR_TOKEN_REGEX.replace(text, "")
+            .let { WHITESPACE_REGEX.replace(it.trim(), " ") }
 
+    private fun calculateFontSize(text: String, maxWidth: Float, maxHeight: Float): Float {
         var low = MIN_FONT_SIZE
         var high = MAX_FONT_SIZE
-        var bestSize = low
+        var bestSize = MIN_FONT_SIZE
 
         while (low <= high) {
             val mid = (low + high) / 2
             paint.textSize = mid
+            val lines = wrapText(text, maxWidth, mid)
+            val totalHeight = paint.fontSpacing * LINE_SPACING * lines.size
 
-            val textHeight = paint.fontSpacing * LINE_SPACING *
-                ((text.length / TARGET_LINE_LENGTH) + 1)
-
-            if (textHeight <= bubbleHeight) {
+            if (totalHeight <= maxHeight) {
                 bestSize = mid
                 low = mid + 1
             } else {
@@ -86,32 +82,48 @@ class Typesetter {
         return bestSize
     }
 
-    private fun wrapText(text: String, bounds: FloatArray, fontSize: Float): List<String> {
-        val bubbleWidth = (bounds[2] - bounds[0]) * (1 - PADDING * 2)
+    private fun wrapText(text: String, maxWidth: Float, fontSize: Float): List<String> {
         paint.textSize = fontSize
-
         val words = text.split(" ")
         val lines = mutableListOf<String>()
         var currentLine = StringBuilder()
 
         for (word in words) {
-            val testLine = if (currentLine.isEmpty()) word else "$currentLine $word"
-            val lineWidth = paint.measureText(testLine)
-
-            if (lineWidth <= bubbleWidth) {
-                currentLine.append(if (currentLine.isNotEmpty()) " " else "").append(word)
-            } else {
+            if (paint.measureText(word) > maxWidth) {
                 if (currentLine.isNotEmpty()) {
                     lines.add(currentLine.toString())
+                    currentLine = StringBuilder()
                 }
-                currentLine = StringBuilder(word)
+                var chunk = StringBuilder()
+                for (ch in word) {
+                    val test = chunk.toString() + ch
+                    if (paint.measureText(test) <= maxWidth) {
+                        chunk.append(ch)
+                    } else {
+                        if (chunk.isNotEmpty()) lines.add(chunk.toString())
+                        chunk = StringBuilder(ch.toString())
+                    }
+                }
+                if (chunk.isNotEmpty()) currentLine = chunk
+            } else {
+                val testLine = if (currentLine.isEmpty()) word else "$currentLine $word"
+                if (paint.measureText(testLine) <= maxWidth) {
+                    currentLine.append(if (currentLine.isNotEmpty()) " " else "").append(word)
+                } else {
+                    if (currentLine.isNotEmpty()) lines.add(currentLine.toString())
+                    currentLine = StringBuilder(word)
+                }
             }
         }
 
-        if (currentLine.isNotEmpty()) {
-            lines.add(currentLine.toString())
-        }
-
+        if (currentLine.isNotEmpty()) lines.add(currentLine.toString())
         return lines
+    }
+
+    private fun fitLines(lines: List<String>, fontSize: Float, maxHeight: Float): List<String> {
+        paint.textSize = fontSize
+        val lineHeight = paint.fontSpacing * LINE_SPACING
+        val maxLines = maxOf(1, (maxHeight / lineHeight).toInt())
+        return lines.take(maxLines)
     }
 }

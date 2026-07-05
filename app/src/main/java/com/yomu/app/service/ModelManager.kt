@@ -3,6 +3,10 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.StatFs
+import com.google.mlkit.common.model.DownloadConditions
+import com.google.mlkit.nl.translate.TranslateLanguage
+import com.google.mlkit.nl.translate.Translation
+import com.google.mlkit.nl.translate.TranslatorOptions
 import com.yomu.app.db.ModelDao
 import com.yomu.app.db.entities.ModelEntity
 import com.yomu.app.db.entities.ModelStatus
@@ -10,8 +14,10 @@ import com.yomu.app.db.entities.ModelType
 import com.yomu.core.Constants
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
@@ -26,6 +32,10 @@ class ModelManager @Inject constructor(
     private val modelDao: ModelDao,
     private val okHttpClient: OkHttpClient
 ) {
+    companion object {
+        private const val ML_KIT_DOWNLOAD_TIMEOUT_MS = 120_000L
+    }
+
     data class DownloadProgress(
         val modelId: String,
         val bytesDownloaded: Long,
@@ -56,19 +66,19 @@ class ModelManager @Inject constructor(
     suspend fun refreshModelList() {
         val models = listOf(
             ModelEntity(
-                id = "bubble_detection_v1",
+                id = Constants.BUBBLE_DETECTION_MODEL_ID,
                 name = "Bubble Detection (YOLO26 Nano Manga)",
                 type = ModelType.VISION,
                 fileName = Constants.BUBBLE_DETECTION_MODEL,
                 fileSize = 6_070_000L,
                 downloadUrl = "https://huggingface.co/Kiuyha/Manga-Bubble-YOLO/resolve/main/onnx/yolo26n.onnx",
-                checksum = "",
+                checksum = "b45c2e12cf0c3c1d2abfbbb9123c9f96f040f2ac36a0842382ecd9d859c851c7",
                 status = ModelStatus.AVAILABLE,
                 version = "1.0",
                 isRequired = true
             ),
             ModelEntity(
-                id = "manga_ocr_v1",
+                id = Constants.MANGA_OCR_MODEL_ID,
                 name = "MangaOCR (Encoder + Decoder)",
                 type = ModelType.VISION,
                 fileName = Constants.OCR_ENCODER_MODEL,
@@ -80,7 +90,19 @@ class ModelManager @Inject constructor(
                 isRequired = true
             ),
             ModelEntity(
-                id = "qwen3_1.7b_4bit_v1",
+                id = Constants.ML_KIT_JA_EN_MODEL_ID,
+                name = "ML Kit Japanese → English",
+                type = ModelType.TRANSLATION,
+                fileName = "mlkit-ja-en",
+                fileSize = 30_000_000L,
+                downloadUrl = "google-mlkit-translate-ja-en",
+                checksum = "",
+                status = ModelStatus.AVAILABLE,
+                version = "1.0",
+                isRequired = false
+            ),
+            ModelEntity(
+                id = Constants.QWEN_TRANSLATION_MODEL_ID,
                 name = "Qwen 3 1.7B (4-bit Q4_K_M)",
                 type = ModelType.LLM,
                 fileName = Constants.TRANSLATION_MODEL_4BIT,
@@ -89,7 +111,7 @@ class ModelManager @Inject constructor(
                 checksum = "72c5c3cb38fa32d5256e2fe30d03e7a64c6c79e668ad84057e3bd66e250b24fb",
                 status = ModelStatus.AVAILABLE,
                 version = "1.0",
-                isRequired = true
+                isRequired = false
             )
         )
 
@@ -97,11 +119,24 @@ class ModelManager @Inject constructor(
             val existing = modelDao.getModelById(model.id)
             if (existing == null) {
                 modelDao.insertModel(model)
+            } else {
+                modelDao.insertModel(
+                    existing.copy(
+                        name = model.name,
+                        type = model.type,
+                        fileName = model.fileName,
+                        fileSize = model.fileSize,
+                        downloadUrl = model.downloadUrl,
+                        checksum = model.checksum,
+                        version = model.version,
+                        isRequired = model.isRequired
+                    )
+                )
             }
         }
     }
     private fun getAdditionalFiles(modelId: String): List<AdditionalFile> = when (modelId) {
-        "manga_ocr_v1" -> listOf(
+        Constants.MANGA_OCR_MODEL_ID -> listOf(
             AdditionalFile(
                 fileName = Constants.OCR_DECODER_MODEL,
                 url = "https://huggingface.co/l0wgear/manga-ocr-2025-onnx/resolve/main/decoder_model.onnx",
@@ -120,6 +155,7 @@ class ModelManager @Inject constructor(
     private fun getModelDir(type: ModelType): File = when (type) {
         ModelType.VISION -> File(context.filesDir, "${Constants.MODELS_DIR}/${Constants.VISION_MODELS_DIR}")
         ModelType.LLM -> File(context.filesDir, "${Constants.MODELS_DIR}/${Constants.LLM_MODELS_DIR}")
+        ModelType.TRANSLATION -> File(context.filesDir, "${Constants.MODELS_DIR}/${Constants.TRANSLATION_MODELS_DIR}")
     }
     private fun isOnWifi(): Boolean {
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
@@ -138,6 +174,10 @@ class ModelManager @Inject constructor(
         modelId: String,
         onProgress: (DownloadProgress) -> Unit = {}
     ): Boolean = withContext(Dispatchers.IO) {
+        if (modelId == Constants.ML_KIT_JA_EN_MODEL_ID) {
+            return@withContext downloadMlKitTranslationModel(modelId, onProgress)
+        }
+
         if (!isOnWifi()) {
             return@withContext false
         }
@@ -216,6 +256,39 @@ class ModelManager @Inject constructor(
         }
     }
 
+    private suspend fun downloadMlKitTranslationModel(
+        modelId: String,
+        onProgress: (DownloadProgress) -> Unit
+    ): Boolean {
+        modelDao.updateModelStatus(modelId, ModelStatus.DOWNLOADING)
+        onProgress(DownloadProgress(modelId, 0L, 30_000_000L, 0))
+        val options = TranslatorOptions.Builder()
+            .setSourceLanguage(TranslateLanguage.JAPANESE)
+            .setTargetLanguage(TranslateLanguage.ENGLISH)
+            .build()
+        val translator = Translation.getClient(options)
+        return try {
+            val ready = withTimeoutOrNull(ML_KIT_DOWNLOAD_TIMEOUT_MS) {
+                translator.downloadModelIfNeeded(DownloadConditions.Builder().build()).await()
+                true
+            } ?: false
+            if (ready) {
+                modelDao.updateDownloadProgress(modelId, 100)
+                onProgress(DownloadProgress(modelId, 30_000_000L, 30_000_000L, 100))
+                modelDao.updateModelStatus(modelId, ModelStatus.READY)
+                true
+            } else {
+                modelDao.updateModelStatus(modelId, ModelStatus.ERROR)
+                false
+            }
+        } catch (_: Exception) {
+            modelDao.updateModelStatus(modelId, ModelStatus.ERROR)
+            false
+        } finally {
+            translator.close()
+        }
+    }
+
     private suspend fun downloadFile(
         url: String,
         outputFile: File,
@@ -267,6 +340,12 @@ class ModelManager @Inject constructor(
     }
 
     suspend fun deleteModel(modelId: String): Boolean = withContext(Dispatchers.IO) {
+        if (modelId == Constants.ML_KIT_JA_EN_MODEL_ID) {
+            modelDao.updateModelStatus(modelId, ModelStatus.AVAILABLE)
+            modelDao.updateDownloadProgress(modelId, 0)
+            return@withContext true
+        }
+
         val model = modelDao.getModelById(modelId) ?: return@withContext false
 
         val modelDir = getModelDir(model.type)

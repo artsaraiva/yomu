@@ -1,8 +1,9 @@
 package com.yomu.app.di
 
 import android.content.Context
-import com.yomu.ml.LlamaBridge
 import com.yomu.ml.OnnxRuntime
+import com.yomu.ml.TranslationBridge
+import com.yomu.app.translation.MlKitTranslationBridge
 import com.yomu.pipeline.TranslationPipeline
 import com.yomu.pipeline.bubble.BubbleDetector
 import com.yomu.pipeline.context.ContextAssembler
@@ -28,12 +29,6 @@ object PipelineModule {
 
     @Provides
     @Singleton
-    fun provideLlamaBridge(@ApplicationContext context: Context): LlamaBridge {
-        return LlamaBridge(context)
-    }
-
-    @Provides
-    @Singleton
     fun provideBubbleDetector(onnxRuntime: OnnxRuntime): BubbleDetector {
         return BubbleDetector(onnxRuntime)
     }
@@ -52,8 +47,14 @@ object PipelineModule {
 
     @Provides
     @Singleton
-    fun provideTranslationEngine(llamaBridge: LlamaBridge): TranslationEngine {
-        return TranslationEngine(llamaBridge)
+    fun provideTranslationBridge(): TranslationBridge {
+        return MlKitTranslationBridge()
+    }
+
+    @Provides
+    @Singleton
+    fun provideTranslationEngine(translationBridge: TranslationBridge): TranslationEngine {
+        return TranslationEngine(translationBridge)
     }
 
     @Provides

@@ -23,7 +23,8 @@ data class ModelEntity(
 
 enum class ModelType {
     VISION,
-    LLM
+    LLM,
+    TRANSLATION
 }
 
 enum class ModelStatus {

@@ -8,7 +8,8 @@ data class ConversationBlock(
     val blockId: Int,
     val bubbles: List<Bubble>,
     val texts: List<OcrResult>,
-    val readingOrder: List<Int>
+    val readingOrder: List<Int>,
+    val textByBubbleId: Map<Int, OcrResult> = emptyMap()
 )
 
 data class PageContext(
@@ -125,7 +126,10 @@ class ContextAssembler {
         bubbles: List<Bubble>,
         ocrResults: Map<Int, OcrResult>
     ): ConversationBlock {
-        val texts = bubbles.mapNotNull { ocrResults[it.id] }
+        val textByBubbleId = bubbles.mapNotNull { bubble ->
+            ocrResults[bubble.id]?.let { result -> bubble.id to result }
+        }.toMap()
+        val texts = bubbles.mapNotNull { textByBubbleId[it.id] }
         val readingOrder = bubbles.sortedBy { it.boundingBox.top }
             .map { it.id }
 
@@ -133,7 +137,8 @@ class ContextAssembler {
             blockId = blockId,
             bubbles = bubbles,
             texts = texts,
-            readingOrder = readingOrder
+            readingOrder = readingOrder,
+            textByBubbleId = textByBubbleId
         )
     }
 

@@ -11,6 +11,8 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.yomu.app.db.entities.ModelEntity
 import com.yomu.app.db.entities.ModelStatus
+import com.yomu.app.db.entities.ModelType
+import com.yomu.core.Constants
 import com.yomu.core.toFileSizeString
 
 @Composable
@@ -50,14 +52,23 @@ fun ModelsScreen(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                state.models.forEach { model ->
-                    ModelCard(
-                        model = model,
-                        isDownloading = state.downloadingId == model.id,
-                        progress = state.downloadProgress,
-                        onDownload = { viewModel.downloadModel(model.id) },
-                        onDelete = { viewModel.deleteModel(model.id) }
-                    )
+                state.sections.forEach { section ->
+                    if (section.models.isNotEmpty()) {
+                        Text(
+                            text = section.capability.label(),
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        section.models.forEach { model ->
+                            ModelCard(
+                                model = model,
+                                isDownloading = state.downloadingId == model.id,
+                                progress = state.downloadProgress,
+                                onDownload = { viewModel.downloadModel(model.id) },
+                                onDelete = { viewModel.deleteModel(model.id) }
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -86,6 +97,13 @@ private fun ModelCard(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(model.name, fontWeight = FontWeight.Medium)
+                    if (model.id == Constants.ML_KIT_JA_EN_MODEL_ID) {
+                        Text(
+                            text = "Temporary Phase 0 baseline — local LLM translation not yet functional.",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                     Text(
                         text = "${model.fileSize.toFileSizeString()} — ${model.status.name}",
                         fontSize = 12.sp,
@@ -102,7 +120,12 @@ private fun ModelCard(
                             modifier = Modifier.size(24.dp),
                             strokeWidth = 2.dp
                         )
-                        Text("$progress%", fontSize = 11.sp)
+                        val progressText = if (model.type == ModelType.TRANSLATION) {
+                            "Downloading…"
+                        } else {
+                            "$progress%"
+                        }
+                        Text(progressText, fontSize = 11.sp)
                     }
                     ModelStatus.READY -> OutlinedButton(onClick = onDelete) {
                         Text("Delete", fontSize = 12.sp)
@@ -116,7 +139,7 @@ private fun ModelCard(
                 }
             }
 
-            if (isDownloading) {
+            if (isDownloading && model.type != ModelType.TRANSLATION) {
                 LinearProgressIndicator(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -124,5 +147,13 @@ private fun ModelCard(
                 )
             }
         }
+    }
+}
+
+private fun ModelCapability.label(): String {
+    return when (this) {
+        ModelCapability.BUBBLE_DETECTION -> "Bubble Detection"
+        ModelCapability.OCR -> "OCR Encoder + Decoder"
+        ModelCapability.TRANSLATION_ENGINE -> "Translation Engine"
     }
 }

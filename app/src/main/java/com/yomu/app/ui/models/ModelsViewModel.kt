@@ -12,9 +12,15 @@ import javax.inject.Inject
 
 data class ModelsUiState(
     val models: List<ModelEntity> = emptyList(),
+    val sections: List<ModelSection> = emptyList(),
     val isLoading: Boolean = false,
     val downloadingId: String? = null,
     val downloadProgress: Int = 0
+)
+
+data class ModelSection(
+    val capability: ModelCapability,
+    val models: List<ModelEntity>
 )
 
 @HiltViewModel
@@ -28,8 +34,17 @@ class ModelsViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             modelManager.getAllModels().collect { models ->
+                val grouped = models.groupBy { it.capability() }
+                val sectionOrder = listOf(
+                    ModelCapability.BUBBLE_DETECTION,
+                    ModelCapability.OCR,
+                    ModelCapability.TRANSLATION_ENGINE
+                )
                 _uiState.value = _uiState.value.copy(
                     models = models,
+                    sections = sectionOrder.map { capability ->
+                        ModelSection(capability, grouped[capability].orEmpty())
+                    },
                     isLoading = false
                 )
             }
@@ -51,7 +66,7 @@ class ModelsViewModel @Inject constructor(
                 downloadProgress = 0
             )
 
-            val success = modelManager.downloadModel(modelId) { progress ->
+            modelManager.downloadModel(modelId) { progress ->
                 _uiState.value = _uiState.value.copy(
                     downloadProgress = progress.percentage
                 )

@@ -10,6 +10,7 @@ import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.util.DisplayMetrics
 import android.view.WindowManager
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -20,6 +21,12 @@ import javax.inject.Singleton
 class ScreenCaptureManager @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
+
+    companion object {
+        private const val TAG = "ScreenCapture"
+        private const val CAPTURE_TIMEOUT_MS = 4_000L
+        private const val CAPTURE_POLL_INTERVAL_MS = 80L
+    }
 
     private var mediaProjection: MediaProjection? = null
     private var virtualDisplay: VirtualDisplay? = null
@@ -76,41 +83,85 @@ class ScreenCaptureManager @Inject constructor(
     }
 
     fun captureScreen(onBitmapReady: (Bitmap?) -> Unit) {
-        if (!isProjectionActive || imageReader == null) {
+        val reader = imageReader
+        if (!isProjectionActive || reader == null) {
+            Log.i(TAG, "capture projectionActive=$isProjectionActive attempts=0 gotFrame=false width=0 height=0 timeoutFired=false")
             onBitmapReady(null)
             return
         }
 
-        val image = imageReader?.acquireLatestImage()
-
-        if (image != null) {
-            try {
-                val planes = image.planes
-                val buffer = planes[0].buffer
-                val pixelStride = planes[0].pixelStride
-                val rowStride = planes[0].rowStride
-                val rowPadding = rowStride - pixelStride * image.width
-
-                val bitmap = Bitmap.createBitmap(
-                    image.width + rowPadding / pixelStride,
-                    image.height,
-                    Bitmap.Config.ARGB_8888
-                )
-                bitmap.copyPixelsFromBuffer(buffer)
-
-                val cropWidth = image.width
-                val cropHeight = image.height
-                val cropped = Bitmap.createBitmap(bitmap, 0, 0, cropWidth, cropHeight)
-
-                bitmap.recycle()
-                onBitmapReady(cropped)
-            } catch (e: Exception) {
-                onBitmapReady(null)
-            } finally {
-                image.close()
-            }
-        } else {
+        var attempts = 0
+        var finished = false
+        val startTimeMs = System.currentTimeMillis()
+        val timeoutRunnable = Runnable {
+            if (finished) return@Runnable
+            finished = true
+            Log.i(TAG, "capture projectionActive=$isProjectionActive attempts=$attempts gotFrame=false width=0 height=0 timeoutFired=true")
             onBitmapReady(null)
+        }
+
+        fun finish(bitmap: Bitmap?, gotFrame: Boolean, width: Int, height: Int, timeoutFired: Boolean) {
+            if (finished) return
+            finished = true
+            mainHandler.removeCallbacks(timeoutRunnable)
+            Log.i(
+                TAG,
+                "capture projectionActive=$isProjectionActive attempts=$attempts gotFrame=$gotFrame width=$width height=$height timeoutFired=$timeoutFired"
+            )
+            onBitmapReady(bitmap)
+        }
+
+        val pollRunnable = object : Runnable {
+            override fun run() {
+                if (finished) return
+                attempts += 1
+                if (!isProjectionActive) {
+                    finish(bitmap = null, gotFrame = false, width = 0, height = 0, timeoutFired = false)
+                    return
+                }
+                val bitmap = acquireBitmap(reader)
+                if (bitmap != null) {
+                    finish(bitmap = bitmap, gotFrame = true, width = bitmap.width, height = bitmap.height, timeoutFired = false)
+                    return
+                }
+                val elapsedMs = System.currentTimeMillis() - startTimeMs
+                if (elapsedMs >= CAPTURE_TIMEOUT_MS) {
+                    finish(bitmap = null, gotFrame = false, width = 0, height = 0, timeoutFired = true)
+                    return
+                }
+                mainHandler.postDelayed(this, CAPTURE_POLL_INTERVAL_MS)
+            }
+        }
+
+        mainHandler.postDelayed(timeoutRunnable, CAPTURE_TIMEOUT_MS)
+        mainHandler.post(pollRunnable)
+    }
+
+    private fun acquireBitmap(reader: ImageReader): Bitmap? {
+        val image = reader.acquireLatestImage() ?: return null
+        return try {
+            val planes = image.planes
+            val buffer = planes[0].buffer
+            val pixelStride = planes[0].pixelStride
+            val rowStride = planes[0].rowStride
+            val rowPadding = rowStride - pixelStride * image.width
+
+            val bitmap = Bitmap.createBitmap(
+                image.width + rowPadding / pixelStride,
+                image.height,
+                Bitmap.Config.ARGB_8888
+            )
+            bitmap.copyPixelsFromBuffer(buffer)
+
+            val cropWidth = image.width
+            val cropHeight = image.height
+            val cropped = Bitmap.createBitmap(bitmap, 0, 0, cropWidth, cropHeight)
+            bitmap.recycle()
+            cropped
+        } catch (_: Exception) {
+            null
+        } finally {
+            image.close()
         }
     }
 

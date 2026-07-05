@@ -33,6 +33,6 @@ android {
 dependencies {
     implementation(project(":core"))
     implementation("androidx.core:core-ktx:1.12.0")
-    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.16.3")
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.26.0")
     testImplementation("junit:junit:4.13.2")
 }

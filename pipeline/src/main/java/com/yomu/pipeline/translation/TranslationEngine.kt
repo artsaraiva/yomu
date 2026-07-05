@@ -1,6 +1,8 @@
 package com.yomu.pipeline.translation
 
-import com.yomu.ml.LlamaBridge
+import com.yomu.ml.TranslationBridge
+import com.yomu.ml.TranslationOutput
+import com.yomu.ml.TranslationStatus
 import com.yomu.pipeline.context.ConversationBlock
 
 data class TranslatedBubble(
@@ -17,124 +19,95 @@ data class TranslationResult(
     val translationTimeMs: Long
 )
 
-class TranslationEngine(private val llamaBridge: LlamaBridge) {
+class TranslationEngine(private val translationBridge: TranslationBridge) {
 
     companion object {
-        private const val MAX_TOKENS = 512
-        private const val TEMPERATURE = 0.3f
-        private const val SYSTEM_PROMPT = "You are a manga translator. Translate the following Japanese manga dialogue into natural English. Maintain character voices, emotional tone, and conversational flow. Output only the translations, one per line, numbered. /no_think"
+        private const val MAX_SOURCE_CHARS = 300
+        private const val CACHE_SIZE = 128
     }
 
-    private var isLoaded = false
-
-    fun loadModel(modelPath: String): Boolean {
-        if (!llamaBridge.isNativeAvailable) return false
-        isLoaded = llamaBridge.loadModel(modelPath)
-        return isLoaded
+    private val cache = object : LinkedHashMap<String, TranslationOutput>(CACHE_SIZE, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, TranslationOutput>?): Boolean {
+            return size > CACHE_SIZE
+        }
     }
 
-    fun isModelLoaded(): Boolean = isLoaded
+    suspend fun ensureReady(): Boolean {
+        return translationBridge.ensureReady()
+    }
 
-    fun translate(
+    fun isReady(): Boolean = translationBridge.status is TranslationStatus.Ready
+
+    @Suppress("UNUSED_PARAMETER")
+    suspend fun translate(
         blocks: List<ConversationBlock>,
         sessionContext: List<Pair<String, String>> = emptyList()
     ): TranslationResult {
         val startTime = System.currentTimeMillis()
 
-        val prompt = buildPrompt(blocks, sessionContext)
-        val response = llamaBridge.generate(prompt, MAX_TOKENS, TEMPERATURE)
-        val translations = parseResponse(response, blocks)
+        val translated = translateBubbles(blocks)
+        val translations = translated.ifEmpty { fallbackTranslations(blocks) }
 
         return TranslationResult(
             translations = translations,
-            rawPrompt = prompt,
-            rawResponse = response,
+            rawPrompt = "",
+            rawResponse = translations.joinToString("\n") { translation ->
+                "[${translation.bubbleId}] ${translation.translatedText}"
+            },
             translationTimeMs = System.currentTimeMillis() - startTime
         )
     }
 
-    private fun buildPrompt(
-        blocks: List<ConversationBlock>,
-        sessionContext: List<Pair<String, String>>
-    ): String {
-        val sb = StringBuilder()
-        sb.appendLine(SYSTEM_PROMPT)
-        sb.appendLine()
-
-        if (sessionContext.isNotEmpty()) {
-            sb.appendLine("Previous translations in this session:")
-            for ((index, pair) in sessionContext.withIndex()) {
-                sb.appendLine("[${index + 1}] ${pair.first} → ${pair.second}")
-            }
-            sb.appendLine()
-        }
-
-        sb.appendLine("Translate this manga page:")
-        sb.appendLine()
-
-        for ((blockIndex, block) in blocks.withIndex()) {
-            sb.appendLine("--- Conversation Block ${blockIndex + 1} ---")
-            for ((textIndex, bubbleId) in block.readingOrder.withIndex()) {
-                val text = if (textIndex < block.texts.size) block.texts[textIndex].text else ""
-                if (text.isNotEmpty()) {
-                    sb.appendLine("[${bubbleId}] $text")
-                }
-            }
-            sb.appendLine()
-        }
-
-        sb.appendLine("Translations:")
-        return sb.toString()
+    fun fallback(blocks: List<ConversationBlock>): TranslationResult {
+        val translations = fallbackTranslations(blocks)
+        return TranslationResult(
+            translations = translations,
+            rawPrompt = "",
+            rawResponse = "",
+            translationTimeMs = 0L
+        )
     }
 
-    private fun stripThinkingBlocks(response: String): String {
-        return response.replace(Regex("<think>.*?</think>", RegexOption.DOT_MATCHES_ALL), "").trim()
-    }
-
-    private fun parseResponse(
-        response: String,
-        blocks: List<ConversationBlock>
-    ): List<TranslatedBubble> {
+    private suspend fun translateBubbles(blocks: List<ConversationBlock>): List<TranslatedBubble> {
         val translations = mutableListOf<TranslatedBubble>()
-
-        val cleanResponse = stripThinkingBlocks(response)
-        val lineRegex = Regex("""\[(\d+)\]\s*(.+)""")
-
-        for (line in cleanResponse.lines()) {
-            val match = lineRegex.find(line.trim())
-            if (match != null) {
-                val bubbleId = match.groupValues[1].toIntOrNull() ?: continue
-                val translatedText = match.groupValues[2].trim()
-
-                val originalText = findOriginalText(bubbleId, blocks)
-
+        for (block in blocks) {
+            for (bubbleId in block.readingOrder) {
+                val original = block.textByBubbleId[bubbleId]?.text?.take(MAX_SOURCE_CHARS) ?: continue
+                val cached = cache[original]
+                val output = cached ?: translationBridge.translate(original)?.also { translated ->
+                    cache[original] = translated
+                }
+                val translatedText = output?.translatedText.orEmpty()
+                val hasTranslation = translatedText.isNotBlank()
                 translations.add(
                     TranslatedBubble(
                         bubbleId = bubbleId,
-                        originalText = originalText,
-                        translatedText = translatedText,
-                        confidence = 0.8f
+                        originalText = original,
+                        translatedText = translatedText.ifBlank { original },
+                        confidence = if (hasTranslation) (output?.confidence ?: 0.1f) else 0.1f
                     )
                 )
             }
         }
-
         return translations
     }
 
-    private fun findOriginalText(bubbleId: Int, blocks: List<ConversationBlock>): String {
-        for (block in blocks) {
-            val bubble = block.bubbles.find { it.id == bubbleId } ?: continue
-            val textIndex = block.bubbles.indexOf(bubble)
-            if (textIndex < block.texts.size) {
-                return block.texts[textIndex].text
+    private fun fallbackTranslations(blocks: List<ConversationBlock>): List<TranslatedBubble> {
+        return blocks.flatMap { block ->
+            block.bubbles.mapNotNull { bubble ->
+                val original = block.textByBubbleId[bubble.id]?.text?.take(MAX_SOURCE_CHARS) ?: return@mapNotNull null
+                TranslatedBubble(
+                    bubbleId = bubble.id,
+                    originalText = original,
+                    translatedText = original,
+                    confidence = 0.1f
+                )
             }
         }
-        return ""
     }
 
     fun release() {
-        llamaBridge.release()
-        isLoaded = false
+        cache.clear()
+        translationBridge.close()
     }
 }

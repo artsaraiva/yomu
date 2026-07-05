@@ -7,6 +7,11 @@ object Constants {
     const val MODELS_DIR = "models"
     const val VISION_MODELS_DIR = "vision"
     const val LLM_MODELS_DIR = "llm"
+    const val TRANSLATION_MODELS_DIR = "translation"
+    const val ML_KIT_JA_EN_MODEL_ID = "mlkit_ja_en_v1"
+    const val BUBBLE_DETECTION_MODEL_ID = "bubble_detection_v1"
+    const val MANGA_OCR_MODEL_ID = "manga_ocr_v1"
+    const val QWEN_TRANSLATION_MODEL_ID = "qwen3_1.7b_4bit_v1"
     
     const val BUBBLE_DETECTION_MODEL = "bubble_detection.onnx"
     const val OCR_ENCODER_MODEL = "manga_ocr_encoder.onnx"

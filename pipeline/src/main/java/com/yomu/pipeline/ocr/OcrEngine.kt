@@ -15,7 +15,7 @@ class OcrEngine(private val onnxRuntime: OnnxRuntime) {
     companion object {
         private const val INPUT_SIZE = 224
         private const val CHANNELS = 3
-        private const val MAX_LENGTH = 128
+        private const val MAX_LENGTH = 32
         private const val BOS_TOKEN_ID = 0
         private const val EOS_TOKEN_ID = 102
         private const val NORMALIZATION_MEAN = 0.5f
@@ -53,7 +53,11 @@ class OcrEngine(private val onnxRuntime: OnnxRuntime) {
         val pixelValues = preprocessImage(region)
         val encoderOutput = runEncoder(encoderPath, pixelValues) ?: return null
         val encoderOutputName = onnxRuntime.getOutputNames(encoderPath).firstOrNull() ?: return null
-        val encoderOutputShape = onnxRuntime.getOutputShape(encoderPath, encoderOutputName) ?: return null
+        val encoderOutputShape = resolveDynamicShape(
+            shape = onnxRuntime.getOutputShape(encoderPath, encoderOutputName),
+            values = encoderOutput,
+            fallback = longArrayOf(1L, 197L, 192L)
+        )
 
         val text = runDecoder(decoderPath, encoderOutput, encoderOutputShape, vocab)
 
@@ -183,11 +187,12 @@ class OcrEngine(private val onnxRuntime: OnnxRuntime) {
 
             val outputName = outputs.keys.firstOrNull() ?: break
             val logits = outputs[outputName] ?: break
-            val outputShape = onnxRuntime.getOutputShape(decoderPath, outputName)
-                ?: longArrayOf(1L, seqLen, vocab.size.toLong())
-
-            val currentSeqLen = outputShape.getOrNull(1)?.toInt() ?: seqLen.toInt()
-            val currentVocabSize = outputShape.getOrNull(2)?.toInt() ?: vocab.size
+            val currentSeqLen = seqLen.toInt()
+            val currentVocabSize = if (currentSeqLen > 0 && logits.size % currentSeqLen == 0) {
+                logits.size / currentSeqLen
+            } else {
+                vocab.size
+            }
 
             val lastTimestepStart = (currentSeqLen - 1) * currentVocabSize
             if (lastTimestepStart + currentVocabSize > logits.size) break
@@ -245,6 +250,30 @@ class OcrEngine(private val onnxRuntime: OnnxRuntime) {
         }
     }
 
+    private fun resolveDynamicShape(
+        shape: LongArray?,
+        values: FloatArray,
+        fallback: LongArray
+    ): LongArray {
+        val resolved = (shape ?: fallback).copyOf()
+        for (index in resolved.indices) {
+            if (resolved[index] <= 0L) {
+                resolved[index] = fallback.getOrNull(index) ?: 1L
+            }
+        }
+        val resolvedElements = resolved.totalElements()
+        if (resolvedElements == values.size) {
+            return resolved
+        }
+        if (resolved.size == 3 && resolved[1] > 0L && resolved[2] > 0L) {
+            val trailing = resolved[1] * resolved[2]
+            if (trailing > 0L && values.size % trailing == 0L) {
+                resolved[0] = values.size / trailing
+            }
+        }
+        return resolved
+    }
+
     private fun isPixelValuesInput(name: String): Boolean {
         return name == "pixel_values" || name.contains("pixel")
     }
@@ -268,7 +297,7 @@ class OcrEngine(private val onnxRuntime: OnnxRuntime) {
     private fun LongArray.totalElements(): Int {
         var total = 1L
         for (dim in this) {
-            total *= dim
+            total *= dim.coerceAtLeast(1L)
         }
         return total.toInt()
     }

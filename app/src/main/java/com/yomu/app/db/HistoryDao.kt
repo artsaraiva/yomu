@@ -23,4 +23,7 @@ interface HistoryDao {
     
     @Query("SELECT COUNT(*) FROM translations")
     suspend fun getTranslationCount(): Int
+
+    @Query("SELECT COUNT(*) FROM translations WHERE createdAt >= :startTimeMs")
+    fun getTranslationCountSince(startTimeMs: Long): Flow<Int>
 }

@@ -2,6 +2,7 @@ package com.yomu.pipeline.context
 
 import android.graphics.RectF
 import com.yomu.pipeline.bubble.Bubble
+import com.yomu.pipeline.ocr.OcrResult
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -86,6 +87,28 @@ class ContextAssemblerReadingOrderTest {
         assertEquals(listOf(1), result.orderedBubbleIds())
     }
 
+    @Test
+    fun textByBubbleIdPreservesOcrMappingWhenReadingOrderDiffers() {
+        val leftTop = bubble(1, left = 0f, top = 0f, right = 40f, bottom = 40f)
+        val rightBottom = bubble(2, left = 60f, top = 100f, right = 100f, bottom = 140f)
+
+        val result = assembler.assemble(
+            bubbles = listOf(leftTop, rightBottom),
+            ocrResults = mapOf(
+                1 to ocr("left text"),
+                2 to ocr("right text")
+            ),
+            pageWidth = 1000,
+            pageHeight = 1000
+        )
+
+        val block = result.blocks.single()
+        assertEquals(listOf(2, 1), block.bubbles.map { it.id })
+        assertEquals(listOf(1, 2), block.readingOrder)
+        assertEquals("left text", block.textByBubbleId[1]?.text)
+        assertEquals("right text", block.textByBubbleId[2]?.text)
+    }
+
     private fun bubble(
         id: Int,
         left: Float,
@@ -96,6 +119,12 @@ class ContextAssemblerReadingOrderTest {
         id = id,
         boundingBox = RectF(left, top, right, bottom),
         confidence = 0.9f
+    )
+
+    private fun ocr(text: String): OcrResult = OcrResult(
+        text = text,
+        confidence = 1f,
+        boundingBox = floatArrayOf(0f, 0f, 1f, 1f)
     )
 
     private fun PageContext.orderedBubbleIds(): List<Int> =

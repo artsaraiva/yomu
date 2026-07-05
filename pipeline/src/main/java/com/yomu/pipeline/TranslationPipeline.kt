@@ -1,6 +1,7 @@
 package com.yomu.pipeline
 
 import android.graphics.Bitmap
+import android.util.Log
 import com.yomu.pipeline.bubble.BubbleDetector
 import com.yomu.pipeline.context.ContextAssembler
 import com.yomu.pipeline.ocr.OcrEngine
@@ -10,13 +11,13 @@ import com.yomu.pipeline.typesetting.TypesetBubble
 import com.yomu.pipeline.typesetting.Typesetter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 
 data class ModelPaths(
     val bubbleDetectionPath: String,
     val ocrEncoderPath: String,
     val ocrDecoderPath: String,
-    val ocrVocabPath: String,
-    val translationPath: String
+    val ocrVocabPath: String
 )
 
 data class PipelineResult(
@@ -34,6 +35,11 @@ class TranslationPipeline(
     private val translationEngine: TranslationEngine,
     private val typesetter: Typesetter
 ) {
+
+    companion object {
+        private const val TAG = "TranslationPipeline"
+        private const val TRANSLATION_READY_TIMEOUT_MS = 120_000L
+    }
 
     enum class Stage {
         BUBBLE_DETECTION,
@@ -59,8 +65,7 @@ class TranslationPipeline(
 
     fun isModelLoaded(): Boolean {
         return bubbleDetector.isModelLoaded() &&
-               ocrEngine.isModelLoaded() &&
-               translationEngine.isModelLoaded()
+               ocrEngine.isModelLoaded()
     }
 
     suspend fun loadModels(paths: ModelPaths): Boolean = withContext(Dispatchers.IO) {
@@ -70,8 +75,7 @@ class TranslationPipeline(
             paths.ocrDecoderPath,
             paths.ocrVocabPath
         )
-        val translationLoaded = translationEngine.loadModel(paths.translationPath)
-        bubbleLoaded && ocrLoaded && translationLoaded
+        bubbleLoaded && ocrLoaded
     }
 
     suspend fun processPage(
@@ -91,7 +95,11 @@ class TranslationPipeline(
                     currentStage = Stage.ERROR
                     return null
                 }
+                currentStage = Stage.BUBBLE_DETECTION
+                callback?.onStageProgress(Stage.BUBBLE_DETECTION, 0.0f)
+                Log.i(TAG, "loadModels start")
                 loadModels(paths)
+                Log.i(TAG, "loadModels complete modelsLoaded=${isModelLoaded()}")
             }
 
             if (!isModelLoaded()) {
@@ -100,7 +108,6 @@ class TranslationPipeline(
                 return null
             }
 
-            // Stage 1: Bubble Detection
             currentStage = Stage.BUBBLE_DETECTION
             callback?.onStageProgress(Stage.BUBBLE_DETECTION, 0.0f)
             val bubbles = bubbleDetector.detect(bitmap)
@@ -112,18 +119,25 @@ class TranslationPipeline(
                 return null
             }
 
-            // Stage 2: OCR
             currentStage = Stage.OCR
             callback?.onStageProgress(Stage.OCR, 0.2f)
             val ocrResults = mutableMapOf<Int, com.yomu.pipeline.ocr.OcrResult>()
 
             for ((index, bubble) in bubbles.withIndex()) {
+                val cropBounds = CropBoundsCalculator.clamp(
+                    bitmapWidth = bitmap.width,
+                    bitmapHeight = bitmap.height,
+                    left = bubble.boundingBox.left.toInt(),
+                    top = bubble.boundingBox.top.toInt(),
+                    width = bubble.boundingBox.width().toInt(),
+                    height = bubble.boundingBox.height().toInt()
+                )
                 val bubbleBitmap = Bitmap.createBitmap(
                     bitmap,
-                    bubble.boundingBox.left.toInt().coerceAtLeast(0),
-                    bubble.boundingBox.top.toInt().coerceAtLeast(0),
-                    bubble.boundingBox.width().toInt().coerceAtMost(bitmap.width),
-                    bubble.boundingBox.height().toInt().coerceAtMost(bitmap.height)
+                    cropBounds.x,
+                    cropBounds.y,
+                    cropBounds.width,
+                    cropBounds.height
                 )
 
                 val result = ocrEngine.extractText(bubbleBitmap)
@@ -135,7 +149,6 @@ class TranslationPipeline(
                 callback?.onStageProgress(Stage.OCR, progress)
             }
 
-            // Stage 3: Context Assembly
             currentStage = Stage.CONTEXT_ASSEMBLY
             callback?.onStageProgress(Stage.CONTEXT_ASSEMBLY, 0.5f)
             val pageContext = contextAssembler.assemble(
@@ -146,13 +159,22 @@ class TranslationPipeline(
             )
             callback?.onStageProgress(Stage.CONTEXT_ASSEMBLY, 0.6f)
 
-            // Stage 4: Translation
             currentStage = Stage.TRANSLATION
             callback?.onStageProgress(Stage.TRANSLATION, 0.6f)
-            val translationResult = translationEngine.translate(pageContext.blocks, sessionContext)
+            if (!translationEngine.isReady()) {
+                Log.i(TAG, "translationEnsureReady start")
+                val ready = withTimeoutOrNull(TRANSLATION_READY_TIMEOUT_MS) {
+                    translationEngine.ensureReady()
+                } ?: false
+                Log.i(TAG, "translationEnsureReady complete ready=$ready statusReady=${translationEngine.isReady()}")
+            }
+            val translationResult = if (translationEngine.isReady()) {
+                translationEngine.translate(pageContext.blocks, sessionContext)
+            } else {
+                translationEngine.fallback(pageContext.blocks)
+            }
             callback?.onStageProgress(Stage.TRANSLATION, 0.8f)
 
-            // Stage 5: Typesetting
             currentStage = Stage.TYPESETTING
             callback?.onStageProgress(Stage.TYPESETTING, 0.8f)
             val bubbleBounds = bubbles.associate { bubble ->
