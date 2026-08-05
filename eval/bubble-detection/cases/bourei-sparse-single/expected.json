@@ -1,0 +1,13 @@
+{
+  "image_width": 830,
+  "image_height": 1170,
+  "boxes": [
+    {
+      "x": 290,
+      "y": 773,
+      "w": 208,
+      "h": 223,
+      "label": "speech"
+    }
+  ]
+}

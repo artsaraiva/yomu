@@ -1,0 +1,20 @@
+{
+  "image_width": 830,
+  "image_height": 1170,
+  "boxes": [
+    {
+      "x": 82,
+      "y": 952,
+      "w": 668,
+      "h": 107,
+      "label": "speech"
+    },
+    {
+      "x": 515,
+      "y": 1057,
+      "w": 254,
+      "h": 85,
+      "label": "speech"
+    }
+  ]
+}

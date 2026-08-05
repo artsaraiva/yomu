@@ -4,10 +4,12 @@ import android.content.Context
 import android.util.Log
 import java.io.File
 
-class LlamaBridge(private val context: Context) : TextGenerationBridge {
+open class LlamaBridge(private val context: Context?) : TextGenerationBridge {
 
     companion object {
         private const val TAG = "LlamaBridge"
+        private const val DEFAULT_TIMEOUT_MS = 60_000
+        private val DEFAULT_N_THREADS = Runtime.getRuntime().availableProcessors().coerceAtMost(4)
         private var nativeLoaded = false
 
         init {
@@ -31,6 +33,10 @@ class LlamaBridge(private val context: Context) : TextGenerationBridge {
     }
 
     override fun loadModel(modelPath: String, nCtx: Int, nGpuLayers: Int): Boolean {
+        return loadModel(modelPath, nCtx, nGpuLayers, DEFAULT_N_THREADS)
+    }
+
+    open fun loadModel(modelPath: String, nCtx: Int, nGpuLayers: Int, nThreads: Int): Boolean {
         if (!nativeLoaded) {
             Log.w(TAG, "loadModel skipped native_unavailable")
             return false
@@ -45,10 +51,17 @@ class LlamaBridge(private val context: Context) : TextGenerationBridge {
         isLoaded = nativeLoadModel(
             modelFile.absolutePath,
             nCtx,
-            nGpuLayers
+            nGpuLayers,
+            nThreads
         )
         Log.i(TAG, "loadModel completed loaded=$isLoaded")
         return isLoaded
+    }
+
+    open fun clearMemory() {
+        if (isLoaded) {
+            nativeClearMemory()
+        }
     }
 
     fun generate(prompt: String): GenerationResult {
@@ -60,13 +73,22 @@ class LlamaBridge(private val context: Context) : TextGenerationBridge {
         maxTokens: Int,
         temperature: Float
     ): GenerationResult {
+        return generate(prompt, maxTokens, temperature, DEFAULT_TIMEOUT_MS)
+    }
+
+    open fun generate(
+        prompt: String,
+        maxTokens: Int,
+        temperature: Float,
+        timeoutMs: Int
+    ): GenerationResult {
         if (!isLoaded) {
             Log.w(TAG, "generate skipped model_not_loaded")
             return GenerationResult.NotLoaded(durationMs = 0L)
         }
         val startMs = System.currentTimeMillis()
         try {
-            val result = nativeGenerate(prompt, maxTokens, temperature)
+            val result = nativeGenerate(prompt, maxTokens, temperature, timeoutMs)
             val durationMs = System.currentTimeMillis() - startMs
             val text = result.orEmpty()
             if (text.isBlank()) {
@@ -91,7 +113,8 @@ class LlamaBridge(private val context: Context) : TextGenerationBridge {
         Log.i(TAG, "release completed")
     }
 
-    private external fun nativeLoadModel(path: String, nCtx: Int, nGpuLayers: Int): Boolean
-    private external fun nativeGenerate(prompt: String, maxTokens: Int, temperature: Float): String?
+    private external fun nativeLoadModel(path: String, nCtx: Int, nGpuLayers: Int, nThreads: Int): Boolean
+    private external fun nativeGenerate(prompt: String, maxTokens: Int, temperature: Float, timeoutMs: Int): String?
+    private external fun nativeClearMemory()
     private external fun nativeRelease()
 }

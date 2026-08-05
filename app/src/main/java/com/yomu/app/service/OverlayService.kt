@@ -143,6 +143,7 @@ class OverlayService : Service() {
         translationRenderOverlay.remove()
         statusOverlay.remove()
         screenCaptureManager.stopProjection()
+        translationPipeline.close()
         scope.cancel()
         mainScope.cancel()
         super.onDestroy()
@@ -230,6 +231,7 @@ class OverlayService : Service() {
             }
 
             val result = translationPipeline.processPage(bitmap, callback = callback)
+            translationPipeline.release()
             if (result != null && result.typesetBubbles.isNotEmpty()) {
                 saveSessionResult(result)
             }

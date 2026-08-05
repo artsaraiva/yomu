@@ -18,5 +18,7 @@ interface TranslationBridge {
 
     suspend fun ensureReady(): Boolean
     suspend fun translate(sourceText: String): TranslationOutput?
+    fun supportsBatch(): Boolean = false
+    fun clearMemory() {}
     fun close()
 }

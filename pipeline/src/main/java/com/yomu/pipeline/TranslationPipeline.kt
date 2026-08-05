@@ -212,9 +212,14 @@ class TranslationPipeline(
     }
 
     fun release() {
+        contextAssembler.reset()
+        translationEngine.release()
+    }
+
+    fun close() {
         bubbleDetector.release()
         ocrEngine.release()
         contextAssembler.reset()
-        translationEngine.release()
+        translationEngine.close()
     }
 }

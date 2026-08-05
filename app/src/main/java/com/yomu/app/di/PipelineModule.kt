@@ -1,6 +1,9 @@
 package com.yomu.app.di
 
 import android.content.Context
+import com.yomu.core.Constants
+import com.yomu.ml.LlamaBridge
+import com.yomu.ml.LlamaTranslationBridge
 import com.yomu.ml.OnnxRuntime
 import com.yomu.ml.TranslationBridge
 import com.yomu.app.translation.MlKitTranslationBridge
@@ -15,6 +18,8 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import java.io.File
+import javax.inject.Named
 import javax.inject.Singleton
 
 @Module
@@ -47,9 +52,41 @@ object PipelineModule {
 
     @Provides
     @Singleton
+    fun provideLlamaBridge(@ApplicationContext context: Context): LlamaBridge {
+        return LlamaBridge(context)
+    }
+
+    @Provides
+    @Singleton
+    @Named("llama_model_path")
+    fun provideLlamaModelPath(@ApplicationContext context: Context): String {
+        return File(
+            context.filesDir,
+            "${Constants.MODELS_DIR}/${Constants.LLM_MODELS_DIR}/${Constants.TRANSLATION_MODEL_4BIT}"
+        ).absolutePath
+    }
+
+    @Provides
+    @Singleton
+    fun provideLlamaTranslationBridge(
+        llamaBridge: LlamaBridge,
+        @Named("llama_model_path") modelPath: String
+    ): LlamaTranslationBridge {
+        return LlamaTranslationBridge(llamaBridge, modelPath)
+    }
+
+    @Provides
+    @Singleton
     fun provideTranslationBridge(): TranslationBridge {
         return MlKitTranslationBridge()
     }
+
+    // To enable local LLM translation, replace provideTranslationBridge with:
+    // @Provides
+    // @Singleton
+    // fun provideTranslationBridge(
+    //     llamaTranslationBridge: LlamaTranslationBridge
+    // ): TranslationBridge = llamaTranslationBridge
 
     @Provides
     @Singleton

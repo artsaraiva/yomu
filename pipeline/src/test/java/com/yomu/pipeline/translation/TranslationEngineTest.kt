@@ -105,6 +105,74 @@ class TranslationEngineTest {
         assertEquals(0.1f, result.translations.first().confidence)
     }
 
+    @Test
+    fun translate_batchSupportTranslatesAllBubblesWithOneCall() = runTest {
+        val bridge = FakeTranslationBridge(
+            status = TranslationStatus.Ready,
+            outputForText = mapOf(
+                batchPrompt("こんにちは", "さようなら") to TranslationOutput(
+                    translatedText = "1. Hello\n2. Goodbye",
+                    confidence = 0.8f,
+                    durationMs = 100L
+                )
+            ),
+            supportsBatch = true
+        )
+        val engine = TranslationEngine(bridge)
+
+        val result = engine.translate(listOf(conversationBlock(1 to "こんにちは", 2 to "さようなら")))
+
+        assertEquals(2, result.translations.size)
+        assertEquals("Hello", result.translations[0].translatedText)
+        assertEquals("Goodbye", result.translations[1].translatedText)
+        assertEquals(1, bridge.translateCalls.size)
+    }
+
+    @Test
+    fun translate_batchPartialResponseFallsBackPerBubble() = runTest {
+        val bridge = FakeTranslationBridge(
+            status = TranslationStatus.Ready,
+            outputForText = mapOf(
+                batchPrompt("こんにちは", "さようなら") to TranslationOutput(
+                    translatedText = "1. Hello",
+                    confidence = 0.8f,
+                    durationMs = 100L
+                )
+            ),
+            supportsBatch = true
+        )
+        val engine = TranslationEngine(bridge)
+
+        val result = engine.translate(listOf(conversationBlock(1 to "こんにちは", 2 to "さようなら")))
+
+        assertEquals(2, result.translations.size)
+        assertEquals("Hello", result.translations[0].translatedText)
+        assertEquals("さようなら", result.translations[1].translatedText)
+        assertEquals(0.8f, result.translations[0].confidence)
+        assertEquals(0.1f, result.translations[1].confidence)
+    }
+
+    @Test
+    fun translate_batchDisabledUsesPerBubblePath() = runTest {
+        val bridge = FakeTranslationBridge(
+            status = TranslationStatus.Ready,
+            outputForText = mapOf(
+                "こんにちは" to TranslationOutput(
+                    translatedText = "Hello",
+                    confidence = 0.8f,
+                    durationMs = 10L
+                )
+            ),
+            supportsBatch = false
+        )
+        val engine = TranslationEngine(bridge)
+
+        val result = engine.translate(listOf(singleBubbleBlock("こんにちは")))
+
+        assertEquals("Hello", result.translations.first().translatedText)
+        assertEquals(1, bridge.translateCalls["こんにちは"])
+    }
+
     private fun singleBubbleBlock(text: String): ConversationBlock {
         return conversationBlock(1 to text)
     }
@@ -141,9 +209,19 @@ class TranslationEngineTest {
         )
     }
 
+    private fun batchPrompt(vararg texts: String): String {
+        return buildString {
+            appendLine("Translate these Japanese phrases to English, one per line, numbered:")
+            texts.forEachIndexed { index, text ->
+                appendLine("${index + 1}. $text")
+            }
+        }
+    }
+
     private class FakeTranslationBridge(
         status: TranslationStatus = TranslationStatus.Ready,
-        private val outputForText: Map<String, TranslationOutput> = emptyMap()
+        private val outputForText: Map<String, TranslationOutput> = emptyMap(),
+        private val supportsBatch: Boolean = false
     ) : TranslationBridge {
         override var status: TranslationStatus = status
         val translateCalls: MutableMap<String, Int> = mutableMapOf()
@@ -156,6 +234,10 @@ class TranslationEngineTest {
             translateCalls[sourceText] = (translateCalls[sourceText] ?: 0) + 1
             return outputForText[sourceText]
         }
+
+        override fun supportsBatch(): Boolean = supportsBatch
+
+        override fun clearMemory() {}
 
         override fun close() {
             status = TranslationStatus.NotReady

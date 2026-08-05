@@ -4,6 +4,7 @@
 #include <cstring>
 #include <chrono>
 #include <atomic>
+#include <algorithm>
 #include <android/log.h>
 #include "llama.h"
 
@@ -18,6 +19,10 @@ static llama_context *g_ctx = nullptr;
 static const llama_vocab *g_vocab = nullptr;
 static llama_sampler *g_sampler = nullptr;
 static std::atomic<int64_t> g_abort_deadline_ms{0};
+
+static const char *SYSTEM_PROMPT =
+    "You are a manga translator. Translate the following Japanese conversation to English naturally, preserving tone and context.";
+static const int64_t MIN_TIMEOUT_MS = 60000;
 
 static int64_t now_ms() {
     return std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -54,6 +59,31 @@ static bool rebuild_sampler(float temperature) {
     return true;
 }
 
+static std::string apply_chat_template(const char *user_prompt) {
+    const char *tmpl = llama_model_chat_template(g_model, nullptr);
+
+    std::vector<llama_chat_message> chat = {
+        {"system", SYSTEM_PROMPT},
+        {"user",   user_prompt}
+    };
+
+    int len = llama_chat_apply_template(tmpl, chat.data(), chat.size(), true, nullptr, 0);
+    if (len > 0) {
+        std::string formatted(len, '\0');
+        int written = llama_chat_apply_template(tmpl, chat.data(), chat.size(), true,
+                                                formatted.data(), len);
+        if (written > 0 && written <= len) {
+            formatted.resize(written);
+            return formatted;
+        }
+    }
+
+    LOGW("Chat template failed, falling back to manual Qwen3 format");
+    return std::string("<|im_start|>system\n") + SYSTEM_PROMPT +
+           "<|im_end|>\n<|im_start|>user\n" + user_prompt +
+           "<|im_end|>\n<|im_start|>assistant\n";
+}
+
 extern "C" JNIEXPORT jint JNICALL
 JNI_OnLoad(JavaVM *vm, void *reserved) {
     g_jvm = vm;
@@ -66,7 +96,8 @@ Java_com_yomu_ml_LlamaBridge_nativeLoadModel(
     jobject /* this */,
     jstring model_path,
     jint n_ctx,
-    jint n_gpu_layers) {
+    jint n_gpu_layers,
+    jint n_threads) {
 
     const char *path = env->GetStringUTFChars(model_path, nullptr);
     LOGI("Loading model from: %s", path);
@@ -84,11 +115,13 @@ Java_com_yomu_ml_LlamaBridge_nativeLoadModel(
         return JNI_FALSE;
     }
 
+    const int threads = std::max(n_threads, 1);
+
     llama_context_params ctx_params = llama_context_default_params();
     ctx_params.n_ctx = (uint32_t)n_ctx;
-    ctx_params.n_batch = (uint32_t)n_ctx;
-    ctx_params.n_threads = 2;
-    ctx_params.n_threads_batch = 2;
+    ctx_params.n_batch = 512;
+    ctx_params.n_threads = threads;
+    ctx_params.n_threads_batch = threads;
     ctx_params.abort_callback = abort_if_timed_out;
     ctx_params.abort_callback_data = nullptr;
 
@@ -122,7 +155,8 @@ Java_com_yomu_ml_LlamaBridge_nativeGenerate(
     jobject /* this */,
     jstring prompt,
     jint max_tokens,
-    jfloat temperature) {
+    jfloat temperature,
+    jint timeout_ms) {
 
     const int64_t started_ms = now_ms();
 
@@ -131,13 +165,9 @@ Java_com_yomu_ml_LlamaBridge_nativeGenerate(
         return env->NewStringUTF("");
     }
 
-    g_abort_deadline_ms.store(now_ms() + 4000, std::memory_order_relaxed);
+    const int64_t effective_timeout = timeout_ms > MIN_TIMEOUT_MS ? (int64_t)timeout_ms : MIN_TIMEOUT_MS;
+    g_abort_deadline_ms.store(now_ms() + effective_timeout, std::memory_order_relaxed);
     llama_set_abort_callback(g_ctx, abort_if_timed_out, nullptr);
-
-    auto *memory = llama_get_memory(g_ctx);
-    if (memory) {
-        llama_memory_clear(memory, false);
-    }
 
     if (!rebuild_sampler(temperature)) {
         LOGE("Failed to rebuild sampler");
@@ -152,23 +182,24 @@ Java_com_yomu_ml_LlamaBridge_nativeGenerate(
     }
 
     const char *prompt_str = env->GetStringUTFChars(prompt, nullptr);
-    int prompt_len = (int)strlen(prompt_str);
+    std::string formatted = apply_chat_template(prompt_str);
+    env->ReleaseStringUTFChars(prompt, prompt_str);
+
+    int prompt_len = (int)formatted.size();
 
     // Tokenize input
-    int n_tokens = llama_tokenize(g_vocab, prompt_str, prompt_len, nullptr, 0, true, false);
+    int n_tokens = llama_tokenize(g_vocab, formatted.c_str(), prompt_len, nullptr, 0, true, false);
     if (n_tokens < 0) {
         n_tokens = -n_tokens;
     }
     if (n_tokens == 0) {
         LOGE("Failed to tokenize prompt");
-        env->ReleaseStringUTFChars(prompt, prompt_str);
         g_abort_deadline_ms.store(0, std::memory_order_relaxed);
         return env->NewStringUTF("");
     }
 
     std::vector<llama_token> tokens(n_tokens);
-    int written = llama_tokenize(g_vocab, prompt_str, prompt_len, tokens.data(), n_tokens, true, false);
-    env->ReleaseStringUTFChars(prompt, prompt_str);
+    int written = llama_tokenize(g_vocab, formatted.c_str(), prompt_len, tokens.data(), n_tokens, true, false);
     if (written < 0) {
         LOGE("Failed to write prompt tokens");
         g_abort_deadline_ms.store(0, std::memory_order_relaxed);
@@ -242,6 +273,14 @@ Java_com_yomu_ml_LlamaBridge_nativeGenerate(
     LOGI("Generation complete tokens=%d resultLength=%zu durationMs=%lld", n_len, result.size(), (long long)elapsed_ms);
     g_abort_deadline_ms.store(0, std::memory_order_relaxed);
     return env->NewStringUTF(result.c_str());
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_yomu_ml_LlamaBridge_nativeClearMemory(JNIEnv *, jobject /* this */) {
+    auto *memory = llama_get_memory(g_ctx);
+    if (memory) {
+        llama_memory_clear(memory, false);
+    }
 }
 
 extern "C" JNIEXPORT void JNICALL

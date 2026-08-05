@@ -20,3 +20,15 @@ local.properties
 *.apk
 *.aab
 *.ap_
+
+# OpenMantra dataset (vendored for eval; CC BY-NC, do not ship)
+vendor/
+
+# Eval harness generated results
+eval/results/
+
+# OpenMantra page images are generated from vendor; do not commit
+eval/**/page.jpg
+
+# Python cache
+__pycache__/
