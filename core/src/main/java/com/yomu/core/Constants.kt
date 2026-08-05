@@ -20,6 +20,10 @@ object Constants {
     const val TRANSLATION_MODEL_4BIT = "qwen3_1.7b_4bit.gguf"
     const val TRANSLATION_MODEL_8BIT = "qwen3_1.7b_8bit.gguf"
     
+    const val OPUS_MT_ENCODER_MODEL = "opus_mt_encoder_model_quantized.onnx"
+    const val OPUS_MT_DECODER_MODEL = "opus_mt_decoder_with_past_model_quantized.onnx"
+    const val OPUS_MT_TOKENIZER = "tokenizer.json"
+    
     const val DATABASE_NAME = "yomu_db"
     const val DATABASE_VERSION = 2
     

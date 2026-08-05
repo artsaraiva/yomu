@@ -1,6 +1,7 @@
 package com.yomu.pipeline
 
 import android.graphics.Bitmap
+import android.graphics.RectF
 import android.util.Log
 import com.yomu.pipeline.bubble.BubbleDetector
 import com.yomu.pipeline.context.ContextAssembler
@@ -81,7 +82,8 @@ class TranslationPipeline(
     suspend fun processPage(
         bitmap: Bitmap,
         sessionContext: List<Pair<String, String>> = emptyList(),
-        callback: PipelineCallback? = null
+        callback: PipelineCallback? = null,
+        onOcrComplete: ((bubbleId: Int, ocrText: String, bounds: RectF) -> Unit)? = null
     ): PipelineResult? {
         val startTime = System.currentTimeMillis()
         val pageWidth = bitmap.width
@@ -143,6 +145,7 @@ class TranslationPipeline(
                 val result = ocrEngine.extractText(bubbleBitmap)
                 if (result != null && result.text.isNotEmpty()) {
                     ocrResults[bubble.id] = result
+                    onOcrComplete?.invoke(bubble.id, result.text, bubble.boundingBox)
                 }
 
                 val progress = 0.2f + ((index + 1).toFloat() / bubbles.size) * 0.3f

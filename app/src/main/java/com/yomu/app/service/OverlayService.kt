@@ -17,6 +17,8 @@ import android.widget.Toast
 import com.yomu.app.capture.ScreenCaptureManager
 import com.yomu.app.overlay.FloatingButtonView
 import com.yomu.app.overlay.FloatingButtonOverlay
+import com.yomu.app.overlay.OverlayBounds
+import com.yomu.app.overlay.OverlayBubbleState
 import com.yomu.app.overlay.TranslationRenderOverlay
 import com.yomu.app.overlay.TranslationStatusOverlay
 import com.yomu.core.Constants
@@ -230,7 +232,25 @@ class OverlayService : Service() {
                 }
             }
 
-            val result = translationPipeline.processPage(bitmap, callback = callback)
+            val ocrStates = mutableListOf<OverlayBubbleState>()
+
+            val onOcrComplete: (Int, String, android.graphics.RectF) -> Unit = { bubbleId, ocrText, bounds ->
+                val state = OverlayBubbleState(
+                    bubbleId = bubbleId,
+                    bounds = OverlayBounds(bounds.left, bounds.top, bounds.right, bounds.bottom),
+                    ocrText = ocrText
+                )
+                ocrStates.add(state)
+                mainScope.launch {
+                    translationRenderOverlay.showOcrBubbles(ocrStates, bitmap.width, bitmap.height)
+                }
+            }
+
+            val result = translationPipeline.processPage(
+                bitmap,
+                callback = callback,
+                onOcrComplete = onOcrComplete
+            )
             translationPipeline.release()
             if (result != null && result.typesetBubbles.isNotEmpty()) {
                 saveSessionResult(result)

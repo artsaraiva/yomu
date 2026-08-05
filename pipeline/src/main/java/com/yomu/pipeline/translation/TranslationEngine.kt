@@ -4,6 +4,29 @@ import com.yomu.ml.TranslationBridge
 import com.yomu.ml.TranslationOutput
 import com.yomu.ml.TranslationStatus
 import com.yomu.pipeline.context.ConversationBlock
+import java.security.MessageDigest
+import java.text.Normalizer
+
+interface TranslationCacheRepository {
+    suspend fun get(engineId: String, modelId: String?, sourceText: String): TranslationOutput?
+    suspend fun put(engineId: String, modelId: String?, sourceText: String, output: TranslationOutput)
+}
+
+fun normalizeForCache(text: String): String {
+    return Normalizer.normalize(text.trim().replace(Regex("\\s+"), " "), Normalizer.Form.NFKC)
+}
+
+fun buildCacheKey(engineId: String, modelId: String?, sourceText: String): String {
+    val normalized = normalizeForCache(sourceText)
+    val input = "$engineId:${modelId ?: ""}:$normalized"
+    return hashSha256(input)
+}
+
+private fun hashSha256(input: String): String {
+    val digest = MessageDigest.getInstance("SHA-256")
+    return digest.digest(input.toByteArray(Charsets.UTF_8))
+        .joinToString("") { "%02x".format(it) }
+}
 
 data class TranslatedBubble(
     val bubbleId: Int,
@@ -19,7 +42,12 @@ data class TranslationResult(
     val translationTimeMs: Long
 )
 
-class TranslationEngine(private val translationBridge: TranslationBridge) {
+class TranslationEngine(
+    private val translationBridge: TranslationBridge,
+    private val engineId: String = "default",
+    private val modelId: String? = null,
+    private val cacheRepository: TranslationCacheRepository? = null
+) {
 
     companion object {
         private const val MAX_SOURCE_CHARS = 300
@@ -77,9 +105,12 @@ class TranslationEngine(private val translationBridge: TranslationBridge) {
         for (block in blocks) {
             for (bubbleId in block.readingOrder) {
                 val original = block.textByBubbleId[bubbleId]?.text?.take(MAX_SOURCE_CHARS) ?: continue
-                val cached = cache[original]
+                val cached = cache[original] ?: cacheRepository?.get(engineId, modelId, original)?.also {
+                    cache[original] = it
+                }
                 val output = cached ?: translationBridge.translate(original)?.also { translated ->
                     cache[original] = translated
+                    cacheRepository?.put(engineId, modelId, original, translated)
                 }
                 val translatedText = output?.translatedText.orEmpty()
                 val hasTranslation = translatedText.isNotBlank()
@@ -120,7 +151,9 @@ class TranslationEngine(private val translationBridge: TranslationBridge) {
             val translated = parsed[index + 1]?.takeIf { it.isNotBlank() } ?: original
             val hasTranslation = translated != original
             if (hasTranslation) {
-                cache[original] = TranslationOutput(translated, output.confidence, output.durationMs)
+                val cachedOutput = TranslationOutput(translated, output.confidence, output.durationMs)
+                cache[original] = cachedOutput
+                cacheRepository?.put(engineId, modelId, original, cachedOutput)
             }
             TranslatedBubble(
                 bubbleId = bubbleId,
