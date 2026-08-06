@@ -22,6 +22,55 @@ This file governs all AI agent behavior in this repository.
 4. **no force push.** Never rewrite pushed history.
 5. **commit after every passing test.** Each green test = one commit.
 
+### Issue vs Branch Workflow
+
+Not everything needs an issue. Not everything should skip one.
+
+| Situation | Action |
+|---|---|
+| Bug found during testing | Open issue → branch → PR closes issue |
+| Feature you're building now (user requested) | Branch directly → PR (no issue needed) |
+| "Someday" / future items (CI, Dependabot, tooling) | Open issue, label `future`, don't branch yet |
+| Agent discovers a problem mid-work | Open issue, continue current PR, address later |
+| Trivial one-line fix | Branch directly, no issue |
+
+**Rules:**
+- Issues track the backlog. Branches implement the now.
+- If work spans multiple sessions or could be forgotten → issue.
+- If it's a single focused change you're doing right now → branch.
+- PRs should reference issues they close: `Closes #N` in the PR body.
+- Future-phase items get the `future` label so they're filterable.
+
+### GitHub Workflow
+
+1. **Remote:** `git@github-personal:artsaraiva/yomu.git` (SSH alias for personal account)
+2. **Git identity:** `Arthur Saraiva <arthur.m.saraiva@hotmail.com>` (set per-repo, not global)
+3. **Flow:** branch → commit → push → PR → review → merge to `main`
+4. **PR creation:** Use `github-personal_*` MCP tools (authenticated as `artsaraiva`). Do NOT use `github_*` tools (work account) for this repo.
+5. **PR review:** Self-review the diff before requesting human review. Use `github-personal_pull_request_read` with `get_diff` and `get_files`.
+
+### Device Testing (Android MCP)
+
+When a physical device or emulator is connected, use the `android-mcp_*` tools to validate changes on-device:
+
+1. **Check device:** `android-mcp_execute_adb_shell_command` with `getprop ro.product.model`
+2. **Launch app:** `am start -n com.yomu.app/.MainActivity`
+3. **Inspect UI:** `android-mcp_get_uilayout` for clickable elements, or `uiautomator dump /dev/tty` for full hierarchy
+4. **Take screenshots:** `android-mcp_get_screenshot` (note: some models can't read images — use UI layout dump as fallback)
+5. **Interact:** `input tap <x> <y>`, `input swipe <x1> <y1> <x2> <y2>`, `input keyevent KEYCODE_BACK`
+6. **Logcat:** `logcat -s OverlayService:* FloatingButtonOverlay:*` for targeted debugging
+7. **Service state:** `dumpsys activity services com.yomu.app` to check if foreground service is running
+
+**When to test on-device:**
+- After overlay/service changes (can't be unit-tested)
+- After UI changes (Compose layout, new screens)
+- After pipeline changes that affect rendering
+- When the user reports a visual bug
+
+**When NOT to test on-device:**
+- Pure logic changes (typesetter math, cache, parsing) — unit tests suffice
+- Build/config changes — `assembleDebug` is enough
+
 ### Code Standards
 
 1. **Type everything.** No `Any`, no unchecked casts, no `!!` unless unavoidable.

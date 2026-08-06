@@ -64,6 +64,22 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(20.dp))
 
+        Text("Font Size", fontWeight = FontWeight.Medium, fontSize = 14.sp)
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "${(state.fontSizeScale * 100).toInt()}%",
+            fontSize = 14.sp
+        )
+        Slider(
+            value = state.fontSizeScale,
+            onValueChange = { viewModel.setFontSizeScale(it) },
+            valueRange = 0.5f..2.0f,
+            steps = 14,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(20.dp))
+
         Text("Language", fontWeight = FontWeight.Medium, fontSize = 14.sp)
         Spacer(modifier = Modifier.height(8.dp))
         Text(

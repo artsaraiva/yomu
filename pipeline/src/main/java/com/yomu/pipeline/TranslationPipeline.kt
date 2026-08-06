@@ -61,6 +61,7 @@ class TranslationPipeline(
     private var currentStage = Stage.ERROR
 
     var modelPaths: ModelPaths? = null
+    var fontSizeScale: Float = 1.0f
 
     fun getCurrentStage(): Stage = currentStage
 
@@ -188,6 +189,7 @@ class TranslationPipeline(
                     bubble.boundingBox.bottom
                 )
             }
+            typesetter.fontSizeScale = fontSizeScale
             val typesetBubbles = typesetter.typeset(
                 translationResult.translations,
                 bubbleBounds

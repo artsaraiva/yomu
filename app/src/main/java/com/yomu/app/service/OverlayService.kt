@@ -15,12 +15,16 @@ import android.util.Log
 import android.view.WindowManager
 import android.widget.Toast
 import com.yomu.app.capture.ScreenCaptureManager
+import com.yomu.app.overlay.CloseZoneOverlay
 import com.yomu.app.overlay.FloatingButtonView
 import com.yomu.app.overlay.FloatingButtonOverlay
 import com.yomu.app.overlay.OverlayBounds
 import com.yomu.app.overlay.OverlayBubbleState
+import com.yomu.app.overlay.QuickSettingsPopup
 import com.yomu.app.overlay.TranslationRenderOverlay
 import com.yomu.app.overlay.TranslationStatusOverlay
+import com.yomu.app.translation.TranslationEngineSelector
+import com.yomu.app.translation.TranslationEngineType
 import com.yomu.core.Constants
 import com.yomu.pipeline.ModelPaths
 import com.yomu.pipeline.PipelineResult
@@ -44,12 +48,17 @@ class OverlayService : Service() {
     @Inject lateinit var translationPipeline: TranslationPipeline
     @Inject lateinit var sharedPreferences: SharedPreferences
     @Inject lateinit var sessionManager: SessionManager
+    @Inject lateinit var translationEngineSelector: TranslationEngineSelector
 
     private lateinit var windowManager: WindowManager
+    private lateinit var closeZoneOverlay: CloseZoneOverlay
     private lateinit var floatingButtonOverlay: FloatingButtonOverlay
     private lateinit var translationRenderOverlay: TranslationRenderOverlay
     private var floatingButton: FloatingButtonView? = null
     private lateinit var statusOverlay: TranslationStatusOverlay
+    private var quickSettingsPopup: QuickSettingsPopup? = null
+    private var buttonPositionX: Int = 0
+    private var buttonPositionY: Int = 0
 
     @Volatile
     private var isTranslating = false
@@ -84,7 +93,8 @@ class OverlayService : Service() {
     override fun onCreate() {
         super.onCreate()
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
-        floatingButtonOverlay = FloatingButtonOverlay(this, windowManager)
+        closeZoneOverlay = CloseZoneOverlay(this, windowManager)
+        floatingButtonOverlay = FloatingButtonOverlay(this, windowManager, closeZoneOverlay)
         translationRenderOverlay = TranslationRenderOverlay(this, windowManager)
         statusOverlay = TranslationStatusOverlay(this, windowManager)
         createNotificationChannel()
@@ -93,6 +103,10 @@ class OverlayService : Service() {
             ocrEncoderPath = File(filesDir, "${Constants.MODELS_DIR}/${Constants.VISION_MODELS_DIR}/${Constants.OCR_ENCODER_MODEL}").absolutePath,
             ocrDecoderPath = File(filesDir, "${Constants.MODELS_DIR}/${Constants.VISION_MODELS_DIR}/${Constants.OCR_DECODER_MODEL}").absolutePath,
             ocrVocabPath = File(filesDir, "${Constants.MODELS_DIR}/${Constants.VISION_MODELS_DIR}/${Constants.OCR_VOCAB_FILE}").absolutePath
+        )
+        translationPipeline.fontSizeScale = sharedPreferences.getFloat(
+            Constants.PREF_FONT_SIZE_SCALE,
+            Constants.DEFAULT_FONT_SIZE_SCALE
         )
     }
 
@@ -140,14 +154,16 @@ class OverlayService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
-        sendBroadcast(Intent(ACTION_SERVICE_STOPPED).setPackage(packageName))
+        removeQuickSettingsPopup()
         removeFloatingButton()
+        closeZoneOverlay.remove()
         translationRenderOverlay.remove()
         statusOverlay.remove()
         screenCaptureManager.stopProjection()
         translationPipeline.close()
         scope.cancel()
         mainScope.cancel()
+        sendBroadcast(Intent(ACTION_SERVICE_STOPPED).setPackage(packageName))
         super.onDestroy()
     }
 
@@ -182,11 +198,15 @@ class OverlayService : Service() {
     private fun showFloatingButton() {
         val savedX = sharedPreferences.getInt(Constants.PREF_BUTTON_POSITION_X, 0)
         val savedY = sharedPreferences.getInt(Constants.PREF_BUTTON_POSITION_Y, 200)
+        buttonPositionX = savedX
+        buttonPositionY = savedY
         floatingButton = floatingButtonOverlay.show(
             initialX = savedX,
             initialY = savedY,
             onTap = { startTranslation() },
-            onDragEnd = { x, y -> persistButtonPosition(x, y) }
+            onDragEnd = { x, y -> persistButtonPosition(x, y) },
+            onLongPress = { showQuickSettings() },
+            onClose = { stopSelf() }
         )
     }
 
@@ -195,9 +215,39 @@ class OverlayService : Service() {
         floatingButton = null
     }
 
+    private fun showQuickSettings() {
+        if (quickSettingsPopup != null) return
+
+        val popup = QuickSettingsPopup(
+            context = this,
+            windowManager = windowManager,
+            onEngineSelected = { type ->
+                translationEngineSelector.selectEngine(type)
+                quickSettingsPopup?.updateEngineSelection(type)
+            },
+            onFontSizeChanged = { scale ->
+                sharedPreferences.edit().putFloat(Constants.PREF_FONT_SIZE_SCALE, scale).apply()
+                translationPipeline.fontSizeScale = scale
+            },
+            onStopRequested = { stopSelf() }
+        )
+        quickSettingsPopup = popup
+        popup.updateEngineSelection(translationEngineSelector.currentEngine())
+        popup.updateFontSizeScale(
+            sharedPreferences.getFloat(Constants.PREF_FONT_SIZE_SCALE, Constants.DEFAULT_FONT_SIZE_SCALE)
+        )
+        popup.show(buttonPositionX, buttonPositionY)
+    }
+
+    private fun removeQuickSettingsPopup() {
+        quickSettingsPopup?.remove()
+        quickSettingsPopup = null
+    }
+
     private fun startTranslation() {
         if (isTranslating) return
         isTranslating = true
+        removeQuickSettingsPopup()
         floatingButton?.setState(FloatingButtonView.State.TRANSLATING)
 
         scope.launch {
@@ -316,6 +366,8 @@ class OverlayService : Service() {
     }
 
     private fun persistButtonPosition(x: Int, y: Int) {
+        buttonPositionX = x
+        buttonPositionY = y
         sharedPreferences.edit()
             .putInt(Constants.PREF_BUTTON_POSITION_X, x)
             .putInt(Constants.PREF_BUTTON_POSITION_Y, y)
