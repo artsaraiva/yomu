@@ -22,24 +22,32 @@ This file governs all AI agent behavior in this repository.
 4. **no force push.** Never rewrite pushed history.
 5. **commit after every passing test.** Each green test = one commit.
 
-### Issue vs Branch Workflow
+### Phase, Issue, and Branch Workflow
 
-Not everything needs an issue. Not everything should skip one.
+`docs/roadmap/README.md` maps each phase to its GitHub milestone. Read it before planning any non-trivial work. Do not guess the phase or milestone.
 
-| Situation | Action |
+| Situation | Required action |
 |---|---|
-| Bug found during testing | Open issue → branch → PR closes issue |
-| Feature you're building now (user requested) | Branch directly → PR (no issue needed) |
-| "Someday" / future items (CI, Dependabot, tooling) | Open issue, label `future`, don't branch yet |
-| Agent discovers a problem mid-work | Open issue, continue current PR, address later |
-| Trivial one-line fix | Branch directly, no issue |
+| Any phase-scoped feature, bugfix, refactor, or research task | Create a real GitHub issue first → assign its roadmap milestone → create a focused branch → PR closes the issue |
+| Bug found during device testing or review | Create issue in the owning phase milestone before implementation |
+| New follow-up discovered during a PR | Create a separate issue in the owning milestone; do not expand the current PR unless user explicitly approves it |
+| Infrastructure work (CI, Dependabot, review, security) | Create issue in the Infrastructure milestone before implementation |
+| Trivial typo or one-line documentation correction | Direct branch/PR is allowed; no issue required |
+
+**Required sequence for phase work:**
+1. Read `docs/roadmap/README.md` and the owning phase doc.
+2. Create an issue with the behavior, acceptance criteria, and a link to the phase doc.
+3. Assign the issue to the matching GitHub milestone before creating the branch.
+4. Create one focused branch for that issue: `feat/<issue-number>-<short-description>` or `fix/<issue-number>-<short-description>`.
+5. Keep the PR focused. Its body must contain `Closes #<issue-number>` and mention the phase/milestone.
+6. Self-review the PR diff, run required verification, then request review.
 
 **Rules:**
-- Issues track the backlog. Branches implement the now.
-- If work spans multiple sessions or could be forgotten → issue.
-- If it's a single focused change you're doing right now → branch.
-- PRs should reference issues they close: `Closes #N` in the PR body.
-- Future-phase items get the `future` label so they're filterable.
+- Issues track real unfinished work; do not create retrospective placeholder issues merely to populate completed milestones.
+- Close completed milestones from commit/PR evidence when no real follow-up work remains.
+- One issue normally maps to one branch and one PR. Split unrelated work into separate issues/PRs.
+- Use label `future` only for work intentionally deferred beyond the current delivery window.
+- For this repository, use `github-personal_*` tools and the `artsaraiva/yomu` milestones; never use the work-account GitHub tools.
 
 ### GitHub Workflow
 
