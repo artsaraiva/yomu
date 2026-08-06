@@ -15,7 +15,7 @@ data class TypesetBubble(
     val textColor: Int = 0xFF000000.toInt()
 )
 
-class Typesetter {
+class Typesetter(var fontSizeScale: Float = 1.0f) {
 
     companion object {
         private const val MIN_FONT_SIZE = 10f
@@ -79,7 +79,7 @@ class Typesetter {
             }
         }
 
-        return bestSize
+        return (bestSize * fontSizeScale).coerceIn(MIN_FONT_SIZE, MAX_FONT_SIZE * 2f)
     }
 
     private fun wrapText(text: String, maxWidth: Float, fontSize: Float): List<String> {

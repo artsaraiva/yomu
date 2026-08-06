@@ -7,10 +7,12 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.ViewConfiguration
 import android.view.WindowManager
+import kotlin.math.hypot
 
 class FloatingButtonOverlay(
     private val context: Context,
-    private val windowManager: WindowManager
+    private val windowManager: WindowManager,
+    private val closeZoneOverlay: CloseZoneOverlay
 ) {
     private var buttonView: FloatingButtonView? = null
 
@@ -18,7 +20,9 @@ class FloatingButtonOverlay(
         initialX: Int,
         initialY: Int,
         onTap: () -> Unit,
-        onDragEnd: (x: Int, y: Int) -> Unit
+        onDragEnd: (x: Int, y: Int) -> Unit,
+        onLongPress: (() -> Unit)? = null,
+        onClose: (() -> Unit)? = null
     ): FloatingButtonView {
         buttonView?.let { return it }
 
@@ -26,6 +30,12 @@ class FloatingButtonOverlay(
         val displayMetrics = context.resources.displayMetrics
         val maxX = (displayMetrics.widthPixels - sizePx).coerceAtLeast(0)
         val maxY = (displayMetrics.heightPixels - sizePx).coerceAtLeast(0)
+        val closeZoneBounds = CloseZoneGeometry.zoneBounds(
+            screenWidth = displayMetrics.widthPixels,
+            screenHeight = displayMetrics.heightPixels,
+            density = displayMetrics.density
+        )
+        val activationRadiusPx = CloseZoneGeometry.activationRadiusPx(displayMetrics.density)
 
         val params = WindowManager.LayoutParams(
             sizePx,
@@ -72,17 +82,43 @@ class FloatingButtonOverlay(
                             params.x = (startX + dx).coerceIn(0, maxX)
                             params.y = (startY + dy).coerceIn(0, maxY)
                             windowManager.updateViewLayout(touchedView, params)
+
+                            val buttonCenter = CloseZoneGeometry.buttonCenter(params.x, params.y, sizePx)
+                            val distance = hypot(
+                                buttonCenter.first - closeZoneBounds.centerX.toFloat(),
+                                buttonCenter.second - closeZoneBounds.centerY.toFloat()
+                            )
+                            if (distance <= activationRadiusPx) {
+                                closeZoneOverlay.show()
+                                closeZoneOverlay.updateProximity(params.x, params.y, sizePx)
+                            } else {
+                                closeZoneOverlay.remove()
+                            }
                         }
                     }
 
                     MotionEvent.ACTION_UP -> {
+                        closeZoneOverlay.remove()
                         when (gestureClassifier.onActionUp(event.rawX, event.rawY)) {
                             TouchGestureClassifier.Gesture.TAP -> touchedView.performClick()
-                            TouchGestureClassifier.Gesture.DRAG -> onDragEnd(params.x, params.y)
+                            TouchGestureClassifier.Gesture.DRAG -> {
+                                if (closeZoneOverlay.isWithinZone(params.x, params.y, sizePx)) {
+                                    onClose?.invoke()
+                                } else {
+                                    onDragEnd(params.x, params.y)
+                                }
+                            }
+
+                            TouchGestureClassifier.Gesture.LONG_PRESS -> {
+                                closeZoneOverlay.remove()
+                                onLongPress?.invoke()
+                            }
                         }
                     }
 
-                    MotionEvent.ACTION_CANCEL -> Unit
+                    MotionEvent.ACTION_CANCEL -> {
+                        closeZoneOverlay.remove()
+                    }
                 }
                 true
             }
