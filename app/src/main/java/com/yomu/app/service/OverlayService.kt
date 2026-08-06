@@ -140,7 +140,6 @@ class OverlayService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
-        sendBroadcast(Intent(ACTION_SERVICE_STOPPED).setPackage(packageName))
         removeFloatingButton()
         translationRenderOverlay.remove()
         statusOverlay.remove()
@@ -148,6 +147,7 @@ class OverlayService : Service() {
         translationPipeline.close()
         scope.cancel()
         mainScope.cancel()
+        sendBroadcast(Intent(ACTION_SERVICE_STOPPED).setPackage(packageName))
         super.onDestroy()
     }
 
