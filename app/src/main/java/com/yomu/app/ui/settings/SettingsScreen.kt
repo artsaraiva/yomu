@@ -9,6 +9,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.yomu.app.translation.TranslationEngineType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,6 +41,26 @@ fun SettingsScreen(
                 )
             }
         }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        Text("Translation Engine", fontWeight = FontWeight.Medium, fontSize = 14.sp)
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            TranslationEngineType.entries.forEach { engine ->
+                FilterChip(
+                    selected = state.selectedEngine == engine,
+                    onClick = { viewModel.setTranslationEngine(engine) },
+                    label = { Text(engine.label, fontSize = 12.sp) }
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = state.selectedEngine.description,
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
 
         Spacer(modifier = Modifier.height(20.dp))
 

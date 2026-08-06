@@ -39,6 +39,7 @@ object Constants {
     const val PREF_AUTO_DETECT = "auto_detect"
     const val PREF_BUTTON_POSITION_X = "button_position_x"
     const val PREF_BUTTON_POSITION_Y = "button_position_y"
+    const val PREF_TRANSLATION_ENGINE = "translation_engine"
     
     const val DEFAULT_TARGET_LANGUAGE = "en"
     const val DEFAULT_SOURCE_LANGUAGE = "ja"

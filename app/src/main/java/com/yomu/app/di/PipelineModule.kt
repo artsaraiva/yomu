@@ -1,12 +1,15 @@
 package com.yomu.app.di
 
 import android.content.Context
+import android.content.SharedPreferences
 import com.yomu.core.Constants
 import com.yomu.ml.LlamaBridge
 import com.yomu.ml.LlamaTranslationBridge
 import com.yomu.ml.OnnxRuntime
 import com.yomu.ml.TranslationBridge
+import com.yomu.ml.opusmt.OpusMtTranslationBridge
 import com.yomu.app.translation.MlKitTranslationBridge
+import com.yomu.app.translation.TranslationEngineSelector
 import com.yomu.pipeline.TranslationPipeline
 import com.yomu.pipeline.bubble.BubbleDetector
 import com.yomu.pipeline.context.ContextAssembler
@@ -77,21 +80,30 @@ object PipelineModule {
 
     @Provides
     @Singleton
-    fun provideTranslationBridge(): TranslationBridge {
-        return MlKitTranslationBridge()
+    fun provideTranslationEngineSelector(
+        mlKitBridge: MlKitTranslationBridge,
+        opusMtBridge: OpusMtTranslationBridge,
+        llamaBridge: LlamaTranslationBridge,
+        sharedPreferences: SharedPreferences
+    ): TranslationEngineSelector {
+        return TranslationEngineSelector(
+            mlKitBridge,
+            opusMtBridge,
+            llamaBridge,
+            sharedPreferences
+        )
     }
-
-    // To enable local LLM translation, replace provideTranslationBridge with:
-    // @Provides
-    // @Singleton
-    // fun provideTranslationBridge(
-    //     llamaTranslationBridge: LlamaTranslationBridge
-    // ): TranslationBridge = llamaTranslationBridge
 
     @Provides
     @Singleton
-    fun provideTranslationEngine(translationBridge: TranslationBridge): TranslationEngine {
-        return TranslationEngine(translationBridge)
+    fun provideTranslationBridge(selector: TranslationEngineSelector): TranslationBridge = selector
+
+    @Provides
+    @Singleton
+    fun provideTranslationEngine(selector: TranslationEngineSelector): TranslationEngine {
+        // ponytail: engineId is fixed at DI construction; cache keys won't change mid-session
+        // if the user switches engines. Acceptable for Phase 1.
+        return TranslationEngine(selector, selector.engineId)
     }
 
     @Provides
