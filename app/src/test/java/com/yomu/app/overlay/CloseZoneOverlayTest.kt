@@ -16,8 +16,8 @@ class CloseZoneOverlayTest {
         )
 
         assertEquals(540, bounds.centerX)
-        assertEquals(40 * 2, bounds.radiusPx)
-        val expectedCenterY = 2400 - (16 * 2) - (40 * 2)
+        assertEquals(120 * 2, bounds.radiusPx)
+        val expectedCenterY = 2400 - (16 * 2) - (120 * 2)
         assertEquals(expectedCenterY, bounds.centerY)
     }
 
@@ -86,9 +86,10 @@ class CloseZoneOverlayTest {
 
     @Test
     fun `radius helpers scale with density`() {
-        assertEquals(80, CloseZoneGeometry.baseRadiusPx(2f))
-        assertEquals(96, CloseZoneGeometry.snapRadiusPx(2f))
-        assertEquals(112, CloseZoneGeometry.maxViewRadiusPx(2f))
-        assertEquals(400, CloseZoneGeometry.activationRadiusPx(2f))
+        assertEquals(240, CloseZoneGeometry.baseRadiusPx(2f))
+        assertEquals(264, CloseZoneGeometry.snapRadiusPx(2f))
+        assertEquals(280, CloseZoneGeometry.maxViewRadiusPx(2f))
+        assertEquals(500, CloseZoneGeometry.activationRadiusPx(2f))
+        assertEquals(1.5f, CloseZoneGeometry.releaseHitRadiusMultiplier())
     }
 }

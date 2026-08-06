@@ -11,11 +11,12 @@ import android.view.WindowManager
 import kotlin.math.hypot
 
 object CloseZoneGeometry {
-    private const val BASE_RADIUS_DP = 40
-    private const val SNAP_RADIUS_DP = 48
-    private const val MAX_VIEW_RADIUS_DP = 56
+    private const val BASE_RADIUS_DP = 120
+    private const val SNAP_RADIUS_DP = 132
+    private const val MAX_VIEW_RADIUS_DP = 140
     private const val BOTTOM_MARGIN_DP = 16
-    private const val ACTIVATION_RADIUS_DP = 200
+    private const val ACTIVATION_RADIUS_DP = 250
+    private const val RELEASE_HIT_RADIUS_MULTIPLIER = 1.5f
 
     data class ZoneBounds(
         val centerX: Int,
@@ -37,17 +38,19 @@ object CloseZoneGeometry {
     fun isWithinZone(
         buttonCenterX: Int,
         buttonCenterY: Int,
-        zoneBounds: ZoneBounds
+        zoneBounds: ZoneBounds,
+        radiusMultiplier: Float = 1f
     ): Boolean {
         val dx = buttonCenterX - zoneBounds.centerX
         val dy = buttonCenterY - zoneBounds.centerY
-        return hypot(dx.toFloat(), dy.toFloat()) <= zoneBounds.radiusPx
+        return hypot(dx.toFloat(), dy.toFloat()) <= zoneBounds.radiusPx * radiusMultiplier
     }
 
     fun baseRadiusPx(density: Float): Int = (BASE_RADIUS_DP * density).toInt()
     fun snapRadiusPx(density: Float): Int = (SNAP_RADIUS_DP * density).toInt()
     fun maxViewRadiusPx(density: Float): Int = (MAX_VIEW_RADIUS_DP * density).toInt()
     fun activationRadiusPx(density: Float): Int = (ACTIVATION_RADIUS_DP * density).toInt()
+    fun releaseHitRadiusMultiplier(): Float = RELEASE_HIT_RADIUS_MULTIPLIER
 }
 
 class CloseZoneOverlay(
@@ -120,7 +123,12 @@ class CloseZoneOverlay(
     fun isWithinZone(buttonX: Int, buttonY: Int, buttonSize: Int): Boolean {
         val bounds = zoneBounds ?: return false
         val center = CloseZoneGeometry.buttonCenter(buttonX, buttonY, buttonSize)
-        return CloseZoneGeometry.isWithinZone(center.first, center.second, bounds)
+        return CloseZoneGeometry.isWithinZone(
+            center.first,
+            center.second,
+            bounds,
+            CloseZoneGeometry.releaseHitRadiusMultiplier()
+        )
     }
 }
 

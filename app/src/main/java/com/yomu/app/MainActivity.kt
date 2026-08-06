@@ -18,16 +18,11 @@ import dagger.hilt.android.AndroidEntryPoint
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
-    private var mediaProjectionIntent: Intent? = null
-    private var mediaProjectionResultCode: Int = RESULT_CANCELED
-
     private val screenCaptureLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
         val data = result.data
         if (result.resultCode == RESULT_OK && data != null) {
-            mediaProjectionIntent = data
-            mediaProjectionResultCode = result.resultCode
             startOverlayService(data, result.resultCode)
         }
     }
@@ -69,11 +64,6 @@ class MainActivity : ComponentActivity() {
             return
         }
 
-        val cachedIntent = mediaProjectionIntent
-        if (cachedIntent != null && mediaProjectionResultCode == RESULT_OK) {
-            startOverlayService(cachedIntent, mediaProjectionResultCode)
-            return
-        }
         val manager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
         screenCaptureLauncher.launch(manager.createScreenCaptureIntent())
     }
