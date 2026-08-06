@@ -5,9 +5,11 @@ import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.Button
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.SeekBar
 import android.widget.TextView
@@ -59,7 +61,11 @@ class QuickSettingsPopup(
     }
 
     fun remove() {
-        popupView?.let { windowManager.removeView(it) }
+        popupView?.let {
+            if (it.isAttachedToWindow) {
+                windowManager.removeView(it)
+            }
+        }
         popupView = null
         params = null
     }
@@ -82,6 +88,21 @@ class QuickSettingsPopup(
             orientation = LinearLayout.VERTICAL
             setPadding(dpToPx(16), dpToPx(16), dpToPx(16), dpToPx(16))
             background = createBackground()
+            setOnTouchListener { _, event ->
+                if (event.actionMasked == MotionEvent.ACTION_OUTSIDE) {
+                    remove()
+                    true
+                } else {
+                    false
+                }
+            }
+        }
+
+        val header = FrameLayout(context).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
         }
 
         val title = TextView(context).apply {
@@ -89,8 +110,31 @@ class QuickSettingsPopup(
             setTextColor(DEFAULT_TEXT_COLOR)
             textSize = 16f
             setPadding(0, 0, 0, dpToPx(12))
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                Gravity.START or Gravity.CENTER_VERTICAL
+            )
         }
-        container.addView(title)
+        header.addView(title)
+
+        val closeButton = Button(context).apply {
+            text = "✕"
+            textSize = 14f
+            setTextColor(DEFAULT_TEXT_COLOR)
+            setBackgroundColor(android.graphics.Color.TRANSPARENT)
+            minWidth = 0
+            minimumWidth = 0
+            setPadding(dpToPx(8), 0, dpToPx(8), dpToPx(8))
+            setOnClickListener { remove() }
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                Gravity.END or Gravity.TOP
+            )
+        }
+        header.addView(closeButton)
+        container.addView(header)
 
         container.addView(createEngineSelector())
 

@@ -1,6 +1,8 @@
 package com.yomu.app.ui.settings
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -9,7 +11,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.yomu.app.db.entities.ModelEntity
+import com.yomu.app.db.entities.ModelStatus
 import com.yomu.app.translation.TranslationEngineType
+import com.yomu.core.Constants
+import com.yomu.core.toFileSizeString
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -22,6 +28,7 @@ fun SettingsScreen(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
+            .verticalScroll(rememberScrollState())
     ) {
         Text(
             text = "Settings",
@@ -61,6 +68,23 @@ fun SettingsScreen(
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        Text("Models", fontWeight = FontWeight.Medium, fontSize = 14.sp)
+        Spacer(modifier = Modifier.height(8.dp))
+
+        TranslationEngineType.entries.forEach { engine ->
+            EngineModelCard(
+                engine = engine,
+                models = state.models,
+                downloadingId = state.downloadingId,
+                downloadProgress = state.downloadProgress,
+                onDownload = { viewModel.downloadModel(it) },
+                onDelete = { viewModel.deleteModel(it) }
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+        }
 
         Spacer(modifier = Modifier.height(20.dp))
 
@@ -123,6 +147,173 @@ fun SettingsScreen(
             text = "Yomu v1.0",
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun EngineModelCard(
+    engine: TranslationEngineType,
+    models: List<ModelEntity>,
+    downloadingId: String?,
+    downloadProgress: Int,
+    onDownload: (String) -> Unit,
+    onDelete: (String) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(engine.label, fontWeight = FontWeight.Medium)
+            Text(
+                text = engine.description,
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            when (engine) {
+                TranslationEngineType.ML_KIT -> {
+                    val model = models.find { it.id == Constants.ML_KIT_JA_EN_MODEL_ID }
+                    if (model != null) {
+                        ModelStatusRow(
+                            model = model,
+                            isDownloading = downloadingId == model.id,
+                            progress = downloadProgress,
+                            onDownload = { onDownload(model.id) },
+                            onDelete = { onDelete(model.id) }
+                        )
+                    } else {
+                        Text(
+                            text = "Checking status…",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                TranslationEngineType.OPUS_MT -> {
+                    Text(
+                        text = "Download required: ~115MB",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "Coming soon",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                TranslationEngineType.LLM -> {
+                    val model = models.find { it.id == Constants.QWEN_TRANSLATION_MODEL_ID }
+                    if (model != null) {
+                        ModelStatusRow(
+                            model = model,
+                            isDownloading = downloadingId == model.id,
+                            progress = downloadProgress,
+                            onDownload = { onDownload(model.id) },
+                            onDelete = { onDelete(model.id) }
+                        )
+                        if (model.status == ModelStatus.READY || model.status == ModelStatus.DOWNLOADING) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Slow on-device inference. Use OPUS-MT for faster translation.",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    } else {
+                        Text(
+                            text = "Experimental — 1GB Qwen 3 1.7B 4-bit",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ModelStatusRow(
+    model: ModelEntity,
+    isDownloading: Boolean,
+    progress: Int,
+    onDownload: () -> Unit,
+    onDelete: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            when (model.status) {
+                ModelStatus.READY -> Text(
+                    text = if (model.id == Constants.ML_KIT_JA_EN_MODEL_ID) "Downloaded (baseline)" else "Ready",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                ModelStatus.DOWNLOADING -> Text(
+                    text = "Downloading $progress%",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                ModelStatus.AVAILABLE -> Text(
+                    text = "${model.fileSize.toFileSizeString()} — Not downloaded",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                ModelStatus.ERROR -> Text(
+                    text = "Error — tap to retry",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.error
+                )
+                else -> Text(
+                    text = model.status.name,
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        when {
+            isDownloading -> {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 2.dp
+                    )
+                    Text("$progress%", fontSize = 11.sp)
+                }
+            }
+            model.status == ModelStatus.READY -> {
+                OutlinedButton(onClick = onDelete) {
+                    Text("Delete", fontSize = 12.sp)
+                }
+            }
+            else -> {
+                Button(onClick = onDownload) {
+                    Text(
+                        if (model.status == ModelStatus.ERROR) "Retry" else "Download",
+                        fontSize = 12.sp
+                    )
+                }
+            }
+        }
+    }
+
+    if (isDownloading) {
+        LinearProgressIndicator(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp)
         )
     }
 }

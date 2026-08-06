@@ -13,7 +13,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel(),
-    onNavigateToModels: () -> Unit = {},
     onRequestScreenCapture: () -> Unit = {}
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -91,13 +90,5 @@ fun HomeScreen(
             }
         }
         
-        Spacer(modifier = Modifier.height(24.dp))
-        
-        OutlinedButton(
-            onClick = onNavigateToModels,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Manage Models")
-        }
     }
 }
