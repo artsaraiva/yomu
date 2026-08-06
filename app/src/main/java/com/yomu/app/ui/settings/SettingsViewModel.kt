@@ -17,6 +17,7 @@ data class SettingsUiState(
     val sourceLanguage: String = "ja",
     val autoDetect: Boolean = true,
     val selectedEngine: TranslationEngineType = TranslationEngineType.ML_KIT,
+    val fontSizeScale: Float = Constants.DEFAULT_FONT_SIZE_SCALE,
     val theme: String = "dark"
 )
 
@@ -38,6 +39,7 @@ class SettingsViewModel @Inject constructor(
             sourceLanguage = sharedPreferences.getString(Constants.PREF_SOURCE_LANGUAGE, "ja") ?: "ja",
             autoDetect = sharedPreferences.getBoolean(Constants.PREF_AUTO_DETECT, true),
             selectedEngine = engine,
+            fontSizeScale = sharedPreferences.getFloat(Constants.PREF_FONT_SIZE_SCALE, Constants.DEFAULT_FONT_SIZE_SCALE),
             theme = "dark"
         )
     }
@@ -55,5 +57,10 @@ class SettingsViewModel @Inject constructor(
     fun setTranslationEngine(type: TranslationEngineType) {
         translationEngineSelector.selectEngine(type)
         _uiState.value = _uiState.value.copy(selectedEngine = type)
+    }
+
+    fun setFontSizeScale(scale: Float) {
+        sharedPreferences.edit().putFloat(Constants.PREF_FONT_SIZE_SCALE, scale).apply()
+        _uiState.value = _uiState.value.copy(fontSizeScale = scale)
     }
 }

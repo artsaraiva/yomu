@@ -40,8 +40,10 @@ object Constants {
     const val PREF_BUTTON_POSITION_X = "button_position_x"
     const val PREF_BUTTON_POSITION_Y = "button_position_y"
     const val PREF_TRANSLATION_ENGINE = "translation_engine"
+    const val PREF_FONT_SIZE_SCALE = "font_size_scale"
     
     const val DEFAULT_TARGET_LANGUAGE = "en"
     const val DEFAULT_SOURCE_LANGUAGE = "ja"
     const val DEFAULT_AUTO_DETECT = true
+    const val DEFAULT_FONT_SIZE_SCALE = 1.0f
 }
