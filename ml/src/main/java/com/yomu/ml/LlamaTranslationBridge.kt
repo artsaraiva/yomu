@@ -15,8 +15,9 @@ class LlamaTranslationBridge(
         private const val N_CTX = 2048
         private const val N_GPU_LAYERS = 0
         private val N_THREADS = Runtime.getRuntime().availableProcessors().coerceAtMost(4)
-        private const val MAX_TOKENS = 256
+        private const val MAX_TOKENS = 64
         private const val TEMPERATURE = 0.2f
+        private const val TIMEOUT_MS = 15_000
     }
 
     private val readinessMutex = Mutex()
@@ -48,7 +49,7 @@ class LlamaTranslationBridge(
         if (sourceText.isBlank()) return null
         if (status !is TranslationStatus.Ready && !ensureReady()) return null
 
-        return when (val result = llamaBridge.generate(sourceText, MAX_TOKENS, TEMPERATURE)) {
+        return when (val result = llamaBridge.generate(sourceText, MAX_TOKENS, TEMPERATURE, TIMEOUT_MS)) {
             is GenerationResult.Success -> {
                 val text = result.text.trim()
                 if (text.isBlank()) {

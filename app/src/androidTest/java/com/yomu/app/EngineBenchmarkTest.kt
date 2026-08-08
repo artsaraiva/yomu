@@ -1,18 +1,15 @@
 package com.yomu.app
 
-import android.Manifest
 import android.content.Context
-import android.os.Environment
 import android.util.Log
-import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.rule.GrantPermissionRule
+import androidx.test.platform.app.InstrumentationRegistry
 import com.yomu.app.translation.TranslationEngineSelector
 import com.yomu.app.translation.TranslationEngineType
 import com.yomu.ml.TranslationStatus
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
-import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Before
@@ -21,7 +18,6 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
 import javax.inject.Inject
-import kotlin.time.Duration.Companion.minutes
 
 @HiltAndroidTest
 @RunWith(AndroidJUnit4::class)
@@ -29,11 +25,6 @@ class EngineBenchmarkTest {
 
     @get:Rule(order = 0)
     val hiltRule = HiltAndroidRule(this)
-
-    @get:Rule(order = 1)
-    val permissionRule: GrantPermissionRule = GrantPermissionRule.grant(
-        Manifest.permission.WRITE_EXTERNAL_STORAGE
-    )
 
     @Inject
     lateinit var selector: TranslationEngineSelector
@@ -44,13 +35,11 @@ class EngineBenchmarkTest {
     }
 
     @Test
-    fun benchmarkAllEngines() = runTest(timeout = 30.minutes) {
-        val context = ApplicationProvider.getApplicationContext<Context>()
-        val cases = loadCases(context)
-        val outputDir = File(
-            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
-            "yomu-benchmark"
-        )
+    fun benchmarkAllEngines() {
+        runBlocking {
+            val context = InstrumentationRegistry.getInstrumentation().targetContext
+            val cases = loadCases(InstrumentationRegistry.getInstrumentation().context)
+            val outputDir = File(context.getExternalFilesDir(null), "yomu-benchmark")
         outputDir.mkdirs()
 
         val timingRows = mutableListOf<TimingRow>()
@@ -97,7 +86,8 @@ class EngineBenchmarkTest {
 
         writeTimingCsv(outputDir, timingRows)
         selector.close()
-        Log.i(TAG, "Benchmark complete. Output: ${outputDir.absolutePath}")
+            Log.i(TAG, "Benchmark complete. Output: ${outputDir.absolutePath}")
+        }
     }
 
     private fun loadCases(context: Context): List<Pair<String, List<String>>> {
