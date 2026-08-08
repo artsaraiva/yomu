@@ -15,8 +15,8 @@ class LlamaTranslationBridge(
         private const val N_CTX = 2048
         private const val N_GPU_LAYERS = 0
         private val N_THREADS = Runtime.getRuntime().availableProcessors().coerceAtMost(4)
-        private const val MAX_TOKENS = 512
-        private const val TEMPERATURE = 0.7f
+        private const val MAX_TOKENS = 256
+        private const val TEMPERATURE = 0.2f
     }
 
     private val readinessMutex = Mutex()
@@ -61,7 +61,7 @@ class LlamaTranslationBridge(
                     )
                     TranslationOutput(
                         translatedText = text,
-                        confidence = 0.7f,
+                        confidence = 0.8f,
                         durationMs = result.durationMs
                     )
                 }
