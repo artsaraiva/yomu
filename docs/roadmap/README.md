@@ -30,8 +30,10 @@ Completed milestones are closed from commit and merged-PR evidence. We do **not*
 
 1. Merge and validate [PR #8](https://github.com/artsaraiva/yomu/pull/8): overlay stability and Settings-led navigation/model management.
 2. Resolve [#7](https://github.com/artsaraiva/yomu/issues/7): measure ML Kit, OPUS-MT, and CAT-Translate so the default engine is evidence-based.
-3. Resolve [#6](https://github.com/artsaraiva/yomu/issues/6): implement the missing manga-detected pulse before pursuing auto-translate.
-4. Add infrastructure issues [#1](https://github.com/artsaraiva/yomu/issues/1)–[#4](https://github.com/artsaraiva/yomu/issues/4).
+3. Resolve [#11](https://github.com/artsaraiva/yomu/issues/11): make CAT-Translate generation responsive on target devices.
+4. Define the separate fine-tuning workflow in [#12](https://github.com/artsaraiva/yomu/issues/12) after the base-engine benchmark is complete.
+5. Resolve [#6](https://github.com/artsaraiva/yomu/issues/6): implement the missing manga-detected pulse before pursuing auto-translate.
+6. Add infrastructure issues [#1](https://github.com/artsaraiva/yomu/issues/1)–[#4](https://github.com/artsaraiva/yomu/issues/4).
 
 ## Delivery evidence
 
