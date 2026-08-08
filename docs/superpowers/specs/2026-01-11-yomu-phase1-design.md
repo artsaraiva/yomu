@@ -105,17 +105,15 @@ The pipeline consists of 6 stages that process a screenshot into translated over
 
 ### 3.5 Translation
 
-- **Model:** Qwen 3 1.7B (4-bit quantized GGUF)
+- **Model:** CAT-Translate 0.8B (4-bit quantized GGUF)
 - **Runtime:** llama.cpp via JNI (C++)
-- **Size:** ~1 GB
+- **Size:** ~500 MB
 - **Speed:** ~8-15 tokens/second (~1-3 seconds per page)
 - **Context Window:** ~2K tokens
 - **Prompt Strategy:**
   ```
-  System: "You are a manga translator. Translate the following conversation naturally, preserving tone and context."
-  User: "Translate this conversation:
-  [1] 日本語テキスト...
-  [2] 日本語テキスト..."
+  System: "Translate from Japanese to English."
+  User: "Translate from Japanese to English: 日本語テキスト..."
   ```
 - **Output:** Structured JSON with translated text per bubble
 
@@ -155,8 +153,8 @@ The pipeline consists of 6 stages that process a screenshot into translated over
 
 Displays three models:
 - **Vision Models (Required):** Bubble detection + OCR, ~160 MB
-- **Qwen 3 1.7B 4-bit (Required):** Translation engine, ~1 GB
-- **Qwen 3 1.7B 8-bit (Optional):** Higher quality translation, ~2 GB
+- **CAT-Translate 0.8B 4-bit (Required):** Translation engine, ~500 MB
+- **CAT-Translate 0.8B 8-bit (Optional):** Higher quality translation, ~850 MB
 
 Warning banner: "Total required: ~1.16 GB. We recommend downloading over Wi-Fi."
 

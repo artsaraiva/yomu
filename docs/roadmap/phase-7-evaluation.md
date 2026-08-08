@@ -19,7 +19,7 @@ Foundation delivered in `fb67a88`.
 
 ## Remaining work
 
-- Collect real outputs from ML Kit, OPUS-MT, and Qwen on device.
+- Collect real outputs from ML Kit, OPUS-MT, and CAT-Translate on device.
 - Run comparisons to resolve [#7](https://github.com/artsaraiva/yomu/issues/7).
 - Add difficult real-world cases: noisy OCR, slang, small bubbles, narration, SFX, and edge cases.
 - Publish repeatable evaluation reports without shipping licensed source images in the app.

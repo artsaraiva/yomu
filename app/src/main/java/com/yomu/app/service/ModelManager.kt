@@ -102,13 +102,13 @@ class ModelManager @Inject constructor(
                 isRequired = false
             ),
             ModelEntity(
-                id = Constants.QWEN_TRANSLATION_MODEL_ID,
-                name = "Qwen 3 1.7B (4-bit Q4_K_M)",
+                id = Constants.CAT_TRANSLATION_MODEL_ID,
+                name = "CAT-Translate 0.8B (Q4_K_M)",
                 type = ModelType.LLM,
                 fileName = Constants.TRANSLATION_MODEL_4BIT,
-                fileSize = 1_282_439_584L,
-                downloadUrl = "https://huggingface.co/bartowski/Qwen_Qwen3-1.7B-GGUF/resolve/main/Qwen_Qwen3-1.7B-Q4_K_M.gguf",
-                checksum = "72c5c3cb38fa32d5256e2fe30d03e7a64c6c79e668ad84057e3bd66e250b24fb",
+                fileSize = 528_205_184L,
+                downloadUrl = "https://huggingface.co/mradermacher/CAT-Translate-0.8b-GGUF/resolve/main/CAT-Translate-0.8b.Q4_K_M.gguf",
+                checksum = "6de8e40b687eb2248727c8ad208c54af8c82ad52b415901859d5fcd7fd65bb4c",
                 status = ModelStatus.AVAILABLE,
                 version = "1.0",
                 isRequired = false

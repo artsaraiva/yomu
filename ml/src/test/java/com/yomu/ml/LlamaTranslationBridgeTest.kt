@@ -21,7 +21,7 @@ class LlamaTranslationBridgeTest {
         val output = bridge.translate("こんにちは")
 
         assertEquals("Hello", output?.translatedText)
-        assertEquals(0.7f, output?.confidence)
+        assertEquals(0.8f, output?.confidence)
         assertEquals(100L, output?.durationMs)
         model.delete()
     }

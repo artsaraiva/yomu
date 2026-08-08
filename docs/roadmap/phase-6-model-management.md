@@ -12,7 +12,7 @@ Make translation-engine assets understandable and manageable without a dedicated
 
 - ML Kit is presented as the baseline.
 - OPUS-MT is presented as the local-first target.
-- Qwen is labeled experimental and slow.
+- CAT-Translate is labeled experimental and slow.
 
 ## Remaining work
 

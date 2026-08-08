@@ -29,7 +29,7 @@ Completed milestones are closed from commit and merged-PR evidence. We do **not*
 ## Current priorities
 
 1. Merge and validate [PR #8](https://github.com/artsaraiva/yomu/pull/8): overlay stability and Settings-led navigation/model management.
-2. Resolve [#7](https://github.com/artsaraiva/yomu/issues/7): measure ML Kit, OPUS-MT, and Qwen so the default engine is evidence-based.
+2. Resolve [#7](https://github.com/artsaraiva/yomu/issues/7): measure ML Kit, OPUS-MT, and CAT-Translate so the default engine is evidence-based.
 3. Resolve [#6](https://github.com/artsaraiva/yomu/issues/6): implement the missing manga-detected pulse before pursuing auto-translate.
 4. Add infrastructure issues [#1](https://github.com/artsaraiva/yomu/issues/1)–[#4](https://github.com/artsaraiva/yomu/issues/4).
 

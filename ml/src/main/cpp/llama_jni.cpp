@@ -20,8 +20,7 @@ static const llama_vocab *g_vocab = nullptr;
 static llama_sampler *g_sampler = nullptr;
 static std::atomic<int64_t> g_abort_deadline_ms{0};
 
-static const char *SYSTEM_PROMPT =
-    "You are a manga translator. Translate the following Japanese conversation to English naturally, preserving tone and context.";
+static const char *SYSTEM_PROMPT = "Translate from Japanese to English.";
 static const int64_t MIN_TIMEOUT_MS = 60000;
 
 static int64_t now_ms() {
@@ -78,10 +77,8 @@ static std::string apply_chat_template(const char *user_prompt) {
         }
     }
 
-    LOGW("Chat template failed, falling back to manual Qwen3 format");
-    return std::string("<|im_start|>system\n") + SYSTEM_PROMPT +
-           "<|im_end|>\n<|im_start|>user\n" + user_prompt +
-           "<|im_end|>\n<|im_start|>assistant\n";
+    LOGW("Chat template failed, falling back to generic instruction format");
+    return std::string("Translate from Japanese to English: ") + user_prompt + "\n";
 }
 
 extern "C" JNIEXPORT jint JNICALL
