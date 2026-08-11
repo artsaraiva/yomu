@@ -20,9 +20,8 @@ static const llama_vocab *g_vocab = nullptr;
 static llama_sampler *g_sampler = nullptr;
 static std::atomic<int64_t> g_abort_deadline_ms{0};
 
-static const char *SYSTEM_PROMPT =
-    "You are a manga translator. Translate the following Japanese conversation to English naturally, preserving tone and context.";
-static const int64_t MIN_TIMEOUT_MS = 60000;
+static const char *SYSTEM_PROMPT = "Translate the following Japanese text into English.";
+static const int64_t DEFAULT_TIMEOUT_MS = 1000;
 
 static int64_t now_ms() {
     return std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -60,28 +59,7 @@ static bool rebuild_sampler(float temperature) {
 }
 
 static std::string apply_chat_template(const char *user_prompt) {
-    const char *tmpl = llama_model_chat_template(g_model, nullptr);
-
-    std::vector<llama_chat_message> chat = {
-        {"system", SYSTEM_PROMPT},
-        {"user",   user_prompt}
-    };
-
-    int len = llama_chat_apply_template(tmpl, chat.data(), chat.size(), true, nullptr, 0);
-    if (len > 0) {
-        std::string formatted(len, '\0');
-        int written = llama_chat_apply_template(tmpl, chat.data(), chat.size(), true,
-                                                formatted.data(), len);
-        if (written > 0 && written <= len) {
-            formatted.resize(written);
-            return formatted;
-        }
-    }
-
-    LOGW("Chat template failed, falling back to manual Qwen3 format");
-    return std::string("<|im_start|>system\n") + SYSTEM_PROMPT +
-           "<|im_end|>\n<|im_start|>user\n" + user_prompt +
-           "<|im_end|>\n<|im_start|>assistant\n";
+    return std::string("<|user|>") + SYSTEM_PROMPT + "\n\n" + user_prompt + "</s><|assistant|>";
 }
 
 extern "C" JNIEXPORT jint JNICALL
@@ -165,7 +143,7 @@ Java_com_yomu_ml_LlamaBridge_nativeGenerate(
         return env->NewStringUTF("");
     }
 
-    const int64_t effective_timeout = timeout_ms > MIN_TIMEOUT_MS ? (int64_t)timeout_ms : MIN_TIMEOUT_MS;
+    const int64_t effective_timeout = timeout_ms > 0 ? (int64_t)timeout_ms : DEFAULT_TIMEOUT_MS;
     g_abort_deadline_ms.store(now_ms() + effective_timeout, std::memory_order_relaxed);
     llama_set_abort_callback(g_ctx, abort_if_timed_out, nullptr);
 

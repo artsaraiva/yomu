@@ -52,6 +52,72 @@ small derived metadata.
 comparison, collect on-device outputs and place them in the format below, then
 run without `--stub`.
 
+## One-command benchmark runner
+
+Use the script below to run the full on-device benchmark flow (instrumentation,
+artifact pull, and scoring):
+
+```bash
+./eval/run-benchmark.sh
+```
+
+### Prerequisites
+
+- Android device/emulator connected and visible to `adb`
+- `adb` in `PATH` (Android platform-tools)
+- `python3` in `PATH`
+- Executable Gradle wrapper at `./gradlew`
+
+If any prerequisite is missing, the script fails early with an actionable error.
+
+### What the script does
+
+`run-benchmark.sh` executes numbered progress steps with elapsed time:
+
+1. prerequisites
+2. build/install
+3. device test
+4. pull artifacts
+5. score results
+6. summary
+
+It streams instrumentation/eval output to the terminal and writes a persistent
+log for the run.
+
+### Output layout
+
+Each run creates a unique timestamped directory (never overwrites prior runs):
+
+```text
+eval/benchmark-results/<timestamp>/
+├── benchmark.log          # full combined run log
+├── raw-artifacts/         # pulled device files from yomu-benchmark/
+├── run-eval-output.log    # eval script stdout
+└── scored-results.json    # copied score JSON from run-eval.py
+```
+
+Artifacts are pulled from the app-specific path on device:
+
+`/sdcard/Android/data/com.yomu.app/files/yomu-benchmark/`
+
+### Flags
+
+- `--skip-build`: skip build/install, still runs connected instrumentation tests
+- `--skip-eval`: skip scoring step
+
+Examples:
+
+```bash
+./eval/run-benchmark.sh --skip-build
+./eval/run-benchmark.sh --skip-eval
+```
+
+### Engine availability note
+
+If an on-device model is unavailable (for example OPUS-MT model files are not
+present), that engine may be skipped or reported with an error in results while
+other engines continue to be scored.
+
 ### Bubble detection output format
 
 Per case, write `eval/bubble-detection/cases/<case-id>/actual.json`:
