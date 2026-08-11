@@ -6,7 +6,7 @@
 
 ## Brainstorm Decisions
 
-1. **LLM strategy:** Repair Qwen3 1.7B decode timeout first (KV-cache, threads, deadline). Replace only if unrecoverable.
+1. **LLM strategy:** Repair CAT-Translate 0.8B decode timeout first (KV-cache, threads, deadline). Replace only if unrecoverable.
 2. **OPUS-MT vs LLM:** Parallel lanes.
 3. **Engine selector UI:** Both — Settings holds the selector, Models shows assets for the selected engine (grouped by capability, already partially done).
 4. **Async render:** OCR-first, async-replace with English.
@@ -17,7 +17,7 @@
 ```
 A. Eval dataset (independent, background) ──┐
 B. Translation cache (independent) ──────────┤
-C. Qwen LLM repair (independent, risky) ────┤── E. Engine selector UI
+C. CAT-Translate LLM repair (independent, risky) ────┤── E. Engine selector UI
 D. OPUS-MT ONNX (independent) ──────────────┤── F. Async render (OCR-first)
 G. Warm-model cache (depends on C) ─────────┘
 ```
@@ -36,7 +36,7 @@ G. Warm-model cache (depends on C) ─────────┘
 - Hit = skip model entirely.
 - Owner: @fixer.
 
-### Lane C — Qwen LLM repair
+### Lane C — CAT-Translate LLM repair
 - Diagnose decode timeout root cause (native abort, blank return).
 - Investigate: KV-cache reuse across bubbles, thread count, context reuse, decode deadline, quantization.
 - Fix or explicitly mark experimental.

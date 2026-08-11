@@ -348,7 +348,7 @@ Benefits:
 
 ## V1 Model
 
-### Qwen 3 1.7B
+### CAT-Translate 0.8B
 
 Recommended deployment:
 
@@ -359,13 +359,13 @@ GGUF
 
 Advantages:
 
-* Strong multilingual performance.
-* Good Japanese understanding.
-* Excellent mobile compatibility.
+* Purpose-built for Japanese↔English translation.
+* MIT-licensed.
+* Smaller download than general multilingual models.
 
 Estimated Size:
 
-~1 GB
+~500 MB
 
 ---
 
@@ -376,7 +376,7 @@ Estimated Size:
 Base:
 
 ```text
-Qwen 3 1.7B
+CAT-Translate 0.8B
 ```
 
 Training Data:
@@ -404,7 +404,7 @@ Benefits:
 
 ### Cloud Models
 
-* Qwen 3 14B
+* CAT-Translate 1.8B
 * Gemma 3 12B
 * Custom Yomu 14B Translator
 
