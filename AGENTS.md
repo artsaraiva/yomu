@@ -2,13 +2,6 @@
 
 This file governs all AI agent behavior in this repository.
 
-### Superpowers: Always On
-
-1. **Check skills BEFORE any action.** For every task, check available_skills first. Even 1% relevance means load the skill.
-2. **brainstorming before build.** Any feature, bugfix, or change must go through brainstorming (design → approve → plan → implement) unless it's a trivial one-line fix.
-3. **writing-plans before code.** After design approval, always invoke writing-plans to create an implementation plan. Then execute via subagent-driven-development or executing-plans.
-4. **verification-before-completion.** Never claim a task is done without running lint, tests, and build. Evidence before assertions.
-
 ### Git Conventions
 
 1. **worktrees.** All feature work happens in a separate git worktree, not the main checkout.
@@ -99,9 +92,6 @@ When a physical device or emulator is connected, use the `android-mcp_*` tools t
 - **Stack:** Kotlin, Jetpack Compose, Hilt, Room, ONNX Runtime, llama.cpp
 - **Architecture:** Main app + foreground overlay service
 - **Phase 1 scope:** Japanese→English, single-page, Android, local-only, system-wide overlay
-- **Spec:** `docs/superpowers/specs/2026-01-11-yomu-phase1-design.md`
-- **Plan:** `docs/superpowers/plans/2026-01-11-yomu-phase1.md`
-
 ### When stuck
 
 1. Read the relevant spec or plan doc first.

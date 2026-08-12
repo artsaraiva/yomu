@@ -1,6 +1,14 @@
-.superpowers/
 .worktrees/
 .slim/deepwork/
+
+# Local agent state
+.codegraph/
+.headroom/
+.opencode/
+.serena/
+
+# Generated benchmark output
+eval/benchmark-results/
 
 # BEGIN oh-my-opencode-slim worktrees
 .slim/worktrees/
