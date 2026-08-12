@@ -39,53 +39,59 @@ class EngineBenchmarkTest {
         runBlocking {
             val context = InstrumentationRegistry.getInstrumentation().targetContext
             val cases = loadCases(InstrumentationRegistry.getInstrumentation().context)
-            val outputDir = File(context.getExternalFilesDir(null), "yomu-benchmark")
-        outputDir.mkdirs()
+            val outputDir = File(context.filesDir, "yomu-benchmark")
+            outputDir.mkdirs()
 
-        val timingRows = mutableListOf<TimingRow>()
+            val timingRows = mutableListOf<TimingRow>()
 
-        for (type in ENGINES) {
-            val engineName = engineNameFor(type)
-            Log.i(TAG, "Benchmarking engine=$engineName")
+            for (type in ENGINES) {
+                val engineName = engineNameFor(type)
+                Log.i(TAG, "Benchmarking engine=$engineName")
 
-            selector.selectEngine(type)
-            val ready = runCatching {
-                selector.ensureReady()
-            }.getOrElse { false }
+                selector.selectEngine(type)
+                val ready = runCatching {
+                    selector.ensureReady()
+                }.getOrElse { false }
 
-            if (!ready) {
-                val reason = (selector.status as? TranslationStatus.Error)?.reason ?: "not_ready"
-                Log.e(TAG, "Engine $engineName not ready, skipping. reason=$reason")
-                continue
-            }
-
-            for ((caseId, lines) in cases) {
-                val translations = mutableListOf<String>()
-                for ((index, line) in lines.withIndex()) {
-                    val output = if (line.isBlank()) {
-                        null
-                    } else {
-                        runCatching { selector.translate(line) }.getOrNull()
-                    }
-                    translations.add(output?.translatedText ?: "")
-                    timingRows.add(
-                        TimingRow(
-                            caseId = caseId,
-                            engine = engineName,
-                            lineIndex = index,
-                            durationMs = output?.durationMs ?: 0L,
-                            success = output != null
-                        )
-                    )
+                if (!ready) {
+                    val reason = (selector.status as? TranslationStatus.Error)?.reason ?: "not_ready"
+                    Log.e(TAG, "Engine $engineName not ready, skipping. reason=$reason")
+                    continue
                 }
-                writeEngineResult(outputDir, caseId, engineName, translations)
+
+                for ((caseId, lines) in cases) {
+                    val translations = mutableListOf<String>()
+                    for ((index, line) in lines.withIndex()) {
+                        val output = if (line.isBlank()) {
+                            null
+                        } else {
+                            runCatching { selector.translate(line) }.getOrNull()
+                        }
+                        val translatedText = output?.translatedText ?: ""
+                        translations.add(translatedText)
+                        timingRows.add(
+                            TimingRow(
+                                caseId = caseId,
+                                engine = engineName,
+                                lineIndex = index,
+                                durationMs = output?.durationMs ?: 0L,
+                                success = output != null,
+                                source = line,
+                                translation = translatedText
+                            )
+                        )
+                        Log.i(TAG, "Result engine=$engineName case=$caseId line=$index durationMs=${output?.durationMs ?: 0} source=${line.take(40)} translation=${translatedText.take(80)}")
+                    }
+                    writeEngineResult(outputDir, caseId, engineName, translations)
+                    logEngineResult(caseId, engineName, translations)
+                }
+
+                selector.clearMemory()
             }
 
-            selector.clearMemory()
-        }
-
-        writeTimingCsv(outputDir, timingRows)
-        selector.close()
+            writeTimingCsv(outputDir, timingRows)
+            logTimingCsv(timingRows)
+            selector.close()
             Log.i(TAG, "Benchmark complete. Output: ${outputDir.absolutePath}")
         }
     }
@@ -115,15 +121,31 @@ class EngineBenchmarkTest {
         File(caseDir, "$engineName.json").writeText(json.toString(2))
     }
 
+    private fun logEngineResult(caseId: String, engineName: String, translations: List<String>) {
+        val json = JSONObject().apply {
+            put("engine", engineName)
+            put("translations", JSONArray(translations))
+        }
+        Log.i(TAG, "RESULT_JSON case=$caseId engine=$engineName json=${json.toString()}")
+    }
+
     private fun writeTimingCsv(outputDir: File, rows: List<TimingRow>) {
         val file = File(outputDir, "benchmark_timing.csv")
         file.bufferedWriter().use { writer ->
-            writer.write("case_id,engine,line_index,duration_ms,success")
+            writer.write("case_id,engine,line_index,duration_ms,success,source,translation")
             writer.newLine()
             rows.forEach { row ->
-                writer.write("${row.caseId},${row.engine},${row.lineIndex},${row.durationMs},${row.success}")
+                val escapedSource = row.source.replace(",", ";").replace("\n", " ")
+                val escapedTranslation = row.translation.replace(",", ";").replace("\n", " ")
+                writer.write("${row.caseId},${row.engine},${row.lineIndex},${row.durationMs},${row.success},$escapedSource,$escapedTranslation")
                 writer.newLine()
             }
+        }
+    }
+
+    private fun logTimingCsv(rows: List<TimingRow>) {
+        rows.forEach { row ->
+            Log.i(TAG, "TIMING case=${row.caseId} engine=${row.engine} line=${row.lineIndex} durationMs=${row.durationMs} success=${row.success}")
         }
     }
 
@@ -138,7 +160,9 @@ class EngineBenchmarkTest {
         val engine: String,
         val lineIndex: Int,
         val durationMs: Long,
-        val success: Boolean
+        val success: Boolean,
+        val source: String,
+        val translation: String
     )
 
     companion object {

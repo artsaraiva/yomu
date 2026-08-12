@@ -20,7 +20,6 @@ static const llama_vocab *g_vocab = nullptr;
 static llama_sampler *g_sampler = nullptr;
 static std::atomic<int64_t> g_abort_deadline_ms{0};
 
-static const char *SYSTEM_PROMPT = "Translate the following Japanese text into English.";
 static const int64_t DEFAULT_TIMEOUT_MS = 1000;
 
 static int64_t now_ms() {
@@ -59,7 +58,7 @@ static bool rebuild_sampler(float temperature) {
 }
 
 static std::string apply_chat_template(const char *user_prompt) {
-    return std::string("<|user|>") + SYSTEM_PROMPT + "\n\n" + user_prompt + "</s><|assistant|>";
+    return std::string("Translate the following Japanese text into English.\n\n") + user_prompt;
 }
 
 extern "C" JNIEXPORT jint JNICALL
@@ -123,6 +122,7 @@ Java_com_yomu_ml_LlamaBridge_nativeLoadModel(
         return JNI_FALSE;
     }
 
+    LOGI("Model loaded: n_ctx=%d n_threads=%d n_gpu_layers=%d", n_ctx, threads, n_gpu_layers);
     LOGI("Model loaded successfully");
     return JNI_TRUE;
 }
@@ -141,6 +141,11 @@ Java_com_yomu_ml_LlamaBridge_nativeGenerate(
     if (!g_ctx || !g_model || !g_vocab) {
         LOGE("Model not loaded");
         return env->NewStringUTF("");
+    }
+
+    auto *memory = llama_get_memory(g_ctx);
+    if (memory) {
+        llama_memory_clear(memory, false);
     }
 
     const int64_t effective_timeout = timeout_ms > 0 ? (int64_t)timeout_ms : DEFAULT_TIMEOUT_MS;
