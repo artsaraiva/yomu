@@ -80,7 +80,7 @@ This enables significantly higher-quality translations while preserving the visu
 
 ---
 
-# Superpowers
+# Advanced Capabilities
 
 ## 1. Context-Aware Translation
 

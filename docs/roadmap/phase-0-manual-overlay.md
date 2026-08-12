@@ -24,7 +24,7 @@ This milestone is closed from implementation evidence. No retrospective issues a
 
 ## Follow-ups owned elsewhere
 
-- Engine quality → [Phase 1](phase-1-translation-engines.md)
-- Auto-detect pulse → [Phase 3](phase-3-auto-translate.md)
-- Evaluation → [Phase 7](phase-7-evaluation.md)
-- Text fitting → [Phase 8](phase-8-rendering.md)
+- Functional translation stack → [Phase 1](phase-1-functional-translation-stack.md)
+- Evaluation → [Phase 2](phase-2-quality-evaluation.md)
+- Auto-detect pulse → [Phase 6](phase-6-automatic-detection.md)
+- Text fitting and visual language → [Phase 7](phase-7-ui-ux-redesign.md)
