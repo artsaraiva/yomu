@@ -14,21 +14,22 @@ Turn translation into a selectable capability rather than a hard-wired ML Kit ex
 - Persistent translation cache keyed by engine/model/normalized source text.
 - Async OCR-first overlay rendering.
 - Settings-level engine selector and model status foundations.
+- Native optimizations: NEON dotprod SIMD + -O2 compiler flags, prompt template fix.
+- On-device benchmark harness with logcat-based results capture.
 
 ## Evidence
 
-`fb67a88`, `4c3c3ef`, and `51b6fc1`.
+`fb67a88`, `4c3c3ef`, `51b6fc1`. Benchmark results: [PR #13](https://github.com/artsaraiva/yomu/pull/13).
 
 ## Current status
 
-Core implementation is delivered, but the default-engine decision remains open. PR #10 adds repeatable on-device comparison; the result still depends on a local device run with downloaded models. CAT-Translate remains experimental until its runtime and quality meet the device budget.
+Default engine chosen: **ML Kit** (23ms/line, best quality). CAT-Translate works at 1500ms/line but quality is poor for manga — needs domain investigation. OPUS-MT blocked by missing Android tokenizer native library.
 
 ## Remaining work
 
-- Resolve [#7](https://github.com/artsaraiva/yomu/issues/7) with measured engine quality and latency.
-- Resolve [#11](https://github.com/artsaraiva/yomu/issues/11) if CAT-Translate still exceeds the interactive latency budget after the bounded-generation fix.
-- Choose a default engine from evidence; likely keep CAT-Translate behind an experimental path unless it meets the device budget.
-- Validate OPUS-MT model asset download and readiness on target devices.
+- Resolve [#15](https://github.com/artsaraiva/yomu/issues/15): investigate whether to fine-tune or replace the LLM model.
+- Resolve [#14](https://github.com/artsaraiva/yomu/issues/14): replace OPUS-MT with Android-compatible alternative.
+- Validate OPUS-MT alternative on target devices.
 
 ## Fine-tuning boundary
 

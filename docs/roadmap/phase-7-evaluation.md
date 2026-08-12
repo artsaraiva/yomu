@@ -20,11 +20,11 @@ Foundation delivered in `fb67a88`.
 
 ## Remaining work
 
-- Collect real outputs from ML Kit, OPUS-MT, and CAT-Translate on device. OPUS-MT may remain skipped until its model asset is available.
-- Run comparisons to resolve [#7](https://github.com/artsaraiva/yomu/issues/7).
+- Collect OPUS-MT outputs once Android tokenizer issue is resolved ([#14](https://github.com/artsaraiva/yomu/issues/14)).
+- Re-run comparisons after LLM model decision ([#15](https://github.com/artsaraiva/yomu/issues/15)).
 - Add difficult real-world cases: noisy OCR, slang, small bubbles, narration, SFX, and edge cases.
 - Publish repeatable evaluation reports without shipping licensed source images in the app.
 
 ## Status
 
-Foundation delivered; decision-grade results are pending a successful local device run with ML Kit and CAT-Translate. Fine-tuned models are a later comparison tracked in [#12](https://github.com/artsaraiva/yomu/issues/12), not part of the base benchmark.
+Benchmark harness operational: `./eval/run-benchmark.sh` runs on-device instrumentation, captures results from logcat, scores with `run-eval.py`. ML Kit and CAT-Translate baseline collected. OPUS-MT pending Android tokenizer fix. Fine-tuned models tracked in [#12](https://github.com/artsaraiva/yomu/issues/12).
