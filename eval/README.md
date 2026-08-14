@@ -120,7 +120,13 @@ other engines continue to be scored.
 
 ### Bubble detection output format
 
-Per case, write `eval/bubble-detection/cases/<case-id>/actual.json`:
+`run-benchmark.sh` produces this automatically: `BubbleDetectionBenchmarkTest` runs the real
+`BubbleDetector` on device over every case page and logs the boxes, which the script writes to
+`actual.json` per case. Both the case pages and the detector weights ride into the test APK as
+gitignored assets that the script stages before the build, so the run does not depend on what the
+device happens to have downloaded.
+
+Per case, the file written is `eval/bubble-detection/cases/<case-id>/actual.json`:
 
 ```json
 {
@@ -155,6 +161,11 @@ artifact rate, exact-match rate, and a readability word-count ratio.
 
 - **Bubble detection**: average recall@0.5 should be near 1.0; missed boxes are
   regressions. False positives are also tracked but are secondary to recall.
+  Two recall figures are printed: the per-case average, and the box-weighted figure over all
+  boxes. They diverge sharply on this case set, because a 1-box case counts as much as a 17-box
+  one in the per-case average. Quote the box-weighted number when comparing detectors.
+  Note that ground truth is OpenMantra *text-region* annotation, so IoU@0.5 against a balloon
+  detector partly measures box-convention agreement rather than whether text was found; see #36.
 - **Translation quality**: lower untranslated and artifact rates are better.
   Readability ratio near 1.0 means the engine is producing a similar amount of
   English text as the reference; much higher or lower suggests hallucination or
