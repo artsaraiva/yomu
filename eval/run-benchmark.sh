@@ -215,7 +215,7 @@ for case_dir in "$RAW_ARTIFACTS_DIR"/yomu-benchmark/*/; do
   mkdir -p "$target_dir"
   for engine_json in "$case_dir"/*.json; do
     [ -f "$engine_json" ] || continue
-    [ "$(basename "$engine_json")" = "bubble.json" ] && continue
+    [ "$(basename "$engine_json")" != "bubble.json" ] || continue
     cp "$engine_json" "$target_dir/$(basename "$engine_json")"
   done
 done
