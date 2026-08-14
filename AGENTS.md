@@ -14,6 +14,7 @@ This file governs all AI agent behavior in this repository.
    ```
 4. **no force push.** Never rewrite pushed history.
 5. **commit after every passing test.** Each green test = one commit.
+6. **no session links.** This repo is public. Never put a `claude.ai/code/session_...` URL in a commit trailer, PR body, or issue — it is an account-scoped identifier that is a dead link for every reader, and git history is permanent. Generic tool attribution (`🤖 Generated with Claude Code`) is fine. Claude Code emits the session trailer by default; suppress it with `attribution: {"commit": "", "pr": ""}` in `settings.json`.
 
 ### Phase, Issue, and Branch Workflow
 
@@ -98,3 +99,14 @@ When a physical device or emulator is connected, use the `android-mcp_*` tools t
 2. Graph the codebase: `graphify query "<question>"` if graphify-out/ exists.
 3. If a skill exists for the problem, load it.
 4. Ask the user for clarification before guessing.
+
+## Agent skills
+
+### Issue tracker
+
+GitHub (`artsaraiva/yomu`) via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Domain docs
+
+Single-context — `CONTEXT.md` + `docs/adr/` at repo root. See `docs/agents/domain.md`.
+
