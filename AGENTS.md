@@ -108,3 +108,14 @@ When a physical device or emulator is connected, use the `android-mcp_*` tools t
 2. Graph the codebase: `graphify query "<question>"` if graphify-out/ exists.
 3. If a skill exists for the problem, load it.
 4. Ask the user for clarification before guessing.
+
+## Agent skills
+
+### Issue tracker
+
+GitHub (`artsaraiva/yomu`) via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Domain docs
+
+Single-context — `CONTEXT.md` + `docs/adr/` at repo root. See `docs/agents/domain.md`.
+
