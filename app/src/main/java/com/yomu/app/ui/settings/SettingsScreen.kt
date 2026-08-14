@@ -13,6 +13,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.yomu.app.db.entities.ModelEntity
 import com.yomu.app.db.entities.ModelStatus
+import com.yomu.app.db.entities.ModelType
 import com.yomu.app.translation.TranslationEngineType
 import com.yomu.core.Constants
 import com.yomu.core.toFileSizeString
@@ -73,6 +74,39 @@ fun SettingsScreen(
 
         Text("Models", fontWeight = FontWeight.Medium, fontSize = 14.sp)
         Spacer(modifier = Modifier.height(8.dp))
+
+        val visionModels = state.models.filter { it.type == ModelType.VISION }
+        if (visionModels.isNotEmpty()) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Required Models", fontWeight = FontWeight.Medium)
+                    Text(
+                        text = "Needed for bubble detection and OCR",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    visionModels.forEach { model ->
+                        ModelStatusRow(
+                            model = model,
+                            isDownloading = state.downloadingId == model.id,
+                            progress = state.downloadProgress,
+                            onDownload = { viewModel.downloadModel(model.id) },
+                            onDelete = { viewModel.deleteModel(model.id) }
+                        )
+                        if (model != visionModels.last()) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+        }
 
         TranslationEngineType.entries.forEach { engine ->
             EngineModelCard(
