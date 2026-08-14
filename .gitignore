@@ -35,6 +35,7 @@ vendor/
 # Eval harness generated results
 eval/results/
 eval/bubble-detection/cases/*/actual.json
+eval/translation-quality/cases/*/actual/
 
 # OpenMantra page images are generated from vendor; do not commit
 eval/**/page.jpg
