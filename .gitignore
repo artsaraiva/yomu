@@ -34,9 +34,14 @@ vendor/
 
 # Eval harness generated results
 eval/results/
+eval/bubble-detection/cases/*/actual.json
 
 # OpenMantra page images are generated from vendor; do not commit
 eval/**/page.jpg
+app/src/androidTest/assets/eval-cases/**/page.jpg
+
+# Benchmark model weights, fetched by eval/run-benchmark.sh; do not commit
+app/src/androidTest/assets/models/
 
 # Python cache
 __pycache__/

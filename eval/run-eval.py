@@ -33,9 +33,16 @@ def print_summary(bubble: dict, translation: dict) -> None:
     print("\nBubble Detection")
     print(f"  Cases: {len(bubble['cases'])}")
     if bubble["cases"]:
-        print(f"  Avg recall@0.5: {bubble['summary']['avg_recall_iou_0_5']:.3f}")
+        print(f"  Avg recall@0.5 (per-case): {bubble['summary']['avg_recall_iou_0_5']:.3f}")
+        print(f"  Recall@0.5 (all boxes):    {bubble['summary']['total_recall_iou_0_5']:.3f}")
         print(f"  Total false positives: {bubble['summary']['total_false_positives']}")
         print(f"  Total missed: {bubble['summary']['total_missed']}")
+        print("  Per-label:")
+        for label, s in bubble["summary"]["per_label"].items():
+            print(
+                f"    {label}: recall={s['recall_iou_0_5']:.3f} "
+                f"matched={s['matched']}/{s['expected_count']} missed={s['missed']}"
+            )
         print("  Per-case:")
         for c in bubble["cases"]:
             print(
