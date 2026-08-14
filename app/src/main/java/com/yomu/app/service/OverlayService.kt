@@ -251,6 +251,18 @@ class OverlayService : Service() {
         floatingButton?.setState(FloatingButtonView.State.TRANSLATING)
 
         scope.launch {
+            val visionDir = File(filesDir, "${Constants.MODELS_DIR}/${Constants.VISION_MODELS_DIR}")
+            val visionModelsReady = listOf(
+                Constants.BUBBLE_DETECTION_MODEL,
+                Constants.OCR_ENCODER_MODEL,
+                Constants.OCR_DECODER_MODEL,
+                Constants.OCR_VOCAB_FILE
+            ).all { File(visionDir, it).exists() }
+            if (!visionModelsReady) {
+                failTranslation("Download required models in Settings first")
+                return@launch
+            }
+
             updateStatus("Capturing screen")
             if (!screenCaptureManager.isProjectionActive) {
                 failTranslation("No active MediaProjection")
