@@ -58,6 +58,18 @@ def score_bubbles(expected: list[dict], actual: list[dict], threshold: float = 0
     fn = len(expected) - len(matched_expected)
     recall = tp / len(expected) if expected else 1.0
 
+    per_label: dict[str, dict] = {}
+    for label in sorted({e.get("label", "unknown") for e in expected}):
+        idxs = [i for i, e in enumerate(expected) if e.get("label", "unknown") == label]
+        label_matched = sum(1 for i in idxs if i in matched_expected)
+        label_total = len(idxs)
+        per_label[label] = {
+            "expected_count": label_total,
+            "matched": label_matched,
+            "missed": label_total - label_matched,
+            "recall_iou_0_5": label_matched / label_total if label_total else 1.0,
+        }
+
     return {
         "expected_count": len(expected),
         "actual_count": len(actual),
@@ -65,6 +77,7 @@ def score_bubbles(expected: list[dict], actual: list[dict], threshold: float = 0
         "false_positives": fp,
         "missed": fn,
         "recall_iou_0_5": recall,
+        "per_label": per_label,
     }
 
 
@@ -161,17 +174,37 @@ def run_bubble_detection(stub: bool) -> dict[str, Any]:
         avg_recall = sum(r["recall_iou_0_5"] for r in results) / len(results)
         total_fp = sum(r["false_positives"] for r in results)
         total_fn = sum(r["missed"] for r in results)
+        # Box-weighted, so a 1-box case cannot swing the number as hard as it does in avg_recall.
+        total_expected = sum(r["expected_count"] for r in results)
+        total_matched = sum(r["matched"] for r in results)
+        total_recall = total_matched / total_expected if total_expected else 0.0
     else:
         avg_recall = 0.0
         total_fp = 0
         total_fn = 0
+        total_recall = 0.0
+
+    labels = sorted({label for r in results for label in r["per_label"]})
+    per_label_summary: dict[str, dict] = {}
+    for label in labels:
+        expected_count = sum(r["per_label"].get(label, {}).get("expected_count", 0) for r in results)
+        matched = sum(r["per_label"].get(label, {}).get("matched", 0) for r in results)
+        missed = sum(r["per_label"].get(label, {}).get("missed", 0) for r in results)
+        per_label_summary[label] = {
+            "expected_count": expected_count,
+            "matched": matched,
+            "missed": missed,
+            "recall_iou_0_5": matched / expected_count if expected_count else 1.0,
+        }
 
     return {
         "cases": results,
         "summary": {
             "avg_recall_iou_0_5": avg_recall,
+            "total_recall_iou_0_5": total_recall,
             "total_false_positives": total_fp,
             "total_missed": total_fn,
+            "per_label": per_label_summary,
         },
     }
 

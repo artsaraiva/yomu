@@ -111,6 +111,28 @@ if [ "$device_state" != "device" ]; then
 fi
 step_done 1 'prerequisites' "$STEP_TS"
 
+# The bubble detector runs from weights the test APK carries, so the benchmark does not depend on
+# whatever the device happens to have downloaded. Same file and checksum ModelManager fetches.
+BUBBLE_MODEL_FILE="$REPO_ROOT/app/src/androidTest/assets/models/bubble_detection.onnx"
+BUBBLE_MODEL_URL="https://huggingface.co/Kiuyha/Manga-Bubble-YOLO/resolve/main/onnx/yolo26n.onnx"
+if [ ! -f "$BUBBLE_MODEL_FILE" ]; then
+  printf 'Fetching bubble detection weights...\n'
+  mkdir -p "$(dirname "$BUBBLE_MODEL_FILE")"
+  curl -sL --fail -o "$BUBBLE_MODEL_FILE" "$BUBBLE_MODEL_URL"
+fi
+
+# Bubble-detection pages ship to the device as test assets. They are gitignored (CC BY-NC),
+# so copy them in from the eval cases before the build packages the test APK.
+TEST_ASSETS_DIR="$REPO_ROOT/app/src/androidTest/assets/eval-cases"
+for case_dir in "$SCRIPT_DIR"/bubble-detection/cases/*/; do
+  [ -d "$case_dir" ] || continue
+  case_id="$(basename "$case_dir")"
+  page_jpg="$case_dir/page.jpg"
+  [ -f "$page_jpg" ] || continue
+  mkdir -p "$TEST_ASSETS_DIR/$case_id"
+  cp "$page_jpg" "$TEST_ASSETS_DIR/$case_id/page.jpg"
+done
+
 if [ "$SKIP_BUILD" -eq 0 ]; then
   step_start 2 'build'
   ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest
@@ -134,12 +156,12 @@ else
 fi
 
 printf '\n[%s] Live logcat (run in another terminal):\n' "$(date '+%Y-%m-%d %H:%M:%S')"
-printf '  adb logcat -s "EngineBenchmarkTest:*" "LlamaBridge:*" "LlamaJNI:*"\n\n'
+printf '  adb logcat -s "EngineBenchmarkTest:*" "BubbleDetectionBenchmarkTest:*" "LlamaBridge:*" "LlamaJNI:*"\n\n'
 
 step_start 4 'device test'
 adb logcat -c
 
-adb logcat -s "EngineBenchmarkTest:*" "LlamaBridge:*" "LlamaJNI:*" > "$LOGCAT_FILE" 2>/dev/null &
+adb logcat -s "EngineBenchmarkTest:*" "BubbleDetectionBenchmarkTest:*" "LlamaBridge:*" "LlamaJNI:*" > "$LOGCAT_FILE" 2>/dev/null &
 LOGCAT_PID=$!
 
 last_line=0
@@ -183,10 +205,17 @@ parse_logcat_results "$LOGCAT_FILE" "$RAW_ARTIFACTS_DIR/yomu-benchmark"
 for case_dir in "$RAW_ARTIFACTS_DIR"/yomu-benchmark/*/; do
   [ -d "$case_dir" ] || continue
   case_id="$(basename "$case_dir")"
+
+  bubble_json="$case_dir/bubble.json"
+  if [ -f "$bubble_json" ]; then
+    cp "$bubble_json" "$SCRIPT_DIR/bubble-detection/cases/$case_id/actual.json"
+  fi
+
   target_dir="$SCRIPT_DIR/translation-quality/cases/$case_id/actual"
   mkdir -p "$target_dir"
   for engine_json in "$case_dir"/*.json; do
     [ -f "$engine_json" ] || continue
+    [ "$(basename "$engine_json")" != "bubble.json" ] || continue
     cp "$engine_json" "$target_dir/$(basename "$engine_json")"
   done
 done
