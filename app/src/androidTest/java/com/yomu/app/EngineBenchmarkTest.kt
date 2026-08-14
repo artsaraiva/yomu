@@ -103,7 +103,9 @@ class EngineBenchmarkTest {
             val text = assetManager.open("eval-cases/$caseId/source.txt").use {
                 it.bufferedReader().readText()
             }
-            caseId to text.lines()
+            // The scorer reads source.txt with Python splitlines(), which drops the trailing
+            // newline; lines() keeps it as an extra empty line and every case fails alignment.
+            caseId to text.removeSuffix("\n").lines()
         }
     }
 
