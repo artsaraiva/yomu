@@ -1,0 +1,56 @@
+{
+  "kind": "story",
+  "image_width": 830,
+  "image_height": 1170,
+  "boxes": [
+    {
+      "x": 465,
+      "y": 399,
+      "w": 50,
+      "h": 95,
+      "label": "speech"
+    },
+    {
+      "x": 424,
+      "y": 452,
+      "w": 51,
+      "h": 93,
+      "label": "speech"
+    },
+    {
+      "x": 93,
+      "y": 417,
+      "w": 69,
+      "h": 108,
+      "label": "narration"
+    },
+    {
+      "x": 547,
+      "y": 660,
+      "w": 63,
+      "h": 100,
+      "label": "speech"
+    },
+    {
+      "x": 498,
+      "y": 737,
+      "w": 76,
+      "h": 138,
+      "label": "speech"
+    },
+    {
+      "x": 397,
+      "y": 685,
+      "w": 68,
+      "h": 149,
+      "label": "speech"
+    },
+    {
+      "x": 98,
+      "y": 691,
+      "w": 68,
+      "h": 140,
+      "label": "narration"
+    }
+  ]
+}

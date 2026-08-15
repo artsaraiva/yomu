@@ -20,7 +20,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
-from run_eval_lib import run_bubble_detection, run_translation_quality
+from run_eval_lib import SEPARATION_THRESHOLD, run_bubble_detection, run_translation_quality
 
 RESULTS_DIR = ROOT / "results"
 
@@ -34,23 +34,40 @@ def print_summary(bubble: dict, translation: dict) -> None:
     print(f"  Cases: {len(bubble['cases'])}")
     if bubble["cases"]:
         summary = bubble["summary"]
-        print(f"  Avg containment recall (per-case): {summary['avg_containment_recall']:.3f}")
-        print(f"  Containment recall (all boxes):    {summary['total_containment_recall']:.3f}")
-        print(f"  Localisation recall (all boxes):   {summary['total_localisation_recall']:.3f}")
-        print(f"  Merging detections: {summary['total_merging_detections']}")
-        print(f"  Total false positives: {summary['total_false_positives']}")
-        print(f"  Total missed: {summary['total_missed']}")
-        print("  Per-label:")
-        for label, s in summary["per_label"].items():
+        cover = bubble["cover_text"]
+        print(
+            f"  GATE - story containment recall: {summary['total_containment_recall']:.3f} "
+            f"({summary['total_expected']} boxes, {summary['case_count']} cases)"
+        )
+        print(f"  Localisation recall (reported, never gated): "
+              f"{summary['total_localisation_recall']:.3f}")
+        print(f"  Merging detections (diagnostic): {summary['total_merging_detections']}")
+        print(f"  False positives: {summary['total_false_positives']}")
+        print(f"  Missed: {summary['total_missed']}")
+        if cover["case_count"]:
             print(
-                f"    {label}: containment={s['containment_recall']:.3f} "
-                f"matched={s['matched']}/{s['expected_count']} missed={s['missed']} "
-                f"localised={s['localised']}"
+                f"  Cover text (reported, NOT gated): "
+                f"{cover['total_containment_recall']:.3f} "
+                f"({cover['total_expected']} boxes, {cover['case_count']} cases)"
             )
-        print("  Per-case:")
+        print(
+            f"  Separation rule: a rival detector counts as better only at "
+            f">= {SEPARATION_THRESHOLD:.0%} gate difference; below that, tie-break on "
+            f"licence/size/latency."
+        )
+        # A case with no actual.json scores zero and would silently drag the gate down, which is
+        # the "green harness measuring nothing" failure in reverse. Say so loudly.
+        missing = [c["case_id"] for c in bubble["cases"] if c["mode"] == "missing"]
+        if missing:
+            print(
+                f"  WARNING: {len(missing)} case(s) have no actual.json and scored 0 - "
+                f"the gate above is NOT comparable until run-benchmark.sh regenerates them: "
+                f"{', '.join(missing)}"
+            )
+        print("  Per-case (diagnostic only, never averaged):")
         for c in bubble["cases"]:
             print(
-                f"    {c['case_id']}: containment={c['containment_recall']:.3f} "
+                f"    {c['case_id']} [{c['kind']}]: containment={c['containment_recall']:.3f} "
                 f"matched={c['matched']}/{c['expected_count']} "
                 f"localised={c['localised']} merged={c['merging_detections']} "
                 f"fp={c['false_positives']} mode={c['mode']}"

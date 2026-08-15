@@ -121,16 +121,64 @@ if [ ! -f "$BUBBLE_MODEL_FILE" ]; then
   curl -sL --fail -o "$BUBBLE_MODEL_FILE" "$BUBBLE_MODEL_URL"
 fi
 
-# Bubble-detection pages ship to the device as test assets. They are gitignored (CC BY-NC),
-# so copy them in from the eval cases before the build packages the test APK.
+# Case data ships to the device as test assets. It is gitignored (CC BY-NC), so copy it in from
+# the eval cases before the build packages the test APK. Detection needs page.jpg and the engine
+# benchmark needs source.txt; both are staged in one pass so a newly added case can never arrive
+# half-staged. (It did once: growing the set to 17 cases left 9 of them with a page and no
+# source.txt, and EngineBenchmarkTest died on the first one it reached.)
 TEST_ASSETS_DIR="$REPO_ROOT/app/src/androidTest/assets/eval-cases"
+rm -rf "$TEST_ASSETS_DIR"
 for case_dir in "$SCRIPT_DIR"/bubble-detection/cases/*/; do
   [ -d "$case_dir" ] || continue
   case_id="$(basename "$case_dir")"
   page_jpg="$case_dir/page.jpg"
+  source_txt="$SCRIPT_DIR/translation-quality/cases/$case_id/source.txt"
   [ -f "$page_jpg" ] || continue
+  if [ ! -f "$source_txt" ]; then
+    printf 'Case %s has page.jpg but no translation-quality source.txt; run eval/generate-cases.py\n' "$case_id" >&2
+    exit 1
+  fi
   mkdir -p "$TEST_ASSETS_DIR/$case_id"
   cp "$page_jpg" "$TEST_ASSETS_DIR/$case_id/page.jpg"
+  cp "$source_txt" "$TEST_ASSETS_DIR/$case_id/source.txt"
+done
+
+# Translation models are staged as fixtures rather than downloaded through the app's Settings UI,
+# which is what the old interactive prompt here was waiting for. An upgrade install keeps filesDir,
+# but a signature change or uninstall/reinstall clears it, and that is exactly when a human used to
+# have to re-fetch ~600MB by hand. /data/local/tmp survives all of it, so these are pushed once and
+# reused; EngineBenchmarkTest copies them into filesDir on setup.
+# Anything dropped into a subdirectory of eval/fixtures/models is staged, so adding OPUS-MT weights
+# later needs no change here. ML Kit is not fixturable - Play services fetches it on demand.
+FIXTURE_DIR="$SCRIPT_DIR/fixtures/models"
+DEVICE_FIXTURE_DIR="/data/local/tmp/yomu-fixtures"
+LLM_FIXTURE="$FIXTURE_DIR/llm/cat_translate_0.8b_q4_k_m.gguf"
+LLM_FIXTURE_URL="https://huggingface.co/mradermacher/CAT-Translate-0.8b-GGUF/resolve/main/CAT-Translate-0.8b.Q4_K_M.gguf"
+
+if [ ! -f "$LLM_FIXTURE" ]; then
+  printf 'Fetching CAT-Translate weights (~500MB, once)...\n'
+  mkdir -p "$(dirname "$LLM_FIXTURE")"
+  curl -L --fail --progress-bar -o "$LLM_FIXTURE" "$LLM_FIXTURE_URL"
+fi
+
+for model_dir in "$FIXTURE_DIR"/*/; do
+  [ -d "$model_dir" ] || continue
+  subdir="$(basename "$model_dir")"
+  adb shell mkdir -p "$DEVICE_FIXTURE_DIR/$subdir"
+  for model_file in "$model_dir"*; do
+    [ -f "$model_file" ] || continue
+    file_name="$(basename "$model_file")"
+    local_size="$(wc -c < "$model_file" | tr -d ' ')"
+    device_size="$(adb shell "stat -c %s '$DEVICE_FIXTURE_DIR/$subdir/$file_name' 2>/dev/null" | tr -d '\r' || true)"
+    if [ "$local_size" = "$device_size" ]; then
+      printf 'Fixture %s/%s already on device, skipping push\n' "$subdir" "$file_name"
+      continue
+    fi
+    printf 'Pushing fixture %s/%s (%s bytes)...\n' "$subdir" "$file_name" "$local_size"
+    adb push "$model_file" "$DEVICE_FIXTURE_DIR/$subdir/$file_name" >/dev/null
+  done
+  # The instrumentation runs as the app UID, not shell, so it must be able to read these.
+  adb shell chmod -R 755 "$DEVICE_FIXTURE_DIR" || true
 done
 
 if [ "$SKIP_BUILD" -eq 0 ]; then
@@ -145,23 +193,19 @@ if [ "$SKIP_INSTALL" -eq 0 ]; then
   step_start 3 'install'
   ./gradlew :app:installDebug :app:installDebugAndroidTest
   step_done 3 'install' "$STEP_TS"
-  printf '\nInstall wipes app data. Download models in the app now:\n'
-  printf '  Settings -> LLM engine -> Download (CAT-Translate, ~500MB)\n'
-  printf '  Settings -> OPUS-MT engine -> Download (~106MB)\n'
-  printf '  Re-run with: ./eval/run-benchmark.sh --skip-build --skip-install\n'
-  printf '\nPress Enter when ready...\n'
-  read -r
+  printf '\nIf install cleared app data, the staged fixtures in %s are unaffected\n' "$DEVICE_FIXTURE_DIR"
+  printf 'and EngineBenchmarkTest restages them, so no in-app download is needed.\n'
 else
   printf '\n[%s] Step 3 skipped: install (--skip-install)\n' "$(date '+%Y-%m-%d %H:%M:%S')"
 fi
 
 printf '\n[%s] Live logcat (run in another terminal):\n' "$(date '+%Y-%m-%d %H:%M:%S')"
-printf '  adb logcat -s "EngineBenchmarkTest:*" "BubbleDetectionBenchmarkTest:*" "LlamaBridge:*" "LlamaJNI:*"\n\n'
+printf '  adb logcat -s "EngineBenchmarkTest:*" "BubbleDetectionBenchmarkTest:*" "LlamaBridge:*" "LlamaJNI:*" "OpusMtTranslator:*" "OpusMtTranslationBridge:*"\n\n'
 
 step_start 4 'device test'
 adb logcat -c
 
-adb logcat -s "EngineBenchmarkTest:*" "BubbleDetectionBenchmarkTest:*" "LlamaBridge:*" "LlamaJNI:*" > "$LOGCAT_FILE" 2>/dev/null &
+adb logcat -s "EngineBenchmarkTest:*" "BubbleDetectionBenchmarkTest:*" "LlamaBridge:*" "LlamaJNI:*" "OpusMtTranslator:*" "OpusMtTranslationBridge:*" > "$LOGCAT_FILE" 2>/dev/null &
 LOGCAT_PID=$!
 
 last_line=0
@@ -170,7 +214,15 @@ while kill -0 $LOGCAT_PID 2>/dev/null; do
 done &
 TAIL_PID=$!
 
+# A failing test must not skip artifact extraction: when one half of the benchmark breaks, the
+# other half's results are exactly what is needed to debug it. Record the status and report it at
+# the end instead of letting `set -e` abort here.
+# PIPESTATUS[0] is gradle's own status, so a grep that matches nothing cannot be mistaken for a
+# test failure, and pipefail cannot mask one.
+set +e
 ./gradlew :app:connectedAndroidTest 2>&1 | grep -E "Starting|completed\.|BUILD"
+TEST_STATUS=${PIPESTATUS[0]}
+set -e
 
 sleep 3
 kill $LOGCAT_PID 2>/dev/null || true
@@ -239,7 +291,9 @@ print_stats_table() {
   printf '%-10s %8s %10s %10s %10s\n' "Engine" "Lines" "Avg" "Min" "Max"
   printf '%-10s %8s %10s %10s %10s\n' "------" "------" "-------" "-------" "-------"
   for engine in mlkit opusmt llm; do
-    grep "Result engine=$engine " "$LOGCAT_FILE" | sed -n 's/.*durationMs=\([0-9]*\).*/\1/p' > "/tmp/yomu-stats-$engine.$$"
+    # An engine with no results is the normal case for one that was skipped, and grep exiting 1
+    # must not abort the run: this table is cosmetic, the artifacts are already extracted.
+    grep "Result engine=$engine " "$LOGCAT_FILE" 2>/dev/null | sed -n 's/.*durationMs=\([0-9]*\).*/\1/p' > "/tmp/yomu-stats-$engine.$$" || true
     local line_count=0 sum=0 min=99999999 max=0
     while IFS= read -r d; do
       [ -z "$d" ] && continue
@@ -296,3 +350,9 @@ if [ "$SKIP_EVAL" -eq 0 ]; then
 fi
 printf 'Total elapsed: %s\n' "$(elapsed_since "$START_TS")"
 step_done 7 'summary' "$STEP_TS"
+
+if [ "$TEST_STATUS" -ne 0 ]; then
+  printf '\nThe device test reported failures; artifacts above were still extracted.\n' >&2
+  printf 'Per-test detail: app/build/reports/androidTests/connected/\n' >&2
+  exit "$TEST_STATUS"
+fi

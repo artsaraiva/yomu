@@ -13,6 +13,7 @@ Ground-truth text-box bounding boxes in captured-image pixel coordinates.
 
 ```json
 {
+  "kind": "story",
   "image_width": 1080,
   "image_height": 2340,
   "boxes": [
@@ -22,9 +23,15 @@ Ground-truth text-box bounding boxes in captured-image pixel coordinates.
 }
 ```
 
+- `kind`: `story` or `cover`. Only `story` cases are in the detection gate; `cover` cases hold
+  title typography and author credits and are scored on a separate reported line. Absent means
+  `story`.
 - `x`, `y`: top-left corner in pixels.
 - `w`, `h`: width/height in pixels.
-- `label`: one of `speech`, `narration`, `sfx`.
+- `label`: one of `speech`, `narration`, `sfx`. **Not annotation** — OpenMantra has no class field
+  and `generate-cases.py:label_for()` guesses from substrings. Nothing gates on it, the harness
+  reports no per-class breakdown, and it exists only to keep the schema stable. Do not read
+  meaning into it.
 
 ## Optional files
 
@@ -37,7 +44,8 @@ device, and why the case matters.
 Scored by containment, per [ADR-0003](../../docs/adr/0003-detection-hit-criterion.md):
 
 - Containment recall (gate): ≥95% of a ground-truth box's area covered by one detection, padded by
-  4% of page width per side, one-to-one.
+  4% of page width per side, one-to-one. Box-weighted over `story` cases only; per-case recalls are
+  never averaged.
 - Localisation recall (reported, never gated): ground-truth centre inside a detection.
 - Merging detections: one detection covering two or more ground-truth centres — a hit for neither.
 - False positives.

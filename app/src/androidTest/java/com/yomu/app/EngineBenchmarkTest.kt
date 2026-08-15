@@ -6,6 +6,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.yomu.app.translation.TranslationEngineSelector
 import com.yomu.app.translation.TranslationEngineType
+import com.yomu.core.Constants
 import com.yomu.ml.TranslationStatus
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
@@ -31,7 +32,45 @@ class EngineBenchmarkTest {
 
     @Before
     fun init() {
+        stageModelFixtures()
         hiltRule.inject()
+    }
+
+    /**
+     * Copy pushed model fixtures into filesDir, where the DI graph expects downloaded models.
+     *
+     * Installing the APK wipes filesDir, so before this existed every run needed the ~600MB of
+     * weights re-downloaded by hand through Settings. /data/local/tmp survives reinstalls, so
+     * run-benchmark.sh pushes them once and this restages them on each run. Staging happens before
+     * hiltRule.inject() because the engine bridges capture their model paths at construction.
+     *
+     * Absent fixtures are not an error: the engine simply reports not-ready and is skipped, which
+     * is the correct outcome for a machine that has no copy of a given model.
+     */
+    private fun stageModelFixtures() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val fixtureRoot = File(FIXTURE_DIR)
+        val subdirs = fixtureRoot.listFiles()?.filter { it.isDirectory }.orEmpty()
+        if (subdirs.isEmpty()) {
+            Log.w(TAG, "No model fixtures under $FIXTURE_DIR; engines needing weights will be skipped")
+            return
+        }
+        for (subdir in subdirs) {
+            val target = File(context.filesDir, "${Constants.MODELS_DIR}/${subdir.name}")
+            target.mkdirs()
+            for (fixture in subdir.listFiles().orEmpty().filter { it.isFile }) {
+                val dest = File(target, fixture.name)
+                // Re-copying 500MB on every run is pure waste; size is enough to spot a swap.
+                if (dest.exists() && dest.length() == fixture.length()) {
+                    Log.i(TAG, "Fixture already staged: ${subdir.name}/${fixture.name}")
+                    continue
+                }
+                Log.i(TAG, "Staging fixture ${subdir.name}/${fixture.name} (${fixture.length()} bytes)")
+                fixture.inputStream().use { input ->
+                    dest.outputStream().use { input.copyTo(it) }
+                }
+            }
+        }
     }
 
     @Test
@@ -100,6 +139,12 @@ class EngineBenchmarkTest {
         val assetManager = context.assets
         val caseIds = assetManager.list("eval-cases")?.sorted() ?: emptyList()
         return caseIds.map { caseId ->
+            // Half-staged cases are a harness bug, not a case to skip: skipping would quietly
+            // shrink the corpus and still exit green.
+            check(assetManager.list("eval-cases/$caseId")?.contains("source.txt") == true) {
+                "No source.txt under assets/eval-cases/$caseId; run eval/run-benchmark.sh so it " +
+                    "stages case data before the build packages the test APK"
+            }
             val text = assetManager.open("eval-cases/$caseId/source.txt").use {
                 it.bufferedReader().readText()
             }
@@ -169,6 +214,7 @@ class EngineBenchmarkTest {
 
     companion object {
         private const val TAG = "EngineBenchmarkTest"
+        private const val FIXTURE_DIR = "/data/local/tmp/yomu-fixtures"
         private val ENGINES = listOf(
             TranslationEngineType.ML_KIT,
             TranslationEngineType.OPUS_MT,
