@@ -75,13 +75,23 @@ def print_summary(bubble: dict, translation: dict) -> None:
 
     print("\nTranslation Quality")
     print(f"  Cases: {len(translation['cases'])}")
-    if translation["summary"]["engines"]:
-        for engine, s in translation["summary"]["engines"].items():
-            print(f"  Engine: {engine}")
-            print(f"    Avg untranslated rate: {s['avg_untranslated_rate']:.3f}")
-            print(f"    Avg artifact rate:     {s['avg_artifact_rate']:.3f}")
-            print(f"    Avg exact match rate:  {s['avg_exact_match_rate']:.3f}")
-            print(f"    Avg readability ratio: {s['avg_readability_ratio']:.3f}")
+    engines = translation["summary"]["engines"]
+    if engines:
+        # The gate is the LLM's page-level call; ML Kit / OPUS-MT are a floor, never ranked against
+        # it (ADR-0004). The first page-level numbers are a PRE-ADR-0002 BASELINE: sessionContext is
+        # still unread and translateBatch still prompts a bare numbered list, so the ranking survives
+        # but the absolute number is not ADR-0002's (#47).
+        for engine, s in sorted(engines.items(), key=lambda kv: kv[1]["role"] != "gate"):
+            if s["role"] == "gate":
+                verdict = "PASS" if s["gate_pass"] else "FAIL"
+                print(f"  Engine: {engine}  [GATE - pre-ADR-0002 baseline]  {verdict}")
+            else:
+                print(f"  Engine: {engine}  [floor - not ranked against the gate]")
+            print(f"    Non-translation rate (gate 0):  {s['non_translation_rate']:.3f}")
+            print(f"    Japanese-residue rate (gate 0): {s['japanese_residue_rate']:.3f}")
+            print(f"    Bubble coverage (gate 100%):    {s['bubble_coverage']:.1%} "
+                  f"({s['entries']} ids)")
+            print(f"    Readability ratio (diagnostic): {s['readability_ratio']:.3f}")
     else:
         print("  No engine outputs scored.")
 

@@ -1,6 +1,7 @@
 package com.yomu.app
 
 import android.content.Context
+import android.graphics.RectF
 import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -8,6 +9,10 @@ import com.yomu.app.translation.TranslationEngineSelector
 import com.yomu.app.translation.TranslationEngineType
 import com.yomu.core.Constants
 import com.yomu.ml.TranslationStatus
+import com.yomu.pipeline.bubble.Bubble
+import com.yomu.pipeline.context.ContextAssembler
+import com.yomu.pipeline.ocr.OcrResult
+import com.yomu.pipeline.translation.TranslationEngine
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import kotlinx.coroutines.runBlocking
@@ -29,6 +34,12 @@ class EngineBenchmarkTest {
 
     @Inject
     lateinit var selector: TranslationEngineSelector
+
+    @Inject
+    lateinit var engine: TranslationEngine
+
+    @Inject
+    lateinit var assembler: ContextAssembler
 
     @Before
     fun init() {
@@ -98,34 +109,51 @@ class EngineBenchmarkTest {
                     continue
                 }
 
-                for ((caseId, lines) in cases) {
-                    val translations = mutableListOf<String>()
-                    for ((index, line) in lines.withIndex()) {
-                        val output = if (line.isBlank()) {
-                            null
-                        } else {
-                            runCatching { selector.translate(line) }.getOrNull()
-                        }
-                        val translatedText = output?.translatedText ?: ""
-                        translations.add(translatedText)
-                        timingRows.add(
-                            TimingRow(
-                                caseId = caseId,
-                                engine = engineName,
-                                lineIndex = index,
-                                durationMs = output?.durationMs ?: 0L,
-                                success = output != null,
-                                source = line,
-                                translation = translatedText
+                for (case in cases) {
+                    // ADR-0004: one page-level call. Ground-truth boxes stand in for detections and
+                    // text_ja for OCR; ContextAssembler builds panels + reading order, then the
+                    // engine translates the whole page. The LLM batches this (the gate); ML Kit /
+                    // OPUS-MT translate per bubble inside the same call (the floor). Output is keyed
+                    // by bubble id so a missing id scores zero rather than voiding the case.
+                    val bubbles = case.boxes.mapIndexed { id, box ->
+                        Bubble(id = id, boundingBox = box, confidence = 1f)
+                    }
+                    val ocrResults = case.source.mapIndexedNotNull { id, text ->
+                        if (text.isBlank()) null else id to OcrResult(
+                            text = text,
+                            confidence = 1f,
+                            boundingBox = floatArrayOf(
+                                case.boxes[id].left, case.boxes[id].top,
+                                case.boxes[id].right, case.boxes[id].bottom
                             )
                         )
-                        Log.i(TAG, "Result engine=$engineName case=$caseId line=$index durationMs=${output?.durationMs ?: 0} source=${line.take(40)} translation=${translatedText.take(80)}")
-                    }
-                    writeEngineResult(outputDir, caseId, engineName, translations)
-                    logEngineResult(caseId, engineName, translations)
+                    }.toMap()
+
+                    val page = assembler.assemble(bubbles, ocrResults, case.width, case.height)
+                    val result = runCatching { engine.translate(page.blocks) }.getOrNull()
+
+                    val byId = result?.translations.orEmpty().associateBy { it.bubbleId }
+                    val translations = case.source.indices.map { id -> byId[id]?.translatedText ?: "" }
+
+                    timingRows.add(
+                        TimingRow(
+                            caseId = case.caseId,
+                            engine = engineName,
+                            bubbleCount = ocrResults.size,
+                            durationMs = result?.translationTimeMs ?: 0L,
+                            success = result != null
+                        )
+                    )
+                    Log.i(TAG, "Result engine=$engineName case=${case.caseId} bubbles=${ocrResults.size} durationMs=${result?.translationTimeMs ?: 0} covered=${byId.size}")
+
+                    writeEngineResult(outputDir, case.caseId, engineName, translations)
+                    logEngineResult(case.caseId, engineName, translations)
                 }
 
-                selector.clearMemory()
+                // Clear the in-memory translation cache between engines. It is keyed by source text
+                // only, not by engine, so without this one engine would be served another's cached
+                // translations and every per-engine number would be corrupt.
+                engine.release()
             }
 
             writeTimingCsv(outputDir, timingRows)
@@ -135,22 +163,47 @@ class EngineBenchmarkTest {
         }
     }
 
-    private fun loadCases(context: Context): List<Pair<String, List<String>>> {
+    private fun loadCases(context: Context): List<BenchCase> {
         val assetManager = context.assets
         val caseIds = assetManager.list("eval-cases")?.sorted() ?: emptyList()
         return caseIds.map { caseId ->
+            val files = assetManager.list("eval-cases/$caseId").orEmpty().toSet()
             // Half-staged cases are a harness bug, not a case to skip: skipping would quietly
-            // shrink the corpus and still exit green.
-            check(assetManager.list("eval-cases/$caseId")?.contains("source.txt") == true) {
-                "No source.txt under assets/eval-cases/$caseId; run eval/run-benchmark.sh so it " +
-                    "stages case data before the build packages the test APK"
+            // shrink the corpus and still exit green. The page-level call needs the boxes too, so
+            // expected.json is now required alongside source.txt.
+            check("source.txt" in files && "expected.json" in files) {
+                "assets/eval-cases/$caseId is missing source.txt or expected.json; run " +
+                    "eval/run-benchmark.sh so it stages case data before the build packages the APK"
             }
             val text = assetManager.open("eval-cases/$caseId/source.txt").use {
                 it.bufferedReader().readText()
             }
             // The scorer reads source.txt with Python splitlines(), which drops the trailing
             // newline; lines() keeps it as an extra empty line and every case fails alignment.
-            caseId to text.removeSuffix("\n").lines()
+            val source = text.removeSuffix("\n").lines()
+
+            val expected = assetManager.open("eval-cases/$caseId/expected.json").use {
+                JSONObject(it.bufferedReader().readText())
+            }
+            val boxesJson = expected.getJSONArray("boxes")
+            val boxes = (0 until boxesJson.length()).map { i ->
+                val b = boxesJson.getJSONObject(i)
+                val x = b.getDouble("x").toFloat()
+                val y = b.getDouble("y").toFloat()
+                RectF(x, y, x + b.getDouble("w").toFloat(), y + b.getDouble("h").toFloat())
+            }
+            // Bubble id = box index = source line index (ADR-0004). If they disagree the two
+            // annotation projections have drifted, which no per-case handling could paper over.
+            check(boxes.size == source.size) {
+                "$caseId: ${boxes.size} boxes but ${source.size} source lines; regenerate cases"
+            }
+            BenchCase(
+                caseId = caseId,
+                source = source,
+                boxes = boxes,
+                width = expected.getInt("image_width"),
+                height = expected.getInt("image_height")
+            )
         }
     }
 
@@ -179,12 +232,10 @@ class EngineBenchmarkTest {
     private fun writeTimingCsv(outputDir: File, rows: List<TimingRow>) {
         val file = File(outputDir, "benchmark_timing.csv")
         file.bufferedWriter().use { writer ->
-            writer.write("case_id,engine,line_index,duration_ms,success,source,translation")
+            writer.write("case_id,engine,bubble_count,duration_ms,success")
             writer.newLine()
             rows.forEach { row ->
-                val escapedSource = row.source.replace(",", ";").replace("\n", " ")
-                val escapedTranslation = row.translation.replace(",", ";").replace("\n", " ")
-                writer.write("${row.caseId},${row.engine},${row.lineIndex},${row.durationMs},${row.success},$escapedSource,$escapedTranslation")
+                writer.write("${row.caseId},${row.engine},${row.bubbleCount},${row.durationMs},${row.success}")
                 writer.newLine()
             }
         }
@@ -192,7 +243,7 @@ class EngineBenchmarkTest {
 
     private fun logTimingCsv(rows: List<TimingRow>) {
         rows.forEach { row ->
-            Log.i(TAG, "TIMING case=${row.caseId} engine=${row.engine} line=${row.lineIndex} durationMs=${row.durationMs} success=${row.success}")
+            Log.i(TAG, "TIMING case=${row.caseId} engine=${row.engine} bubbles=${row.bubbleCount} durationMs=${row.durationMs} success=${row.success}")
         }
     }
 
@@ -202,14 +253,20 @@ class EngineBenchmarkTest {
         TranslationEngineType.LLM -> "llm"
     }
 
+    private data class BenchCase(
+        val caseId: String,
+        val source: List<String>,
+        val boxes: List<RectF>,
+        val width: Int,
+        val height: Int
+    )
+
     private data class TimingRow(
         val caseId: String,
         val engine: String,
-        val lineIndex: Int,
+        val bubbleCount: Int,
         val durationMs: Long,
-        val success: Boolean,
-        val source: String,
-        val translation: String
+        val success: Boolean
     )
 
     companion object {
