@@ -114,7 +114,11 @@ def main() -> None:
             ],
         }
 
-        src_lines = [t.get("text_ja", "") for t in texts]
+        # Both projections collapse a bubble's internal newlines to spaces so source.txt and
+        # reference.txt stay one physical line per bubble — line n is bubble id n (ADR-0004). A
+        # multi-line text_ja that kept its newlines used to inflate the source line count past the
+        # box count (bourei-p04: 8 boxes, 12 lines), which the page-level scorer rejects.
+        src_lines = [t.get("text_ja", "").replace("\n", " ").replace("\r", "") for t in texts]
         ref_lines = [t.get("text_en", "").replace("\n", " ").replace("\r", "") for t in texts]
 
         bd_case = bd_root / case_id
