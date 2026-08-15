@@ -21,7 +21,7 @@ The fraction of ground-truth text regions that a single detection covers at leas
 _Avoid_: recall, IoU recall, accuracy
 
 **Localisation recall**:
-The fraction of ground-truth text regions whose centre falls inside some detection. Reported, never gated — it distinguishes a detector that cannot find text from one that finds it and frames it badly.
+The fraction of ground-truth text regions whose centre falls inside a detection, matched one-to-one so a merged detection localises only one of the regions it swallows. Reported, never gated — it distinguishes a detector that cannot find text from one that finds it and frames it badly.
 _Avoid_: centroid recall, hit rate
 
 **Merged detection**:
