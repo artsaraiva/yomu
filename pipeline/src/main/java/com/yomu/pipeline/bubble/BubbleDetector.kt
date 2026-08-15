@@ -23,6 +23,12 @@ class BubbleDetector(private val onnxRuntime: OnnxRuntime) {
     private var isLoaded = false
     private var modelPath: String? = null
 
+    /** Pre-NMS (post-threshold) vs post-NMS counts of the last [detect] call. The benchmark reads
+     *  this to check whether NMS ever removes a box (#57); production ignores it. */
+    data class DetectStats(val thresholded: Int, val kept: Int)
+    var lastStats: DetectStats? = null
+        private set
+
     fun loadModel(modelPath: String): Boolean {
         if (!isLoaded) {
             this.modelPath = modelPath
@@ -43,6 +49,7 @@ class BubbleDetector(private val onnxRuntime: OnnxRuntime) {
         val rawDetections = onnxRuntime.runBitmapInference(path, bitmap)
         val confidenceFiltered = rawDetections.filter { it.confidence >= CONFIDENCE_THRESHOLD }
         val detections = nonMaxSuppressDetections(confidenceFiltered, NMS_IOU_THRESHOLD)
+        lastStats = DetectStats(thresholded = confidenceFiltered.size, kept = detections.size)
         Log.d(
             TAG,
             "Bubble detection raw=${rawDetections.size} thresholded=${confidenceFiltered.size} kept=${detections.size}"
