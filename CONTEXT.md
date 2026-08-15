@@ -64,6 +64,20 @@ _Avoid_: verbosity score, length penalty
 The score of an engine that can only be asked one bubble at a time. Reported beside the gate and never ranked against it, because the gate scores a whole page in a single call.
 _Avoid_: baseline, fallback score
 
+### Coherence quality
+
+**Contrastive minimal pair**:
+A source whose subject is elided and resolvable only from the previous page, a correct English target, and a corrupted target that flips only the disputed referent. The unit the coherence gate scores. Authored by hand from OpenMantra — the correct target is its English annotation, the corruption is a competent annotator's single-referent flip, never a heuristic.
+_Avoid_: test case, contrastive example, negative pair
+
+**Contrastive accuracy**:
+The fraction of minimal pairs where the model assigns higher probability to the correct target than to the corrupted one. Scored off device on desktop llama.cpp, which exposes log-probabilities the on-device path does not — the production path stays generation-only.
+_Avoid_: pair accuracy, coherence score, referent accuracy
+
+**Coherence gate**:
+The directional check that contrastive accuracy with session context beats accuracy with it blanked, on the same pairs. Passing means session context provably helps referent resolution; it is a direction, not an absolute bar, because the corpus is too small to power one.
+_Avoid_: coherence bar, context gate, pronoun gate
+
 ### Translation context
 
 **Panel**:
