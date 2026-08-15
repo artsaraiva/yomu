@@ -16,8 +16,14 @@ class LlamaTranslationBridge(
         private const val N_GPU_LAYERS = 0
         private val N_THREADS = Runtime.getRuntime().availableProcessors().coerceAtMost(4)
         private const val MAX_TOKENS = 64
+        // Reserve room for the prompt-final tokens and EOS so prompt + output stays within N_CTX.
+        private const val BATCH_TOKEN_RESERVE = 96
+        // Floor for the page-level budget: keep it well above the per-line MAX_TOKENS so a dense
+        // page never silently falls back to the truncating cap ADR-0002 removed.
+        private const val BATCH_MIN_TOKENS = 256
         private const val TEMPERATURE = 0.2f
         private const val TIMEOUT_MS = 15_000
+        private const val BATCH_TIMEOUT_MS = 120_000
     }
 
     private val readinessMutex = Mutex()
@@ -48,18 +54,35 @@ class LlamaTranslationBridge(
     override suspend fun translate(sourceText: String): TranslationOutput? {
         if (sourceText.isBlank()) return null
         if (status !is TranslationStatus.Ready && !ensureReady()) return null
+        return generate(sourceText, MAX_TOKENS, TIMEOUT_MS)
+    }
 
-        return when (val result = llamaBridge.generate(sourceText, MAX_TOKENS, TEMPERATURE, TIMEOUT_MS)) {
+    override suspend fun translateBatch(prompt: String): TranslationOutput? {
+        if (prompt.isBlank()) return null
+        if (status !is TranslationStatus.Ready && !ensureReady()) return null
+        // ponytail: chars/2 is a rough token estimate that keeps prompt + output within N_CTX
+        // without a tokenizer; its ceiling is a page dense enough to overflow N_CTX, where an exact
+        // tokenizer would be needed. #58's corpus (~8-9 short ids/page) stays far under.
+        val promptTokenEstimate = prompt.length / 2
+        val budget = (N_CTX - promptTokenEstimate - BATCH_TOKEN_RESERVE).coerceIn(BATCH_MIN_TOKENS, N_CTX)
+        return generate(prompt, budget, BATCH_TIMEOUT_MS)
+    }
+
+    private fun generate(prompt: String, maxTokens: Int, timeoutMs: Int): TranslationOutput? {
+        return when (val result = llamaBridge.generate(prompt, maxTokens, TEMPERATURE, timeoutMs)) {
             is GenerationResult.Success -> {
                 val text = result.text.trim()
                 if (text.isBlank()) {
-                    Log.w(TAG, "translate blank sourceLength=${sourceText.length}")
+                    Log.w(TAG, "generate blank promptLength=${prompt.length}")
                     null
                 } else {
                     Log.i(
                         TAG,
-                        "translate success sourceLength=${sourceText.length} translatedLength=${text.length} durationMs=${result.durationMs}"
+                        "generate success promptLength=${prompt.length} translatedLength=${text.length} maxTokens=$maxTokens durationMs=${result.durationMs}"
                     )
+                    // Raw model text, so a failed run can be diagnosed as prompt-format vs. model
+                    // quality without re-instrumenting the device (ADR-0002 eval honesty).
+                    Log.i(TAG, "generate raw=${text.replace("\n", "\\n")}")
                     TranslationOutput(
                         translatedText = text,
                         confidence = 0.8f,

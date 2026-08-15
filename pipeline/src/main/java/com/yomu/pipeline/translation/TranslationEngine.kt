@@ -66,7 +66,6 @@ class TranslationEngine(
 
     fun isReady(): Boolean = translationBridge.status is TranslationStatus.Ready
 
-    @Suppress("UNUSED_PARAMETER")
     suspend fun translate(
         blocks: List<ConversationBlock>,
         sessionContext: List<Pair<String, String>> = emptyList()
@@ -74,7 +73,7 @@ class TranslationEngine(
         val startTime = System.currentTimeMillis()
 
         val translated = if (translationBridge.supportsBatch()) {
-            translateBatch(blocks)
+            translateBatch(blocks, sessionContext)
         } else {
             translateBubbles(blocks)
         }
@@ -88,6 +87,35 @@ class TranslationEngine(
             },
             translationTimeMs = System.currentTimeMillis() - startTime
         )
+    }
+
+    /**
+     * Diagnostic (#68), not a production path. Translates each bubble in its own call using
+     * CAT-Translate's model-card prompt ("Translate the following Japanese text into English.\n\n
+     * <text>"), to isolate whether the page-level gate failure is the batch [id] format or the model
+     * itself. Bypasses the cache so every call is measured fresh; the raw model reply is logged by
+     * the bridge (see LlamaTranslationBridge "generate raw=").
+     */
+    suspend fun translatePerLineProbe(blocks: List<ConversationBlock>): List<TranslatedBubble> {
+        val translations = mutableListOf<TranslatedBubble>()
+        for (block in blocks) {
+            for (bubbleId in block.readingOrder) {
+                val original = block.textByBubbleId[bubbleId]?.text?.take(MAX_SOURCE_CHARS) ?: continue
+                val output = translationBridge.translate(
+                    "Translate the following Japanese text into English.\n\n$original"
+                )
+                val translated = output?.translatedText?.takeIf { it.isNotBlank() }
+                translations.add(
+                    TranslatedBubble(
+                        bubbleId = bubbleId,
+                        originalText = original,
+                        translatedText = translated ?: original,
+                        confidence = if (translated != null) output!!.confidence else 0.1f
+                    )
+                )
+            }
+        }
+        return translations
     }
 
     fun fallback(blocks: List<ConversationBlock>): TranslationResult {
@@ -127,50 +155,68 @@ class TranslationEngine(
         return translations
     }
 
-    private suspend fun translateBatch(blocks: List<ConversationBlock>): List<TranslatedBubble> {
-        val items = mutableListOf<Pair<Int, String>>()
-        for (block in blocks) {
-            for (bubbleId in block.readingOrder) {
-                val original = block.textByBubbleId[bubbleId]?.text?.take(MAX_SOURCE_CHARS) ?: continue
-                items.add(bubbleId to original)
+    /**
+     * Page-level LLM path (ADR-0002). Every non-empty bubble goes out in one call, each addressed
+     * by its real detector id (`[<id>] text`), panels rendered as markers, the previous page's
+     * source/translation pairs prepended as session context. The response is parsed by id: a bubble
+     * whose id does not come back falls back to its own source text and only that bubble, so a
+     * dropped/merged/prefaced line never shifts later bubbles into the wrong balloon. The line-keyed
+     * cache is bypassed here so the same line is free to translate differently in another scene.
+     */
+    private suspend fun translateBatch(
+        blocks: List<ConversationBlock>,
+        sessionContext: List<Pair<String, String>>
+    ): List<TranslatedBubble> {
+        val panels = blocks.map { block ->
+            block.readingOrder.mapNotNull { bubbleId ->
+                val original = block.textByBubbleId[bubbleId]?.text?.take(MAX_SOURCE_CHARS)
+                if (original.isNullOrBlank()) null else bubbleId to original
             }
-        }
+        }.filter { it.isNotEmpty() }
+        val items = panels.flatten()
         if (items.isEmpty()) return emptyList()
 
-        val prompt = buildString {
-            appendLine("Translate these Japanese phrases to English, one per line, numbered:")
-            items.forEachIndexed { index, (_, original) ->
-                appendLine("${index + 1}. $original")
-            }
-        }
+        val prompt = buildBatchPrompt(panels, sessionContext)
+        val output = translationBridge.translateBatch(prompt) ?: return fallbackTranslations(blocks)
+        val parsed = parseIdKeyedTranslations(output.translatedText)
 
-        val output = translationBridge.translate(prompt) ?: return fallbackTranslations(blocks)
-        val parsed = parseNumberedTranslations(output.translatedText)
-
-        return items.mapIndexed { index, (bubbleId, original) ->
-            val translated = parsed[index + 1]?.takeIf { it.isNotBlank() } ?: original
-            val hasTranslation = translated != original
-            if (hasTranslation) {
-                val cachedOutput = TranslationOutput(translated, output.confidence, output.durationMs)
-                cache[original] = cachedOutput
-                cacheRepository?.put(engineId, modelId, original, cachedOutput)
-            }
+        return items.map { (bubbleId, original) ->
+            val translated = parsed[bubbleId]?.takeIf { it.isNotBlank() }
             TranslatedBubble(
                 bubbleId = bubbleId,
                 originalText = original,
-                translatedText = translated,
-                confidence = if (hasTranslation) output.confidence else 0.1f
+                translatedText = translated ?: original,
+                confidence = if (translated != null) output.confidence else 0.1f
             )
         }
     }
 
-    private fun parseNumberedTranslations(response: String): Map<Int, String> {
-        val regex = "^\\s*(\\d+)\\.\\s*(.*)$".toRegex()
+    private fun buildBatchPrompt(
+        panels: List<List<Pair<Int, String>>>,
+        sessionContext: List<Pair<String, String>>
+    ): String = buildString {
+        if (sessionContext.isNotEmpty()) {
+            appendLine("Previous page (for context):")
+            sessionContext.forEach { (source, target) -> appendLine("$source => $target") }
+            appendLine()
+        }
+        appendLine(
+            "Translate each Japanese line to English. Keep the [id] tag before each line. " +
+                "Panels are separated by ---."
+        )
+        panels.forEachIndexed { index, panel ->
+            if (index > 0) appendLine("---")
+            panel.forEach { (bubbleId, original) -> appendLine("[$bubbleId] $original") }
+        }
+    }
+
+    private fun parseIdKeyedTranslations(response: String): Map<Int, String> {
+        val regex = "^\\s*\\[(\\d+)]\\s*(.*)$".toRegex()
         return response.lineSequence()
             .mapNotNull { line ->
                 val match = regex.matchEntire(line) ?: return@mapNotNull null
-                val number = match.groupValues[1].toIntOrNull() ?: return@mapNotNull null
-                number to match.groupValues[2].trim()
+                val id = match.groupValues[1].toIntOrNull() ?: return@mapNotNull null
+                id to match.groupValues[2].trim()
             }
             .toMap()
     }
