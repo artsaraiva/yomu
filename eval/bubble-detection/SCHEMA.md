@@ -33,6 +33,16 @@ Ground-truth text-box bounding boxes in captured-image pixel coordinates.
   reports no per-class breakdown, and it exists only to keep the schema stable. Do not read
   meaning into it.
 
+## Generated files (gitignored, written by `run-benchmark.sh`)
+
+### `actual.json` / `actual_s.json`
+On-device detector output. `actual.json` is the incumbent yolo26n; `actual_s.json` is the yolo26s
+candidate (#57), written only when its weights asset was staged. Each box adds `conf` (post-NMS
+confidence), and the object carries `detect_ms` (per-page wall-clock) and `nms_thresholded` /
+`nms_kept` (pre- vs post-NMS box counts). `score-detector-comparison.py` reads both files to rank
+the detectors under the #33 rule; `run-eval.py` scores `actual.json` alone and ignores the extra
+keys.
+
 ## Optional files
 
 ### `notes.txt`

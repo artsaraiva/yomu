@@ -121,6 +121,17 @@ if [ ! -f "$BUBBLE_MODEL_FILE" ]; then
   curl -sL --fail -o "$BUBBLE_MODEL_FILE" "$BUBBLE_MODEL_URL"
 fi
 
+# #57: the yolo26s candidate ships as a second detector asset so one run scores both detectors on
+# identical pages. BubbleDetectionBenchmarkTest skips it if absent, so removing this block reverts to
+# incumbent-only scoring. Same author/loader as the incumbent, single Text class, 20.3MB vs 6.1MB.
+BUBBLE_S_MODEL_FILE="$REPO_ROOT/app/src/androidTest/assets/models/bubble_detection_s.onnx"
+BUBBLE_S_MODEL_URL="https://huggingface.co/Kiuyha/Manga-Bubble-YOLO/resolve/main/onnx/yolo26s.onnx"
+if [ ! -f "$BUBBLE_S_MODEL_FILE" ]; then
+  printf 'Fetching yolo26s candidate weights (~20MB, once)...\n'
+  mkdir -p "$(dirname "$BUBBLE_S_MODEL_FILE")"
+  curl -sL --fail -o "$BUBBLE_S_MODEL_FILE" "$BUBBLE_S_MODEL_URL"
+fi
+
 # Case data ships to the device as test assets. It is gitignored (CC BY-NC), so copy it in from
 # the eval cases before the build packages the test APK. Detection needs page.jpg and the engine
 # benchmark needs source.txt; both are staged in one pass so a newly added case can never arrive
@@ -262,12 +273,19 @@ for case_dir in "$RAW_ARTIFACTS_DIR"/yomu-benchmark/*/; do
   if [ -f "$bubble_json" ]; then
     cp "$bubble_json" "$SCRIPT_DIR/bubble-detection/cases/$case_id/actual.json"
   fi
+  # #57: yolo26s candidate detections land alongside the incumbent's actual.json.
+  bubble_s_json="$case_dir/bubble_s.json"
+  if [ -f "$bubble_s_json" ]; then
+    cp "$bubble_s_json" "$SCRIPT_DIR/bubble-detection/cases/$case_id/actual_s.json"
+  fi
 
   target_dir="$SCRIPT_DIR/translation-quality/cases/$case_id/actual"
   mkdir -p "$target_dir"
   for engine_json in "$case_dir"/*.json; do
     [ -f "$engine_json" ] || continue
-    [ "$(basename "$engine_json")" != "bubble.json" ] || continue
+    case "$(basename "$engine_json")" in
+      bubble.json|bubble_s.json) continue ;;
+    esac
     cp "$engine_json" "$target_dir/$(basename "$engine_json")"
   done
 done
@@ -334,6 +352,13 @@ if [ "$SKIP_EVAL" -eq 0 ]; then
   else
     printf 'Could not determine scored results path from eval output.\n' >&2
     exit 1
+  fi
+
+  # #57: if the yolo26s candidate ran, print the paired detector comparison and the pre-registered
+  # verdict that feeds #33. No-op when only the incumbent was scored.
+  if ls "$SCRIPT_DIR"/bubble-detection/cases/*/actual_s.json >/dev/null 2>&1; then
+    detector_cmp_file="$RUN_DIR/detector-comparison.txt"
+    python3 "$SCRIPT_DIR/score-detector-comparison.py" | tee "$detector_cmp_file"
   fi
   step_done 6 'score results' "$STEP_TS"
 else

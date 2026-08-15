@@ -45,45 +45,77 @@ class BubbleDetectionBenchmarkTest {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val assetManager = InstrumentationRegistry.getInstrumentation().context.assets
 
-        // The device's downloaded copy lives in the app's filesDir, which the benchmark cannot count
-        // on being populated, so the test ships its own copy of the same weights and stages it.
-        val modelFile = File(context.cacheDir, Constants.BUBBLE_DETECTION_MODEL)
-        assetManager.open("models/${Constants.BUBBLE_DETECTION_MODEL}").use { input ->
-            modelFile.outputStream().use { input.copyTo(it) }
-        }
-        check(bubbleDetector.loadModel(modelFile.absolutePath)) {
-            "Failed to load bubble detection model at ${modelFile.absolutePath}"
-        }
         val caseIds = assetManager.list("eval-cases")?.sorted().orEmpty()
             .filter { assetManager.list("eval-cases/$it")?.contains("page.jpg") == true }
         check(caseIds.isNotEmpty()) {
             "No page.jpg under assets/eval-cases; run eval/run-benchmark.sh so it copies the case images in before the build"
         }
 
-        for (caseId in caseIds) {
-            val bitmap = assetManager.open("eval-cases/$caseId/page.jpg").use {
-                BitmapFactory.decodeStream(it)
-            } ?: error("Failed to decode eval-cases/$caseId/page.jpg")
-            val boxes = bubbleDetector.detect(bitmap)
-
-            val json = JSONObject().apply {
-                put("boxes", JSONArray(boxes.map { bubble ->
-                    JSONObject().apply {
-                        put("x", bubble.boundingBox.left.toInt())
-                        put("y", bubble.boundingBox.top.toInt())
-                        put("w", bubble.boundingBox.width().toInt())
-                        put("h", bubble.boundingBox.height().toInt())
-                    }
-                }))
-            }
-            Log.i(TAG, "RESULT_JSON case=$caseId engine=bubble json=$json")
-            bitmap.recycle()
+        // #57: score the incumbent detector against the yolo26s candidate on identical pages, in one
+        // run. The challenger asset is optional so this test still passes on the incumbent alone when
+        // run-benchmark.sh has not staged it. Each detector's weights ride into the test APK as
+        // gitignored assets, so the run does not depend on what the device has downloaded.
+        val stagedAssets = assetManager.list("models")?.toSet().orEmpty()
+        val detectors = DETECTORS.filter { it.assetName in stagedAssets }
+        check(DETECTORS.first().assetName in stagedAssets) {
+            "Missing incumbent asset models/${DETECTORS.first().assetName}; run eval/run-benchmark.sh so it stages the detector weights before the build"
         }
 
-        bubbleDetector.release()
+        for (detector in detectors) {
+            // A single BubbleDetector cannot switch weights (loadModel is a no-op once loaded), so
+            // release between detectors to reset it for the next model path.
+            val modelFile = File(context.cacheDir, detector.assetName)
+            assetManager.open("models/${detector.assetName}").use { input ->
+                modelFile.outputStream().use { input.copyTo(it) }
+            }
+            check(bubbleDetector.loadModel(modelFile.absolutePath)) {
+                "Failed to load detector ${detector.id} at ${modelFile.absolutePath}"
+            }
+
+            for (caseId in caseIds) {
+                val bitmap = assetManager.open("eval-cases/$caseId/page.jpg").use {
+                    BitmapFactory.decodeStream(it)
+                } ?: error("Failed to decode eval-cases/$caseId/page.jpg")
+
+                val startNs = System.nanoTime()
+                val boxes = bubbleDetector.detect(bitmap)
+                val detectMs = (System.nanoTime() - startNs) / 1_000_000.0
+                val stats = bubbleDetector.lastStats
+
+                val json = JSONObject().apply {
+                    put("detect_ms", detectMs)
+                    put("nms_thresholded", stats?.thresholded ?: boxes.size)
+                    put("nms_kept", stats?.kept ?: boxes.size)
+                    put("boxes", JSONArray(boxes.map { bubble ->
+                        JSONObject().apply {
+                            put("x", bubble.boundingBox.left.toInt())
+                            put("y", bubble.boundingBox.top.toInt())
+                            put("w", bubble.boundingBox.width().toInt())
+                            put("h", bubble.boundingBox.height().toInt())
+                            // conf lets the Python scorer run the #57 confidence sweep offline,
+                            // instead of re-running inference at each threshold on device.
+                            put("conf", bubble.confidence)
+                        }
+                    }))
+                }
+                Log.i(TAG, "RESULT_JSON case=$caseId engine=${detector.engine} json=$json")
+                bitmap.recycle()
+            }
+
+            bubbleDetector.release()
+        }
     }
+
+    private data class DetectorAsset(val id: String, val engine: String, val assetName: String)
 
     companion object {
         private const val TAG = "BubbleDetectionBenchmarkTest"
+
+        // engine= is the tag run-benchmark.sh writes to <engine>.json. The incumbent keeps engine=bubble
+        // so its actual.json path is unchanged; the challenger lands in a parallel actual_s.json.
+        private val DETECTORS = listOf(
+            DetectorAsset("yolo26n", "bubble", Constants.BUBBLE_DETECTION_MODEL),
+            DetectorAsset("yolo26s", "bubble_s", "bubble_detection_s.onnx"),
+        )
     }
 }
