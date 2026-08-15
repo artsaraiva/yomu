@@ -143,6 +143,7 @@ for case_dir in "$SCRIPT_DIR"/bubble-detection/cases/*/; do
   [ -d "$case_dir" ] || continue
   case_id="$(basename "$case_dir")"
   page_jpg="$case_dir/page.jpg"
+  expected_json="$case_dir/expected.json"
   source_txt="$SCRIPT_DIR/translation-quality/cases/$case_id/source.txt"
   [ -f "$page_jpg" ] || continue
   if [ ! -f "$source_txt" ]; then
@@ -152,6 +153,9 @@ for case_dir in "$SCRIPT_DIR"/bubble-detection/cases/*/; do
   mkdir -p "$TEST_ASSETS_DIR/$case_id"
   cp "$page_jpg" "$TEST_ASSETS_DIR/$case_id/page.jpg"
   cp "$source_txt" "$TEST_ASSETS_DIR/$case_id/source.txt"
+  # The translation benchmark now makes an ADR-0004 page-level call, which needs the ground-truth
+  # boxes to assemble panels + reading order, so expected.json is staged alongside source.txt.
+  cp "$expected_json" "$TEST_ASSETS_DIR/$case_id/expected.json"
 done
 
 # Translation models are staged as fixtures rather than downloaded through the app's Settings UI,
@@ -279,7 +283,12 @@ for case_dir in "$RAW_ARTIFACTS_DIR"/yomu-benchmark/*/; do
     cp "$bubble_s_json" "$SCRIPT_DIR/bubble-detection/cases/$case_id/actual_s.json"
   fi
 
+  # Clear the case's actual/ before copying this run's engines. Without this, an engine that was
+  # skipped this run (not ready — ML Kit's model not downloaded, OPUS-MT's #14 tokenizer defect)
+  # keeps its stale JSON from a prior run and is scored as if fresh — the "green harness measuring
+  # nothing" failure this eval has hit repeatedly (#36, #41).
   target_dir="$SCRIPT_DIR/translation-quality/cases/$case_id/actual"
+  rm -rf "$target_dir"
   mkdir -p "$target_dir"
   for engine_json in "$case_dir"/*.json; do
     [ -f "$engine_json" ] || continue

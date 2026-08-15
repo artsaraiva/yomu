@@ -151,45 +151,82 @@ def pool_summary(results: list[dict]) -> dict:
     }
 
 
-def has_artifact(text: str) -> bool:
-    if not text:
-        return False
-    return (
-        "SEP" in text
-        or "<extra" in text
-        or "[unused" in text
-        or re.search(r"\bUNK\b", text) is not None
-    )
+# ADR-0004: the gate is the LLM's page-level call; ML Kit / OPUS-MT run the same call but batch
+# per-bubble internally, so they are a floor reported separately and never ranked against it.
+GATE_ENGINE = "llm"
+
+# Hiragana, katakana (incl. half-width), CJK ideographs and compatibility forms. A CJK codepoint in
+# an English translation is Japanese residue (ADR-0004), reference-adjudicated below.
+CJK = re.compile(r"[぀-ヿ㐀-䶿一-鿿豈-﫿ｦ-ﾟ]")
+
+# Non-translation: the engine echoed its instruction or returned a refusal template instead of a
+# translation. #47 recorded a CAT-Translate output that was the verbatim instruction and scored
+# 0.000 on every old metric. Matched case-insensitively as a substring, kept deliberately small —
+# a false positive here fails a hard gate.
+NON_TRANSLATION_MARKERS = (
+    "translate the following",
+    "translate these japanese",
+    "reply with the translation",
+    "one per line, numbered",
+    "i cannot translate",
+    "i can't translate",
+    "as an ai",
+)
 
 
 def words(text: str) -> list[str]:
     return re.findall(r"[a-zA-Z0-9']+", text or "")
 
 
+def has_cjk(text: str) -> bool:
+    return bool(text) and CJK.search(text) is not None
+
+
+def is_non_translation(text: str) -> bool:
+    lowered = (text or "").lower()
+    return any(marker in lowered for marker in NON_TRANSLATION_MARKERS)
+
+
 def score_translation(source: list[str], reference: list[str], output: list[str]) -> dict:
+    """Score one page-level call, matched to the reference by bubble id (ADR-0004).
+
+    `output[i]` is the translation of source line i, empty where the engine returned no entry for
+    that id. A short or long list is padded/truncated to the source length rather than voiding the
+    case — the discard rule that printed "No engine outputs scored." before #45 is gone. Blank
+    source lines carry no text and leave every denominator.
+    """
     n = len(source)
-    if len(output) != n:
-        return {
-            "error": f"line count mismatch: source={n}, output={len(output)}",
-            "untranslated_rate": 0.0,
-            "artifact_rate": 0.0,
-            "exact_match_rate": 0.0,
-            "readability_ratio": 0.0,
-        }
+    entries: list[tuple[str, str]] = []  # (reference, output) for ids that carry source text
+    for i in range(n):
+        if not source[i].strip():
+            continue
+        ref = reference[i] if i < len(reference) else ""
+        out = output[i] if i < len(output) else ""
+        entries.append((ref, out))
 
-    untranslated = sum(1 for s, o in zip(source, output) if s and s == o)
-    artifacts = sum(1 for o in output if has_artifact(o))
-    exact_matches = sum(1 for r, o in zip(reference, output) if r and r.strip() == o.strip())
+    total = len(entries)
+    covered = sum(1 for _, o in entries if o.strip())
+    non_translation = sum(1 for _, o in entries if is_non_translation(o))
+    # Reference-adjudicated: CJK in the output is residue only where the reference has none, so a
+    # legitimately-kept onomatopoeia is not charged against the engine.
+    residue = sum(1 for r, o in entries if has_cjk(o) and not has_cjk(r))
 
-    ref_words = sum(len(words(r)) for r in reference)
-    out_words = sum(len(words(o)) for o in output)
-    readability_ratio = out_words / ref_words if ref_words > 0 else 0.0
+    ref_words = sum(len(words(r)) for r, _ in entries)
+    out_words = sum(len(words(o)) for _, o in entries)
 
     return {
-        "untranslated_rate": untranslated / n,
-        "artifact_rate": artifacts / n,
-        "exact_match_rate": exact_matches / n,
-        "readability_ratio": readability_ratio,
+        "entries": total,
+        "covered": covered,
+        "non_translation": non_translation,
+        "residue": residue,
+        "ref_words": ref_words,
+        "out_words": out_words,
+        "bubble_coverage": covered / total if total else 1.0,
+        "non_translation_rate": non_translation / total if total else 0.0,
+        "japanese_residue_rate": residue / total if total else 0.0,
+        # Diagnostic only, never gated (#52): flags a verbose translation or an echoed prompt without
+        # telling them apart.
+        "readability_ratio": out_words / ref_words if ref_words > 0 else 0.0,
     }
 
 
@@ -306,17 +343,31 @@ def run_translation_quality(stub: bool) -> dict[str, Any]:
 
     summary: dict[str, Any] = {"engines": {}}
     for engine in engines:
-        scores = [
-            next((e for e in r["engines"] if e.get("engine") == engine), None)
+        valid = [
+            e
             for r in results
+            for e in r["engines"]
+            if e.get("engine") == engine and "error" not in e
         ]
-        valid = [s for s in scores if s is not None and "error" not in s]
-        if valid:
-            summary["engines"][engine] = {
-                "avg_untranslated_rate": sum(s["untranslated_rate"] for s in valid) / len(valid),
-                "avg_artifact_rate": sum(s["artifact_rate"] for s in valid) / len(valid),
-                "avg_exact_match_rate": sum(s["exact_match_rate"] for s in valid) / len(valid),
-                "avg_readability_ratio": sum(s["readability_ratio"] for s in valid) / len(valid),
-            }
+        if not valid:
+            continue
+        # Rates are aggregated over entries, never averaged over cases (#44): a 3-bubble page must
+        # not weigh as much as a 17-bubble one, and a single residue anywhere fails the gate.
+        entries = sum(s["entries"] for s in valid)
+        covered = sum(s["covered"] for s in valid)
+        non_translation = sum(s["non_translation"] for s in valid)
+        residue = sum(s["residue"] for s in valid)
+        ref_words = sum(s["ref_words"] for s in valid)
+        out_words = sum(s["out_words"] for s in valid)
+        summary["engines"][engine] = {
+            "role": "gate" if engine == GATE_ENGINE else "floor",
+            "entries": entries,
+            "bubble_coverage": covered / entries if entries else 1.0,
+            "non_translation_rate": non_translation / entries if entries else 0.0,
+            "japanese_residue_rate": residue / entries if entries else 0.0,
+            "readability_ratio": out_words / ref_words if ref_words > 0 else 0.0,
+            # Pass bars (#52): non-translation 0, residue 0, coverage 100% of ids. All-or-nothing.
+            "gate_pass": non_translation == 0 and residue == 0 and covered == entries,
+        }
 
     return {"cases": results, "summary": summary}
