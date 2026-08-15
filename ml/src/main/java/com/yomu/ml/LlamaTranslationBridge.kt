@@ -80,6 +80,9 @@ class LlamaTranslationBridge(
                         TAG,
                         "generate success promptLength=${prompt.length} translatedLength=${text.length} maxTokens=$maxTokens durationMs=${result.durationMs}"
                     )
+                    // Raw model text, so a failed run can be diagnosed as prompt-format vs. model
+                    // quality without re-instrumenting the device (ADR-0002 eval honesty).
+                    Log.i(TAG, "generate raw=${text.replace("\n", "\\n")}")
                     TranslationOutput(
                         translatedText = text,
                         confidence = 0.8f,

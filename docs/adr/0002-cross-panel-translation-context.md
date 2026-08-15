@@ -35,3 +35,19 @@ The LLM path is the design target. Small-window NMT engines (OPUS-MT class) rema
 ## Amendment (#53): the acceptance gate now has a contract
 
 The gate above was a pointer to a research note; its shape is now fixed by [ADR-0006](0006-coherence-gate-contract.md). The set is hand-authored **minimal pairs** (correct target vs. a single-referent-flipped corruption) scored by **contrastive accuracy** — the model assigns higher probability to the correct target. Passing is **directional**: accuracy with session context must beat accuracy with it blanked, on the same pairs (paired, chance floor 0.5), not an absolute bar. Scoring runs **off device** on desktop llama.cpp, so **this ADR owes no new native work** — the production path stays generation-only. The corpus and runner are post-map build work; the gate is defined now but cannot run until this ADR's architecture is built (`sessionContext` is still unread today, per #47).
+
+## Amendment (#68): page-level single call is not viable on the curated 0.8b model
+
+**Status:** accepted, amends the "one call per page" decision.
+
+This ADR assumed one page-level LLM call could carry every bubble, each addressed by its detector id, and return every translation in one structured reply. Built and measured in #68, `CAT-Translate-0.8b` (ADR-0008's curated default) **cannot produce id-keyed batch output**: given a page of `[id]`-tagged lines it echoes the instruction and returns the source (Japanese-residue 0.93, gate FAIL on SM-S911B / 147 ids). Removing the `MAX_TOKENS = 64` cap did not move residue — the #58 baseline residue was **not** purely a truncation artifact. The same model translates correctly **one line at a time** once invoked in its trained form (single-text user turn, no system prompt): per-line residue 0.03.
+
+**What stands:** the *goals* — cross-panel context, session continuity, per-id mapping with per-bubble fallback, empty-OCR omission, no per-box class labels.
+
+**What changes:** "exactly one model call per page" is relaxed. Cross-panel context may instead be delivered by giving the model the surrounding page as **context** while it translates **one target bubble per call**, results mapped by id (#65 child, path 2b). The reader still triggers once per page; panels remain markers, never call boundaries in the reader's sense.
+
+**Model escalation:** the single-call id-keyed design remains valid for a **more capable model**. A larger CAT-Translate sibling (1.4b / 3.3b) that can emit id-keyed batches may run the original design on capable devices (#65 child, path 2a; [ADR-0008](0008-translation-model-selection.md)). The `TranslationEngine` batch path is retained for that reason.
+
+**Native fix carried by this finding:** the JNI layer injected a system prompt the model was never trained with, which made even per-line calls echo/refuse (non-translation 0.48). CAT-Translate's model card uses no system prompt and the exact user turn `Translate the following {src} text into {tgt}.\n\n{text}`; `apply_chat_template` in `llama_jni.cpp` was corrected to match.
+
+**Evidence:** #68 gate runs (SM-S911B, 147 ids, entry-weighted): batch residue 0.93; per-line residue 0.03; per-line non-translation 0.48 with the injected system prompt, dropping sharply once the prompt matched the model card.
