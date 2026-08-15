@@ -3,9 +3,9 @@
 Curated, real-world manga cases used to measure two things that must not regress:
 
 1. **Bubble detection containment** — every readable text box must reach OCR whole. A missed or
-   truncated bubble breaks the reading experience. No absolute bar is set on this case set: two of
-   its unfound boxes are unenclosed title/credit text no balloon detector is trained for, so the
-   numbers rank detectors rather than pass or fail them (ADR-0003).
+   truncated bubble breaks the reading experience. No absolute pass bar is set; the numbers rank
+   detectors rather than pass or fail them (ADR-0003), and they rank them only coarsely — see
+   [What this case set can and cannot decide](#what-this-case-set-can-and-cannot-decide).
 2. **Translation quality** — Japanese OCR text must become coherent English.
    Track artifacts (e.g. `SEP`), incoherent output, and untranslated/source-language
    output.
@@ -162,6 +162,39 @@ Per case and per engine, write
 Lines must align with `source.txt`. The harness reports untranslated rate,
 artifact rate, exact-match rate, and a readability word-count ratio.
 
+## What this case set can and cannot decide
+
+The set is 17 cases / 148 boxes: 15 story pages (145 boxes, the gate) and 2 cover pages (3 boxes,
+reported separately). Pages are drawn from all 5 OpenMantra books, 3 story pages each.
+
+**Separation rule: two detectors are separated only if their story-pool containment differs by at
+least 8 percentage points. Below 8pp they are tied, and the choice is made on licence, model size,
+and latency — never on score.**
+
+That is not conservatism, it is the arithmetic. Detectors are compared paired — same boxes, two
+scores — so only boxes they disagree on carry information:
+
+- The incumbent misses 40 of 145 story boxes because its boxes sit inset from the glyphs. A
+  detector that frames to bubble bounds recovers nearly all of them: ~40 discordant boxes, all one
+  direction, sign test p far below 10⁻⁶. This set settles that comparison overwhelmingly.
+- Two candidates both around 0.90 differ on ~6 boxes, split ~4/2. Sign test p = 0.69. Noise.
+  Resolving a 3pp gap needs roughly 500 boxes.
+
+OpenMantra contains 1592 boxes across 214 pages in total. Annotating **every page of the entire
+dataset** still leaves a ±2.1pp confidence interval, so a near-tie is unresolvable on this corpus
+at any size — not "we need more data", but "this corpus cannot answer that question". Do not grow
+the set hoping to break a near-tie; break it on non-score criteria instead.
+
+Page selection is **seeded random** (`random.Random(0)`, 3 story pages per book, excluding covers
+and empty pages), recorded as a frozen literal in `generate-cases.py`. Never extend the set by
+picking pages where the current detector fails: a set selected on one detector's misses measures
+"does the candidate fix *these*", which is indistinguishable from "does the candidate happen to
+suit these particular pages". The seeded rule exists so growth cannot be accused of that bias.
+
+**The `label` field (`speech` / `narration` / `sfx`) is not annotation.** OpenMantra has no class
+field; `generate-cases.py:label_for()` guesses from substrings. The harness deliberately reports no
+per-class breakdown. Do not read meaning into those labels or reintroduce per-class scoring.
+
 ## Interpreting results
 
 - **Bubble detection**: **containment recall** is the gate — the fraction of ground-truth boxes
@@ -171,11 +204,20 @@ artifact rate, exact-match rate, and a readability word-count ratio.
   badly", which point at opposite fixes. **Merging detections** — one detection swallowing two or
   more bubbles — are counted separately, because ADR-0002 addresses bubbles by detector id, so a
   merge silently drops a speaker. False positives are tracked but secondary.
-  Containment is printed as a per-case average and as a box-weighted figure over all boxes. They
-  diverge sharply on this case set, because a 1-box case counts as much as a 17-box one in the
-  per-case average. Quote the box-weighted number when comparing detectors.
-  No absolute pass bar is set (see ADR-0003). The incumbent YOLO26n baseline, for comparison, is
-  containment 0.718 / localisation 0.859 / 10 merging detections over 78 boxes in 8 cases.
+  Every headline figure is **box-weighted** — total matched over total expected. Per-case recalls
+  are printed as a diagnostic and are **never averaged**: under a per-case mean a 1-box case counts
+  as much as a 17-box one, and the two numbers diverge sharply on this set.
+  **Cover pages are scored but excluded from the gate**, reported on their own `Cover text` line.
+  Their boxes are title typography and author credits, which no balloon detector is trained for, so
+  they tax every candidate by the same constant and discriminate between none of them. Whether Yomu
+  should translate cover text at all is a pipeline question, not a detector one.
+  No absolute pass bar is set (see ADR-0003). The incumbent YOLO26n baseline, measured on the full
+  15-story-page set, is **story containment 0.724 (105/145)** / localisation 0.876 / 19 merging
+  detections / 26 false positives, with cover text 0.000 (0/3).
+  Earlier figures were 0.718 over 78 boxes (8 pages, cover boxes still in the denominator) and
+  0.747 over the 75 story boxes of those same 8 pages. The full-set number landing 2.3pp from the
+  8-page one is worth noting: the original hand-picked pages were not badly unrepresentative, and
+  the gap is far inside the confidence interval either set can support.
 - **Translation quality**: lower untranslated and artifact rates are better.
   Readability ratio near 1.0 means the engine is producing a similar amount of
   English text as the reference; much higher or lower suggests hallucination or

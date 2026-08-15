@@ -12,6 +12,7 @@ object Constants {
     const val BUBBLE_DETECTION_MODEL_ID = "bubble_detection_v1"
     const val MANGA_OCR_MODEL_ID = "manga_ocr_v1"
     const val CAT_TRANSLATION_MODEL_ID = "cat_translate_0.8b_v1"
+    const val OPUS_MT_MODEL_ID = "opus_mt_ja_en_v1"
     
     const val BUBBLE_DETECTION_MODEL = "bubble_detection.onnx"
     const val OCR_ENCODER_MODEL = "manga_ocr_encoder.onnx"

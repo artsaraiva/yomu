@@ -17,6 +17,15 @@ TRANS_ACTUAL_DIR = "actual"
 PAD_FRACTION = 0.04
 CONTAINMENT_THRESHOLD = 0.95
 
+# Case kinds, mirroring generate-cases.py. Only STORY pages are gated (#44).
+STORY = "story"
+COVER = "cover"
+
+# #44: two detectors are separated only if their story-pool containment differs by at least this
+# much. Below it they are tied, and the choice is made on licence, model size, and latency —
+# never on score. 78 boxes cannot resolve a 3pp gap, and neither can all 1592 in OpenMantra.
+SEPARATION_THRESHOLD = 0.08
+
 
 def pad_box(box: dict, pad: float, image_width: int, image_height: int) -> dict:
     x1 = max(0.0, box["x"] - pad)
@@ -107,19 +116,8 @@ def score_bubbles(
     fp = len(actual) - len(matched_actual)
     fn = len(expected) - len(matched_expected)
 
-    per_label: dict[str, dict] = {}
-    for label in sorted({e.get("label", "unknown") for e in expected}):
-        idxs = [i for i, e in enumerate(expected) if e.get("label", "unknown") == label]
-        label_matched = sum(1 for i in idxs if i in matched_expected)
-        label_total = len(idxs)
-        per_label[label] = {
-            "expected_count": label_total,
-            "matched": label_matched,
-            "missed": label_total - label_matched,
-            "localised": sum(1 for i in idxs if i in localised),
-            "containment_recall": label_matched / label_total if label_total else 1.0,
-        }
-
+    # No per-label breakdown: the speech/narration/sfx labels are heuristic guesses from
+    # generate-cases.py, not annotation (#44). Reporting them invites reading meaning into noise.
     return {
         "expected_count": len(expected),
         "actual_count": len(actual),
@@ -130,7 +128,26 @@ def score_bubbles(
         "merging_detections": len(merging),
         "containment_recall": tp / len(expected) if expected else 1.0,
         "localisation_recall": len(localised) / len(expected) if expected else 1.0,
-        "per_label": per_label,
+    }
+
+
+def pool_summary(results: list[dict]) -> dict:
+    """Aggregate a set of cases box-weighted.
+
+    Per-case recalls are never averaged (#44): under a per-case mean a 1-box case counts as much
+    as a 17-box one. Every headline number here is total matched over total expected.
+    """
+    total_expected = sum(r["expected_count"] for r in results)
+    total_matched = sum(r["matched"] for r in results)
+    total_localised = sum(r["localised"] for r in results)
+    return {
+        "case_count": len(results),
+        "total_expected": total_expected,
+        "total_containment_recall": total_matched / total_expected if total_expected else 0.0,
+        "total_localisation_recall": total_localised / total_expected if total_expected else 0.0,
+        "total_merging_detections": sum(r["merging_detections"] for r in results),
+        "total_false_positives": sum(r["false_positives"] for r in results),
+        "total_missed": sum(r["missed"] for r in results),
     }
 
 
@@ -223,53 +240,18 @@ def run_bubble_detection(stub: bool) -> dict[str, Any]:
         )
         score["case_id"] = case_dir.name
         score["mode"] = mode
+        score["kind"] = expected.get("kind", STORY)
         results.append(score)
 
-    if results:
-        avg_recall = sum(r["containment_recall"] for r in results) / len(results)
-        total_fp = sum(r["false_positives"] for r in results)
-        total_fn = sum(r["missed"] for r in results)
-        total_merging = sum(r["merging_detections"] for r in results)
-        # Box-weighted, so a 1-box case cannot swing the number as hard as it does in avg_recall.
-        total_expected = sum(r["expected_count"] for r in results)
-        total_matched = sum(r["matched"] for r in results)
-        total_localised = sum(r["localised"] for r in results)
-        total_recall = total_matched / total_expected if total_expected else 0.0
-        total_localisation = total_localised / total_expected if total_expected else 0.0
-    else:
-        avg_recall = 0.0
-        total_fp = 0
-        total_fn = 0
-        total_merging = 0
-        total_recall = 0.0
-        total_localisation = 0.0
-
-    labels = sorted({label for r in results for label in r["per_label"]})
-    per_label_summary: dict[str, dict] = {}
-    for label in labels:
-        expected_count = sum(r["per_label"].get(label, {}).get("expected_count", 0) for r in results)
-        matched = sum(r["per_label"].get(label, {}).get("matched", 0) for r in results)
-        missed = sum(r["per_label"].get(label, {}).get("missed", 0) for r in results)
-        localised = sum(r["per_label"].get(label, {}).get("localised", 0) for r in results)
-        per_label_summary[label] = {
-            "expected_count": expected_count,
-            "matched": matched,
-            "missed": missed,
-            "localised": localised,
-            "containment_recall": matched / expected_count if expected_count else 1.0,
-        }
+    story = [r for r in results if r["kind"] == STORY]
+    cover = [r for r in results if r["kind"] == COVER]
 
     return {
         "cases": results,
-        "summary": {
-            "avg_containment_recall": avg_recall,
-            "total_containment_recall": total_recall,
-            "total_localisation_recall": total_localisation,
-            "total_merging_detections": total_merging,
-            "total_false_positives": total_fp,
-            "total_missed": total_fn,
-            "per_label": per_label_summary,
-        },
+        # The gate is story boxes only. Cover pages carry title typography no bubble detector
+        # finds, so they tax every candidate by the same constant and discriminate nothing (#44).
+        "summary": pool_summary(story),
+        "cover_text": pool_summary(cover),
     }
 
 

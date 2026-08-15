@@ -231,16 +231,22 @@ private fun EngineModelCard(
                 }
 
                 TranslationEngineType.OPUS_MT -> {
-                    Text(
-                        text = "Download required: ~115MB",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = "Coming soon",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    val model = models.find { it.id == Constants.OPUS_MT_MODEL_ID }
+                    if (model != null) {
+                        ModelStatusRow(
+                            model = model,
+                            isDownloading = downloadingId == model.id,
+                            progress = downloadProgress,
+                            onDownload = { onDownload(model.id) },
+                            onDelete = { onDelete(model.id) }
+                        )
+                    } else {
+                        Text(
+                            text = "~111MB OPUS-MT JA→EN, INT8 quantized",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
 
                 TranslationEngineType.LLM -> {
