@@ -84,6 +84,25 @@ class TranslationCacheTest {
         assertEquals(0, repo.putCalls.size)
     }
 
+    @Test
+    fun translate_batchPathNeitherReadsNorWritesCache() = runTest {
+        val repo = FakeTranslationCacheRepository()
+        // Pre-seed the repo; the batch path must ignore it and translate fresh.
+        repo.put("engine", null, "こんにちは", TranslationOutput("Cached", 0.9f, 10L))
+        val bridge = FakeTranslationBridge(
+            status = TranslationStatus.Ready,
+            batchResponse = "[1] Hello",
+            supportsBatch = true
+        )
+        val engine = TranslationEngine(bridge, "engine", null, repo)
+
+        val result = engine.translate(listOf(singleBubbleBlock("こんにちは")))
+
+        assertEquals("Hello", result.translations.first().translatedText)
+        assertEquals(0, repo.getCalls)
+        assertEquals(1, repo.putCalls.size) // only the pre-seed put; the batch path added none
+    }
+
     private fun singleBubbleBlock(text: String): ConversationBlock {
         return conversationBlock(1 to text)
     }
@@ -122,7 +141,9 @@ class TranslationCacheTest {
 
     private class FakeTranslationBridge(
         status: TranslationStatus = TranslationStatus.Ready,
-        private val outputForText: Map<String, TranslationOutput> = emptyMap()
+        private val outputForText: Map<String, TranslationOutput> = emptyMap(),
+        private val batchResponse: String? = null,
+        private val supportsBatch: Boolean = false
     ) : TranslationBridge {
         override var status: TranslationStatus = status
         val translateCalls: MutableMap<String, Int> = mutableMapOf()
@@ -134,7 +155,11 @@ class TranslationCacheTest {
             return outputForText[sourceText]
         }
 
-        override fun supportsBatch(): Boolean = false
+        override suspend fun translateBatch(prompt: String): TranslationOutput? {
+            return batchResponse?.let { TranslationOutput(it, 0.8f, 100L) }
+        }
+
+        override fun supportsBatch(): Boolean = supportsBatch
         override fun clearMemory() {}
         override fun close() {
             status = TranslationStatus.NotReady
@@ -144,8 +169,10 @@ class TranslationCacheTest {
     private class FakeTranslationCacheRepository : TranslationCacheRepository {
         private val store: MutableMap<String, TranslationOutput> = mutableMapOf()
         val putCalls: MutableList<PutCall> = mutableListOf()
+        var getCalls: Int = 0
 
         override suspend fun get(engineId: String, modelId: String?, sourceText: String): TranslationOutput? {
+            getCalls++
             return store[buildCacheKey(engineId, modelId, sourceText)]
         }
 

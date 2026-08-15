@@ -37,9 +37,11 @@ class ContextAssembler {
 
         detectPanels(bubbles, pageWidth, pageHeight)
 
-        val panelBubbles = assignBubblesToPanels(bubbles)
+        val panelGroups = groupBubblesByPanel(bubbles)
 
-        val blocks = buildConversationBlocks(panelBubbles, ocrResults)
+        val blocks = panelGroups.mapIndexed { index, group ->
+            createBlock(index + 1, group, ocrResults)
+        }
 
         return PageContext(
             blocks = blocks,
@@ -76,11 +78,15 @@ class ContextAssembler {
         panels.add(currentPanel)
     }
 
-    internal fun assignBubblesToPanels(bubbles: List<Bubble>): List<Bubble> {
+    /**
+     * Group bubbles into panels in manga reading order: panels right-to-left, and within a panel
+     * top-to-bottom with the right half read before the left. One group per non-empty panel; the
+     * engine renders panel boundaries as prompt markers (ADR-0002), never as call boundaries.
+     */
+    internal fun groupBubblesByPanel(bubbles: List<Bubble>): List<List<Bubble>> {
         val rightToLeftPanels = panels.sortedByDescending { it.left }
 
-        val assigned = mutableListOf<Bubble>()
-        for (panel in rightToLeftPanels) {
+        return rightToLeftPanels.mapNotNull { panel ->
             val bubblesInPanel = bubbles
                 .filter { it.boundingBox.centerX() >= panel.left && it.boundingBox.centerX() <= panel.right }
                 .sortedBy { it.boundingBox.top }
@@ -89,36 +95,8 @@ class ContextAssembler {
             val rightBubbles = bubblesInPanel.filter { it.boundingBox.centerX() >= midX }
             val leftBubbles = bubblesInPanel.filter { it.boundingBox.centerX() < midX }
 
-            assigned.addAll(rightBubbles)
-            assigned.addAll(leftBubbles)
+            (rightBubbles + leftBubbles).takeIf { it.isNotEmpty() }
         }
-
-        return assigned
-    }
-
-    private fun buildConversationBlocks(
-        bubbles: List<Bubble>,
-        ocrResults: Map<Int, OcrResult>
-    ): List<ConversationBlock> {
-        val blocks = mutableListOf<ConversationBlock>()
-
-        var currentBlock = mutableListOf<Bubble>()
-        var blockId = 1
-
-        for (bubble in bubbles) {
-            currentBlock.add(bubble)
-
-            if (currentBlock.size >= 4) {
-                blocks.add(createBlock(blockId++, currentBlock, ocrResults))
-                currentBlock = mutableListOf()
-            }
-        }
-
-        if (currentBlock.isNotEmpty()) {
-            blocks.add(createBlock(blockId, currentBlock, ocrResults))
-        }
-
-        return blocks
     }
 
     private fun createBlock(
@@ -130,8 +108,8 @@ class ContextAssembler {
             ocrResults[bubble.id]?.let { result -> bubble.id to result }
         }.toMap()
         val texts = bubbles.mapNotNull { textByBubbleId[it.id] }
-        val readingOrder = bubbles.sortedBy { it.boundingBox.top }
-            .map { it.id }
+        // bubbles already arrive in reading order from groupBubblesByPanel.
+        val readingOrder = bubbles.map { it.id }
 
         return ConversationBlock(
             blockId = blockId,
