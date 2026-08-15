@@ -57,10 +57,6 @@ static bool rebuild_sampler(float temperature) {
     return true;
 }
 
-static const char *TRANSLATE_SYSTEM_PROMPT =
-    "Translate the following Japanese manga text into natural English. "
-    "Reply with the translation only.";
-
 // Format the prompt the way the loaded model was trained to receive it.
 //
 // This used to be a bare English instruction glued in front of the Japanese with no role markers
@@ -76,9 +72,11 @@ static std::string apply_chat_template(const char *user_prompt) {
     const char *tmpl = g_model ? llama_model_chat_template(g_model, nullptr) : nullptr;
 
     if (tmpl) {
+        // CAT-Translate carries its instruction in the user turn and was trained with no system
+        // prompt (model card). Injecting one made the 0.8b echo/refuse the instruction instead of
+        // translating (#68 probe: 48% non-translation with a system prompt).
         const llama_chat_message messages[] = {
-            {"system", TRANSLATE_SYSTEM_PROMPT},
-            {"user",   user_prompt},
+            {"user", user_prompt},
         };
         const int n_msg = (int)(sizeof(messages) / sizeof(messages[0]));
 
@@ -97,9 +95,7 @@ static std::string apply_chat_template(const char *user_prompt) {
     }
 
     // Fallback matching CAT-Translate's own template: <|user|>...</s><|assistant|>
-    return std::string("<|system|>") + TRANSLATE_SYSTEM_PROMPT + "</s>" +
-           "<|user|>" + user_prompt + "</s>" +
-           "<|assistant|>";
+    return std::string("<|user|>") + user_prompt + "</s>" + "<|assistant|>";
 }
 
 extern "C" JNIEXPORT jint JNICALL
