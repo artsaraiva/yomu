@@ -89,6 +89,35 @@ class TranslationEngine(
         )
     }
 
+    /**
+     * Diagnostic (#68), not a production path. Translates each bubble in its own call using
+     * CAT-Translate's model-card prompt ("Translate the following Japanese text into English.\n\n
+     * <text>"), to isolate whether the page-level gate failure is the batch [id] format or the model
+     * itself. Bypasses the cache so every call is measured fresh; the raw model reply is logged by
+     * the bridge (see LlamaTranslationBridge "generate raw=").
+     */
+    suspend fun translatePerLineProbe(blocks: List<ConversationBlock>): List<TranslatedBubble> {
+        val translations = mutableListOf<TranslatedBubble>()
+        for (block in blocks) {
+            for (bubbleId in block.readingOrder) {
+                val original = block.textByBubbleId[bubbleId]?.text?.take(MAX_SOURCE_CHARS) ?: continue
+                val output = translationBridge.translate(
+                    "Translate the following Japanese text into English.\n\n$original"
+                )
+                val translated = output?.translatedText?.takeIf { it.isNotBlank() }
+                translations.add(
+                    TranslatedBubble(
+                        bubbleId = bubbleId,
+                        originalText = original,
+                        translatedText = translated ?: original,
+                        confidence = if (translated != null) output!!.confidence else 0.1f
+                    )
+                )
+            }
+        }
+        return translations
+    }
+
     fun fallback(blocks: List<ConversationBlock>): TranslationResult {
         val translations = fallbackTranslations(blocks)
         return TranslationResult(

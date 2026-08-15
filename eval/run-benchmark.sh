@@ -215,12 +215,12 @@ else
 fi
 
 printf '\n[%s] Live logcat (run in another terminal):\n' "$(date '+%Y-%m-%d %H:%M:%S')"
-printf '  adb logcat -s "EngineBenchmarkTest:*" "BubbleDetectionBenchmarkTest:*" "LlamaBridge:*" "LlamaJNI:*" "OpusMtTranslator:*" "OpusMtTranslationBridge:*"\n\n'
+printf '  adb logcat -s "EngineBenchmarkTest:*" "BubbleDetectionBenchmarkTest:*" "LlamaBridge:*" "LlamaTranslationBridge:*" "LlamaJNI:*" "OpusMtTranslator:*" "OpusMtTranslationBridge:*"\n\n'
 
 step_start 4 'device test'
 adb logcat -c
 
-adb logcat -s "EngineBenchmarkTest:*" "BubbleDetectionBenchmarkTest:*" "LlamaBridge:*" "LlamaJNI:*" "OpusMtTranslator:*" "OpusMtTranslationBridge:*" > "$LOGCAT_FILE" 2>/dev/null &
+adb logcat -s "EngineBenchmarkTest:*" "BubbleDetectionBenchmarkTest:*" "LlamaBridge:*" "LlamaTranslationBridge:*" "LlamaJNI:*" "OpusMtTranslator:*" "OpusMtTranslationBridge:*" > "$LOGCAT_FILE" 2>/dev/null &
 LOGCAT_PID=$!
 
 last_line=0
