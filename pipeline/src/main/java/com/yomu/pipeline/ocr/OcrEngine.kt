@@ -17,9 +17,32 @@ class OcrEngine(private val onnxRuntime: OnnxRuntime) {
         private const val CHANNELS = 3
         private const val MAX_LENGTH = 32
         private const val BOS_TOKEN_ID = 0
+        // Fallback only: this model's [SEP] is not reliably at index 102 (the English-BERT id).
+        // The real stop id is resolved from the loaded vocab by string; see sepTokenId.
         private const val EOS_TOKEN_ID = 102
+        private const val SEP_TOKEN = "[SEP]"
         private const val NORMALIZATION_MEAN = 0.5f
         private const val NORMALIZATION_STD = 0.5f
+
+        internal fun decodeTokens(tokenIds: List<Int>, vocab: Map<Int, String>): String {
+            val builder = StringBuilder()
+            for (id in tokenIds) {
+                val token = vocab[id] ?: continue
+                when {
+                    // Special tokens ([CLS], [SEP], [PAD], [UNK], ...) are structure, not text —
+                    // drop them. Leaking them corrupted every source line (#74) and made the LLM
+                    // echo the prompt instead of translating.
+                    isSpecialToken(token) -> Unit
+                    token.startsWith("##") -> builder.append(token.removePrefix("##"))
+                    // manga-ocr is character/wordpiece level over Japanese: concatenate, no spaces.
+                    else -> builder.append(token)
+                }
+            }
+            return builder.toString().trim()
+        }
+
+        private fun isSpecialToken(token: String): Boolean =
+            token.length >= 2 && token.startsWith("[") && token.endsWith("]")
     }
 
     private var encoderLoaded = false
@@ -29,6 +52,7 @@ class OcrEngine(private val onnxRuntime: OnnxRuntime) {
     private var decoderPath: String? = null
     private var vocabPath: String? = null
     private var vocab: Map<Int, String>? = null
+    private var sepTokenId: Int = EOS_TOKEN_ID
 
     fun loadModel(encoderPath: String, decoderPath: String, vocabPath: String): Boolean {
         this.encoderPath = encoderPath
@@ -199,7 +223,7 @@ class OcrEngine(private val onnxRuntime: OnnxRuntime) {
 
             val nextTokenId = argmax(logits, lastTimestepStart, currentVocabSize)
 
-            if (nextTokenId == EOS_TOKEN_ID) break
+            if (nextTokenId == sepTokenId) break
             generatedIds.add(nextTokenId)
             inputIds.add(nextTokenId.toLong())
         }
@@ -220,22 +244,6 @@ class OcrEngine(private val onnxRuntime: OnnxRuntime) {
         return bestIndex
     }
 
-    private fun decodeTokens(tokenIds: List<Int>, vocab: Map<Int, String>): String {
-        val builder = StringBuilder()
-        for (id in tokenIds) {
-            val token = vocab[id] ?: continue
-            when {
-                token.startsWith("##") -> builder.append(token.removePrefix("##"))
-                token.startsWith("[") && token.endsWith("]") -> builder.append(" ").append(token).append(" ")
-                else -> {
-                    if (builder.isNotEmpty()) builder.append(" ")
-                    builder.append(token)
-                }
-            }
-        }
-        return builder.toString().trim()
-    }
-
     private fun loadVocab(vocabPath: String): Boolean {
         return try {
             val file = File(vocabPath)
@@ -244,6 +252,7 @@ class OcrEngine(private val onnxRuntime: OnnxRuntime) {
                 index to line.trim()
             }.toMap()
             vocab = loadedVocab
+            sepTokenId = loadedVocab.entries.firstOrNull { it.value == SEP_TOKEN }?.key ?: EOS_TOKEN_ID
             true
         } catch (e: Exception) {
             false
