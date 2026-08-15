@@ -7,12 +7,16 @@ On-device manga translation for Android. A page is captured on manual trigger, i
 ### Models
 
 **Curated model**:
-A model Yomu selects, hosts a download URL for, and supports. The only kind of model allowed in the detection and OCR slots.
+A model Yomu selects, hosts a download URL for, and supports. The only kind of model allowed in the detection and OCR slots, and the shipped default in the translation slot.
 _Avoid_: bundled model, official model, default model
 
 **Custom model**:
-A GGUF the user supplies from their own storage for the translation slot. Permitted but explicitly unsupported, and labelled as such wherever its output appears.
+A GGUF the user supplies from their own storage for the translation slot, alongside its curated default. Permitted but explicitly unsupported, and labelled as such wherever its output appears.
 _Avoid_: sideloaded model, user model, BYO model, third-party model
+
+**Floor engine**:
+A translation engine that can only be asked one bubble at a time and so cannot run the page-level context architecture — OPUS-MT and ML Kit. Kept for devices that cannot run the LLM default; selectable, never the default, never scored against the LLM (it produces the per-line floor).
+_Avoid_: fallback engine, legacy engine, secondary model
 
 ### Detection quality
 
