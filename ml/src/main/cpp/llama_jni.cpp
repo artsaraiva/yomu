@@ -57,8 +57,49 @@ static bool rebuild_sampler(float temperature) {
     return true;
 }
 
+static const char *TRANSLATE_SYSTEM_PROMPT =
+    "Translate the following Japanese manga text into natural English. "
+    "Reply with the translation only.";
+
+// Format the prompt the way the loaded model was trained to receive it.
+//
+// This used to be a bare English instruction glued in front of the Japanese with no role markers
+// at all. The model never saw the turn structure it expects, so it stayed in raw-completion mode:
+// it continued the text instead of answering, never emitted EOS, and ran to the token cap on
+// nearly every line. That produced both the repetition ("I'm sorry, I'm sorry, ...") and roughly
+// four times the necessary latency, since the cost is per generated token.
+//
+// Preference order: the template embedded in the GGUF, so a swapped model brings its own format
+// (ADR-0001 permits user-supplied models); then the explicit fallback below for models that ship
+// no template or one llama.cpp cannot parse.
 static std::string apply_chat_template(const char *user_prompt) {
-    return std::string("Translate the following Japanese text into English.\n\n") + user_prompt;
+    const char *tmpl = g_model ? llama_model_chat_template(g_model, nullptr) : nullptr;
+
+    if (tmpl) {
+        const llama_chat_message messages[] = {
+            {"system", TRANSLATE_SYSTEM_PROMPT},
+            {"user",   user_prompt},
+        };
+        const int n_msg = (int)(sizeof(messages) / sizeof(messages[0]));
+
+        // add_ass = true appends the assistant cue, which is what tells the model to answer now
+        // rather than keep completing the user's turn.
+        std::vector<char> buf(4096);
+        int32_t n = llama_chat_apply_template(tmpl, messages, n_msg, true, buf.data(), (int32_t)buf.size());
+        if (n > (int32_t)buf.size()) {
+            buf.resize(n);
+            n = llama_chat_apply_template(tmpl, messages, n_msg, true, buf.data(), (int32_t)buf.size());
+        }
+        if (n > 0) {
+            return std::string(buf.data(), n);
+        }
+        LOGW("Model chat template not applicable (rc=%d); using explicit fallback", n);
+    }
+
+    // Fallback matching CAT-Translate's own template: <|user|>...</s><|assistant|>
+    return std::string("<|system|>") + TRANSLATE_SYSTEM_PROMPT + "</s>" +
+           "<|user|>" + user_prompt + "</s>" +
+           "<|assistant|>";
 }
 
 extern "C" JNIEXPORT jint JNICALL
@@ -170,8 +211,10 @@ Java_com_yomu_ml_LlamaBridge_nativeGenerate(
 
     int prompt_len = (int)formatted.size();
 
-    // Tokenize input
-    int n_tokens = llama_tokenize(g_vocab, formatted.c_str(), prompt_len, nullptr, 0, true, false);
+    // parse_special must be true: the formatted prompt carries role markers like <|user|> and
+    // </s>, and with it false they tokenize as literal punctuation instead of the control tokens
+    // the model was trained on, which defeats the templating entirely.
+    int n_tokens = llama_tokenize(g_vocab, formatted.c_str(), prompt_len, nullptr, 0, true, true);
     if (n_tokens < 0) {
         n_tokens = -n_tokens;
     }
@@ -182,7 +225,7 @@ Java_com_yomu_ml_LlamaBridge_nativeGenerate(
     }
 
     std::vector<llama_token> tokens(n_tokens);
-    int written = llama_tokenize(g_vocab, formatted.c_str(), prompt_len, tokens.data(), n_tokens, true, false);
+    int written = llama_tokenize(g_vocab, formatted.c_str(), prompt_len, tokens.data(), n_tokens, true, true);
     if (written < 0) {
         LOGE("Failed to write prompt tokens");
         g_abort_deadline_ms.store(0, std::memory_order_relaxed);

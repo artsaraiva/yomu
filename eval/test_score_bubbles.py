@@ -6,7 +6,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from run_eval_lib import score_bubbles
+from run_eval_lib import pool_summary, score_bubbles
 
 W, H = 830, 1170
 
@@ -47,6 +47,23 @@ def main() -> None:
     # Matching is one-to-one: one good detection cannot cover for two boxes.
     s = score_bubbles(two, [det(100, 100, 80, 100)], W, H, pad_fraction=0.0)
     assert s["matched"] == 1 and s["missed"] == 1, s
+
+    # #44: pools are box-weighted, never a mean of per-case recalls. A 1-box case that scores 1.0
+    # alongside a 9-box case that scores 0.0 is 0.100, not the 0.500 a per-case average gives.
+    p = pool_summary(
+        [
+            {"expected_count": 1, "matched": 1, "localised": 1,
+             "merging_detections": 0, "false_positives": 0, "missed": 0},
+            {"expected_count": 9, "matched": 0, "localised": 0,
+             "merging_detections": 2, "false_positives": 3, "missed": 9},
+        ]
+    )
+    assert p["total_containment_recall"] == 0.1, p
+    assert p["total_expected"] == 10 and p["case_count"] == 2, p
+    assert p["total_merging_detections"] == 2 and p["total_false_positives"] == 3, p
+
+    # An empty pool (no cover cases in the set) is 0.0, not a division error.
+    assert pool_summary([])["total_containment_recall"] == 0.0
 
     print("ok")
 

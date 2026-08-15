@@ -1,6 +1,7 @@
 package com.yomu.ml.opusmt
 
 import ai.djl.huggingface.tokenizers.HuggingFaceTokenizer
+import android.util.Log
 import com.yomu.ml.OnnxRuntime
 import java.io.Closeable
 import java.io.File
@@ -14,6 +15,7 @@ class OpusMtTranslator(
 ) : Closeable {
 
     companion object {
+        private const val TAG = "OpusMtTranslator"
         private const val MAX_LENGTH = 512
         private const val PAD_TOKEN_ID: Long = 60715L
         private const val EOS_TOKEN_ID: Long = 0L
@@ -42,14 +44,28 @@ class OpusMtTranslator(
         val encoderFile = File(encoderModelPath)
         val decoderFile = File(decoderModelPath)
         val tokenizerFile = File(tokenizerPath)
-        if (!encoderFile.exists() || !decoderFile.exists() || !tokenizerFile.exists()) return false
+        // Missing weights and a runtime that refuses to load them both surfaced as a bare
+        // load_failed, so a benchmark run could not tell "never downloaded" from "broken".
+        val missing = listOf(encoderFile, decoderFile, tokenizerFile).filterNot { it.exists() }
+        if (missing.isNotEmpty()) {
+            Log.w(TAG, "load aborted, missing files: ${missing.joinToString { it.absolutePath }}")
+            return false
+        }
 
         val onnxLoaded = onnxRuntime.loadModel(encoderModelPath) && onnxRuntime.loadModel(decoderModelPath)
-        if (!onnxLoaded) return false
+        if (!onnxLoaded) {
+            Log.w(TAG, "load aborted, ONNX refused the weights that are present on disk")
+            return false
+        }
 
+        // Throwable, not Exception: DJL loads a native tokenizer library, and a missing or
+        // wrong-ABI .so raises UnsatisfiedLinkError/NoClassDefFoundError, which are Errors. Catching
+        // only Exception let those escape ensureReady() to be swallowed by the caller, so the
+        // engine reported a bare "not_ready" and #14's real blocker stayed invisible.
         val tokenizer = try {
             HuggingFaceTokenizer.newInstance(Paths.get(tokenizerPath))
-        } catch (_: Exception) {
+        } catch (t: Throwable) {
+            Log.w(TAG, "load aborted, tokenizer init failed: ${t::class.java.name}: ${t.message}")
             return false
         }
 
