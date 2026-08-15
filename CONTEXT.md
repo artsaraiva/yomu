@@ -32,6 +32,20 @@ _Avoid_: overlapping box, greedy box
 The margin added on every side of a detection before the page is cropped for OCR, expressed as a fraction of page width. Applied at crop time only — never to the box used for overlay placement or panel grouping.
 _Avoid_: dilation, box expansion, margin
 
+### OCR quality
+
+**Box exact match**:
+Whether the string OCR returns for a text region equals its annotated Japanese, after both are NFKC-normalised and stripped of whitespace. The gate the OCR eval passes or fails on: a line reaches the translator whole or wrong, and a partly-correct reading is not partly useful.
+_Avoid_: accuracy, line accuracy, match rate
+
+**Character error rate**:
+Total edit distance between OCR output and annotated Japanese, over total annotated characters, summed across the whole set before dividing. Reported beside the gate to say how far a failed reading is from the text — never gated, because a single wrong character means one thing on a 2-character region and another on a 30-character one.
+_Avoid_: CER score, accuracy, error rate
+
+**Blank-crop probe**:
+A crop taken from a page region holding no annotated text, fed to OCR to see whether it invents one. Reported as a rate, never gated. It stands in for the false-positive detections that reach OCR in production, which scoring annotated regions alone cannot see.
+_Avoid_: negative case, empty test, noise case
+
 ### Translation quality
 
 **Japanese residue**:
