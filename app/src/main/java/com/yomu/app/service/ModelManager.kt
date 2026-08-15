@@ -101,6 +101,22 @@ class ModelManager @Inject constructor(
                 version = "1.0",
                 isRequired = false
             ),
+            // OPUS-MT had a bridge, a DI module, a selector branch and Settings copy recommending
+            // it, but no entry here - so the weights had no route onto the device and the engine
+            // could only ever report load_failed. Encoder is the primary file; decoder and
+            // tokenizer come through getAdditionalFiles, same shape as MangaOCR.
+            ModelEntity(
+                id = Constants.OPUS_MT_MODEL_ID,
+                name = "OPUS-MT Japanese → English (INT8)",
+                type = ModelType.TRANSLATION,
+                fileName = Constants.OPUS_MT_ENCODER_MODEL,
+                fileSize = 50_705_822L,
+                downloadUrl = "https://huggingface.co/Xenova/opus-mt-ja-en/resolve/main/onnx/encoder_model_quantized.onnx",
+                checksum = "345262b16bcdda1468b0f3380c112b7ce79f731176b4b1d21f6edd5b2ae0d25c",
+                status = ModelStatus.AVAILABLE,
+                version = "1.0",
+                isRequired = false
+            ),
             ModelEntity(
                 id = Constants.CAT_TRANSLATION_MODEL_ID,
                 name = "CAT-Translate 0.8B (Q4_K_M)",
@@ -148,6 +164,20 @@ class ModelManager @Inject constructor(
                 url = "https://huggingface.co/l0wgear/manga-ocr-2025-onnx/resolve/main/vocab.txt",
                 checksum = "",
                 size = 24_072L
+            )
+        )
+        Constants.OPUS_MT_MODEL_ID -> listOf(
+            AdditionalFile(
+                fileName = Constants.OPUS_MT_DECODER_MODEL,
+                url = "https://huggingface.co/Xenova/opus-mt-ja-en/resolve/main/onnx/decoder_with_past_model_quantized.onnx",
+                checksum = "f03825137d2888d654777c9011ff043fe8cd213539c62d054054ae8c7fcee70c",
+                size = 54_359_578L
+            ),
+            AdditionalFile(
+                fileName = Constants.OPUS_MT_TOKENIZER,
+                url = "https://huggingface.co/Xenova/opus-mt-ja-en/resolve/main/tokenizer.json",
+                checksum = "770ff2855437cf44f1f110550c5a9dca773253a167aeac36076b2073d259aa3b",
+                size = 5_991_485L
             )
         )
         else -> emptyList()

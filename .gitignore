@@ -39,10 +39,14 @@ eval/translation-quality/cases/*/actual/
 
 # OpenMantra page images are generated from vendor; do not commit
 eval/**/page.jpg
-app/src/androidTest/assets/eval-cases/**/page.jpg
+
+# Test assets are staged copies of eval/ cases, rebuilt by eval/run-benchmark.sh on every run.
+# The canonical copies under eval/ are the tracked ones.
+app/src/androidTest/assets/eval-cases/
 
 # Benchmark model weights, fetched by eval/run-benchmark.sh; do not commit
 app/src/androidTest/assets/models/
+eval/fixtures/
 
 # Python cache
 __pycache__/
