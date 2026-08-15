@@ -32,6 +32,24 @@ _Avoid_: overlapping box, greedy box
 The margin added on every side of a detection before the page is cropped for OCR, expressed as a fraction of page width. Applied at crop time only — never to the box used for overlay placement or panel grouping.
 _Avoid_: dilation, box expansion, margin
 
+### Translation quality
+
+**Japanese residue**:
+Japanese characters left in an engine's output. The evidence that a bubble was not translated — replacing the older test of whether output was byte-identical to its source, which a single edit to the text defeated.
+_Avoid_: untranslated output, passthrough, copy
+
+**Non-translation**:
+An output that answers with something other than a translation — the instruction echoed back, a refusal, an apology. Distinct from a bad translation: the engine did not attempt the task.
+_Avoid_: hallucination, garbage, refusal
+
+**Readability ratio**:
+Output word count over reference word count. Reported as a symptom, never gated: it flags that an engine is producing too much text without saying whether that text is a verbose translation or an echoed prompt.
+_Avoid_: verbosity score, length penalty
+
+**Per-line floor**:
+The score of an engine that can only be asked one bubble at a time. Reported beside the gate and never ranked against it, because the gate scores a whole page in a single call.
+_Avoid_: baseline, fallback score
+
 ### Translation context
 
 **Panel**:
