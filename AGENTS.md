@@ -33,13 +33,18 @@ This file governs all AI agent behavior in this repository.
 2. Create an issue with the behavior, acceptance criteria, and a link to the phase doc.
 3. Assign the issue to the matching GitHub milestone before creating the branch.
 4. Create one focused branch for that issue: `feat/<issue-number>-<short-description>` or `fix/<issue-number>-<short-description>`.
-5. Keep the PR focused. Its body must contain `Closes #<issue-number>` and mention the phase/milestone.
+5. Keep the PR focused. Its body must open with a bare `Closes #<issue-number>` and mention the phase/milestone.
 6. Self-review the PR diff, run required verification, then request review.
 
 **Rules:**
 - Issues track real unfinished work; do not create retrospective placeholder issues merely to populate completed milestones.
 - Close completed milestones from commit/PR evidence when no real follow-up work remains.
 - One issue normally maps to one branch and one PR. Split unrelated work into separate issues/PRs.
+- **The closing keyword must be bare: `Closes #44`.** GitHub does not parse a markdown-linked number, so `Resolves the [#44](https://github.com/artsaraiva/yomu/issues/44) decision` creates no link — the issue shows no PR beside it and nothing auto-closes. This silently cost four PRs their links (#37, #42, #45, #50). Prose may link an issue however it likes; the keyword line may not. Verify after opening:
+  ```
+  gh api graphql -f query='{repository(owner:"artsaraiva",name:"yomu"){issue(number:NN){closedByPullRequestsReferences(first:5,includeClosedPrs:true){nodes{number}}}}}'
+  ```
+  An empty list means unlinked. Editing the body fixes it even after the PR is merged.
 - Use label `future` only for work intentionally deferred beyond the current delivery window.
 - For this repository, use `github-personal_*` tools and the `artsaraiva/yomu` milestones; never use the work-account GitHub tools.
 
