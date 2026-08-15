@@ -8,6 +8,7 @@ import com.yomu.pipeline.bubble.Bubble
 import com.yomu.pipeline.context.ConversationBlock
 import com.yomu.pipeline.ocr.OcrResult
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlinx.coroutines.test.runTest
@@ -107,7 +108,7 @@ class TranslationEngineTest {
     }
 
     @Test
-    fun translate_llmContextPathTranslatesEachBubbleInItsOwnCall() = runTest {
+    fun translate_llmPerLineTranslatesEachBubbleInItsOwnCall() = runTest {
         val bridge = FakeTranslationBridge(
             status = TranslationStatus.Ready,
             outputForText = mapOf(
@@ -129,7 +130,7 @@ class TranslationEngineTest {
     }
 
     @Test
-    fun translate_llmContextPathMissingBubbleFallsBackToSourceForThatIdOnly() = runTest {
+    fun translate_llmPerLineMissingBubbleFallsBackToSourceForThatIdOnly() = runTest {
         val bridge = FakeTranslationBridge(
             status = TranslationStatus.Ready,
             outputForText = mapOf(
@@ -149,7 +150,7 @@ class TranslationEngineTest {
     }
 
     @Test
-    fun translate_llmContextPathCarriesSurroundingPageAsContext() = runTest {
+    fun translate_llmPerLineUsesBareModelCardFormWithoutContext() = runTest {
         val bridge = FakeTranslationBridge(
             status = TranslationStatus.Ready,
             outputForText = mapOf(
@@ -162,8 +163,11 @@ class TranslationEngineTest {
 
         engine.translate(listOf(conversationBlock(1 to "こんにちは", 2 to "さようなら")))
 
-        // Every call sees the other bubble's source text as context, not only its own target line.
-        assertTrue(bridge.prompts.all { it.contains("こんにちは") && it.contains("さようなら") })
+        // The 0.8b refuses with any surrounding context (#71 amendment): each prompt carries only
+        // its own target line, never the other bubble's source.
+        val helloPrompt = bridge.prompts.single { it.contains("こんにちは") }
+        assertTrue(helloPrompt.endsWith("こんにちは"))
+        assertFalse(helloPrompt.contains("さようなら"))
     }
 
     @Test

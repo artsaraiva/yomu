@@ -55,3 +55,19 @@ This ADR assumed one page-level LLM call could carry every bubble, each addresse
 **Native fix carried by this finding:** the JNI layer injected a system prompt the model was never trained with, which made even per-line calls echo/refuse (non-translation 0.48). CAT-Translate's model card uses no system prompt and the exact user turn `Translate the following {src} text into {tgt}.\n\n{text}`; `apply_chat_template` in `llama_jni.cpp` was corrected to match.
 
 **Evidence:** #68 gate runs (SM-S911B, 147 ids, entry-weighted): batch residue 0.93; per-line residue 0.03; per-line non-translation 0.48 with the injected system prompt, dropping sharply once the prompt matched the model card.
+
+## Amendment (#71): in-prompt context also fails on the 0.8b; it ships bare per-line
+
+**Status:** accepted, amends the #68 amendment's path 2b.
+
+The #68 amendment relaxed "one call per page" to "one target bubble per call **carrying the surrounding page as context**" (path 2b), on the assumption that context delivered as a prompt preamble — with the model-card instruction preserved as the turn's tail — would survive where the id-keyed batch did not. Built in #71 and measured on device (SM-S911B, real OCR), it does **not**: given any surrounding context (previous-page pairs or the rest of the page) ahead of the model-card instruction, `CAT-Translate-0.8b` leaves translation mode and **refuses** — every bubble comes back as "I'm sorry, but I can't help you with that" / "No, that's not it", often repeated to the token cap. This is the same trained-form fragility that killed the id-keyed batch (#68): the 0.8b only behaves in its exact single-text form, and *any* preamble — not just a system prompt — breaks it.
+
+**What changes:** the curated 0.8b ships **bare per-line** — one call per non-empty bubble in reading order, each the exact model-card turn `Translate the following Japanese text into English.\n\n{text}`, no surrounding context. Results map by the bubble whose call it was (per-bubble source fallback, cache bypassed). This translates correctly (the #68 per-line 0.03-residue form). Cross-panel context is **not delivered on the 0.8b at all**.
+
+**What stands:** per-id mapping with per-bubble fallback, empty-OCR omission, no class labels, one reader trigger per page (the engine issues N internal calls). The *goal* of cross-panel context is deferred, not abandoned.
+
+**Model escalation (unchanged):** cross-panel context needs a model that tolerates it in-prompt — a larger CAT-Translate sibling (#72, path 2a; [ADR-0008](0008-translation-model-selection.md)). The retained `TranslationEngine` batch path (id-keyed) and the session-context plumbing are kept for that model; on the 0.8b they are dormant.
+
+**Prerequisite found in the same testing:** on-device OCR was emitting raw `[CLS]`/`[SEP]` special tokens and space-separated characters (#74), which corrupted every source line and independently made the model echo. The ADR-0004 gate never caught it because `EngineBenchmarkTest` feeds ground-truth `text_ja`, not real OCR. Fixed under #74; the refusal finding above is on clean OCR input.
+
+**Evidence:** #71 device run (SM-S911B, real OCR, #74 fix in place): with page/session context in the prompt, every bubble refused (assistant-style "I'm sorry, but I can't help…"); with the bare model-card form, the model translates (consistent with #68's per-line 0.03 residue).
