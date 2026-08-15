@@ -75,7 +75,25 @@ class LlamaTranslationBridgeTest {
         assertTrue(bridge.supportsBatch())
     }
 
+    @Test
+    fun translateBatch_requestsLargerBudgetThanPerLine() = runTest {
+        val model = File.createTempFile("model", ".gguf")
+        val fake = FakeLlamaBridge(GenerationResult.Success("[1] Hello", 100L))
+        val bridge = LlamaTranslationBridge(llamaBridge = fake, modelPath = model.absolutePath)
+        bridge.ensureReady()
+
+        bridge.translate("こんにちは")
+        val perLineTokens = fake.lastMaxTokens
+        bridge.translateBatch("[1] こんにちは\n[2] さようなら")
+        val batchTokens = fake.lastMaxTokens
+
+        // A whole page must not be truncated to the 64-token per-line cap.
+        assertTrue("batch=$batchTokens perLine=$perLineTokens", batchTokens > perLineTokens)
+        model.delete()
+    }
+
     private class FakeLlamaBridge(private val result: GenerationResult) : LlamaBridge(null) {
+        var lastMaxTokens: Int = -1
         override val isNativeAvailable: Boolean get() = true
         override val isModelLoaded: Boolean get() = true
         override fun loadModel(modelPath: String, nCtx: Int, nGpuLayers: Int): Boolean = true
@@ -86,7 +104,10 @@ class LlamaTranslationBridgeTest {
             maxTokens: Int,
             temperature: Float,
             timeoutMs: Int
-        ): GenerationResult = result
+        ): GenerationResult {
+            lastMaxTokens = maxTokens
+            return result
+        }
         override fun release() {}
         override fun clearMemory() {}
     }

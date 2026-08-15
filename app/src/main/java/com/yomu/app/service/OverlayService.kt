@@ -62,6 +62,14 @@ class OverlayService : Service() {
 
     @Volatile
     private var isTranslating = false
+
+    // Previous page's source/translation pairs (~one page, 6-12), carried into the next page's
+    // call as session context so names/pronouns/register stay consistent across a reading session
+    // (ADR-0002). Cleared on session teardown; the LLM keeps its own memory alive across pages
+    // because release() no longer runs per page.
+    @Volatile
+    private var sessionContext: List<Pair<String, String>> = emptyList()
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mainScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -160,6 +168,9 @@ class OverlayService : Service() {
         translationRenderOverlay.remove()
         statusOverlay.remove()
         screenCaptureManager.stopProjection()
+        // Session teardown: drop model-side memory and carried context once, not once per page.
+        sessionContext = emptyList()
+        translationPipeline.release()
         translationPipeline.close()
         scope.cancel()
         mainScope.cancel()
@@ -310,11 +321,12 @@ class OverlayService : Service() {
 
             val result = translationPipeline.processPage(
                 bitmap,
+                sessionContext = sessionContext,
                 callback = callback,
                 onOcrComplete = onOcrComplete
             )
-            translationPipeline.release()
             if (result != null && result.typesetBubbles.isNotEmpty()) {
+                sessionContext = result.translationResult.translations.map { it.originalText to it.translatedText }
                 saveSessionResult(result)
             }
             mainScope.launch {
