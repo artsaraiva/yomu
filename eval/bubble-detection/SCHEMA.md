@@ -34,6 +34,10 @@ device, and why the case matters.
 
 ## Metrics this case supports
 
-- Recall (missed boxes are regressions; target ~100% on accepted cases).
+Scored by containment, per [ADR-0003](../../docs/adr/0003-detection-hit-criterion.md):
+
+- Containment recall (gate): ≥95% of a ground-truth box's area covered by one detection, padded by
+  4% of page width per side, one-to-one.
+- Localisation recall (reported, never gated): ground-truth centre inside a detection.
+- Merging detections: one detection covering two or more ground-truth centres — a hit for neither.
 - False positives.
-- Per-page missed-bubble count.

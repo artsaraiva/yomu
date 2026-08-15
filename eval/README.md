@@ -2,9 +2,10 @@
 
 Curated, real-world manga cases used to measure two things that must not regress:
 
-1. **Bubble detection recall** — every readable text box must be detected. A single
-   missed bubble breaks the reading experience, so the target is effectively 100%
-   recall on the accepted case set.
+1. **Bubble detection containment** — every readable text box must reach OCR whole. A missed or
+   truncated bubble breaks the reading experience. No absolute bar is set on this case set: two of
+   its unfound boxes are unenclosed title/credit text no balloon detector is trained for, so the
+   numbers rank detectors rather than pass or fail them (ADR-0003).
 2. **Translation quality** — Japanese OCR text must become coherent English.
    Track artifacts (e.g. `SEP`), incoherent output, and untranslated/source-language
    output.
@@ -137,7 +138,11 @@ Per case, the file written is `eval/bubble-detection/cases/<case-id>/actual.json
 }
 ```
 
-The harness computes IoU@0.5 recall and false positives.
+The harness scores these by **containment**, per
+[ADR-0003](../docs/adr/0003-detection-hit-criterion.md): each detection is padded by 4% of page
+width per side (mirroring the crop the pipeline hands OCR), a ground-truth box is a hit when one
+padded detection covers ≥95% of its area under one-to-one matching, and a detection covering two
+or more ground-truth centres is a hit for none of them. IoU is no longer used.
 
 ### Translation output format
 
@@ -159,13 +164,18 @@ artifact rate, exact-match rate, and a readability word-count ratio.
 
 ## Interpreting results
 
-- **Bubble detection**: average recall@0.5 should be near 1.0; missed boxes are
-  regressions. False positives are also tracked but are secondary to recall.
-  Two recall figures are printed: the per-case average, and the box-weighted figure over all
-  boxes. They diverge sharply on this case set, because a 1-box case counts as much as a 17-box
-  one in the per-case average. Quote the box-weighted number when comparing detectors.
-  Note that ground truth is OpenMantra *text-region* annotation, so IoU@0.5 against a balloon
-  detector partly measures box-convention agreement rather than whether text was found; see #36.
+- **Bubble detection**: **containment recall** is the gate — the fraction of ground-truth boxes
+  whose text is fully inside one padded detection. **Localisation recall** (ground-truth centre
+  inside a detection, matched one-to-one) is reported alongside and never gated: the gap between
+  the two is the difference between "the detector cannot see the text" and "the detector frames it
+  badly", which point at opposite fixes. **Merging detections** — one detection swallowing two or
+  more bubbles — are counted separately, because ADR-0002 addresses bubbles by detector id, so a
+  merge silently drops a speaker. False positives are tracked but secondary.
+  Containment is printed as a per-case average and as a box-weighted figure over all boxes. They
+  diverge sharply on this case set, because a 1-box case counts as much as a 17-box one in the
+  per-case average. Quote the box-weighted number when comparing detectors.
+  No absolute pass bar is set (see ADR-0003). The incumbent YOLO26n baseline, for comparison, is
+  containment 0.718 / localisation 0.859 / 10 merging detections over 78 boxes in 8 cases.
 - **Translation quality**: lower untranslated and artifact rates are better.
   Readability ratio near 1.0 means the engine is producing a similar amount of
   English text as the reference; much higher or lower suggests hallucination or

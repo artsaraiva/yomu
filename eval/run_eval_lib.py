@@ -13,36 +13,74 @@ BUBBLE_ACTUAL = "actual.json"
 TRANS_ACTUAL_DIR = "actual"
 
 
-def iou(a: dict, b: dict) -> float:
-    ax1, ay1 = a["x"], a["y"]
-    ax2, ay2 = ax1 + a["w"], ay1 + a["h"]
-    bx1, by1 = b["x"], b["y"]
-    bx2, by2 = bx1 + b["w"], by1 + b["h"]
-
-    inter_x1 = max(ax1, bx1)
-    inter_y1 = max(ay1, by1)
-    inter_x2 = min(ax2, bx2)
-    inter_y2 = min(ay2, by2)
-
-    inter_w = max(0, inter_x2 - inter_x1)
-    inter_h = max(0, inter_y2 - inter_y1)
-    inter_area = inter_w * inter_h
-
-    area_a = a["w"] * a["h"]
-    area_b = b["w"] * b["h"]
-    union_area = area_a + area_b - inter_area
-
-    return inter_area / union_area if union_area > 0 else 0.0
+# ADR-0003: detections are padded before scoring, mirroring the crop the pipeline hands OCR.
+PAD_FRACTION = 0.04
+CONTAINMENT_THRESHOLD = 0.95
 
 
-def score_bubbles(expected: list[dict], actual: list[dict], threshold: float = 0.5) -> dict:
+def pad_box(box: dict, pad: float, image_width: int, image_height: int) -> dict:
+    x1 = max(0.0, box["x"] - pad)
+    y1 = max(0.0, box["y"] - pad)
+    x2 = min(float(image_width), box["x"] + box["w"] + pad)
+    y2 = min(float(image_height), box["y"] + box["h"] + pad)
+    return {"x": x1, "y": y1, "w": max(0.0, x2 - x1), "h": max(0.0, y2 - y1)}
+
+
+def contained_fraction(expected: dict, detection: dict) -> float:
+    """Fraction of the expected box's area covered by the detection."""
+    inter_w = max(
+        0.0,
+        min(expected["x"] + expected["w"], detection["x"] + detection["w"])
+        - max(expected["x"], detection["x"]),
+    )
+    inter_h = max(
+        0.0,
+        min(expected["y"] + expected["h"], detection["y"] + detection["h"])
+        - max(expected["y"], detection["y"]),
+    )
+    area = expected["w"] * expected["h"]
+    return (inter_w * inter_h) / area if area > 0 else 0.0
+
+
+def covers_centre(detection: dict, box: dict) -> bool:
+    cx = box["x"] + box["w"] / 2
+    cy = box["y"] + box["h"] / 2
+    return (
+        detection["x"] <= cx <= detection["x"] + detection["w"]
+        and detection["y"] <= cy <= detection["y"] + detection["h"]
+    )
+
+
+def score_bubbles(
+    expected: list[dict],
+    actual: list[dict],
+    image_width: int,
+    image_height: int,
+    threshold: float = CONTAINMENT_THRESHOLD,
+    pad_fraction: float = PAD_FRACTION,
+) -> dict:
+    """Score detections by containment (ADR-0003), not IoU.
+
+    A ground-truth box is a hit when one padded detection covers at least
+    `threshold` of its area, one-to-one. A detection covering two or more
+    ground-truth centres is merging and is a hit for none of them.
+    """
+    pad = pad_fraction * image_width
+    padded = [pad_box(a, pad, image_width, image_height) for a in actual]
+
+    merging = {
+        j for j, d in enumerate(padded) if sum(1 for e in expected if covers_centre(d, e)) >= 2
+    }
+
     matched_expected: set[int] = set()
     matched_actual: set[int] = set()
 
     pairs: list[tuple[float, int, int]] = []
     for i, e in enumerate(expected):
-        for j, a in enumerate(actual):
-            pairs.append((iou(e, a), i, j))
+        for j, d in enumerate(padded):
+            if j in merging:
+                continue
+            pairs.append((contained_fraction(e, d), i, j))
     pairs.sort(reverse=True)
 
     for score, i, j in pairs:
@@ -53,10 +91,21 @@ def score_bubbles(expected: list[dict], actual: list[dict], threshold: float = 0
         matched_expected.add(i)
         matched_actual.add(j)
 
+    # Localisation is one-to-one as well: a merging detection localises one of the boxes it
+    # swallows, not both — otherwise a single fat box would localise the whole page.
+    localised: set[int] = set()
+    claimed: set[int] = set()
+    for i, e in enumerate(expected):
+        for j, d in enumerate(padded):
+            if j in claimed or not covers_centre(d, e):
+                continue
+            claimed.add(j)
+            localised.add(i)
+            break
+
     tp = len(matched_expected)
     fp = len(actual) - len(matched_actual)
     fn = len(expected) - len(matched_expected)
-    recall = tp / len(expected) if expected else 1.0
 
     per_label: dict[str, dict] = {}
     for label in sorted({e.get("label", "unknown") for e in expected}):
@@ -67,7 +116,8 @@ def score_bubbles(expected: list[dict], actual: list[dict], threshold: float = 0
             "expected_count": label_total,
             "matched": label_matched,
             "missed": label_total - label_matched,
-            "recall_iou_0_5": label_matched / label_total if label_total else 1.0,
+            "localised": sum(1 for i in idxs if i in localised),
+            "containment_recall": label_matched / label_total if label_total else 1.0,
         }
 
     return {
@@ -76,7 +126,10 @@ def score_bubbles(expected: list[dict], actual: list[dict], threshold: float = 0
         "matched": tp,
         "false_positives": fp,
         "missed": fn,
-        "recall_iou_0_5": recall,
+        "localised": len(localised),
+        "merging_detections": len(merging),
+        "containment_recall": tp / len(expected) if expected else 1.0,
+        "localisation_recall": len(localised) / len(expected) if expected else 1.0,
         "per_label": per_label,
     }
 
@@ -165,24 +218,31 @@ def run_bubble_detection(stub: bool) -> dict[str, Any]:
             actual = []
             mode = "missing"
 
-        score = score_bubbles(boxes, actual)
+        score = score_bubbles(
+            boxes, actual, expected["image_width"], expected["image_height"]
+        )
         score["case_id"] = case_dir.name
         score["mode"] = mode
         results.append(score)
 
     if results:
-        avg_recall = sum(r["recall_iou_0_5"] for r in results) / len(results)
+        avg_recall = sum(r["containment_recall"] for r in results) / len(results)
         total_fp = sum(r["false_positives"] for r in results)
         total_fn = sum(r["missed"] for r in results)
+        total_merging = sum(r["merging_detections"] for r in results)
         # Box-weighted, so a 1-box case cannot swing the number as hard as it does in avg_recall.
         total_expected = sum(r["expected_count"] for r in results)
         total_matched = sum(r["matched"] for r in results)
+        total_localised = sum(r["localised"] for r in results)
         total_recall = total_matched / total_expected if total_expected else 0.0
+        total_localisation = total_localised / total_expected if total_expected else 0.0
     else:
         avg_recall = 0.0
         total_fp = 0
         total_fn = 0
+        total_merging = 0
         total_recall = 0.0
+        total_localisation = 0.0
 
     labels = sorted({label for r in results for label in r["per_label"]})
     per_label_summary: dict[str, dict] = {}
@@ -190,18 +250,22 @@ def run_bubble_detection(stub: bool) -> dict[str, Any]:
         expected_count = sum(r["per_label"].get(label, {}).get("expected_count", 0) for r in results)
         matched = sum(r["per_label"].get(label, {}).get("matched", 0) for r in results)
         missed = sum(r["per_label"].get(label, {}).get("missed", 0) for r in results)
+        localised = sum(r["per_label"].get(label, {}).get("localised", 0) for r in results)
         per_label_summary[label] = {
             "expected_count": expected_count,
             "matched": matched,
             "missed": missed,
-            "recall_iou_0_5": matched / expected_count if expected_count else 1.0,
+            "localised": localised,
+            "containment_recall": matched / expected_count if expected_count else 1.0,
         }
 
     return {
         "cases": results,
         "summary": {
-            "avg_recall_iou_0_5": avg_recall,
-            "total_recall_iou_0_5": total_recall,
+            "avg_containment_recall": avg_recall,
+            "total_containment_recall": total_recall,
+            "total_localisation_recall": total_localisation,
+            "total_merging_detections": total_merging,
             "total_false_positives": total_fp,
             "total_missed": total_fn,
             "per_label": per_label_summary,
