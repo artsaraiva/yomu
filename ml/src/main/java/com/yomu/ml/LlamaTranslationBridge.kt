@@ -15,7 +15,12 @@ class LlamaTranslationBridge(
         private const val N_CTX = 2048
         private const val N_GPU_LAYERS = 0
         private val N_THREADS = Runtime.getRuntime().availableProcessors().coerceAtMost(4)
-        private const val MAX_TOKENS = 64
+        // One bubble's English, not one short line: the per-line page-context path (#71) sends the
+        // whole page as context and asks for a single bubble back, but a dense narration box (up to
+        // MAX_SOURCE_CHARS of source) can exceed 64 output tokens. 64 was #58's truncation → residue
+        // gate failure (#65 US-12); size the per-bubble budget above it. Generation still stops at
+        // EOS, so short balloons are unaffected — this only lifts the ceiling for long ones.
+        private const val MAX_TOKENS = 256
         // Reserve room for the prompt-final tokens and EOS so prompt + output stays within N_CTX.
         private const val BATCH_TOKEN_RESERVE = 96
         // Floor for the page-level budget: keep it well above the per-line MAX_TOKENS so a dense

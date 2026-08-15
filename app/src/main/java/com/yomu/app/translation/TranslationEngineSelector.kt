@@ -46,6 +46,10 @@ class TranslationEngineSelector @Inject constructor(
         return activeBridge().supportsBatch()
     }
 
+    override fun supportsIdKeyedBatch(): Boolean {
+        return activeBridge().supportsIdKeyedBatch()
+    }
+
     override fun clearMemory() {
         activeBridge().clearMemory()
     }
