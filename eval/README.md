@@ -6,9 +6,9 @@ Curated, real-world manga cases used to measure two things that must not regress
    truncated bubble breaks the reading experience. No absolute pass bar is set; the numbers rank
    detectors rather than pass or fail them (ADR-0003), and they rank them only coarsely — see
    [What this case set can and cannot decide](#what-this-case-set-can-and-cannot-decide).
-2. **Translation quality** — Japanese OCR text must become coherent English.
-   Track artifacts (e.g. `SEP`), incoherent output, and untranslated/source-language
-   output.
+2. **Translation quality** — annotation Japanese must become English through one
+   page-level call, matched to the reference by bubble id (ADR-0004). The gates catch
+   failure modes — non-translation, Japanese residue, missing bubbles — not quality.
 
 These datasets are the source of truth for judging detector and translation-engine
 changes. Do not tune thresholds or swap engines without checking against them.
@@ -159,8 +159,10 @@ Per case and per engine, write
 }
 ```
 
-Lines must align with `source.txt`. The harness reports untranslated rate,
-artifact rate, exact-match rate, and a readability word-count ratio.
+Lines must align with `source.txt` by bubble id. The harness gates non-translation
+rate (0), Japanese-residue rate (0, reference-adjudicated) and bubble coverage (100%),
+and reports a readability word-count ratio as a diagnostic. See
+`translation-quality/SCHEMA.md`.
 
 ## What this case set can and cannot decide
 
@@ -218,8 +220,10 @@ per-class breakdown. Do not read meaning into those labels or reintroduce per-cl
   0.747 over the 75 story boxes of those same 8 pages. The full-set number landing 2.3pp from the
   8-page one is worth noting: the original hand-picked pages were not badly unrepresentative, and
   the gap is far inside the confidence interval either set can support.
-- **Translation quality**: lower untranslated and artifact rates are better.
-  Readability ratio near 1.0 means the engine is producing a similar amount of
+- **Translation quality**: an engine passes only at non-translation rate 0,
+  Japanese-residue rate 0 and 100% bubble coverage; the set gates failures, it does
+  not rank quality (#52). The LLM's page-level call is the gate, ML Kit / OPUS-MT a
+  floor. Readability ratio near 1.0 means the engine is producing a similar amount of
   English text as the reference; much higher or lower suggests hallucination or
   dropped content. Exact-match is a sanity check, not a quality target.
 
