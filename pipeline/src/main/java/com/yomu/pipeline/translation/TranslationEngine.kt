@@ -72,10 +72,10 @@ class TranslationEngine(
     ): TranslationResult {
         val startTime = System.currentTimeMillis()
 
-        val translated = if (translationBridge.supportsBatch()) {
-            translateBatch(blocks, sessionContext)
-        } else {
-            translateBubbles(blocks)
+        val translated = when {
+            translationBridge.supportsIdKeyedBatch() -> translateBatch(blocks, sessionContext)
+            translationBridge.supportsBatch() -> translatePerLine(blocks)
+            else -> translateBubbles(blocks)
         }
         val translations = translated.ifEmpty { fallbackTranslations(blocks) }
 
@@ -89,34 +89,45 @@ class TranslationEngine(
         )
     }
 
-    /**
-     * Diagnostic (#68), not a production path. Translates each bubble in its own call using
-     * CAT-Translate's model-card prompt ("Translate the following Japanese text into English.\n\n
-     * <text>"), to isolate whether the page-level gate failure is the batch [id] format or the model
-     * itself. Bypasses the cache so every call is measured fresh; the raw model reply is logged by
-     * the bridge (see LlamaTranslationBridge "generate raw=").
-     */
-    suspend fun translatePerLineProbe(blocks: List<ConversationBlock>): List<TranslatedBubble> {
-        val translations = mutableListOf<TranslatedBubble>()
-        for (block in blocks) {
-            for (bubbleId in block.readingOrder) {
-                val original = block.textByBubbleId[bubbleId]?.text?.take(MAX_SOURCE_CHARS) ?: continue
-                val output = translationBridge.translate(
-                    "Translate the following Japanese text into English.\n\n$original"
-                )
-                val translated = output?.translatedText?.takeIf { it.isNotBlank() }
-                translations.add(
-                    TranslatedBubble(
-                        bubbleId = bubbleId,
-                        originalText = original,
-                        translatedText = translated ?: original,
-                        confidence = if (translated != null) output!!.confidence else 0.1f
-                    )
-                )
+    // Bubbles grouped by panel in reading order, empty-OCR bubbles dropped (ADR-0002: no gap
+    // markers), each as (bubbleId, source). Shared by both LLM paths so they filter identically.
+    private fun nonEmptyPanels(blocks: List<ConversationBlock>): List<List<Pair<Int, String>>> {
+        return blocks.map { block ->
+            block.readingOrder.mapNotNull { bubbleId ->
+                val original = block.textByBubbleId[bubbleId]?.text?.take(MAX_SOURCE_CHARS)
+                if (original.isNullOrBlank()) null else bubbleId to original
             }
-        }
-        return translations
+        }.filter { it.isNotEmpty() }
     }
+
+    /**
+     * Per-line path for the curated 0.8b (ADR-0002 #71 amendment). One call per non-empty bubble in
+     * reading order, each asking for exactly that bubble in CAT-Translate's trained single-text
+     * model-card form — no system prompt and, deliberately, no surrounding context. In-prompt page
+     * and session context were measured to make the 0.8b refuse ("I'm sorry, but I can't help with
+     * that") on device, the same trained-form fragility that killed the id-keyed batch (#68), so
+     * cross-panel context is deferred to a larger sibling (#72, the retained [translateBatch] path).
+     * Each result maps to the bubble whose call it was, so no reply can shift another bubble; a blank
+     * reply falls back to that bubble's source alone. The line-keyed cache stays bypassed.
+     */
+    private suspend fun translatePerLine(blocks: List<ConversationBlock>): List<TranslatedBubble> {
+        val items = nonEmptyPanels(blocks).flatten()
+        if (items.isEmpty()) return emptyList()
+
+        return items.map { (bubbleId, original) ->
+            val output = translationBridge.translate(modelCardPrompt(original))
+            val translated = output?.translatedText?.takeIf { it.isNotBlank() }
+            TranslatedBubble(
+                bubbleId = bubbleId,
+                originalText = original,
+                translatedText = translated ?: original,
+                confidence = if (translated != null) output!!.confidence else 0.1f
+            )
+        }
+    }
+
+    private fun modelCardPrompt(target: String): String =
+        "Translate the following Japanese text into English.\n\n$target"
 
     fun fallback(blocks: List<ConversationBlock>): TranslationResult {
         val translations = fallbackTranslations(blocks)
@@ -156,23 +167,20 @@ class TranslationEngine(
     }
 
     /**
-     * Page-level LLM path (ADR-0002). Every non-empty bubble goes out in one call, each addressed
-     * by its real detector id (`[<id>] text`), panels rendered as markers, the previous page's
-     * source/translation pairs prepended as session context. The response is parsed by id: a bubble
-     * whose id does not come back falls back to its own source text and only that bubble, so a
-     * dropped/merged/prefaced line never shifts later bubbles into the wrong balloon. The line-keyed
-     * cache is bypassed here so the same line is free to translate differently in another scene.
+     * Single-call id-keyed page path (ADR-0002), retained for a model that can emit it (#72's
+     * larger CAT-Translate sibling; gated by [TranslationBridge.supportsIdKeyedBatch]). The curated
+     * 0.8b cannot (#68) and takes [translatePageContext] instead. Every non-empty bubble goes out in
+     * one call, each addressed by its real detector id (`[<id>] text`), panels rendered as markers,
+     * the previous page's source/translation pairs prepended as session context. The response is
+     * parsed by id: a bubble whose id does not come back falls back to its own source text and only
+     * that bubble, so a dropped/merged/prefaced line never shifts later bubbles into the wrong
+     * balloon. The line-keyed cache is bypassed so the same line may translate differently per scene.
      */
     private suspend fun translateBatch(
         blocks: List<ConversationBlock>,
         sessionContext: List<Pair<String, String>>
     ): List<TranslatedBubble> {
-        val panels = blocks.map { block ->
-            block.readingOrder.mapNotNull { bubbleId ->
-                val original = block.textByBubbleId[bubbleId]?.text?.take(MAX_SOURCE_CHARS)
-                if (original.isNullOrBlank()) null else bubbleId to original
-            }
-        }.filter { it.isNotEmpty() }
+        val panels = nonEmptyPanels(blocks)
         val items = panels.flatten()
         if (items.isEmpty()) return emptyList()
 

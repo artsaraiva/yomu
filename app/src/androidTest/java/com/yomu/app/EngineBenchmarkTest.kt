@@ -109,12 +109,13 @@ class EngineBenchmarkTest {
                     continue
                 }
 
-                for ((caseIndex, case) in cases.withIndex()) {
-                    // ADR-0004: one page-level call. Ground-truth boxes stand in for detections and
-                    // text_ja for OCR; ContextAssembler builds panels + reading order, then the
-                    // engine translates the whole page. The LLM batches this (the gate); ML Kit /
-                    // OPUS-MT translate per bubble inside the same call (the floor). Output is keyed
-                    // by bubble id so a missing id scores zero rather than voiding the case.
+                for (case in cases) {
+                    // ADR-0004: one reader trigger per page. Ground-truth boxes stand in for
+                    // detections and text_ja for OCR; ContextAssembler builds panels + reading order,
+                    // then the engine translates the whole page. The curated LLM issues one call per
+                    // bubble carrying the page as context (the gate, #71); ML Kit / OPUS-MT translate
+                    // per bubble (the floor). Output is keyed by bubble id so a missing id scores
+                    // zero rather than voiding the case.
                     val bubbles = case.boxes.mapIndexed { id, box ->
                         Bubble(id = id, boundingBox = box, confidence = 1f)
                     }
@@ -148,25 +149,6 @@ class EngineBenchmarkTest {
 
                     writeEngineResult(outputDir, case.caseId, engineName, translations)
                     logEngineResult(case.caseId, engineName, translations)
-
-                    // #68 diagnostic: for the LLM, also translate each bubble in its own call with
-                    // CAT-Translate's model-card prompt and score it as "llm-single" alongside the
-                    // page-level "llm". Side-by-side residue/coverage isolates batch-format failure
-                    // from model quality. Floor engines already translate per bubble, so no probe.
-                    //
-                    // Capped to the first PROBE_CASE_LIMIT cases: the probe adds ~1 LLM call per
-                    // bubble on top of the batch, and ~200 sequential generations in one process
-                    // crashed the app mid-run (harness load, not a production path — production
-                    // does ~10 calls/page then moves on). A subset still gives an entry-weighted
-                    // non-translation/residue signal.
-                    if (type == TranslationEngineType.LLM && caseIndex < PROBE_CASE_LIMIT) {
-                        val probe = runCatching { engine.translatePerLineProbe(page.blocks) }.getOrNull()
-                        val probeById = probe.orEmpty().associateBy { it.bubbleId }
-                        val probeTranslations = case.source.indices.map { id -> probeById[id]?.translatedText ?: "" }
-                        writeEngineResult(outputDir, case.caseId, "llm-single", probeTranslations)
-                        logEngineResult(case.caseId, "llm-single", probeTranslations)
-                        Log.i(TAG, "Probe engine=llm-single case=${case.caseId} covered=${probeById.size}")
-                    }
                 }
 
                 // Clear the in-memory translation cache between engines. It is keyed by source text
@@ -291,9 +273,6 @@ class EngineBenchmarkTest {
     companion object {
         private const val TAG = "EngineBenchmarkTest"
         private const val FIXTURE_DIR = "/data/local/tmp/yomu-fixtures"
-        // #68 diagnostic only: how many cases the per-line "llm-single" probe runs before the
-        // combined batch + per-line call volume risks crashing the process. Enough for a rate.
-        private const val PROBE_CASE_LIMIT = 6
         private val ENGINES = listOf(
             TranslationEngineType.ML_KIT,
             TranslationEngineType.OPUS_MT,
