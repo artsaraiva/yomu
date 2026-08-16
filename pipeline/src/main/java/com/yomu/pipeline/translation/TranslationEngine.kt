@@ -169,7 +169,7 @@ class TranslationEngine(
     /**
      * Single-call id-keyed page path (ADR-0002), retained for a model that can emit it (#72's
      * larger CAT-Translate sibling; gated by [TranslationBridge.supportsIdKeyedBatch]). The curated
-     * 0.8b cannot (#68) and takes [translatePageContext] instead. Every non-empty bubble goes out in
+     * 0.8b cannot (#68) and takes [translatePerLine] instead. Every non-empty bubble goes out in
      * one call, each addressed by its real detector id (`[<id>] text`), panels rendered as markers,
      * the previous page's source/translation pairs prepended as session context. The response is
      * parsed by id: a bubble whose id does not come back falls back to its own source text and only
