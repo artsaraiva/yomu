@@ -25,6 +25,7 @@ import com.yomu.app.overlay.TranslationRenderOverlay
 import com.yomu.app.overlay.TranslationStatusOverlay
 import com.yomu.app.translation.TranslationEngineSelector
 import com.yomu.app.translation.TranslationEngineType
+import com.yomu.app.db.entities.TranslationSessionEntity
 import com.yomu.core.Constants
 import com.yomu.pipeline.ModelPaths
 import com.yomu.pipeline.PipelineResult
@@ -40,6 +41,14 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import java.io.File
 import javax.inject.Inject
 import kotlin.coroutines.resume
+
+// Carried context lives for one session only: a changed session id (idle rollover, or a future
+// manga switch once sourceApp stops being hardcoded) drops it so one story never bleeds into the next.
+internal fun carryOverContext(
+    context: List<Pair<String, String>>,
+    contextSessionId: Long,
+    sessionId: Long
+): List<Pair<String, String>> = if (sessionId == contextSessionId) context else emptyList()
 
 @AndroidEntryPoint
 class OverlayService : Service() {
@@ -69,6 +78,8 @@ class OverlayService : Service() {
     // because release() no longer runs per page.
     @Volatile
     private var sessionContext: List<Pair<String, String>> = emptyList()
+
+    private var contextSessionId: Long = -1L
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mainScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -319,6 +330,12 @@ class OverlayService : Service() {
                 }
             }
 
+            // A rollover (idle timeout / manga switch) starts this page fresh instead of
+            // inheriting another story's context.
+            val session = sessionManager.getOrCreateSession("manual")
+            sessionContext = carryOverContext(sessionContext, contextSessionId, session.id)
+            contextSessionId = session.id
+
             val result = translationPipeline.processPage(
                 bitmap,
                 sessionContext = sessionContext,
@@ -327,7 +344,7 @@ class OverlayService : Service() {
             )
             if (result != null && result.typesetBubbles.isNotEmpty()) {
                 sessionContext = result.translationResult.translations.map { it.originalText to it.translatedText }
-                saveSessionResult(result)
+                saveSessionResult(session, result)
             }
             mainScope.launch {
                 if (result != null) {
@@ -356,12 +373,11 @@ class OverlayService : Service() {
         }
     }
 
-    private suspend fun saveSessionResult(result: PipelineResult) {
+    private suspend fun saveSessionResult(session: TranslationSessionEntity, result: PipelineResult) {
         val translatedText = result.translationResult.translations.joinToString("\n") { translation ->
             "[${translation.bubbleId}] ${translation.originalText} → ${translation.translatedText}"
         }
         if (translatedText.isBlank()) return
-        val session = sessionManager.getOrCreateSession("manual")
         sessionManager.saveTranslation(
             sessionId = session.id,
             sourceImagePath = "",
