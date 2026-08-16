@@ -85,14 +85,34 @@ class TranslationCacheTest {
     }
 
     @Test
-    fun translate_batchPathNeitherReadsNorWritesCache() = runTest {
+    fun translate_contextPathNeitherReadsNorWritesCache() = runTest {
         val repo = FakeTranslationCacheRepository()
-        // Pre-seed the repo; the batch path must ignore it and translate fresh.
+        // Pre-seed the repo; the per-line page-context path must ignore it and translate fresh.
+        repo.put("engine", null, "こんにちは", TranslationOutput("Cached", 0.9f, 10L))
+        val bridge = FakeTranslationBridge(
+            status = TranslationStatus.Ready,
+            outputForText = mapOf("こんにちは" to TranslationOutput("Hello", 0.8f, 10L)),
+            supportsBatch = true
+        )
+        val engine = TranslationEngine(bridge, "engine", null, repo)
+
+        val result = engine.translate(listOf(singleBubbleBlock("こんにちは")))
+
+        assertEquals("Hello", result.translations.first().translatedText)
+        assertEquals(0, repo.getCalls)
+        assertEquals(1, repo.putCalls.size) // only the pre-seed put; the context path added none
+    }
+
+    @Test
+    fun translate_idKeyedBatchPathNeitherReadsNorWritesCache() = runTest {
+        val repo = FakeTranslationCacheRepository()
+        // Pre-seed the repo; the id-keyed batch path (#72) must ignore it and translate fresh.
         repo.put("engine", null, "こんにちは", TranslationOutput("Cached", 0.9f, 10L))
         val bridge = FakeTranslationBridge(
             status = TranslationStatus.Ready,
             batchResponse = "[1] Hello",
-            supportsBatch = true
+            supportsBatch = true,
+            supportsIdKeyedBatch = true
         )
         val engine = TranslationEngine(bridge, "engine", null, repo)
 
@@ -143,7 +163,8 @@ class TranslationCacheTest {
         status: TranslationStatus = TranslationStatus.Ready,
         private val outputForText: Map<String, TranslationOutput> = emptyMap(),
         private val batchResponse: String? = null,
-        private val supportsBatch: Boolean = false
+        private val supportsBatch: Boolean = false,
+        private val supportsIdKeyedBatch: Boolean = false
     ) : TranslationBridge {
         override var status: TranslationStatus = status
         val translateCalls: MutableMap<String, Int> = mutableMapOf()
@@ -153,6 +174,7 @@ class TranslationCacheTest {
         override suspend fun translate(sourceText: String): TranslationOutput? {
             translateCalls[sourceText] = (translateCalls[sourceText] ?: 0) + 1
             return outputForText[sourceText]
+                ?: outputForText.entries.firstOrNull { sourceText.endsWith(it.key) }?.value
         }
 
         override suspend fun translateBatch(prompt: String): TranslationOutput? {
@@ -160,6 +182,7 @@ class TranslationCacheTest {
         }
 
         override fun supportsBatch(): Boolean = supportsBatch
+        override fun supportsIdKeyedBatch(): Boolean = supportsIdKeyedBatch
         override fun clearMemory() {}
         override fun close() {
             status = TranslationStatus.NotReady
