@@ -243,6 +243,53 @@ class TranslationEngineTest {
         assertEquals("Goodbye", byId[2]?.translatedText)
     }
 
+    // Session context is prepended only on the id-keyed batch path (a larger sibling model, #72).
+    // The shipping 0.8b takes translatePerLine, which drops context by design (#71 amendment).
+    @Test
+    fun translate_idKeyedBatchPrependsSessionContextToPrompt() = runTest {
+        val bridge = FakeTranslationBridge(
+            status = TranslationStatus.Ready,
+            batchResponse = "[1] Hello",
+            supportsBatch = true,
+            supportsIdKeyedBatch = true
+        )
+        val engine = TranslationEngine(bridge)
+
+        engine.translate(
+            listOf(conversationBlock(1 to "こんにちは")),
+            sessionContext = listOf("前の台詞" to "The previous line")
+        )
+
+        val prompt = bridge.batchPrompts.single()
+        assertTrue(prompt.contains("Previous page"))
+        assertTrue(prompt.contains("前の台詞 => The previous line"))
+    }
+
+    @Test
+    fun translate_idKeyedBatchOmitsContextHeaderWhenSessionContextEmpty() = runTest {
+        val bridge = FakeTranslationBridge(
+            status = TranslationStatus.Ready,
+            batchResponse = "[1] Hello",
+            supportsBatch = true,
+            supportsIdKeyedBatch = true
+        )
+        val engine = TranslationEngine(bridge)
+
+        engine.translate(listOf(conversationBlock(1 to "こんにちは")))
+
+        assertFalse(bridge.batchPrompts.single().contains("Previous page"))
+    }
+
+    @Test
+    fun release_clearsBridgeMemory() {
+        val bridge = FakeTranslationBridge(status = TranslationStatus.Ready)
+        val engine = TranslationEngine(bridge)
+
+        engine.release()
+
+        assertEquals(1, bridge.clearMemoryCalls)
+    }
+
     @Test
     fun translate_batchDisabledUsesPerBubblePath() = runTest {
         val bridge = FakeTranslationBridge(
@@ -310,8 +357,10 @@ class TranslationEngineTest {
         override var status: TranslationStatus = status
         val translateCalls: MutableMap<String, Int> = mutableMapOf()
         val prompts: MutableList<String> = mutableListOf()
+        val batchPrompts: MutableList<String> = mutableListOf()
         var translateCallCount: Int = 0
         var batchCalls: Int = 0
+        var clearMemoryCalls: Int = 0
 
         override suspend fun ensureReady(): Boolean {
             return this.status is TranslationStatus.Ready
@@ -329,6 +378,7 @@ class TranslationEngineTest {
 
         override suspend fun translateBatch(prompt: String): TranslationOutput? {
             batchCalls++
+            batchPrompts.add(prompt)
             return batchResponse?.let { TranslationOutput(it, 0.8f, 100L) }
         }
 
@@ -336,7 +386,9 @@ class TranslationEngineTest {
 
         override fun supportsIdKeyedBatch(): Boolean = supportsIdKeyedBatch
 
-        override fun clearMemory() {}
+        override fun clearMemory() {
+            clearMemoryCalls++
+        }
 
         override fun close() {
             status = TranslationStatus.NotReady
