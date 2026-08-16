@@ -15,7 +15,10 @@ class OcrEngine(private val onnxRuntime: OnnxRuntime) {
     companion object {
         private const val INPUT_SIZE = 224
         private const val CHANNELS = 3
-        private const val MAX_LENGTH = 32
+        // Safety cap on decoder steps, not the expected length: generation stops at the real [SEP]
+        // (resolved from the vocab, see sepTokenId), so short bubbles end early and only genuinely
+        // long ones use the budget. 32 truncated lines longer than the 36-char annotated max (#82).
+        private const val MAX_LENGTH = 128
         private const val BOS_TOKEN_ID = 0
         // Fallback only: this model's [SEP] is not reliably at index 102 (the English-BERT id).
         // The real stop id is resolved from the loaded vocab by string; see sepTokenId.
