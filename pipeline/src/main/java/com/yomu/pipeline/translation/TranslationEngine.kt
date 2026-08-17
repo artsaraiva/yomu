@@ -28,6 +28,32 @@ private fun hashSha256(input: String): String {
         .joinToString("") { "%02x".format(it) }
 }
 
+private val NON_TRANSLATION_PATTERNS = listOf(
+    Regex("""(?i)translate the following"""),
+    Regex("""(?i)\bas an ai\b"""),
+    Regex("""(?i)\bi\s*['’]?m unable to\b"""),
+    Regex("""(?i)\bi\s+(?:can['’]?t|cannot|can not)\s+(?:help|assist|translate|comply|fulfill|do that|with that)"""),
+    Regex("""(?i)\b(?:i\s*['’]?m sorry|i am sorry|i apologi[sz]e)\b[^.!?\n]*\b(?:can['’]?t|cannot|can not|unable|won['’]?t)\b""")
+)
+
+private val TOKEN_SPLIT = Regex("""\s+""")
+
+// A too-small model sometimes refuses ("I'm sorry, I can't…"), echoes the instruction back, or
+// loops one phrase instead of translating. Rendering that scaffolding into a bubble is worse than
+// showing the source, so callers treat a match as a failed line and fall back to the original text.
+// Deliberately conservative: bare "I'm sorry!" is legitimate dialogue and is NOT matched.
+internal fun looksLikeNonTranslation(text: String): Boolean {
+    val trimmed = text.trim()
+    if (trimmed.isEmpty()) return false
+    if (NON_TRANSLATION_PATTERNS.any { it.containsMatchIn(trimmed) }) return true
+    val tokens = trimmed.split(TOKEN_SPLIT).filter { it.isNotBlank() }
+    if (tokens.size < 6) return false
+    return tokens.map { it.lowercase() }.toSet().size <= tokens.size / 3
+}
+
+private fun String?.usableTranslation(): String? =
+    this?.takeIf { it.isNotBlank() && !looksLikeNonTranslation(it) }
+
 data class TranslatedBubble(
     val bubbleId: Int,
     val originalText: String,
@@ -116,7 +142,7 @@ class TranslationEngine(
 
         return items.map { (bubbleId, original) ->
             val output = translationBridge.translate(modelCardPrompt(original))
-            val translated = output?.translatedText?.takeIf { it.isNotBlank() }
+            val translated = output?.translatedText.usableTranslation()
             TranslatedBubble(
                 bubbleId = bubbleId,
                 originalText = original,
@@ -151,14 +177,13 @@ class TranslationEngine(
                     cache[original] = translated
                     cacheRepository?.put(engineId, modelId, original, translated)
                 }
-                val translatedText = output?.translatedText.orEmpty()
-                val hasTranslation = translatedText.isNotBlank()
+                val translated = output?.translatedText.usableTranslation()
                 translations.add(
                     TranslatedBubble(
                         bubbleId = bubbleId,
                         originalText = original,
-                        translatedText = translatedText.ifBlank { original },
-                        confidence = if (hasTranslation) (output?.confidence ?: 0.1f) else 0.1f
+                        translatedText = translated ?: original,
+                        confidence = if (translated != null) (output?.confidence ?: 0.1f) else 0.1f
                     )
                 )
             }
@@ -189,7 +214,7 @@ class TranslationEngine(
         val parsed = parseIdKeyedTranslations(output.translatedText)
 
         return items.map { (bubbleId, original) ->
-            val translated = parsed[bubbleId]?.takeIf { it.isNotBlank() }
+            val translated = parsed[bubbleId].usableTranslation()
             TranslatedBubble(
                 bubbleId = bubbleId,
                 originalText = original,
