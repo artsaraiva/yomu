@@ -113,7 +113,13 @@ class EngineBenchmarkTest {
             // writeTimingCsv. Deadline is absolute wall-clock from test start.
             val benchDeadlineMs = System.currentTimeMillis() + TOTAL_BENCHMARK_BUDGET_MS
 
-            for (type in ENGINES) {
+            // A heavy challenger's 17 cases won't fit the timeout window after the ~11-min enum
+            // baseline. `-P...runnerArguments.skipBaseline=true` skips the enum engines so a focused
+            // challenger run gets the whole window; the baseline is deterministic, so reuse a prior
+            // run's mlkit/opusmt/llm numbers for the comparison.
+            val skipBaseline = InstrumentationRegistry.getArguments().getString("skipBaseline") == "true"
+
+            for (type in if (skipBaseline) emptyList() else ENGINES) {
                 val engineName = engineNameFor(type)
                 Log.i(TAG, "Benchmarking engine=$engineName")
 

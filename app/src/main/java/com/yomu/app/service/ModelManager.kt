@@ -158,14 +158,16 @@ class ModelManager @Inject constructor(
                 version = "1.0",
                 isRequired = false
             ),
+            // Q3_K_M, not the Q4 tier of the others: the 7B Q4 (4.6GB) OOM-kills on load on the 8GB
+            // reference device (#84), so it is dropped a quant to fit rather than left unmeasurable.
             ModelEntity(
                 id = Constants.HUNYUAN_MT_MODEL_ID,
-                name = "Hunyuan-MT 7B (Q4_K_M)",
+                name = "Hunyuan-MT 7B (Q3_K_M)",
                 type = ModelType.LLM,
                 fileName = Constants.HUNYUAN_MT_MODEL,
-                fileSize = 4_624_950_272L,
-                downloadUrl = "https://huggingface.co/mradermacher/Hunyuan-MT-7B-GGUF/resolve/main/Hunyuan-MT-7B.Q4_K_M.gguf",
-                checksum = "08b4dd8f25002592526194defd2481febcc9008fe37e67accde9bbe29d28cecf",
+                fileSize = 3_792_905_216L,
+                downloadUrl = "https://huggingface.co/mradermacher/Hunyuan-MT-7B-GGUF/resolve/main/Hunyuan-MT-7B.Q3_K_M.gguf",
+                checksum = "b065cf1d0680d34d21a1bbd7048a0e257a1f4a298d599bb91b91984873b1e255",
                 status = ModelStatus.AVAILABLE,
                 version = "1.0",
                 isRequired = false

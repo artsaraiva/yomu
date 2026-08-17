@@ -186,7 +186,7 @@ fi
 CHALLENGER_FIXTURES=(
   "$FIXTURE_DIR/llm/cat_translate_1.4b_q4_k_m.gguf|https://huggingface.co/mradermacher/CAT-Translate-1.4b-GGUF/resolve/main/CAT-Translate-1.4b.Q4_K_M.gguf"
   "$FIXTURE_DIR/llm/qwen3_4b_q4_k_m.gguf|https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf"
-  "$FIXTURE_DIR/llm/hunyuan_mt_7b_q4_k_m.gguf|https://huggingface.co/mradermacher/Hunyuan-MT-7B-GGUF/resolve/main/Hunyuan-MT-7B.Q4_K_M.gguf"
+  "$FIXTURE_DIR/llm/hunyuan_mt_7b_q3_k_m.gguf|https://huggingface.co/mradermacher/Hunyuan-MT-7B-GGUF/resolve/main/Hunyuan-MT-7B.Q3_K_M.gguf"
 )
 for entry in "${CHALLENGER_FIXTURES[@]}"; do
   fixture_path="${entry%%|*}"

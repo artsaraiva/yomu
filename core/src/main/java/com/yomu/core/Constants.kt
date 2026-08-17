@@ -31,7 +31,9 @@ object Constants {
     // #84 challenger GGUF file names, staged under models/llm/ alongside the 0.8b (Q4_K_M tier).
     const val CAT_TRANSLATION_14B_MODEL = "cat_translate_1.4b_q4_k_m.gguf"
     const val QWEN3_MODEL = "qwen3_4b_q4_k_m.gguf"
-    const val HUNYUAN_MT_MODEL = "hunyuan_mt_7b_q4_k_m.gguf"
+    // Q3_K_M, not Q4: the 7B Q4 (4.6GB) OOM-kills on load on an 8GB device (#84 bake-off). Q3_K_M
+    // (3.8GB) fits; the quant drop is the price of measuring a 7B on-device at all.
+    const val HUNYUAN_MT_MODEL = "hunyuan_mt_7b_q3_k_m.gguf"
     
     const val OPUS_MT_ENCODER_MODEL = "opus_mt_encoder_model_quantized.onnx"
     const val OPUS_MT_DECODER_MODEL = "opus_mt_decoder_with_past_model_quantized.onnx"

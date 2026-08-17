@@ -51,3 +51,6 @@ eval/fixtures/
 
 # Python cache
 __pycache__/
+
+# Local agent scratch worktrees
+.claude/worktrees/
