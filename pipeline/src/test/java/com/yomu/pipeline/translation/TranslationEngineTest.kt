@@ -291,6 +291,42 @@ class TranslationEngineTest {
     }
 
     @Test
+    fun looksLikeNonTranslation_flagsRefusalsEchoesAndLoops() {
+        assertTrue(looksLikeNonTranslation("I'm sorry, but I can't help with that."))
+        assertTrue(looksLikeNonTranslation("I'm unable to translate this."))
+        assertTrue(looksLikeNonTranslation("Translate the following Japanese text into English. foo"))
+        assertTrue(looksLikeNonTranslation("As an AI language model, I cannot do this."))
+        assertTrue(looksLikeNonTranslation("I'm sorry I'm sorry I'm sorry I'm sorry"))
+    }
+
+    @Test
+    fun looksLikeNonTranslation_keepsLegitDialogue() {
+        assertFalse(looksLikeNonTranslation("I'm sorry!"))
+        assertFalse(looksLikeNonTranslation("I'm sorry, I can't come with you today."))
+        assertFalse(looksLikeNonTranslation("Sorry for being late, let's go back there."))
+        assertFalse(looksLikeNonTranslation("This is a picture of a native of the moon."))
+        assertFalse(looksLikeNonTranslation("I love you I love you I love you"))
+        assertFalse(looksLikeNonTranslation("No no no no no no"))
+    }
+
+    @Test
+    fun translate_perLineDropsNonTranslationOutputToSource() = runTest {
+        val bridge = FakeTranslationBridge(
+            status = TranslationStatus.Ready,
+            outputForText = mapOf(
+                "こんにちは" to TranslationOutput("I'm sorry, but I can't help with that.", 0.8f, 10L)
+            ),
+            supportsBatch = true
+        )
+        val engine = TranslationEngine(bridge)
+
+        val result = engine.translate(listOf(singleBubbleBlock("こんにちは")))
+
+        assertEquals("こんにちは", result.translations.first().translatedText)
+        assertEquals(0.1f, result.translations.first().confidence)
+    }
+
+    @Test
     fun translate_batchDisabledUsesPerBubblePath() = runTest {
         val bridge = FakeTranslationBridge(
             status = TranslationStatus.Ready,

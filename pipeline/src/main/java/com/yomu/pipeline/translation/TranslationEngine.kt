@@ -28,6 +28,41 @@ private fun hashSha256(input: String): String {
         .joinToString("") { "%02x".format(it) }
 }
 
+// Refusals are matched only with a *task* object (help/translate/…), never bare "I'm sorry … can't":
+// "I'm sorry, I can't come with you today" is legitimate dialogue, structurally identical to a
+// refusal without the object, so matching the object is what keeps the guard from eating real lines.
+private val NON_TRANSLATION_PATTERNS = listOf(
+    Regex("""(?i)translate the following"""),
+    Regex("""(?i)\bas an ai\b"""),
+    Regex("""(?i)\bi\s*['’]?m unable to\b"""),
+    Regex("""(?i)\bi\s+(?:can['’]?t|cannot|can not|will not|won['’]?t)\s+(?:help|assist|translate|provide|comply|fulfill|do that|with that)""")
+)
+
+private val TOKEN_SPLIT = Regex("""\s+""")
+
+// A broken model loops one phrase ("I'm sorry" ×N). Flag only a clear loop: enough tokens that a
+// short line can't trip it, and at most a quarter of them distinct. "I love you I love you I love
+// you" (9 tokens, 3 distinct) and short screams ("No no no", "Ha ha ha") stay under the bar.
+private const val MIN_LOOP_TOKENS = 8
+private const val LOOP_UNIQUE_DIVISOR = 4
+
+// A too-small model sometimes refuses ("I'm sorry, I can't help…"), echoes the instruction back, or
+// loops one phrase instead of translating. Rendering that scaffolding into a bubble is worse than
+// showing the source, so callers treat a match as a failed line and fall back to the original text.
+// Deliberately conservative: bare "I'm sorry!" and apologetic dialogue are NOT matched.
+internal fun looksLikeNonTranslation(text: String): Boolean {
+    val trimmed = text.trim()
+    if (trimmed.isEmpty()) return false
+    if (NON_TRANSLATION_PATTERNS.any { it.containsMatchIn(trimmed) }) return true
+    val tokens = trimmed.split(TOKEN_SPLIT).filter { it.isNotBlank() }
+    if (tokens.size < MIN_LOOP_TOKENS) return false
+    val distinct = tokens.map { it.lowercase() }.toSet().size
+    return distinct * LOOP_UNIQUE_DIVISOR <= tokens.size
+}
+
+private fun String?.usableTranslation(): String? =
+    this?.takeIf { it.isNotBlank() && !looksLikeNonTranslation(it) }
+
 data class TranslatedBubble(
     val bubbleId: Int,
     val originalText: String,
@@ -116,7 +151,7 @@ class TranslationEngine(
 
         return items.map { (bubbleId, original) ->
             val output = translationBridge.translate(modelCardPrompt(original))
-            val translated = output?.translatedText?.takeIf { it.isNotBlank() }
+            val translated = output?.translatedText.usableTranslation()
             TranslatedBubble(
                 bubbleId = bubbleId,
                 originalText = original,
@@ -151,14 +186,13 @@ class TranslationEngine(
                     cache[original] = translated
                     cacheRepository?.put(engineId, modelId, original, translated)
                 }
-                val translatedText = output?.translatedText.orEmpty()
-                val hasTranslation = translatedText.isNotBlank()
+                val translated = output?.translatedText.usableTranslation()
                 translations.add(
                     TranslatedBubble(
                         bubbleId = bubbleId,
                         originalText = original,
-                        translatedText = translatedText.ifBlank { original },
-                        confidence = if (hasTranslation) (output?.confidence ?: 0.1f) else 0.1f
+                        translatedText = translated ?: original,
+                        confidence = if (translated != null) (output?.confidence ?: 0.1f) else 0.1f
                     )
                 )
             }
@@ -189,7 +223,7 @@ class TranslationEngine(
         val parsed = parseIdKeyedTranslations(output.translatedText)
 
         return items.map { (bubbleId, original) ->
-            val translated = parsed[bubbleId]?.takeIf { it.isNotBlank() }
+            val translated = parsed[bubbleId].usableTranslation()
             TranslatedBubble(
                 bubbleId = bubbleId,
                 originalText = original,
