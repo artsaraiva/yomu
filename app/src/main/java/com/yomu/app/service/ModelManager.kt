@@ -172,6 +172,45 @@ class ModelManager @Inject constructor(
                 version = "1.0",
                 isRequired = false
             ),
+            // #84 follow-up: same-range alternatives to CAT-1.4b. TranslateGemma is a translation
+            // specialist (Google); Qwen2.5-1.5B and gemma-2-2b are non-thinking general instruct
+            // models that translate JA->EN decently. Real sizes + SHA-256 (HuggingFace LFS oid).
+            ModelEntity(
+                id = Constants.TRANSLATEGEMMA_4B_MODEL_ID,
+                name = "TranslateGemma 4B (Q4_K_M)",
+                type = ModelType.LLM,
+                fileName = Constants.TRANSLATEGEMMA_4B_MODEL,
+                fileSize = 2_489_909_760L,
+                downloadUrl = "https://huggingface.co/mradermacher/translategemma-4b-it-GGUF/resolve/main/translategemma-4b-it.Q4_K_M.gguf",
+                checksum = "81200d03e843d2ec1ece6eeafe7d13cb6e5211e1fcd336ade55790b683a08330",
+                status = ModelStatus.AVAILABLE,
+                version = "1.0",
+                isRequired = false
+            ),
+            ModelEntity(
+                id = Constants.QWEN25_15B_MODEL_ID,
+                name = "Qwen2.5 1.5B Instruct (Q4_K_M)",
+                type = ModelType.LLM,
+                fileName = Constants.QWEN25_15B_MODEL,
+                fileSize = 986_048_768L,
+                downloadUrl = "https://huggingface.co/bartowski/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/Qwen2.5-1.5B-Instruct-Q4_K_M.gguf",
+                checksum = "1adf0b11065d8ad2e8123ea110d1ec956dab4ab038eab665614adba04b6c3370",
+                status = ModelStatus.AVAILABLE,
+                version = "1.0",
+                isRequired = false
+            ),
+            ModelEntity(
+                id = Constants.GEMMA2_2B_MODEL_ID,
+                name = "Gemma 2 2B Instruct (Q4_K_M)",
+                type = ModelType.LLM,
+                fileName = Constants.GEMMA2_2B_MODEL,
+                fileSize = 1_708_582_752L,
+                downloadUrl = "https://huggingface.co/bartowski/gemma-2-2b-it-GGUF/resolve/main/gemma-2-2b-it-Q4_K_M.gguf",
+                checksum = "e0aee85060f168f0f2d8473d7ea41ce2f3230c1bc1374847505ea599288a7787",
+                status = ModelStatus.AVAILABLE,
+                version = "1.0",
+                isRequired = false
+            ),
             ModelEntity(
                 id = Constants.QWEN3_MODEL_ID,
                 name = "Qwen3 4B (Q4_K_M)",

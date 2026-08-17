@@ -448,6 +448,9 @@ class EngineBenchmarkTest {
             Candidate("cat_translate_1.4b", Constants.CAT_TRANSLATION_14B_MODEL),
             Candidate("cat_translate_1.4b_i1", Constants.CAT_TRANSLATION_14B_I1_MODEL),
             Candidate("cat_translate_7b", Constants.CAT_TRANSLATION_7B_MODEL),
+            Candidate("translategemma_4b", Constants.TRANSLATEGEMMA_4B_MODEL),
+            Candidate("qwen25_1.5b", Constants.QWEN25_15B_MODEL),
+            Candidate("gemma2_2b", Constants.GEMMA2_2B_MODEL),
             Candidate("qwen3_4b", Constants.QWEN3_MODEL),
             Candidate("hunyuan_mt_7b", Constants.HUNYUAN_MT_MODEL)
         )
