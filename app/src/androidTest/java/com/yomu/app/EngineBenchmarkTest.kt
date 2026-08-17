@@ -79,6 +79,10 @@ class EngineBenchmarkTest {
             val target = File(context.filesDir, "${Constants.MODELS_DIR}/${subdir.name}")
             target.mkdirs()
             for (fixture in subdir.listFiles().orEmpty().filter { it.isFile }) {
+                // #84 challengers are multi-GB and staged one at a time in benchmarkChallengers
+                // (then deleted), so copying them all here would need ~8GB in filesDir on top of the
+                // same ~8GB already in /data/local/tmp and blows the partition (ENOSPC). Skip them.
+                if (fixture.name in CHALLENGER_FILE_NAMES) continue
                 val dest = File(target, fixture.name)
                 // Re-copying 500MB on every run is pure waste; size is enough to spot a swap.
                 if (dest.exists() && dest.length() == fixture.length()) {
@@ -216,25 +220,60 @@ class EngineBenchmarkTest {
 
         val benchLlama = LlamaBridge(context)
         for (candidate in LLM_CANDIDATES) {
-            val modelPath = File(
-                context.filesDir,
-                "${Constants.MODELS_DIR}/${Constants.LLM_MODELS_DIR}/${candidate.fileName}"
-            ).absolutePath
-
-            val bridge = LlamaTranslationBridge(benchLlama, modelPath, idKeyedBatch = true)
-            val ready = runCatching { bridge.ensureReady() }.getOrElse { false }
-            if (!ready) {
-                val reason = (bridge.status as? TranslationStatus.Error)?.reason ?: "not_ready"
-                Log.w(TAG, "Challenger ${candidate.engineName} not ready, skipping. reason=$reason")
+            // Stage this one challenger's GGUF into filesDir, then delete it after the run. Staging
+            // all of them upfront would need ~8GB alongside the same weights in /data/local/tmp and
+            // ENOSPCs the partition, so peak usage is bounded to the 0.8b plus one challenger.
+            val staged = stageChallengerFixture(candidate.fileName)
+            if (staged == null) {
+                Log.w(TAG, "Challenger ${candidate.engineName} fixture unavailable, skipping.")
                 continue
             }
+            try {
+                val bridge = LlamaTranslationBridge(benchLlama, staged.absolutePath, idKeyedBatch = true)
+                val ready = runCatching { bridge.ensureReady() }.getOrElse { false }
+                if (!ready) {
+                    val reason = (bridge.status as? TranslationStatus.Error)?.reason ?: "not_ready"
+                    Log.w(TAG, "Challenger ${candidate.engineName} not ready, skipping. reason=$reason")
+                    continue
+                }
 
-            Log.i(TAG, "Benchmarking challenger=${candidate.engineName} idKeyedBatch=${bridge.supportsIdKeyedBatch()}")
-            val challengerEngine = TranslationEngine(bridge, candidate.engineName)
-            runEngineOverCases(challengerEngine, candidate.engineName, cases, outputDir, timingRows)
-            challengerEngine.release()
-            // Free native weights before the next challenger's load; the shared benchLlama is reused.
-            benchLlama.release()
+                Log.i(TAG, "Benchmarking challenger=${candidate.engineName} idKeyedBatch=${bridge.supportsIdKeyedBatch()}")
+                val challengerEngine = TranslationEngine(bridge, candidate.engineName)
+                runEngineOverCases(challengerEngine, candidate.engineName, cases, outputDir, timingRows)
+                challengerEngine.release()
+            } finally {
+                // Free native weights before the next challenger's load; the shared benchLlama is
+                // reused. Delete the staged copy so the next challenger has room.
+                benchLlama.release()
+                staged.delete()
+            }
+        }
+    }
+
+    /**
+     * Copy one challenger GGUF from the pushed fixtures into filesDir, where LlamaBridge can read it
+     * (SELinux blocks the app UID from reading /data/local/tmp directly, which is why staging
+     * copies rather than loads in place). Returns null — a clean skip — if the fixture is absent or
+     * the copy fails (e.g. ENOSPC), matching stageModelFixtures's degrade-cleanly contract.
+     */
+    private fun stageChallengerFixture(fileName: String): File? {
+        val source = File("$FIXTURE_DIR/${Constants.LLM_MODELS_DIR}/$fileName")
+        if (!source.isFile) return null
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val target = File(
+            context.filesDir,
+            "${Constants.MODELS_DIR}/${Constants.LLM_MODELS_DIR}/$fileName"
+        )
+        target.parentFile?.mkdirs()
+        if (target.exists() && target.length() == source.length()) return target
+        return try {
+            Log.i(TAG, "Staging challenger fixture $fileName (${source.length()} bytes)")
+            source.inputStream().use { input -> target.outputStream().use { input.copyTo(it) } }
+            target
+        } catch (e: Exception) {
+            Log.w(TAG, "Staging challenger fixture $fileName failed (${e.message}); skipping.")
+            target.delete()
+            null
         }
     }
 
@@ -370,5 +409,9 @@ class EngineBenchmarkTest {
             Candidate("qwen3_4b", Constants.QWEN3_MODEL),
             Candidate("hunyuan_mt_7b", Constants.HUNYUAN_MT_MODEL)
         )
+
+        // Staged one at a time by benchmarkChallengers, so stageModelFixtures must not bulk-copy
+        // them upfront (ENOSPC). The 0.8b shares the llm/ subdir but is not here, so it still stages.
+        private val CHALLENGER_FILE_NAMES = LLM_CANDIDATES.map { it.fileName }.toSet()
     }
 }
