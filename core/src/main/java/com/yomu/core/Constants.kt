@@ -22,6 +22,11 @@ object Constants {
     const val CAT_TRANSLATION_7B_MODEL_ID = "cat_translate_7b_v1"
     const val QWEN3_MODEL_ID = "qwen3_4b_v1"
     const val HUNYUAN_MT_MODEL_ID = "hunyuan_mt_7b_v1"
+    // Same-range alternatives to CAT-1.4b (#84 follow-up): a translation specialist (TranslateGemma)
+    // and two non-thinking general instruct models proven-decent at JA->EN.
+    const val TRANSLATEGEMMA_4B_MODEL_ID = "translategemma_4b_v1"
+    const val QWEN25_15B_MODEL_ID = "qwen25_1.5b_instruct_v1"
+    const val GEMMA2_2B_MODEL_ID = "gemma2_2b_it_v1"
     
     const val BUBBLE_DETECTION_MODEL = "bubble_detection.onnx"
     const val OCR_ENCODER_MODEL = "manga_ocr_encoder.onnx"
@@ -36,6 +41,10 @@ object Constants {
     const val CAT_TRANSLATION_14B_I1_MODEL = "cat_translate_1.4b_i1_q4_k_m.gguf"
     // 7B CAT sibling: too big for the 8GB reference device (like Hunyuan-7B); emulator/high-RAM only.
     const val CAT_TRANSLATION_7B_MODEL = "cat_translate_7b_q4_k_m.gguf"
+    // Same-range alternatives to CAT-1.4b.
+    const val TRANSLATEGEMMA_4B_MODEL = "translategemma_4b_q4_k_m.gguf"
+    const val QWEN25_15B_MODEL = "qwen25_1.5b_instruct_q4_k_m.gguf"
+    const val GEMMA2_2B_MODEL = "gemma2_2b_it_q4_k_m.gguf"
     const val QWEN3_MODEL = "qwen3_4b_q4_k_m.gguf"
     // Q3_K_M, not Q4: the 7B Q4 (4.6GB) OOM-kills on load on an 8GB device (#84 bake-off). Q3_K_M
     // (3.8GB) fits; the quant drop is the price of measuring a 7B on-device at all.

@@ -195,6 +195,9 @@ CHALLENGER_FIXTURES=(
   "$FIXTURE_DIR/llm/cat_translate_1.4b_q4_k_m.gguf|https://huggingface.co/mradermacher/CAT-Translate-1.4b-GGUF/resolve/main/CAT-Translate-1.4b.Q4_K_M.gguf"
   "$FIXTURE_DIR/llm/cat_translate_1.4b_i1_q4_k_m.gguf|https://huggingface.co/mradermacher/CAT-Translate-1.4b-i1-GGUF/resolve/main/CAT-Translate-1.4b.i1-Q4_K_M.gguf"
   "$FIXTURE_DIR/llm/cat_translate_7b_q4_k_m.gguf|https://huggingface.co/mradermacher/CAT-Translate-7b-GGUF/resolve/main/CAT-Translate-7b.Q4_K_M.gguf"
+  "$FIXTURE_DIR/llm/translategemma_4b_q4_k_m.gguf|https://huggingface.co/mradermacher/translategemma-4b-it-GGUF/resolve/main/translategemma-4b-it.Q4_K_M.gguf"
+  "$FIXTURE_DIR/llm/qwen25_1.5b_instruct_q4_k_m.gguf|https://huggingface.co/bartowski/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/Qwen2.5-1.5B-Instruct-Q4_K_M.gguf"
+  "$FIXTURE_DIR/llm/gemma2_2b_it_q4_k_m.gguf|https://huggingface.co/bartowski/gemma-2-2b-it-GGUF/resolve/main/gemma-2-2b-it-Q4_K_M.gguf"
   "$FIXTURE_DIR/llm/qwen3_4b_q4_k_m.gguf|https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf"
   "$FIXTURE_DIR/llm/hunyuan_mt_7b_q3_k_m.gguf|https://huggingface.co/mradermacher/Hunyuan-MT-7B-GGUF/resolve/main/Hunyuan-MT-7B.Q3_K_M.gguf"
 )
