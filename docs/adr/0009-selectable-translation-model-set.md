@@ -28,13 +28,27 @@ No model passes the gate (residue is never exactly 0), so "pass the ADR-0004 gat
 
 - **A small curated selectable set, default unchanged, gated on device budget. (Chosen.)** Captures the win, bounds the support surface to a handful of vetted models, and keeps the default safe. The picker is opt-in; picking nothing keeps the 0.8b.
 
+## How models reach the user — three tiers
+
+The selectable set is not one delivery mechanism but three, chosen by licence and support burden:
+
+1. **Hosted (Yomu-served).** Permissively-licensed models Yomu downloads and supports directly — the existing `ModelManager` flow (pinned URL + checksum + size). Only licences that let Yomu redistribute freely qualify: **Qwen2.5-1.5B is Apache-2.0** and fits here; the CAT-Translate default is already here. This is the default download path for a curated entry whose licence allows it.
+
+2. **Yomu-tested, HuggingFace-authenticated.** Models Yomu has measured and recommends but *cannot* freely redistribute — chiefly **Gemma** (Gemma Terms of Use). The user signs into their own HF account (see the ADR-0001 revision) and Yomu pulls the GGUF through the HF API under the user's credentials. Because the user's own account accepted the model's gate, Yomu is a conduit, not a redistributor, and the licence-pass-through burden that would otherwise fall on Yomu's ToS moves to where the gate was accepted. Yomu still shows a generic "governed by its own licence" notice — cheap insurance, not a redistribution obligation.
+
+3. **Open, unsupported.** Any GGUF the user pulls via HF auth (or the local file picker), labelled "Custom — unsupported" per [ADR-0001](0001-custom-model-permissiveness.md). This is ADR-0001's slot, now extended from local-file-only to also allow the HF-authenticated remote source. Not curated, not tested, the user owns the outcome.
+
+The first two are the curated selectable set this ADR is about; the third is the enthusiast escape hatch. A given curated model lands in tier 1 or 2 purely by whether its licence lets Yomu host it.
+
 ## Consequences
 
 **The shortlist is evidence-gated, not aspirational.** A model earns a slot only after it is confirmed on the reference phone (loads within the RAM budget, page-level latency acceptable, quality holds). Today that means: 0.8b (default), and the leaders **pending phone confirmation** — likely `gemma-2-2b-it` and `Qwen2.5-1.5B`. `TranslateGemma-4B`'s ~52 s/page (emulator) will probably exclude it; `CAT-1.4b` stays as a fallback. The final set is decided by the confirmation run in [#72](https://github.com/artsaraiva/yomu/issues/72), not by this ADR.
 
 **Each shortlist entry needs a per-model capability gate.** ADR-0001 already parses GGUF footprint and warns on OOM risk; the shortlist reuses that math to *hide or disable* an entry the device cannot run, rather than merely warn — a curated entry that silently kills the app is worse than an absent one. The 0.8b default is never gated out.
 
-**Licence review is a blocking prerequisite for hosting a download.** Making a model "downloadable in the UI" means Yomu points at or redistributes the GGUF. Qwen2.5 is Apache-2.0 (clean). **Gemma** carries the Gemma Terms of Use, which constrain redistribution and use — this must be cleared before shipping a gemma entry, and may force "user supplies the URL / sideloads" rather than Yomu hosting. CAT-Translate's licence (cyberagent) needs the same check. No entry ships until its licence is confirmed compatible with the download flow.
+**Licence sorts a model into a tier; it does not exclude it.** Making a model "downloadable in the UI" means either Yomu redistributes it (tier 1) or Yomu fetches it under the user's HF credentials (tier 2). Qwen2.5 is Apache-2.0 → tier 1 (hosted). **Gemma** carries the Gemma Terms of Use (constrains redistribution) → tier 2 (HF-authenticated), which is the point of the three-tier split: a licence Yomu cannot redistribute no longer means "not offered," it means "offered through the user's own HF account." CAT-Translate's licence (cyberagent) needs the same check to place it. The blocking prerequisite is *classification*, not clearance — no entry ships in tier 1 until its licence is confirmed to permit Yomu redistribution; anything that does not goes to tier 2.
+
+**Tier 2 needs HF auth infrastructure.** OAuth against HuggingFace, secure token storage (Android Keystore), a resumable download with integrity check (HF LFS `oid` = sha256), and graceful handling of a gated-model 401 (prompt the user to accept the model's terms on HF). This is real work — the "download manager burden" [ADR-0001](0001-custom-model-permissiveness.md) originally cited — tracked in the build ticket, not this ADR. It is shared with tier 3 (same auth + download path, different curation).
 
 **Selection must exist in code first — it does not today.** `TranslationEngineType` is `ML_KIT / OPUS_MT / LLM`, and the `LLM` branch hardcodes the 0.8b path (`provideLlamaModelPath` → `TRANSLATION_MODEL_4BIT`). There is no mechanism to pick among LLM models. The `ModelManager`/`Constants` catalog entries added during the #84 bake-off surface as download rows but are inert — not selectable, not loaded. Wiring a per-model selection layer under `LLM` is the build work, tracked separately.
 
