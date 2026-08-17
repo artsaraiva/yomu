@@ -106,6 +106,12 @@ class EngineBenchmarkTest {
             outputDir.mkdirs()
 
             val timingRows = mutableListOf<TimingRow>()
+            // The whole instrumentation test must finish inside the harness's ~20-min ceiling or it
+            // is killed and no results are written. The enum engines + 0.8b are the baseline and run
+            // unbounded; the challenger phase is capped so a slow/thinking model (Qwen3 ran to the
+            // 120s batch timeout on every case) can't starve the rest and abort the whole run before
+            // writeTimingCsv. Deadline is absolute wall-clock from test start.
+            val benchDeadlineMs = System.currentTimeMillis() + TOTAL_BENCHMARK_BUDGET_MS
 
             for (type in ENGINES) {
                 val engineName = engineNameFor(type)
@@ -135,7 +141,7 @@ class EngineBenchmarkTest {
             // routes them through translateBatch, not the 0.8b's per-line floor). The 0.8b stays the
             // shipped default and the incumbent baseline above; this only measures the siblings so
             // #72 / ADR-0008 promote a winner on numbers, not a guess.
-            benchmarkChallengers(context, cases, outputDir, timingRows)
+            benchmarkChallengers(context, cases, outputDir, timingRows, benchDeadlineMs)
 
             writeTimingCsv(outputDir, timingRows)
             logTimingCsv(timingRows)
@@ -151,15 +157,25 @@ class EngineBenchmarkTest {
      * after each page translate (model weights + KV cache resident); the per-engine peak is the max
      * over its rows. ponytail: single post-translate sample, not a continuous sampler — enough to
      * rank the size/RAM trade-off; add a sampling thread if a mid-generation spike needs catching.
+     *
+     * [deadlineMs] caps total wall-clock: the loop stops before starting a case once the deadline
+     * passes, leaving the already-run cases recorded. Checked between cases, not mid-generation —
+     * the native generate call is blocking and uncancellable, so an in-flight case always finishes
+     * (bounded by the bridge's own BATCH_TIMEOUT_MS). Enum engines pass MAX_VALUE (unbounded).
      */
     private suspend fun runEngineOverCases(
         engine: TranslationEngine,
         engineName: String,
         cases: List<BenchCase>,
         outputDir: File,
-        timingRows: MutableList<TimingRow>
+        timingRows: MutableList<TimingRow>,
+        deadlineMs: Long = Long.MAX_VALUE
     ) {
-        for (case in cases) {
+        for ((index, case) in cases.withIndex()) {
+            if (System.currentTimeMillis() >= deadlineMs) {
+                Log.w(TAG, "Budget exhausted for engine=$engineName; ${cases.size - index} of ${cases.size} cases unrun")
+                break
+            }
             // ADR-0004: one reader trigger per page. Ground-truth boxes stand in for detections and
             // text_ja for OCR; ContextAssembler builds panels + reading order, then the engine
             // translates the whole page. A gate LLM issues the id-keyed page-level call; ML Kit /
@@ -213,13 +229,25 @@ class EngineBenchmarkTest {
         context: Context,
         cases: List<BenchCase>,
         outputDir: File,
-        timingRows: MutableList<TimingRow>
+        timingRows: MutableList<TimingRow>,
+        benchDeadlineMs: Long
     ) {
         // Free the incumbent's native model so the first challenger loads into a clear slot.
         runCatching { llamaBridge.release() }
 
+        // Optional subset: `-Pandroid.testInstrumentationRunnerArguments.challengers=hunyuan_mt_7b,cat_translate_1.4b`
+        // runs only those (comma-separated engine names). Four heavy LLMs rarely fit one timeout
+        // window, so this lets a run target the models that matter and skip a known-unfit one.
+        val only = InstrumentationRegistry.getArguments().getString("challengers")
+            ?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() }?.toSet()
+        val candidates = if (only.isNullOrEmpty()) LLM_CANDIDATES else LLM_CANDIDATES.filter { it.engineName in only }
+
         val benchLlama = LlamaBridge(context)
-        for (candidate in LLM_CANDIDATES) {
+        for (candidate in candidates) {
+            if (System.currentTimeMillis() >= benchDeadlineMs) {
+                Log.w(TAG, "Benchmark budget exhausted; skipping remaining challengers from ${candidate.engineName}")
+                break
+            }
             // Stage this one challenger's GGUF into filesDir, then delete it after the run. Staging
             // all of them upfront would need ~8GB alongside the same weights in /data/local/tmp and
             // ENOSPCs the partition, so peak usage is bounded to the 0.8b plus one challenger.
@@ -237,9 +265,15 @@ class EngineBenchmarkTest {
                     continue
                 }
 
+                // Cap this challenger's slice so one slow model (Qwen3 ran to the 120s batch timeout
+                // every case) can't consume the whole remaining budget and starve the others.
+                val challengerDeadline = minOf(
+                    System.currentTimeMillis() + PER_CHALLENGER_BUDGET_MS,
+                    benchDeadlineMs
+                )
                 Log.i(TAG, "Benchmarking challenger=${candidate.engineName} idKeyedBatch=${bridge.supportsIdKeyedBatch()}")
                 val challengerEngine = TranslationEngine(bridge, candidate.engineName)
-                runEngineOverCases(challengerEngine, candidate.engineName, cases, outputDir, timingRows)
+                runEngineOverCases(challengerEngine, candidate.engineName, cases, outputDir, timingRows, challengerDeadline)
                 challengerEngine.release()
             } finally {
                 // Free native weights before the next challenger's load; the shared benchLlama is
@@ -413,5 +447,13 @@ class EngineBenchmarkTest {
         // Staged one at a time by benchmarkChallengers, so stageModelFixtures must not bulk-copy
         // them upfront (ENOSPC). The 0.8b shares the llm/ subdir but is not here, so it still stages.
         private val CHALLENGER_FILE_NAMES = LLM_CANDIDATES.map { it.fileName }.toSet()
+
+        // The whole test must land inside the harness's ~20-min connected-test ceiling. The enum
+        // baseline runs unbounded (~5 min); the challenger phase stops starting/continuing work past
+        // the total budget, and each challenger gets a bounded slice so one slow model can't eat it
+        // all. Four heavy LLMs won't all fit one window — use the `challengers` arg to split runs, or
+        // raise these (and the harness timeout) for a single full pass.
+        private const val TOTAL_BENCHMARK_BUDGET_MS = 17L * 60_000L
+        private const val PER_CHALLENGER_BUDGET_MS = 6L * 60_000L
     }
 }
