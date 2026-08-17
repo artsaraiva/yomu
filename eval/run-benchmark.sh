@@ -15,14 +15,19 @@ SKIP_INSTALL=0
 SKIP_EVAL=0
 
 usage() {
-  printf 'Usage: %s [--skip-build] [--skip-install] [--skip-eval]\n' "$0"
+  printf 'Usage: %s [--skip-build] [--skip-install] [--skip-eval] [-P<gradle-arg>...]\n' "$0"
   printf '\n'
   printf 'Flags:\n'
   printf '  --skip-build    Skip build (use installed APKs as-is)\n'
   printf '  --skip-install  Skip install only, still build. Use if model already downloaded.\n'
   printf '  --skip-eval     Skip scoring step\n'
+  printf '  -P<arg>         Passed straight to the connectedAndroidTest gradle call, e.g.\n'
+  printf '                  -Pandroid.testInstrumentationRunnerArguments.challengers=hunyuan_mt_7b\n'
 }
 
+# Gradle -P args (e.g. instrumentation runner arguments) are collected here and forwarded to the
+# connectedAndroidTest invocation; the runner reads them to filter engines / skip the baseline (#84).
+GRADLE_EXTRA_ARGS=()
 for arg in "$@"; do
   case "$arg" in
     --skip-build)
@@ -38,6 +43,9 @@ for arg in "$@"; do
     -h|--help)
       usage
       exit 0
+      ;;
+    -P*)
+      GRADLE_EXTRA_ARGS+=("$arg")
       ;;
     *)
       printf 'Unknown flag: %s\n' "$arg" >&2
@@ -176,6 +184,65 @@ if [ ! -f "$LLM_FIXTURE" ]; then
   curl -L --fail --progress-bar -o "$LLM_FIXTURE" "$LLM_FIXTURE_URL"
 fi
 
+# #84 bake-off challengers. Same llm/ subdir, so the existing push loop stages them and
+# EngineBenchmarkTest picks them up by file name. These are large (~1-5GB) and, unlike the pinned
+# 0.8b, their exact GGUF revision/checksum is resolved during wiring — so a fetch that 404s or a
+# candidate left un-fetched must NOT abort the run. A missing fixture is skipped by
+# stageModelFixtures (absent weights => engine not-ready => skipped), which is the correct outcome.
+# Fetch below is best-effort; to include a challenger, let it pull the GGUF or drop the .gguf in by
+# hand at the path on the left of the `|`.
+# engine-name | fixture path | url. The engine name matches EngineBenchmarkTest's Candidate name,
+# so a `challengers=` run fetches and pushes ONLY those (plus the 0.8b baseline) — otherwise four+
+# multi-GB GGUFs pile onto the device and ENOSPC the partition mid-run.
+CHALLENGER_FIXTURES=(
+  "cat_translate_1.4b|$FIXTURE_DIR/llm/cat_translate_1.4b_q4_k_m.gguf|https://huggingface.co/mradermacher/CAT-Translate-1.4b-GGUF/resolve/main/CAT-Translate-1.4b.Q4_K_M.gguf"
+  "cat_translate_1.4b_i1|$FIXTURE_DIR/llm/cat_translate_1.4b_i1_q4_k_m.gguf|https://huggingface.co/mradermacher/CAT-Translate-1.4b-i1-GGUF/resolve/main/CAT-Translate-1.4b.i1-Q4_K_M.gguf"
+  "cat_translate_7b|$FIXTURE_DIR/llm/cat_translate_7b_q4_k_m.gguf|https://huggingface.co/mradermacher/CAT-Translate-7b-GGUF/resolve/main/CAT-Translate-7b.Q4_K_M.gguf"
+  "translategemma_4b|$FIXTURE_DIR/llm/translategemma_4b_q4_k_m.gguf|https://huggingface.co/mradermacher/translategemma-4b-it-GGUF/resolve/main/translategemma-4b-it.Q4_K_M.gguf"
+  "qwen25_1.5b|$FIXTURE_DIR/llm/qwen25_1.5b_instruct_q4_k_m.gguf|https://huggingface.co/bartowski/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/Qwen2.5-1.5B-Instruct-Q4_K_M.gguf"
+  "gemma2_2b|$FIXTURE_DIR/llm/gemma2_2b_it_q4_k_m.gguf|https://huggingface.co/bartowski/gemma-2-2b-it-GGUF/resolve/main/gemma-2-2b-it-Q4_K_M.gguf"
+  "qwen3_4b|$FIXTURE_DIR/llm/qwen3_4b_q4_k_m.gguf|https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf"
+  "hunyuan_mt_7b|$FIXTURE_DIR/llm/hunyuan_mt_7b_q3_k_m.gguf|https://huggingface.co/mradermacher/Hunyuan-MT-7B-GGUF/resolve/main/Hunyuan-MT-7B.Q3_K_M.gguf"
+)
+
+# Pull the challengers= filter out of the forwarded -P args, if present.
+REQUESTED=""
+for a in ${GRADLE_EXTRA_ARGS[@]+"${GRADLE_EXTRA_ARGS[@]}"}; do
+  case "$a" in
+    *testInstrumentationRunnerArguments.challengers=*) REQUESTED=",${a##*challengers=}," ;;
+  esac
+done
+requested() { # engine name -> 0 if it should run this pass (no filter = all)
+  [ -z "$REQUESTED" ] && return 0
+  case "$REQUESTED" in *",$1,"*) return 0 ;; *) return 1 ;; esac
+}
+
+# LLM fixtures allowed on the device this pass: the 0.8b baseline plus the requested challengers.
+# Everything else is pruned from the device below so a targeted run does not carry old multi-GB
+# weights it will not use.
+ALLOWED_LLM=$'\n'"$(basename "$LLM_FIXTURE")"$'\n'
+for entry in "${CHALLENGER_FIXTURES[@]}"; do
+  name="${entry%%|*}"; rest="${entry#*|}"; path="${rest%%|*}"; url="${rest##*|}"
+  requested "$name" || continue
+  ALLOWED_LLM="${ALLOWED_LLM}$(basename "$path")"$'\n'
+  [ -f "$path" ] && continue
+  printf 'Fetching challenger %s (best-effort, large)...\n' "$(basename "$path")"
+  mkdir -p "$(dirname "$path")"
+  if ! curl -L --fail --progress-bar -o "$path" "$url"; then
+    rm -f "$path"
+    printf 'Challenger %s unavailable; it will be skipped in this run.\n' "$(basename "$path")" >&2
+  fi
+done
+
+# Prune device llm fixtures not needed this pass, so the push + per-model staging have room.
+for dev_file in $(adb shell "ls '$DEVICE_FIXTURE_DIR/llm' 2>/dev/null" | tr -d '\r'); do
+  case "$ALLOWED_LLM" in
+    *$'\n'"$dev_file"$'\n'*) : ;;
+    *) printf 'Pruning unused device fixture llm/%s\n' "$dev_file"
+       adb shell "rm -f '$DEVICE_FIXTURE_DIR/llm/$dev_file'" ;;
+  esac
+done
+
 for model_dir in "$FIXTURE_DIR"/*/; do
   [ -d "$model_dir" ] || continue
   subdir="$(basename "$model_dir")"
@@ -183,6 +250,13 @@ for model_dir in "$FIXTURE_DIR"/*/; do
   for model_file in "$model_dir"*; do
     [ -f "$model_file" ] || continue
     file_name="$(basename "$model_file")"
+    # Skip llm fixtures not requested this pass (matched against the allow-list built above).
+    if [ "$subdir" = "llm" ]; then
+      case "$ALLOWED_LLM" in
+        *$'\n'"$file_name"$'\n'*) : ;;
+        *) continue ;;
+      esac
+    fi
     local_size="$(wc -c < "$model_file" | tr -d ' ')"
     device_size="$(adb shell "stat -c %s '$DEVICE_FIXTURE_DIR/$subdir/$file_name' 2>/dev/null" | tr -d '\r' || true)"
     if [ "$local_size" = "$device_size" ]; then
@@ -235,7 +309,7 @@ TAIL_PID=$!
 # PIPESTATUS[0] is gradle's own status, so a grep that matches nothing cannot be mistaken for a
 # test failure, and pipefail cannot mask one.
 set +e
-./gradlew :app:connectedAndroidTest 2>&1 | grep -E "Starting|completed\.|BUILD"
+./gradlew :app:connectedAndroidTest ${GRADLE_EXTRA_ARGS[@]+"${GRADLE_EXTRA_ARGS[@]}"} 2>&1 | grep -E "Starting|completed\.|BUILD"
 TEST_STATUS=${PIPESTATUS[0]}
 set -e
 

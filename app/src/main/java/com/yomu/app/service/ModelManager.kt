@@ -128,6 +128,114 @@ class ModelManager @Inject constructor(
                 status = ModelStatus.AVAILABLE,
                 version = "1.0",
                 isRequired = false
+            ),
+            // #84 bake-off challengers: larger context-capable siblings that can emit the id-keyed
+            // page batch the 0.8b refuses. Not shipped as default (ADR-0008); scored by
+            // EngineBenchmarkTest and offered via the ADR-0001 custom-model slot. URL, exact size,
+            // and SHA-256 are the pinned Q4_K_M revisions (checksum is the HuggingFace LFS oid,
+            // which is the sha256 of the file content — the same digest computeChecksum verifies).
+            ModelEntity(
+                id = Constants.CAT_TRANSLATION_14B_MODEL_ID,
+                name = "CAT-Translate 1.4B (Q4_K_M)",
+                type = ModelType.LLM,
+                fileName = Constants.CAT_TRANSLATION_14B_MODEL,
+                fileSize = 931_179_904L,
+                downloadUrl = "https://huggingface.co/mradermacher/CAT-Translate-1.4b-GGUF/resolve/main/CAT-Translate-1.4b.Q4_K_M.gguf",
+                checksum = "332371e7aa764c6dde6df70956062e839aed69ad3db28e1af118aa99b6f63467",
+                status = ModelStatus.AVAILABLE,
+                version = "1.0",
+                isRequired = false
+            ),
+            ModelEntity(
+                id = Constants.CAT_TRANSLATION_14B_I1_MODEL_ID,
+                name = "CAT-Translate 1.4B imatrix (i1-Q4_K_M)",
+                type = ModelType.LLM,
+                fileName = Constants.CAT_TRANSLATION_14B_I1_MODEL,
+                fileSize = 931_180_160L,
+                downloadUrl = "https://huggingface.co/mradermacher/CAT-Translate-1.4b-i1-GGUF/resolve/main/CAT-Translate-1.4b.i1-Q4_K_M.gguf",
+                checksum = "686859f4df53980942ad0923c458d407c4c07d74c3ec3229e45af69dd6c2488a",
+                status = ModelStatus.AVAILABLE,
+                version = "1.0",
+                isRequired = false
+            ),
+            // 7B CAT sibling: 4.5GB Q4 exceeds the 8GB device's usable RAM (see Hunyuan-7B, #84);
+            // benchmarked on a high-RAM emulator to measure its quality where it can actually load.
+            ModelEntity(
+                id = Constants.CAT_TRANSLATION_7B_MODEL_ID,
+                name = "CAT-Translate 7B (Q4_K_M)",
+                type = ModelType.LLM,
+                fileName = Constants.CAT_TRANSLATION_7B_MODEL,
+                fileSize = 4_537_758_048L,
+                downloadUrl = "https://huggingface.co/mradermacher/CAT-Translate-7b-GGUF/resolve/main/CAT-Translate-7b.Q4_K_M.gguf",
+                checksum = "8c9f8d4e76da5265faec766a05a77b00c719867ed6c8aca0051808a409c8e07a",
+                status = ModelStatus.AVAILABLE,
+                version = "1.0",
+                isRequired = false
+            ),
+            // #84 follow-up: same-range alternatives to CAT-1.4b. TranslateGemma is a translation
+            // specialist (Google); Qwen2.5-1.5B and gemma-2-2b are non-thinking general instruct
+            // models that translate JA->EN decently. Real sizes + SHA-256 (HuggingFace LFS oid).
+            ModelEntity(
+                id = Constants.TRANSLATEGEMMA_4B_MODEL_ID,
+                name = "TranslateGemma 4B (Q4_K_M)",
+                type = ModelType.LLM,
+                fileName = Constants.TRANSLATEGEMMA_4B_MODEL,
+                fileSize = 2_489_909_760L,
+                downloadUrl = "https://huggingface.co/mradermacher/translategemma-4b-it-GGUF/resolve/main/translategemma-4b-it.Q4_K_M.gguf",
+                checksum = "81200d03e843d2ec1ece6eeafe7d13cb6e5211e1fcd336ade55790b683a08330",
+                status = ModelStatus.AVAILABLE,
+                version = "1.0",
+                isRequired = false
+            ),
+            ModelEntity(
+                id = Constants.QWEN25_15B_MODEL_ID,
+                name = "Qwen2.5 1.5B Instruct (Q4_K_M)",
+                type = ModelType.LLM,
+                fileName = Constants.QWEN25_15B_MODEL,
+                fileSize = 986_048_768L,
+                downloadUrl = "https://huggingface.co/bartowski/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/Qwen2.5-1.5B-Instruct-Q4_K_M.gguf",
+                checksum = "1adf0b11065d8ad2e8123ea110d1ec956dab4ab038eab665614adba04b6c3370",
+                status = ModelStatus.AVAILABLE,
+                version = "1.0",
+                isRequired = false
+            ),
+            ModelEntity(
+                id = Constants.GEMMA2_2B_MODEL_ID,
+                name = "Gemma 2 2B Instruct (Q4_K_M)",
+                type = ModelType.LLM,
+                fileName = Constants.GEMMA2_2B_MODEL,
+                fileSize = 1_708_582_752L,
+                downloadUrl = "https://huggingface.co/bartowski/gemma-2-2b-it-GGUF/resolve/main/gemma-2-2b-it-Q4_K_M.gguf",
+                checksum = "e0aee85060f168f0f2d8473d7ea41ce2f3230c1bc1374847505ea599288a7787",
+                status = ModelStatus.AVAILABLE,
+                version = "1.0",
+                isRequired = false
+            ),
+            ModelEntity(
+                id = Constants.QWEN3_MODEL_ID,
+                name = "Qwen3 4B (Q4_K_M)",
+                type = ModelType.LLM,
+                fileName = Constants.QWEN3_MODEL,
+                fileSize = 2_497_280_256L,
+                downloadUrl = "https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf",
+                checksum = "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+                status = ModelStatus.AVAILABLE,
+                version = "1.0",
+                isRequired = false
+            ),
+            // Q3_K_M, not the Q4 tier of the others: the 7B Q4 (4.6GB) OOM-kills on load on the 8GB
+            // reference device (#84), so it is dropped a quant to fit rather than left unmeasurable.
+            ModelEntity(
+                id = Constants.HUNYUAN_MT_MODEL_ID,
+                name = "Hunyuan-MT 7B (Q3_K_M)",
+                type = ModelType.LLM,
+                fileName = Constants.HUNYUAN_MT_MODEL,
+                fileSize = 3_792_905_216L,
+                downloadUrl = "https://huggingface.co/mradermacher/Hunyuan-MT-7B-GGUF/resolve/main/Hunyuan-MT-7B.Q3_K_M.gguf",
+                checksum = "b065cf1d0680d34d21a1bbd7048a0e257a1f4a298d599bb91b91984873b1e255",
+                status = ModelStatus.AVAILABLE,
+                version = "1.0",
+                isRequired = false
             )
         )
 
