@@ -3,6 +3,7 @@ package com.yomu.ml
 import java.io.File
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -73,6 +74,27 @@ class LlamaTranslationBridgeTest {
         )
 
         assertTrue(bridge.supportsBatch())
+    }
+
+    @Test
+    fun supportsIdKeyedBatch_defaultsFalseForThe08b() {
+        val bridge = LlamaTranslationBridge(
+            llamaBridge = FakeLlamaBridge(GenerationResult.Success("x", 1L)),
+            modelPath = ""
+        )
+
+        assertFalse(bridge.supportsIdKeyedBatch())
+    }
+
+    @Test
+    fun supportsIdKeyedBatch_trueWhenConstructedForACapableChallenger() {
+        val bridge = LlamaTranslationBridge(
+            llamaBridge = FakeLlamaBridge(GenerationResult.Success("x", 1L)),
+            modelPath = "",
+            idKeyedBatch = true
+        )
+
+        assertTrue(bridge.supportsIdKeyedBatch())
     }
 
     @Test

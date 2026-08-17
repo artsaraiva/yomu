@@ -7,7 +7,12 @@ import java.io.File
 
 class LlamaTranslationBridge(
     private val llamaBridge: LlamaBridge,
-    private val modelPath: String
+    private val modelPath: String,
+    // Per-model, not per-class: the curated 0.8b refuses on any surrounding context (#68/#71) so it
+    // stays on the per-line floor (false), but a larger sibling can emit one id-keyed reply for the
+    // whole page (#72/#84). The #84 bake-off constructs capable candidates with this set true so
+    // TranslationEngine.translate routes them through translateBatch instead of the per-line path.
+    private val idKeyedBatch: Boolean = false
 ) : TranslationBridge {
 
     companion object {
@@ -102,6 +107,8 @@ class LlamaTranslationBridge(
     }
 
     override fun supportsBatch(): Boolean = true
+
+    override fun supportsIdKeyedBatch(): Boolean = idKeyedBatch
 
     override fun clearMemory() {
         llamaBridge.clearMemory()

@@ -2,12 +2,15 @@ package com.yomu.app
 
 import android.content.Context
 import android.graphics.RectF
+import android.os.Debug
 import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.yomu.app.translation.TranslationEngineSelector
 import com.yomu.app.translation.TranslationEngineType
 import com.yomu.core.Constants
+import com.yomu.ml.LlamaBridge
+import com.yomu.ml.LlamaTranslationBridge
 import com.yomu.ml.TranslationStatus
 import com.yomu.pipeline.bubble.Bubble
 import com.yomu.pipeline.context.ContextAssembler
@@ -40,6 +43,12 @@ class EngineBenchmarkTest {
 
     @Inject
     lateinit var assembler: ContextAssembler
+
+    // Injected only to free the 0.8b's native model before the #84 challenger loop loads a
+    // different GGUF: the native side holds one model at a time, so the incumbent must be released
+    // first or the first challenger's load races a still-resident model.
+    @Inject
+    lateinit var llamaBridge: LlamaTranslationBridge
 
     @Before
     fun init() {
@@ -109,47 +118,7 @@ class EngineBenchmarkTest {
                     continue
                 }
 
-                for (case in cases) {
-                    // ADR-0004: one reader trigger per page. Ground-truth boxes stand in for
-                    // detections and text_ja for OCR; ContextAssembler builds panels + reading order,
-                    // then the engine translates the whole page. The curated LLM issues one call per
-                    // bubble carrying the page as context (the gate, #71); ML Kit / OPUS-MT translate
-                    // per bubble (the floor). Output is keyed by bubble id so a missing id scores
-                    // zero rather than voiding the case.
-                    val bubbles = case.boxes.mapIndexed { id, box ->
-                        Bubble(id = id, boundingBox = box, confidence = 1f)
-                    }
-                    val ocrResults = case.source.mapIndexedNotNull { id, text ->
-                        if (text.isBlank()) null else id to OcrResult(
-                            text = text,
-                            confidence = 1f,
-                            boundingBox = floatArrayOf(
-                                case.boxes[id].left, case.boxes[id].top,
-                                case.boxes[id].right, case.boxes[id].bottom
-                            )
-                        )
-                    }.toMap()
-
-                    val page = assembler.assemble(bubbles, ocrResults, case.width, case.height)
-                    val result = runCatching { engine.translate(page.blocks) }.getOrNull()
-
-                    val byId = result?.translations.orEmpty().associateBy { it.bubbleId }
-                    val translations = case.source.indices.map { id -> byId[id]?.translatedText ?: "" }
-
-                    timingRows.add(
-                        TimingRow(
-                            caseId = case.caseId,
-                            engine = engineName,
-                            bubbleCount = ocrResults.size,
-                            durationMs = result?.translationTimeMs ?: 0L,
-                            success = result != null
-                        )
-                    )
-                    Log.i(TAG, "Result engine=$engineName case=${case.caseId} bubbles=${ocrResults.size} durationMs=${result?.translationTimeMs ?: 0} covered=${byId.size}")
-
-                    writeEngineResult(outputDir, case.caseId, engineName, translations)
-                    logEngineResult(case.caseId, engineName, translations)
-                }
+                runEngineOverCases(engine, engineName, cases, outputDir, timingRows)
 
                 // Clear the in-memory translation cache between engines. It is keyed by source text
                 // only, not by engine, so without this one engine would be served another's cached
@@ -157,10 +126,115 @@ class EngineBenchmarkTest {
                 engine.release()
             }
 
+            // #84 bake-off: measure the larger context-capable challengers on the SAME page-level
+            // id-keyed batch path (each reports supportsIdKeyedBatch() = true, so TranslationEngine
+            // routes them through translateBatch, not the 0.8b's per-line floor). The 0.8b stays the
+            // shipped default and the incumbent baseline above; this only measures the siblings so
+            // #72 / ADR-0008 promote a winner on numbers, not a guess.
+            benchmarkChallengers(context, cases, outputDir, timingRows)
+
             writeTimingCsv(outputDir, timingRows)
             logTimingCsv(timingRows)
             selector.close()
             Log.i(TAG, "Benchmark complete. Output: ${outputDir.absolutePath}")
+        }
+    }
+
+    /**
+     * Run one engine over every case, appending a timing row per case. Shared by the enum engines
+     * and the #84 challengers so both are measured identically: same panel assembly, same id-keyed
+     * output mapping, same latency + peak-RAM sampling. Peak RAM is a total-PSS sample taken right
+     * after each page translate (model weights + KV cache resident); the per-engine peak is the max
+     * over its rows. ponytail: single post-translate sample, not a continuous sampler — enough to
+     * rank the size/RAM trade-off; add a sampling thread if a mid-generation spike needs catching.
+     */
+    private suspend fun runEngineOverCases(
+        engine: TranslationEngine,
+        engineName: String,
+        cases: List<BenchCase>,
+        outputDir: File,
+        timingRows: MutableList<TimingRow>
+    ) {
+        for (case in cases) {
+            // ADR-0004: one reader trigger per page. Ground-truth boxes stand in for detections and
+            // text_ja for OCR; ContextAssembler builds panels + reading order, then the engine
+            // translates the whole page. A gate LLM issues the id-keyed page-level call; ML Kit /
+            // OPUS-MT translate per bubble (the floor). Output is keyed by bubble id so a missing id
+            // scores zero rather than voiding the case.
+            val bubbles = case.boxes.mapIndexed { id, box ->
+                Bubble(id = id, boundingBox = box, confidence = 1f)
+            }
+            val ocrResults = case.source.mapIndexedNotNull { id, text ->
+                if (text.isBlank()) null else id to OcrResult(
+                    text = text,
+                    confidence = 1f,
+                    boundingBox = floatArrayOf(
+                        case.boxes[id].left, case.boxes[id].top,
+                        case.boxes[id].right, case.boxes[id].bottom
+                    )
+                )
+            }.toMap()
+
+            val page = assembler.assemble(bubbles, ocrResults, case.width, case.height)
+            val result = runCatching { engine.translate(page.blocks) }.getOrNull()
+            val pssKb = Debug.getPss()
+
+            val byId = result?.translations.orEmpty().associateBy { it.bubbleId }
+            val translations = case.source.indices.map { id -> byId[id]?.translatedText ?: "" }
+
+            timingRows.add(
+                TimingRow(
+                    caseId = case.caseId,
+                    engine = engineName,
+                    bubbleCount = ocrResults.size,
+                    durationMs = result?.translationTimeMs ?: 0L,
+                    pssKb = pssKb,
+                    success = result != null
+                )
+            )
+            Log.i(TAG, "Result engine=$engineName case=${case.caseId} bubbles=${ocrResults.size} durationMs=${result?.translationTimeMs ?: 0} pssKb=$pssKb covered=${byId.size}")
+
+            writeEngineResult(outputDir, case.caseId, engineName, translations)
+            logEngineResult(case.caseId, engineName, translations)
+        }
+    }
+
+    /**
+     * Load each #84 challenger GGUF in turn and run it on the id-keyed batch path. The native side
+     * holds one model at a time, so the injected 0.8b is released first and each challenger is
+     * released before the next loads. A challenger whose fixture is absent (or whose weights fail to
+     * load) is skipped, not failed — mirroring stageModelFixtures's clean degradation.
+     */
+    private suspend fun benchmarkChallengers(
+        context: Context,
+        cases: List<BenchCase>,
+        outputDir: File,
+        timingRows: MutableList<TimingRow>
+    ) {
+        // Free the incumbent's native model so the first challenger loads into a clear slot.
+        runCatching { llamaBridge.release() }
+
+        val benchLlama = LlamaBridge(context)
+        for (candidate in LLM_CANDIDATES) {
+            val modelPath = File(
+                context.filesDir,
+                "${Constants.MODELS_DIR}/${Constants.LLM_MODELS_DIR}/${candidate.fileName}"
+            ).absolutePath
+
+            val bridge = LlamaTranslationBridge(benchLlama, modelPath, idKeyedBatch = true)
+            val ready = runCatching { bridge.ensureReady() }.getOrElse { false }
+            if (!ready) {
+                val reason = (bridge.status as? TranslationStatus.Error)?.reason ?: "not_ready"
+                Log.w(TAG, "Challenger ${candidate.engineName} not ready, skipping. reason=$reason")
+                continue
+            }
+
+            Log.i(TAG, "Benchmarking challenger=${candidate.engineName} idKeyedBatch=${bridge.supportsIdKeyedBatch()}")
+            val challengerEngine = TranslationEngine(bridge, candidate.engineName)
+            runEngineOverCases(challengerEngine, candidate.engineName, cases, outputDir, timingRows)
+            challengerEngine.release()
+            // Free native weights before the next challenger's load; the shared benchLlama is reused.
+            benchLlama.release()
         }
     }
 
@@ -233,10 +307,10 @@ class EngineBenchmarkTest {
     private fun writeTimingCsv(outputDir: File, rows: List<TimingRow>) {
         val file = File(outputDir, "benchmark_timing.csv")
         file.bufferedWriter().use { writer ->
-            writer.write("case_id,engine,bubble_count,duration_ms,success")
+            writer.write("case_id,engine,bubble_count,duration_ms,peak_pss_kb,success")
             writer.newLine()
             rows.forEach { row ->
-                writer.write("${row.caseId},${row.engine},${row.bubbleCount},${row.durationMs},${row.success}")
+                writer.write("${row.caseId},${row.engine},${row.bubbleCount},${row.durationMs},${row.pssKb},${row.success}")
                 writer.newLine()
             }
         }
@@ -244,7 +318,7 @@ class EngineBenchmarkTest {
 
     private fun logTimingCsv(rows: List<TimingRow>) {
         rows.forEach { row ->
-            Log.i(TAG, "TIMING case=${row.caseId} engine=${row.engine} bubbles=${row.bubbleCount} durationMs=${row.durationMs} success=${row.success}")
+            Log.i(TAG, "TIMING case=${row.caseId} engine=${row.engine} bubbles=${row.bubbleCount} durationMs=${row.durationMs} peakPssKb=${row.pssKb} success=${row.success}")
         }
     }
 
@@ -267,7 +341,16 @@ class EngineBenchmarkTest {
         val engine: String,
         val bubbleCount: Int,
         val durationMs: Long,
+        val pssKb: Long,
         val success: Boolean
+    )
+
+    // A #84 challenger: the benchmark engine name (also its actual/<name>.json + CSV engine key,
+    // so filesystem-safe) and the GGUF file name staged under models/llm/. Distinct from the enum
+    // engines because these are loaded standalone on the id-keyed batch path, not via the selector.
+    private data class Candidate(
+        val engineName: String,
+        val fileName: String
     )
 
     companion object {
@@ -277,6 +360,15 @@ class EngineBenchmarkTest {
             TranslationEngineType.ML_KIT,
             TranslationEngineType.OPUS_MT,
             TranslationEngineType.LLM
+        )
+
+        // #84 challengers, scored on the id-keyed batch path alongside the 0.8b baseline. Engine
+        // names are the run_eval_lib gate-role keys (anything not mlkit/opusmt is a gate LLM). File
+        // names match the fixtures pushed by run-benchmark.sh and the ModelManager catalog entries.
+        private val LLM_CANDIDATES = listOf(
+            Candidate("cat_translate_1.4b", Constants.CAT_TRANSLATION_14B_MODEL),
+            Candidate("qwen3_4b", Constants.QWEN3_MODEL),
+            Candidate("hunyuan_mt_7b", Constants.HUNYUAN_MT_MODEL)
         )
     }
 }
