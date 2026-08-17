@@ -446,6 +446,8 @@ class EngineBenchmarkTest {
         // names match the fixtures pushed by run-benchmark.sh and the ModelManager catalog entries.
         private val LLM_CANDIDATES = listOf(
             Candidate("cat_translate_1.4b", Constants.CAT_TRANSLATION_14B_MODEL),
+            Candidate("cat_translate_1.4b_i1", Constants.CAT_TRANSLATION_14B_I1_MODEL),
+            Candidate("cat_translate_7b", Constants.CAT_TRANSLATION_7B_MODEL),
             Candidate("qwen3_4b", Constants.QWEN3_MODEL),
             Candidate("hunyuan_mt_7b", Constants.HUNYUAN_MT_MODEL)
         )
