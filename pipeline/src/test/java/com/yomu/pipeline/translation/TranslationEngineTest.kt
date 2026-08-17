@@ -255,8 +255,11 @@ class TranslationEngineTest {
     @Test
     fun looksLikeNonTranslation_keepsLegitDialogue() {
         assertFalse(looksLikeNonTranslation("I'm sorry!"))
+        assertFalse(looksLikeNonTranslation("I'm sorry, I can't come with you today."))
         assertFalse(looksLikeNonTranslation("Sorry for being late, let's go back there."))
         assertFalse(looksLikeNonTranslation("This is a picture of a native of the moon."))
+        assertFalse(looksLikeNonTranslation("I love you I love you I love you"))
+        assertFalse(looksLikeNonTranslation("No no no no no no"))
     }
 
     @Test
@@ -272,7 +275,6 @@ class TranslationEngineTest {
 
         val result = engine.translate(listOf(singleBubbleBlock("こんにちは")))
 
-        // Refusal is dropped: the bubble shows its source, not the scaffolding.
         assertEquals("こんにちは", result.translations.first().translatedText)
         assertEquals(0.1f, result.translations.first().confidence)
     }

@@ -28,27 +28,36 @@ private fun hashSha256(input: String): String {
         .joinToString("") { "%02x".format(it) }
 }
 
+// Refusals are matched only with a *task* object (help/translate/…), never bare "I'm sorry … can't":
+// "I'm sorry, I can't come with you today" is legitimate dialogue, structurally identical to a
+// refusal without the object, so matching the object is what keeps the guard from eating real lines.
 private val NON_TRANSLATION_PATTERNS = listOf(
     Regex("""(?i)translate the following"""),
     Regex("""(?i)\bas an ai\b"""),
     Regex("""(?i)\bi\s*['’]?m unable to\b"""),
-    Regex("""(?i)\bi\s+(?:can['’]?t|cannot|can not)\s+(?:help|assist|translate|comply|fulfill|do that|with that)"""),
-    Regex("""(?i)\b(?:i\s*['’]?m sorry|i am sorry|i apologi[sz]e)\b[^.!?\n]*\b(?:can['’]?t|cannot|can not|unable|won['’]?t)\b""")
+    Regex("""(?i)\bi\s+(?:can['’]?t|cannot|can not|will not|won['’]?t)\s+(?:help|assist|translate|provide|comply|fulfill|do that|with that)""")
 )
 
 private val TOKEN_SPLIT = Regex("""\s+""")
 
-// A too-small model sometimes refuses ("I'm sorry, I can't…"), echoes the instruction back, or
+// A broken model loops one phrase ("I'm sorry" ×N). Flag only a clear loop: enough tokens that a
+// short line can't trip it, and at most a quarter of them distinct. "I love you I love you I love
+// you" (9 tokens, 3 distinct) and short screams ("No no no", "Ha ha ha") stay under the bar.
+private const val MIN_LOOP_TOKENS = 8
+private const val LOOP_UNIQUE_DIVISOR = 4
+
+// A too-small model sometimes refuses ("I'm sorry, I can't help…"), echoes the instruction back, or
 // loops one phrase instead of translating. Rendering that scaffolding into a bubble is worse than
 // showing the source, so callers treat a match as a failed line and fall back to the original text.
-// Deliberately conservative: bare "I'm sorry!" is legitimate dialogue and is NOT matched.
+// Deliberately conservative: bare "I'm sorry!" and apologetic dialogue are NOT matched.
 internal fun looksLikeNonTranslation(text: String): Boolean {
     val trimmed = text.trim()
     if (trimmed.isEmpty()) return false
     if (NON_TRANSLATION_PATTERNS.any { it.containsMatchIn(trimmed) }) return true
     val tokens = trimmed.split(TOKEN_SPLIT).filter { it.isNotBlank() }
-    if (tokens.size < 6) return false
-    return tokens.map { it.lowercase() }.toSet().size <= tokens.size / 3
+    if (tokens.size < MIN_LOOP_TOKENS) return false
+    val distinct = tokens.map { it.lowercase() }.toSet().size
+    return distinct * LOOP_UNIQUE_DIVISOR <= tokens.size
 }
 
 private fun String?.usableTranslation(): String? =
