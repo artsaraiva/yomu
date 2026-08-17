@@ -14,7 +14,10 @@ Two devices, 2026-08-17:
 
 | Engine | Role | JP-residue (gate 0) | Coverage | Readability | Latency/page | Peak PSS | Outcome |
 |---|---|---|---|---|---|---|---|
-| **cat_translate_1.4b** | gate | **0.252** / 0.320ᵉ | 100 % | 0.894 / 0.829ᵉ | ~19 s | 1.8 GBᵉ | **Winner** — beats 0.8b, still FAILs gate |
+| **gemma-2-2b-it** ᵉ | gate | **0.027** | 100 % | 1.107 | ~5 sᵉ | 3.7 GBᵉ | **Best quality** — 12× less residue than CAT-1.4b |
+| **qwen25_1.5b** ᵉ | gate | **0.102** | 100 % | 1.007 | ~2 sᵉ | 2.2 GBᵉ | Excellent; smallest/fastest |
+| translategemma_4b ᵉ | gate | 0.028 | (71 ids) | 1.080 | ~52 sᵉ | 5.2 GBᵉ | Great quality but too slow (capped 7/17) |
+| cat_translate_1.4b | gate | 0.252 / 0.320ᵉ | 100 % | 0.894 / 0.829ᵉ | ~19 s | 1.8 GBᵉ | Best CAT sibling; beats 0.8b |
 | cat_translate_1.4b_i1 | gate | 0.286ᵉ | 100 % | 0.805ᵉ | ~2 sᵉ | 1.8 GBᵉ | ≈ regular 1.4b (marginal wash) |
 | llm 0.8b (incumbent) | gate | 0.388 | 100 % | 0.843 | ~14 s | — | Shipped default / baseline |
 | cat_translate_7b | gate | 0.830ᵉ | 100 % | 0.133ᵉ | ~15 sᵉ | **8.8 GBᵉ** | Worse **and** too big — rejected |
@@ -28,10 +31,21 @@ phone-vs-emulator residue spread (0.252 vs 0.320) is `temperature = 0.2` run var
 
 ## Findings
 
-- **CAT-Translate 1.4b is the winning challenger.** It is the only larger model that
-  both runs acceptably on-device and beats the 0.8b incumbent: Japanese-residue 0.252
-  vs 0.388 and readability 0.894 vs 0.843, at roughly +40 % latency. Per ADR-0008's
-  promotion rule this is the sibling **#72 should ship as the on-device opt-in.**
+- **General small instruct models beat the CAT translation specialists — decisively.**
+  `gemma-2-2b-it` scores Japanese-residue **0.027** and `Qwen2.5-1.5B-Instruct` **0.102**,
+  against every CAT model's 0.25–0.39, at full coverage with fluent English output (spot-
+  checked). The "translation-specialist beats general LLM" assumption does not hold on
+  this eval; a 2B general instruct model is 12× cleaner on residue than the 1.4b specialist.
+  These are the **strongest on-device candidates found** — pending physical-phone latency/RAM
+  confirmation (both fit the 8 GB budget at 1.7 GB / 1.0 GB Q4).
+
+- **`translategemma-4b` matches on quality (residue 0.028) but is too slow.** ~52 s/page
+  even on the fast emulator (only 7 of 17 cases before the budget cap) → unusable on a phone.
+  The specialist's quality is there; its speed is not.
+
+- **CAT-Translate 1.4b was the best CAT sibling** (residue 0.252, beats the 0.8b) — but is
+  now outclassed by the general 2B/1.5B models above. It remains the fallback if a
+  gemma/Qwen licence or footprint issue rules those out.
 
 - **The imatrix 1.4b (`i1`) is a wash, not an upgrade.** Same size / RAM / latency as
   the regular 1.4b; residue marginally better (0.286 vs 0.320), readability marginally
@@ -88,11 +102,19 @@ ANDROID_SERIAL=emulator-5554 eval/run-benchmark.sh \
   -Pandroid.testInstrumentationRunnerArguments.challengers=cat_translate_1.4b,cat_translate_1.4b_i1,cat_translate_7b
 ```
 
+## Next steps
+
+- **Confirm `gemma-2-2b-it` and `Qwen2.5-1.5B-Instruct` on the physical phone.** Both fit
+  the 8 GB budget (1.7 GB / 1.0 GB Q4); the emulator gives quality but not real latency/RAM.
+  This is the deciding measurement for #72.
+- **Re-run `translategemma-4b` uncapped** (its own focused pass) to get all 17 cases — though
+  its ~52 s/page already reads as too slow for on-device.
+
 ## Feeds
 
-- **#72** — promote CAT-Translate **1.4b** (regular or i1, ~equivalent) as the on-device
-  opt-in. Every larger or non-CAT challenger is out: Qwen3/Hunyuan on capability grounds,
-  the 7B because it is both too big *and* lower quality than the 1.4b.
-- **ADR-0008** — the pre-registered promotion trigger now has a measured result:
-  CAT-1.4b is the challenger of record; no larger or non-CAT model is viable on, or even
-  worth, the reference tier. Bigger did not buy quality.
+- **#72** — the promotion candidate has shifted: `gemma-2-2b-it` (residue 0.027) and
+  `Qwen2.5-1.5B` (0.102) far outscore CAT-1.4b (0.252). Promote whichever confirms best on
+  the phone; CAT-1.4b is the fallback. Qwen3/Hunyuan/CAT-7B remain out on capability grounds.
+- **ADR-0008** — the pre-registered promotion trigger now has a measured result that
+  *overturns* the "specialist beats general" premise: general small instruct models win the
+  bake-off. Licence check needed before shipping (Gemma terms / Qwen Apache-2.0).
