@@ -15,14 +15,19 @@ SKIP_INSTALL=0
 SKIP_EVAL=0
 
 usage() {
-  printf 'Usage: %s [--skip-build] [--skip-install] [--skip-eval]\n' "$0"
+  printf 'Usage: %s [--skip-build] [--skip-install] [--skip-eval] [-P<gradle-arg>...]\n' "$0"
   printf '\n'
   printf 'Flags:\n'
   printf '  --skip-build    Skip build (use installed APKs as-is)\n'
   printf '  --skip-install  Skip install only, still build. Use if model already downloaded.\n'
   printf '  --skip-eval     Skip scoring step\n'
+  printf '  -P<arg>         Passed straight to the connectedAndroidTest gradle call, e.g.\n'
+  printf '                  -Pandroid.testInstrumentationRunnerArguments.challengers=hunyuan_mt_7b\n'
 }
 
+# Gradle -P args (e.g. instrumentation runner arguments) are collected here and forwarded to the
+# connectedAndroidTest invocation; the runner reads them to filter engines / skip the baseline (#84).
+GRADLE_EXTRA_ARGS=()
 for arg in "$@"; do
   case "$arg" in
     --skip-build)
@@ -38,6 +43,9 @@ for arg in "$@"; do
     -h|--help)
       usage
       exit 0
+      ;;
+    -P*)
+      GRADLE_EXTRA_ARGS+=("$arg")
       ;;
     *)
       printf 'Unknown flag: %s\n' "$arg" >&2
@@ -259,7 +267,7 @@ TAIL_PID=$!
 # PIPESTATUS[0] is gradle's own status, so a grep that matches nothing cannot be mistaken for a
 # test failure, and pipefail cannot mask one.
 set +e
-./gradlew :app:connectedAndroidTest 2>&1 | grep -E "Starting|completed\.|BUILD"
+./gradlew :app:connectedAndroidTest ${GRADLE_EXTRA_ARGS[@]+"${GRADLE_EXTRA_ARGS[@]}"} 2>&1 | grep -E "Starting|completed\.|BUILD"
 TEST_STATUS=${PIPESTATUS[0]}
 set -e
 
