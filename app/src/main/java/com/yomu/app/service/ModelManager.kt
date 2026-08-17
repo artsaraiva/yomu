@@ -128,6 +128,47 @@ class ModelManager @Inject constructor(
                 status = ModelStatus.AVAILABLE,
                 version = "1.0",
                 isRequired = false
+            ),
+            // #84 bake-off challengers: larger context-capable siblings that can emit the id-keyed
+            // page batch the 0.8b refuses. Not shipped as default (ADR-0008); scored by
+            // EngineBenchmarkTest and offered via the ADR-0001 custom-model slot. URL, exact size,
+            // and SHA-256 are the pinned Q4_K_M revisions (checksum is the HuggingFace LFS oid,
+            // which is the sha256 of the file content — the same digest computeChecksum verifies).
+            ModelEntity(
+                id = Constants.CAT_TRANSLATION_14B_MODEL_ID,
+                name = "CAT-Translate 1.4B (Q4_K_M)",
+                type = ModelType.LLM,
+                fileName = Constants.CAT_TRANSLATION_14B_MODEL,
+                fileSize = 931_179_904L,
+                downloadUrl = "https://huggingface.co/mradermacher/CAT-Translate-1.4b-GGUF/resolve/main/CAT-Translate-1.4b.Q4_K_M.gguf",
+                checksum = "332371e7aa764c6dde6df70956062e839aed69ad3db28e1af118aa99b6f63467",
+                status = ModelStatus.AVAILABLE,
+                version = "1.0",
+                isRequired = false
+            ),
+            ModelEntity(
+                id = Constants.QWEN3_MODEL_ID,
+                name = "Qwen3 4B (Q4_K_M)",
+                type = ModelType.LLM,
+                fileName = Constants.QWEN3_MODEL,
+                fileSize = 2_497_280_256L,
+                downloadUrl = "https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf",
+                checksum = "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+                status = ModelStatus.AVAILABLE,
+                version = "1.0",
+                isRequired = false
+            ),
+            ModelEntity(
+                id = Constants.HUNYUAN_MT_MODEL_ID,
+                name = "Hunyuan-MT 7B (Q4_K_M)",
+                type = ModelType.LLM,
+                fileName = Constants.HUNYUAN_MT_MODEL,
+                fileSize = 4_624_950_272L,
+                downloadUrl = "https://huggingface.co/mradermacher/Hunyuan-MT-7B-GGUF/resolve/main/Hunyuan-MT-7B.Q4_K_M.gguf",
+                checksum = "08b4dd8f25002592526194defd2481febcc9008fe37e67accde9bbe29d28cecf",
+                status = ModelStatus.AVAILABLE,
+                version = "1.0",
+                isRequired = false
             )
         )
 

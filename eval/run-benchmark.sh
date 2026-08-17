@@ -176,6 +176,30 @@ if [ ! -f "$LLM_FIXTURE" ]; then
   curl -L --fail --progress-bar -o "$LLM_FIXTURE" "$LLM_FIXTURE_URL"
 fi
 
+# #84 bake-off challengers. Same llm/ subdir, so the existing push loop stages them and
+# EngineBenchmarkTest picks them up by file name. These are large (~1-5GB) and, unlike the pinned
+# 0.8b, their exact GGUF revision/checksum is resolved during wiring — so a fetch that 404s or a
+# candidate left un-fetched must NOT abort the run. A missing fixture is skipped by
+# stageModelFixtures (absent weights => engine not-ready => skipped), which is the correct outcome.
+# Fetch below is best-effort; to include a challenger, let it pull the GGUF or drop the .gguf in by
+# hand at the path on the left of the `|`.
+CHALLENGER_FIXTURES=(
+  "$FIXTURE_DIR/llm/cat_translate_1.4b_q4_k_m.gguf|https://huggingface.co/mradermacher/CAT-Translate-1.4b-GGUF/resolve/main/CAT-Translate-1.4b.Q4_K_M.gguf"
+  "$FIXTURE_DIR/llm/qwen3_4b_q4_k_m.gguf|https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf"
+  "$FIXTURE_DIR/llm/hunyuan_mt_7b_q4_k_m.gguf|https://huggingface.co/mradermacher/Hunyuan-MT-7B-GGUF/resolve/main/Hunyuan-MT-7B.Q4_K_M.gguf"
+)
+for entry in "${CHALLENGER_FIXTURES[@]}"; do
+  fixture_path="${entry%%|*}"
+  fixture_url="${entry##*|}"
+  [ -f "$fixture_path" ] && continue
+  printf 'Fetching challenger %s (best-effort, large)...\n' "$(basename "$fixture_path")"
+  mkdir -p "$(dirname "$fixture_path")"
+  if ! curl -L --fail --progress-bar -o "$fixture_path" "$fixture_url"; then
+    rm -f "$fixture_path"
+    printf 'Challenger %s unavailable; it will be skipped in this run.\n' "$(basename "$fixture_path")" >&2
+  fi
+done
+
 for model_dir in "$FIXTURE_DIR"/*/; do
   [ -d "$model_dir" ] || continue
   subdir="$(basename "$model_dir")"

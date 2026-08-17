@@ -13,6 +13,13 @@ object Constants {
     const val MANGA_OCR_MODEL_ID = "manga_ocr_v1"
     const val CAT_TRANSLATION_MODEL_ID = "cat_translate_0.8b_v1"
     const val OPUS_MT_MODEL_ID = "opus_mt_ja_en_v1"
+
+    // #84 bake-off: larger context-capable id-keyed-batch challengers. Not the shipped default
+    // (ADR-0008 keeps the 0.8b); these are measured by EngineBenchmarkTest and reach enthusiasts
+    // via the ADR-0001 custom-model slot until proven adequate. #72 promotes the winner.
+    const val CAT_TRANSLATION_14B_MODEL_ID = "cat_translate_1.4b_v1"
+    const val QWEN3_MODEL_ID = "qwen3_4b_v1"
+    const val HUNYUAN_MT_MODEL_ID = "hunyuan_mt_7b_v1"
     
     const val BUBBLE_DETECTION_MODEL = "bubble_detection.onnx"
     const val OCR_ENCODER_MODEL = "manga_ocr_encoder.onnx"
@@ -20,6 +27,11 @@ object Constants {
     const val OCR_VOCAB_FILE = "vocab.txt"
     const val TRANSLATION_MODEL_4BIT = "cat_translate_0.8b_q4_k_m.gguf"
     const val TRANSLATION_MODEL_8BIT = "cat_translate_0.8b_q8_0.gguf"
+
+    // #84 challenger GGUF file names, staged under models/llm/ alongside the 0.8b (Q4_K_M tier).
+    const val CAT_TRANSLATION_14B_MODEL = "cat_translate_1.4b_q4_k_m.gguf"
+    const val QWEN3_MODEL = "qwen3_4b_q4_k_m.gguf"
+    const val HUNYUAN_MT_MODEL = "hunyuan_mt_7b_q4_k_m.gguf"
     
     const val OPUS_MT_ENCODER_MODEL = "opus_mt_encoder_model_quantized.onnx"
     const val OPUS_MT_DECODER_MODEL = "opus_mt_decoder_with_past_model_quantized.onnx"
