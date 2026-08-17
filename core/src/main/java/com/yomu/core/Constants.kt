@@ -18,6 +18,8 @@ object Constants {
     // (ADR-0008 keeps the 0.8b); these are measured by EngineBenchmarkTest and reach enthusiasts
     // via the ADR-0001 custom-model slot until proven adequate. #72 promotes the winner.
     const val CAT_TRANSLATION_14B_MODEL_ID = "cat_translate_1.4b_v1"
+    const val CAT_TRANSLATION_14B_I1_MODEL_ID = "cat_translate_1.4b_i1_v1"
+    const val CAT_TRANSLATION_7B_MODEL_ID = "cat_translate_7b_v1"
     const val QWEN3_MODEL_ID = "qwen3_4b_v1"
     const val HUNYUAN_MT_MODEL_ID = "hunyuan_mt_7b_v1"
     
@@ -30,6 +32,10 @@ object Constants {
 
     // #84 challenger GGUF file names, staged under models/llm/ alongside the 0.8b (Q4_K_M tier).
     const val CAT_TRANSLATION_14B_MODEL = "cat_translate_1.4b_q4_k_m.gguf"
+    // imatrix quant of the 1.4b winner: same size/RAM/latency, typically better quality per bit.
+    const val CAT_TRANSLATION_14B_I1_MODEL = "cat_translate_1.4b_i1_q4_k_m.gguf"
+    // 7B CAT sibling: too big for the 8GB reference device (like Hunyuan-7B); emulator/high-RAM only.
+    const val CAT_TRANSLATION_7B_MODEL = "cat_translate_7b_q4_k_m.gguf"
     const val QWEN3_MODEL = "qwen3_4b_q4_k_m.gguf"
     // Q3_K_M, not Q4: the 7B Q4 (4.6GB) OOM-kills on load on an 8GB device (#84 bake-off). Q3_K_M
     // (3.8GB) fits; the quant drop is the price of measuring a 7B on-device at all.

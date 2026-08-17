@@ -147,6 +147,32 @@ class ModelManager @Inject constructor(
                 isRequired = false
             ),
             ModelEntity(
+                id = Constants.CAT_TRANSLATION_14B_I1_MODEL_ID,
+                name = "CAT-Translate 1.4B imatrix (i1-Q4_K_M)",
+                type = ModelType.LLM,
+                fileName = Constants.CAT_TRANSLATION_14B_I1_MODEL,
+                fileSize = 931_180_160L,
+                downloadUrl = "https://huggingface.co/mradermacher/CAT-Translate-1.4b-i1-GGUF/resolve/main/CAT-Translate-1.4b.i1-Q4_K_M.gguf",
+                checksum = "686859f4df53980942ad0923c458d407c4c07d74c3ec3229e45af69dd6c2488a",
+                status = ModelStatus.AVAILABLE,
+                version = "1.0",
+                isRequired = false
+            ),
+            // 7B CAT sibling: 4.5GB Q4 exceeds the 8GB device's usable RAM (see Hunyuan-7B, #84);
+            // benchmarked on a high-RAM emulator to measure its quality where it can actually load.
+            ModelEntity(
+                id = Constants.CAT_TRANSLATION_7B_MODEL_ID,
+                name = "CAT-Translate 7B (Q4_K_M)",
+                type = ModelType.LLM,
+                fileName = Constants.CAT_TRANSLATION_7B_MODEL,
+                fileSize = 4_537_758_048L,
+                downloadUrl = "https://huggingface.co/mradermacher/CAT-Translate-7b-GGUF/resolve/main/CAT-Translate-7b.Q4_K_M.gguf",
+                checksum = "8c9f8d4e76da5265faec766a05a77b00c719867ed6c8aca0051808a409c8e07a",
+                status = ModelStatus.AVAILABLE,
+                version = "1.0",
+                isRequired = false
+            ),
+            ModelEntity(
                 id = Constants.QWEN3_MODEL_ID,
                 name = "Qwen3 4B (Q4_K_M)",
                 type = ModelType.LLM,
