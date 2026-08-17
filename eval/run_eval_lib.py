@@ -151,9 +151,12 @@ def pool_summary(results: list[dict]) -> dict:
     }
 
 
-# ADR-0004: the gate is the LLM's page-level call; ML Kit / OPUS-MT run the same call but batch
+# ADR-0004: the gate is the LLM's page-level call. ML Kit / OPUS-MT run the same call but batch
 # per-bubble internally, so they are a floor reported separately and never ranked against it.
-GATE_ENGINE = "llm"
+# Every other engine name is an LLM on the page-level id-keyed batch path — the 0.8b incumbent
+# ("llm") and the #84 challengers — and is scored against the gate. Naming a new engine after a
+# floor tool is the only footgun; the challengers use their own model ids so this stays correct.
+FLOOR_ENGINES = frozenset({"mlkit", "opusmt"})
 
 # Hiragana, katakana (incl. half-width), CJK ideographs and compatibility forms. A CJK codepoint in
 # an English translation is Japanese residue (ADR-0004), reference-adjudicated below.
@@ -360,7 +363,7 @@ def run_translation_quality(stub: bool) -> dict[str, Any]:
         ref_words = sum(s["ref_words"] for s in valid)
         out_words = sum(s["out_words"] for s in valid)
         summary["engines"][engine] = {
-            "role": "gate" if engine == GATE_ENGINE else "floor",
+            "role": "floor" if engine in FLOOR_ENGINES else "gate",
             "entries": entries,
             "bubble_coverage": covered / entries if entries else 1.0,
             "non_translation_rate": non_translation / entries if entries else 0.0,
