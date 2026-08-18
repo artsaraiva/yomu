@@ -472,11 +472,21 @@ Technologies:
 
 # Pricing
 
+The paywall is **cloud credits only**. Local translation is free and unrestricted on every tier, and the translation model you get is identical across all tiers — model choice is never gated by subscription.
+
+## Translation Model (all tiers)
+
+* One curated **default**: CAT-Translate-0.8b, free, local, no per-tier model ladder.
+* A small curated **selectable shortlist** of measured-better models, gated on device capability, never on tier.
+* **Floor engines** (OPUS-MT, ML Kit) for devices that cannot run the LLM default — selectable, never a paid tier.
+* A **custom-model sideload slot** (permitted, unsupported, labelled) for enthusiasts who bring their own GGUF.
+
+See ADR-0001, ADR-0008, and ADR-0009 for the full policy.
+
 ## Free Tier
 
 * Unlimited local translation.
 * Limited cloud credits.
-* Standard translation model.
 
 ---
 
@@ -486,9 +496,8 @@ Technologies:
 
 Includes:
 
-* Unlimited local translations.
+* Unlimited local translation.
 * 500 cloud credits.
-* Enhanced translation quality.
 
 ---
 
@@ -498,9 +507,8 @@ Includes:
 
 Includes:
 
-* Unlimited local translations.
+* Unlimited local translation.
 * 5000 cloud credits.
-* Premium translation model.
 * Early access features.
 
 ---
