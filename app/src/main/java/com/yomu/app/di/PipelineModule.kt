@@ -65,7 +65,10 @@ object PipelineModule {
     fun provideLlamaModelPath(@ApplicationContext context: Context): String {
         return File(
             context.filesDir,
-            "${Constants.MODELS_DIR}/${Constants.LLM_MODELS_DIR}/${Constants.TRANSLATION_MODEL_4BIT}"
+            // Default translation model: Qwen2.5-1.5B-Instruct (ADR-0010). Phone-confirmed on-device
+            // winner — ~4x cleaner residue than the 0.8b at speed parity within budget. The 0.8b
+            // (TRANSLATION_MODEL_4BIT) stays as the selectable low-storage floor.
+            "${Constants.MODELS_DIR}/${Constants.LLM_MODELS_DIR}/${Constants.QWEN25_15B_MODEL}"
         ).absolutePath
     }
 
