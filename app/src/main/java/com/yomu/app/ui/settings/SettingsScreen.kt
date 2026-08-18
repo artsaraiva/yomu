@@ -259,14 +259,6 @@ private fun EngineModelCard(
                             onDownload = { onDownload(model.id) },
                             onDelete = { onDelete(model.id) }
                         )
-                        if (model.status == ModelStatus.READY || model.status == ModelStatus.DOWNLOADING) {
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "Slow on-device inference. Use OPUS-MT for faster translation.",
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
                     } else {
                         Text(
                             text = "Experimental — ~500MB CAT-Translate 0.8B Q4_K_M",
