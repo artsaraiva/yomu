@@ -91,3 +91,21 @@ _Avoid_: conversation block, chunk, frame
 **Session context**:
 The previous page's source/translation pairs, carried into the next page's prompt so pronouns, names, and register stay consistent across a reading session. Held by the caller, cleared when the session ends.
 _Avoid_: history, memory, conversation history
+
+## Visual system
+
+**Chrome**:
+The app's own managed screens — Home, History, Settings — rendered in Compose. The surface the paper-mâché visual system governs.
+_Avoid_: main UI, app screens, the app
+
+**Overlay control**:
+An interactive element drawn over live manga to operate translation — floating button, quick-settings popup, close zone, status toast. Governed by the paper-mâché visual system, but its legibility over arbitrary artwork is a constraint, not a cosmetic choice.
+_Avoid_: overlay UI, HUD, widget
+
+**Typeset bubble**:
+The translated text laid into a bubble over the live page, coloured for legibility against the artwork underneath (today dark ink on a light fill). Outside the visual system: its appearance answers to readability, never to the paper aesthetic.
+_Avoid_: translation overlay, rendered bubble, text box
+
+**Paper surface**:
+A visual layer in the [[chrome]] evoking cut or layered paper through warm colour, shape, border and offset shadow — never a photographic paper texture. The building block of the paper-mâché language.
+_Avoid_: card, panel, texture
