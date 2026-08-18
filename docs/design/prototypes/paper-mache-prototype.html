@@ -1,0 +1,332 @@
+<!doctype html>
+<!--
+  PROTOTYPE — Yomu paper-mâché visual system (issue #19). THROWAWAY.
+  Question it answers: does the paper look *feel* right on a real screen?
+  Double-click to open. No build. Belongs on branch prototype/paper-mache, not main.
+
+  3 structurally-different Home variants, switchable via ?variant=A|B|C or the
+  bottom bar / arrow keys. Day/night toggle (spec palette). All 5 component
+  states rendered. Bottom paper-tab nav with hero accent on active tab.
+  Paper is procedural (CSS colour/shape/border/shadow + tiny SVG grain) per ADR-0011 —
+  no photographic texture assets. Typeset bubble deliberately excluded.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Yomu paper-mâché prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* day paper — from docs/design/paper-mache-visual-system.md */
+  --paper:#F4E9D0; --paper-raised:#FBF4E4; --ink:#2E2A24; --ink-muted:#6B6353;
+  --accent:#E4572E; --on-accent:#FFF8EC; --secondary:#2A9D8F; --edge:#D8C7A5;
+  --success:#3A7D44; --error:#C1352B; --warn:#C67A00;
+  --shadow: rgba(90,70,40,.28);
+}
+[data-mode="night"]{
+  --paper:#23201B; --paper-raised:#2E2A23; --ink:#EDE3CE; --ink-muted:#A99E86;
+  --accent:#F0724A; --on-accent:#1C1915; --secondary:#3FB8A8; --edge:#4A4235;
+  --success:#6FBF7B; --error:#F0776C; --warn:#E7A83A;
+  --shadow: rgba(0,0,0,.5);
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{
+  font-family: system-ui,-apple-system,"Roboto",sans-serif;
+  background:#3a3630;
+  display:flex; align-items:center; justify-content:center;
+  min-height:100vh; padding:32px 16px 96px;
+  /* neutral non-paper backdrop so the phone stands alone for judging */
+}
+.display{ font-family:"Baloo 2", system-ui, sans-serif; font-weight:800; letter-spacing:.2px; }
+
+/* ---- phone frame ---- */
+.phone{
+  width:380px; max-width:100%; height:760px; border-radius:38px;
+  background:var(--paper); color:var(--ink);
+  border:1px solid var(--edge);
+  box-shadow: 0 24px 60px rgba(0,0,0,.5), 0 2px 0 rgba(255,255,255,.04) inset;
+  overflow:hidden; position:relative; display:flex; flex-direction:column;
+  /* WRINKLED PAPER BACKGROUND — procedural, no photo (ADR-0011 safe):
+     feTurbulence noise lit by feDiffuseLighting = embossed crumple ridges,
+     soft-light-blended onto the themed cream so it re-themes day/night for free. */
+  background-color: var(--paper);
+  background-image:
+    radial-gradient(130% 80% at 25% -5%, rgba(255,255,255,.10), transparent 55%),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='800'><filter id='crin'><feTurbulence type='fractalNoise' baseFrequency='0.014 0.02' numOctaves='5' seed='7' result='n'/><feDiffuseLighting in='n' lighting-color='white' surfaceScale='5' diffuseConstant='1.0' result='l'><feDistantLight azimuth='235' elevation='24'/></feDiffuseLighting><feColorMatrix in='l' type='saturate' values='0' result='g'/><feComponentTransfer in='g'><feFuncR type='table' tableValues='0.6 0.82 0.95 1 1 1 1'/><feFuncG type='table' tableValues='0.6 0.82 0.95 1 1 1 1'/><feFuncB type='table' tableValues='0.6 0.82 0.95 1 1 1 1'/></feComponentTransfer></filter><rect width='400' height='800' filter='url(%23crin)'/></svg>");
+  background-size: cover, cover;
+  background-repeat: no-repeat, no-repeat;
+  /* thin crease shadows isolated (table keeps flats white), so day multiply shows wrinkles without graying the cream */
+  background-blend-mode: normal, multiply;
+}
+[data-mode="night"] .phone{ background-blend-mode: normal, soft-light; } /* dark base: lighten the creases instead */
+.statusbar{
+  display:flex; justify-content:space-between; align-items:center;
+  padding:14px 22px 4px; font-size:13px; color:var(--ink-muted); font-weight:600;
+}
+.screen{ flex:1; overflow-y:auto; padding:8px 18px 12px; }
+.screen::-webkit-scrollbar{width:0}
+
+/* ---- procedural paper surface ---- */
+/* wrinkles = soft irregular crease shadows (radial bands) + fine grain, all CSS/SVG, no photo (ADR-0011) */
+.paper{
+  background:
+    radial-gradient(140% 10% at 18% 26%, rgba(0,0,0,.06), transparent 60%),
+    radial-gradient(130% 8%  at 72% 58%, rgba(0,0,0,.05), transparent 62%),
+    radial-gradient(9% 130%  at 40% 50%, rgba(255,255,255,.06), transparent 60%),
+    radial-gradient(120% 9%  at 55% 82%, rgba(0,0,0,.04), transparent 65%),
+    var(--paper-raised);
+  border:1px solid var(--edge);
+  border-radius:20px;
+  box-shadow: 3px 5px 0 var(--shadow);   /* offset drop shadow = stacked paper */
+  position:relative;
+}
+.paper::before{                          /* fine crumpled grain, multiplied over the creases */
+  content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
+  mix-blend-mode:multiply; opacity:.5;
+  background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='90' height='90'><filter id='w'><feTurbulence type='fractalNoise' baseFrequency='0.35 0.5' numOctaves='3' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='90' height='90' filter='url(%23w)' opacity='0.12'/></svg>");
+}
+/* origami dog-ear: a folded-up corner. Used sparingly (.dogear only) */
+.paper.dogear::after{
+  content:""; position:absolute; top:-1px; right:-1px; width:26px; height:26px;
+  background:linear-gradient(225deg, var(--paper) 0 46%, var(--edge) 46% 50%, transparent 50%);
+  border-top-right-radius:20px;
+  filter:drop-shadow(-1px 2px 1px var(--shadow));
+}
+.paper.flat{ box-shadow:none; }          /* disabled lies flat */
+.paper.flat::before{ opacity:.28; }      /* creases fade too when flattened */
+.title{ font-size:22px; margin:6px 2px 12px; }
+.eyebrow{ font-size:12px; letter-spacing:1.5px; text-transform:uppercase; color:var(--ink-muted); font-weight:700; }
+
+/* start affordance — folded-paper origami facets on the hero accent */
+.start{
+  color:var(--on-accent);
+  background:
+    linear-gradient(128deg, rgba(255,255,255,.16) 0 34%, transparent 34% 66%, rgba(0,0,0,.10) 66%),
+    linear-gradient(46deg,  rgba(0,0,0,.08) 0 30%, transparent 30%),
+    radial-gradient(120% 120% at 30% 18%, rgba(255,255,255,.16), transparent 55%),
+    var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 70%, #000 15%);
+  box-shadow: 4px 7px 0 var(--shadow);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:6px; cursor:pointer; user-select:none; overflow:hidden;
+  transition: transform .18s cubic-bezier(.2,1.3,.4,1), box-shadow .18s;
+}
+.start::before{                          /* crisp centre fold crease down the hero */
+  content:""; position:absolute; top:0; bottom:0; left:50%; width:2px;
+  background:linear-gradient(rgba(255,255,255,.22), rgba(0,0,0,.14));
+  pointer-events:none;
+}
+.start:active{ transform:translate(2px,3px); box-shadow:1px 2px 0 var(--shadow); } /* pressed sinks */
+.start .k{ font-size:15px; opacity:.9; font-weight:700; }
+.start .big{ font-size:34px; }
+.start .cam{ font-size:40px; line-height:1; }
+
+/* ---- component states row ---- */
+.states{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:16px; }
+.states .full{ grid-column:1 / -1; }
+.state{ padding:14px; border-radius:16px; }
+.state h4{ margin:0 0 6px; font-size:13px; display:flex; align-items:center; gap:7px; }
+.state p{ margin:0; font-size:12px; color:var(--ink-muted); line-height:1.35; }
+.pill{ display:inline-block; font-size:11px; font-weight:700; padding:2px 9px; border-radius:999px; }
+.badge{ width:9px; height:9px; border-radius:50%; display:inline-block; }
+.skel{ height:10px; border-radius:6px; background:var(--edge); opacity:.6; margin:6px 0;
+  background-image:linear-gradient(90deg,transparent,rgba(255,255,255,.4),transparent);
+  background-size:200% 100%; animation:shimmer 1.4s infinite; }
+.skel.s2{width:70%} .skel.s3{width:85%}
+@keyframes shimmer{to{background-position:-200% 0}}
+.state.error{ border-color:var(--error); box-shadow:3px 5px 0 var(--shadow); }
+.btn{ margin-top:9px; font-size:12px; font-weight:700; border:none; border-radius:10px;
+  padding:7px 14px; background:var(--accent); color:var(--on-accent); cursor:pointer; }
+.btn.ghost{ background:transparent; color:var(--accent); border:1.5px solid var(--accent); }
+.state.disabled{ opacity:.55; }
+.state.disabled h4, .state.disabled p{ color:var(--ink-muted); }
+
+/* success toast */
+.toast{
+  position:absolute; left:50%; top:70px; transform:translateX(-50%);
+  background:var(--accent); color:var(--on-accent); font-weight:700; font-size:13px;
+  padding:9px 16px; border-radius:12px; box-shadow:3px 5px 0 var(--shadow);
+  display:flex; gap:8px; align-items:center; z-index:5;
+}
+
+/* ---- bottom paper-tab nav ---- */
+.tabs{
+  display:flex; border-top:1px solid var(--edge); background:var(--paper);
+  padding:8px 10px calc(8px + env(safe-area-inset-bottom));
+}
+.tab{ flex:1; display:flex; flex-direction:column; align-items:center; gap:3px;
+  font-size:11px; font-weight:700; color:var(--ink-muted); padding:6px 0; cursor:pointer; }
+.tab .i{ font-size:20px; }
+.tab.active{ color:var(--accent); }
+.tab.active .i{ filter:none; }
+
+/* ---- variant C radial medallion ---- */
+.medallion{
+  width:220px; height:220px; border-radius:50%; margin:26px auto 4px;
+  color:var(--on-accent);
+  background:
+    conic-gradient(from -30deg, rgba(255,255,255,.14), rgba(0,0,0,.10) 25%, rgba(255,255,255,.12) 50%, rgba(0,0,0,.12) 75%, rgba(255,255,255,.14)),
+    radial-gradient(120% 120% at 32% 22%, rgba(255,255,255,.2), transparent 55%),
+    var(--accent);
+  border:3px solid color-mix(in srgb, var(--accent) 70%, #000 15%);
+  box-shadow: 4px 7px 0 var(--shadow);
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;
+  cursor:pointer; transition:transform .18s cubic-bezier(.2,1.3,.4,1);
+  /* deckled/torn accent used sparingly */
+  outline:2px dashed color-mix(in srgb, var(--on-accent) 55%, transparent); outline-offset:-14px;
+}
+.medallion:active{ transform:scale(.96); }
+.strip{ display:flex; gap:10px; overflow-x:auto; padding:14px 2px; }
+.strip .state{ min-width:150px; }
+.strip::-webkit-scrollbar{height:0}
+
+/* ---- floating switcher (obviously not part of the design) ---- */
+.switcher{
+  position:fixed; bottom:18px; left:50%; transform:translateX(-50%);
+  display:flex; align-items:center; gap:6px; z-index:50;
+  background:#111; color:#fff; border-radius:999px; padding:6px 8px;
+  box-shadow:0 8px 24px rgba(0,0,0,.5); font:600 13px system-ui;
+}
+.switcher button{ background:#2a2a2a; color:#fff; border:none; width:32px; height:32px;
+  border-radius:50%; cursor:pointer; font-size:16px; }
+.switcher .lbl{ padding:0 10px; min-width:150px; text-align:center; }
+.switcher .mode{ width:auto; padding:0 12px; border-radius:16px; font-size:12px; }
+@media (prefers-reduced-motion: reduce){
+  .start,.medallion,.skel{ transition:none; animation:none; }
+}
+</style>
+</head>
+<body data-mode="day">
+
+<div class="phone">
+  <div class="statusbar"><span>9:41</span><span>▮▮▮ ⚡</span></div>
+  <div class="screen" id="screen"></div>
+  <nav class="tabs">
+    <div class="tab active"><span class="i">◒</span>Home</div>
+    <div class="tab"><span class="i">↺</span>History</div>
+    <div class="tab"><span class="i">⚙</span>Settings</div>
+  </nav>
+</div>
+
+<div class="switcher">
+  <button id="prev" aria-label="previous variant">‹</button>
+  <span class="lbl" id="lbl">A</span>
+  <button id="next" aria-label="next variant">›</button>
+  <button class="mode" id="mode">☀ day</button>
+</div>
+
+<script>
+// ---------- shared bits every variant reuses ----------
+const statesFull = `
+  <div class="states">
+    <div class="state paper full">
+      <span class="eyebrow">Loading</span>
+      <div class="skel"></div><div class="skel s3"></div><div class="skel s2"></div>
+      <p>Paper skeleton + gentle shimmer while the on-screen page is translated.</p>
+    </div>
+    <div class="state error paper full">
+      <h4><span class="badge" style="background:var(--error)"></span> Couldn't reach the page</h4>
+      <p>Plain-language message, exactly one retry action. Never a stack trace.</p>
+      <button class="btn ghost">Try again</button>
+    </div>
+    <div class="state paper">
+      <h4>Nothing here yet</h4>
+      <p>Empty is never a dead end — one primary action forward.</p>
+      <button class="btn">Start reading</button>
+    </div>
+    <div class="state paper disabled flat">
+      <h4>Auto-translate</h4>
+      <p>Disabled: desaturated, shadow removed, lies flat, ink-muted.</p>
+      <button class="btn" disabled style="opacity:.6;background:var(--ink-muted)">Off</button>
+    </div>
+  </div>`;
+
+const successToast = `<div class="toast">✓ Saved to History</div>`;
+
+// ---------- three structurally-different Home layouts ----------
+const variants = {
+  A: { name:"Hero-dominant", html: `
+    ${successToast}
+    <div class="eyebrow" style="margin:10px 2px 2px">Yomu</div>
+    <div class="title display">Read any manga</div>
+    <div class="paper start" style="height:300px;border-radius:26px">
+      <span class="cam">あ<span style="opacity:.7;font-size:.55em;margin:0 .12em">→</span>A</span>
+      <span class="big display">Start reading</span>
+      <span class="k">Translates the manga on your screen</span>
+    </div>
+    ${statesFull}
+  `},
+
+  B: { name:"Stacked management", html: `
+    <div class="title display" style="margin-top:12px">Home</div>
+    <div class="paper start" style="height:120px;flex-direction:row;gap:16px;border-radius:22px">
+      <span class="cam" style="font-size:30px">あ<span style="opacity:.7;font-size:.55em;margin:0 .1em">→</span>A</span>
+      <div style="text-align:left">
+        <div class="big display" style="font-size:26px">Start reading</div>
+        <div class="k">Translate your screen</div>
+      </div>
+    </div>
+    <div class="paper dogear" style="padding:14px;margin-top:14px">
+      <span class="eyebrow">Continue reading</span>
+      <div style="display:flex;gap:12px;margin-top:10px;align-items:center">
+        <div style="width:44px;height:60px;border-radius:8px;background:var(--edge)"></div>
+        <div><b style="font-size:14px">One Piece — ch.1104</b><br>
+        <span style="font-size:12px;color:var(--ink-muted)">3 pages translated</span></div>
+      </div>
+    </div>
+    ${statesFull}
+  `},
+
+  C: { name:"Radial medallion", html: `
+    <div class="eyebrow" style="text-align:center;margin-top:14px">Tap the seal to begin</div>
+    <div class="paper medallion">
+      <span class="cam" style="font-size:40px">あ<span style="opacity:.7;font-size:.55em;margin:0 .1em">→</span>A</span>
+      <span class="big display" style="font-size:22px">Read</span>
+    </div>
+    <div class="title display" style="text-align:center;font-size:19px;margin:4px 0 0">Yomu</div>
+    <div class="strip">
+      <div class="state paper"><span class="eyebrow">Loading</span><div class="skel"></div><div class="skel s2"></div></div>
+      <div class="state error paper"><h4><span class="badge" style="background:var(--error)"></span> Failed</h4><button class="btn ghost">Retry</button></div>
+      <div class="state paper"><h4>Empty</h4><button class="btn">Read</button></div>
+      <div class="state paper disabled flat"><h4>Disabled</h4><p style="font-size:11px">flat, no shadow</p></div>
+      <div class="state paper" style="border-color:var(--success)"><h4><span class="badge" style="background:var(--success)"></span> Success</h4><p style="font-size:11px">self-dismisses</p></div>
+    </div>
+  `},
+};
+
+// ---------- wiring: ?variant=, arrows, keyboard, day/night ----------
+const keys = ["A","B","C"];
+const screen = document.getElementById("screen");
+const lbl = document.getElementById("lbl");
+function cur(){ const v=(new URLSearchParams(location.search).get("variant")||"A").toUpperCase(); return keys.includes(v)?v:"A"; }
+function render(){
+  const v=cur();
+  screen.innerHTML = variants[v].html;
+  lbl.textContent = `${v} — ${variants[v].name}`;
+  screen.scrollTop=0;
+}
+function go(v){ const u=new URL(location); u.searchParams.set("variant",v); history.replaceState(null,"",u); render(); }
+function step(d){ go(keys[(keys.indexOf(cur())+d+keys.length)%keys.length]); }
+
+document.getElementById("next").onclick=()=>step(1);
+document.getElementById("prev").onclick=()=>step(-1);
+document.addEventListener("keydown",e=>{
+  const t=e.target;
+  if(/INPUT|TEXTAREA/.test(t.tagName)||t.isContentEditable) return;
+  if(e.key==="ArrowRight")step(1);
+  if(e.key==="ArrowLeft")step(-1);
+});
+const modeBtn=document.getElementById("mode");
+modeBtn.onclick=()=>{
+  const night = document.body.dataset.mode!=="night";
+  document.body.dataset.mode = night?"night":"day";
+  modeBtn.textContent = night?"☾ night":"☀ day";
+};
+render();
+</script>
+</body>
+</html>
