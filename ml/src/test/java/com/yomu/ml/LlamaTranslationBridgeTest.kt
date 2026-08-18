@@ -114,6 +114,40 @@ class LlamaTranslationBridgeTest {
         model.delete()
     }
 
+    @Test
+    fun selectModel_switchingModelDropsToNotReadyAndUpdatesIdKeyedBatch() = runTest {
+        val model = File.createTempFile("model", ".gguf")
+        val bridge = LlamaTranslationBridge(
+            llamaBridge = FakeLlamaBridge(GenerationResult.Success("x", 1L)),
+            modelPath = model.absolutePath
+        )
+        bridge.ensureReady()
+        assertTrue(bridge.status is TranslationStatus.Ready)
+        assertFalse(bridge.supportsIdKeyedBatch())
+
+        bridge.selectModel("/other.gguf", newIdKeyedBatch = true)
+
+        // Switching forces a reload on the next ensureReady, and carries the new model's capability.
+        assertTrue(bridge.status is TranslationStatus.NotReady)
+        assertTrue(bridge.supportsIdKeyedBatch())
+        model.delete()
+    }
+
+    @Test
+    fun selectModel_sameSelectionIsANoOp() = runTest {
+        val model = File.createTempFile("model", ".gguf")
+        val bridge = LlamaTranslationBridge(
+            llamaBridge = FakeLlamaBridge(GenerationResult.Success("x", 1L)),
+            modelPath = model.absolutePath
+        )
+        bridge.ensureReady()
+
+        bridge.selectModel(model.absolutePath, newIdKeyedBatch = false)
+
+        assertTrue(bridge.status is TranslationStatus.Ready)
+        model.delete()
+    }
+
     private class FakeLlamaBridge(private val result: GenerationResult) : LlamaBridge(null) {
         var lastMaxTokens: Int = -1
         override val isNativeAvailable: Boolean get() = true

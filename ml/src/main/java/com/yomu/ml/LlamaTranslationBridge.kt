@@ -7,13 +7,35 @@ import java.io.File
 
 class LlamaTranslationBridge(
     private val llamaBridge: LlamaBridge,
-    private val modelPath: String,
+    modelPath: String,
     // Per-model, not per-class: the curated 0.8b refuses on any surrounding context (#68/#71) so it
     // stays on the per-line floor (false), but a larger sibling can emit one id-keyed reply for the
     // whole page (#72/#84). The #84 bake-off constructs capable candidates with this set true so
     // TranslationEngine.translate routes them through translateBatch instead of the per-line path.
-    private val idKeyedBatch: Boolean = false
+    idKeyedBatch: Boolean = false
 ) : TranslationBridge {
+
+    // Runtime-selected (ADR-0009 #90): which curated GGUF occupies the translation slot, switchable
+    // via [selectModel]. Was a compile-time constant hardcoded to the 0.8b path.
+    @Volatile
+    private var modelPath: String = modelPath
+
+    @Volatile
+    private var idKeyedBatch: Boolean = idKeyedBatch
+
+    /**
+     * Point the bridge at a different curated model (#90 part A). A no-op if unchanged; otherwise it
+     * releases the loaded native model and drops to NotReady so the next [ensureReady] loads the new
+     * GGUF. Safe to call while an engine other than LLM is active — the reload is lazy.
+     */
+    fun selectModel(newModelPath: String, newIdKeyedBatch: Boolean) {
+        if (newModelPath == modelPath && newIdKeyedBatch == idKeyedBatch) return
+        llamaBridge.release()
+        modelPath = newModelPath
+        idKeyedBatch = newIdKeyedBatch
+        status = TranslationStatus.NotReady
+        Log.i(TAG, "selectModel switched idKeyedBatch=$newIdKeyedBatch")
+    }
 
     companion object {
         private const val TAG = "LlamaTranslationBridge"

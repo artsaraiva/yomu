@@ -14,6 +14,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.yomu.app.db.entities.ModelEntity
 import com.yomu.app.db.entities.ModelStatus
 import com.yomu.app.db.entities.ModelType
+import com.yomu.app.translation.LlmModelOption
+import com.yomu.app.translation.LlmModelTier
 import com.yomu.app.translation.TranslationEngineType
 import com.yomu.core.Constants
 import com.yomu.core.toFileSizeString
@@ -111,11 +113,10 @@ fun SettingsScreen(
         TranslationEngineType.entries.forEach { engine ->
             EngineModelCard(
                 engine = engine,
-                models = state.models,
-                downloadingId = state.downloadingId,
-                downloadProgress = state.downloadProgress,
+                state = state,
                 onDownload = { viewModel.downloadModel(it) },
-                onDelete = { viewModel.deleteModel(it) }
+                onDelete = { viewModel.deleteModel(it) },
+                onSelectLlm = { viewModel.setLlmModel(it) }
             )
             Spacer(modifier = Modifier.height(8.dp))
         }
@@ -188,12 +189,14 @@ fun SettingsScreen(
 @Composable
 private fun EngineModelCard(
     engine: TranslationEngineType,
-    models: List<ModelEntity>,
-    downloadingId: String?,
-    downloadProgress: Int,
+    state: SettingsUiState,
     onDownload: (String) -> Unit,
-    onDelete: (String) -> Unit
+    onDelete: (String) -> Unit,
+    onSelectLlm: (LlmModelOption) -> Unit
 ) {
+    val models = state.models
+    val downloadingId = state.downloadingId
+    val downloadProgress = state.downloadProgress
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -250,20 +253,85 @@ private fun EngineModelCard(
                 }
 
                 TranslationEngineType.LLM -> {
-                    val model = models.find { it.id == Constants.QWEN25_15B_MODEL_ID }
-                    if (model != null) {
-                        ModelStatusRow(
-                            model = model,
-                            isDownloading = downloadingId == model.id,
+                    Text(
+                        text = "Pick which model fills the translation slot. The default is safe on every device.",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    state.llmModels.forEach { option ->
+                        LlmModelRow(
+                            option = option,
+                            selected = option.id == state.selectedLlmModelId,
+                            canRun = state.canRun(option),
+                            model = models.find { it.id == option.id },
+                            isDownloading = downloadingId == option.id,
                             progress = downloadProgress,
-                            onDownload = { onDownload(model.id) },
-                            onDelete = { onDelete(model.id) }
+                            onSelect = { onSelectLlm(option) },
+                            onDownload = { onDownload(option.id) },
+                            onDelete = { onDelete(option.id) }
                         )
-                    } else {
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LlmModelRow(
+    option: LlmModelOption,
+    selected: Boolean,
+    canRun: Boolean,
+    model: ModelEntity?,
+    isDownloading: Boolean,
+    progress: Int,
+    onSelect: () -> Unit,
+    onDownload: () -> Unit,
+    onDelete: () -> Unit
+) {
+    val hosted = option.tier == LlmModelTier.HOSTED
+    val selectable = hosted && canRun
+    val subtitle = buildString {
+        append(option.sizeBytes.toFileSizeString())
+        append(if (hosted) " · Hosted" else " · HuggingFace sign-in required (coming soon)")
+        if (hosted && !canRun) append(" · Won't fit this device")
+    }
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            RadioButton(
+                selected = selected,
+                onClick = onSelect,
+                enabled = selectable
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    option.displayName,
+                    fontSize = 13.sp,
+                    color = if (selectable) MaterialTheme.colorScheme.onSurface
+                    else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    subtitle,
+                    fontSize = 11.sp,
+                    color = if (hosted && !canRun) MaterialTheme.colorScheme.error
+                    else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            if (hosted && model != null) {
+                when {
+                    isDownloading -> Text("$progress%", fontSize = 11.sp)
+                    model.status == ModelStatus.READY -> OutlinedButton(onClick = onDelete) {
+                        Text("Delete", fontSize = 12.sp)
+                    }
+                    else -> Button(onClick = onDownload) {
                         Text(
-                            text = "~940MB Qwen2.5-1.5B-Instruct Q4_K_M",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            if (model.status == ModelStatus.ERROR) "Retry" else "Download",
+                            fontSize = 12.sp
                         )
                     }
                 }
