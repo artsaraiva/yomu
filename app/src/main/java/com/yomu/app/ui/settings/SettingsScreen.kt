@@ -250,7 +250,7 @@ private fun EngineModelCard(
                 }
 
                 TranslationEngineType.LLM -> {
-                    val model = models.find { it.id == Constants.CAT_TRANSLATION_MODEL_ID }
+                    val model = models.find { it.id == Constants.QWEN25_15B_MODEL_ID }
                     if (model != null) {
                         ModelStatusRow(
                             model = model,
@@ -261,7 +261,7 @@ private fun EngineModelCard(
                         )
                     } else {
                         Text(
-                            text = "Experimental — ~500MB CAT-Translate 0.8B Q4_K_M",
+                            text = "~940MB Qwen2.5-1.5B-Instruct Q4_K_M",
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

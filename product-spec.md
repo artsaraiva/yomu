@@ -472,11 +472,22 @@ Technologies:
 
 # Pricing
 
+The paywall is **cloud credits only**. Local translation is free and unrestricted on every tier, and the translation model you get is identical across all tiers — model choice is never gated by subscription.
+
+## Translation Model (all tiers)
+
+* One curated **default**: Qwen2.5-1.5B-Instruct — free, local, phone-confirmed as the on-device quality-and-speed winner. No per-tier model ladder.
+* A small curated **selectable shortlist** of other vetted models (e.g. gemma-2-2b-it for best quality where the user accepts higher latency), gated on device capability, never on tier.
+* **Low-storage floor**: CAT-Translate-0.8b, the smaller LLM for devices that cannot fit the default — selectable, not the default, not a paid tier.
+* **No-LLM floors** (OPUS-MT, ML Kit) for devices that cannot run any LLM — selectable, never a paid tier.
+* A **custom-model sideload slot** (permitted, unsupported, labelled) for enthusiasts who bring their own GGUF.
+
+See ADR-0001, ADR-0008, ADR-0009, and ADR-0010 for the full policy.
+
 ## Free Tier
 
 * Unlimited local translation.
 * Limited cloud credits.
-* Standard translation model.
 
 ---
 
@@ -486,9 +497,8 @@ Technologies:
 
 Includes:
 
-* Unlimited local translations.
+* Unlimited local translation.
 * 500 cloud credits.
-* Enhanced translation quality.
 
 ---
 
@@ -498,9 +508,8 @@ Includes:
 
 Includes:
 
-* Unlimited local translations.
+* Unlimited local translation.
 * 5000 cloud credits.
-* Premium translation model.
 * Early access features.
 
 ---

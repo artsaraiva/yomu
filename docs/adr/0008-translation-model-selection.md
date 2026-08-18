@@ -1,6 +1,8 @@
 # Yomu ships CAT-Translate-0.8b as the curated default; OPUS-MT and ML Kit stay as optional floor engines; fine-tuning is deferred behind a measurement trigger
 
 > **Revised in part by [ADR-0009](0009-selectable-translation-model-set.md).** The "one curated default, not a per-tier model ladder" clause below was set because the eval could not rank engines ([#58](https://github.com/artsaraiva/yomu/issues/58)). The [#84](https://github.com/artsaraiva/yomu/issues/84) bake-off supplied that ranking, so ADR-0009 adds a small curated *selectable* set (default unchanged). The rest of this ADR — 0.8b as default, OPUS-MT/ML Kit as floors, the fine-tune trigger — stands.
+>
+> **Further revised by [ADR-0010](0010-qwen-default-cat-demoted-to-floor.md).** The "curated default is CAT-Translate-0.8b" clause is superseded: the [#72](https://github.com/artsaraiva/yomu/issues/72) phone-confirmation run (2026-08-18) exercised the promote trigger this ADR named, and the default is now **Qwen2.5-1.5B-Instruct**; 0.8b is the low-storage floor. OPUS-MT/ML Kit floors and the fine-tune trigger (now anchored to Qwen) stand.
 
 The curated default in the translation slot is the **CAT-Translate-0.8b** LLM — the only engine that runs [ADR-0002](0002-cross-panel-translation-context.md)'s page-level context architecture. OPUS-MT and ML Kit remain in the codebase as **floor engines**: selectable on devices that cannot run the LLM, never the default, never scored against it. Yomu ships **one** curated default, not a per-tier model ladder ([ADR-0001](0001-custom-model-permissiveness.md), [#32](https://github.com/artsaraiva/yomu/issues/32)). Fine-tuning is not done now.
 
