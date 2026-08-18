@@ -4,8 +4,10 @@ Corpus: 17 eval cases / 145 story boxes, ADR-0004 page-level id-keyed batch path
 All challengers ran through `EngineBenchmarkTest` with `supportsIdKeyedBatch() = true`,
 scored by `eval/run-eval.py` against the ADR-0004 gate. Q4_K_M tier unless noted.
 
-Two devices, 2026-08-17:
+Two devices:
 - **Phone** — Samsung SM-S911B (Galaxy S23, 8 GB RAM). Latency + RAM are real here.
+  The two bake-off leaders were phone-confirmed on 2026-08-18 (#72, see below); the
+  rest of the phone column is from 2026-08-17.
 - **Emulator** — Pixel 10 Pro AVD, arm64-v8a, **16 GB RAM**, on an Apple-Silicon host.
   Used to run models that OOM/thrash on the phone. **Quality metrics are valid; latency
   and RAM are host-CPU artifacts, not phone-representative.**
@@ -14,8 +16,8 @@ Two devices, 2026-08-17:
 
 | Engine | Role | JP-residue (gate 0) | Coverage | Readability | Latency/page | Peak PSS | Outcome |
 |---|---|---|---|---|---|---|---|
-| **gemma-2-2b-it** ᵉ | gate | **0.027** | 100 % | 1.107 | ~5 sᵉ | 3.7 GBᵉ | **Best quality** — 12× less residue than CAT-1.4b |
-| **qwen25_1.5b** ᵉ | gate | **0.102** | 100 % | 1.007 | ~2 sᵉ | 2.2 GBᵉ | Excellent; smallest/fastest |
+| **gemma-2-2b-it** | gate | **0.010** | 100 % (11/17) | 1.122 | **~35 s** | 2.75 GB | Best quality, but ~35 s/page — 11/17 pages before its 6-min slice; too slow on-device |
+| **qwen25_1.5b** | gate | **0.102** | 100 % | 0.969 | **~15 s** | 2.0 GB | **On-device winner** — 17/17, stable, fits budget |
 | translategemma_4b ᵉ | gate | 0.028 | (71 ids) | 1.080 | ~52 sᵉ | 5.2 GBᵉ | Great quality but too slow (capped 7/17) |
 | cat_translate_1.4b | gate | 0.252 / 0.320ᵉ | 100 % | 0.894 / 0.829ᵉ | ~19 s | 1.8 GBᵉ | Best CAT sibling; beats 0.8b |
 | cat_translate_1.4b_i1 | gate | 0.286ᵉ | 100 % | 0.805ᵉ | ~2 sᵉ | 1.8 GBᵉ | ≈ regular 1.4b (marginal wash) |
@@ -36,8 +38,8 @@ phone-vs-emulator residue spread (0.252 vs 0.320) is `temperature = 0.2` run var
   against every CAT model's 0.25–0.39, at full coverage with fluent English output (spot-
   checked). The "translation-specialist beats general LLM" assumption does not hold on
   this eval; a 2B general instruct model is 12× cleaner on residue than the 1.4b specialist.
-  These are the **strongest on-device candidates found** — pending physical-phone latency/RAM
-  confirmation (both fit the 8 GB budget at 1.7 GB / 1.0 GB Q4).
+  These are the **strongest on-device candidates found**. Both were then phone-confirmed
+  (#72) — quality holds, but latency splits them apart (see the phone-confirmation section).
 
 - **`translategemma-4b` matches on quality (residue 0.028) but is too slow.** ~52 s/page
   even on the fast emulator (only 7 of 17 cases before the budget cap) → unusable on a phone.
@@ -77,6 +79,51 @@ phone-vs-emulator residue spread (0.252 vs 0.320) is `temperature = 0.2` run var
   at Q4 (8.8 GB peak on the emulator). The 8 GB reference device tops out around the
   1.4B sibling — and, crucially, the 7B is not even worth the RAM: it scores *worse*.
 
+## Phone-confirmation run (#72)
+
+Run `20260818-104743` on the reference phone (Galaxy S23, 8 GB), the two bake-off
+leaders only:
+
+```sh
+eval/run-benchmark.sh \
+  -Pandroid.testInstrumentationRunnerArguments.skipBaseline=true \
+  -Pandroid.testInstrumentationRunnerArguments.challengers=gemma2_2b,qwen25_1.5b
+```
+
+| | Qwen2.5-1.5B | gemma-2-2b-it |
+|---|---|---|
+| pages completed | **17 / 17** | 11 / 17 |
+| latency/page | ~15 s median, ~16.6 s mean | ~35 s median, ~37 s mean |
+| peak PSS | ~2.0 GB (load) / ~1.27 GB steady | ~2.75 GB (load) / ~2.07 GB steady |
+| JP-residue (scorer, micro-avg) | 0.102 | 0.010 |
+| coverage | 100 % (147 ids) | 100 % (105 ids, subset) |
+| readability | 0.969 | 1.122 |
+
+**Quality holds on-device.** Qwen's phone residue (0.102) matches the emulator exactly;
+gemma's is even better on the phone (0.010 vs 0.027ᵉ). Both keep 100 % coverage and zero
+non-translation. The emulator quality ranking survives the move to the phone.
+
+**Latency is the separator, not RAM.** Both fit the 8 GB budget (2.75 GB worst-case peak,
+at model-load). But gemma runs ~2.3× slower — ~35 s/page vs Qwen's ~15 s. gemma completed
+only 11/17 pages because it exhausted its 6-min `PER_CHALLENGER_BUDGET_MS` slice
+(`EngineBenchmarkTest`), **not** from a crash or OOM — the run logged `Benchmark complete`
+cleanly. A wider budget would let it finish, but ~35 s/page is close to the ~52 s/page bar
+that already ruled out `translategemma-4b` as too slow.
+
+### Verdict — curated shortlist + tiers (ADR-0009)
+
+ADR-0009's bar is *measured-best on the reference phone under a device-budget ceiling*, and
+the ceiling that bites here is **latency**, not RAM.
+
+- **Qwen2.5-1.5B → shipped selectable model, hosted tier (Apache-2.0).** The on-device
+  winner: 17/17 stable, ~15 s/page, ~2 GB peak, residue 0.102 at full coverage. No auth
+  friction. This is the model #90's picker offers.
+- **gemma-2-2b-it → held out of the default shortlist; quality-best but latency-marginal
+  (Gemma Terms → HF-auth tier).** Best residue (0.010) and readability, but ~35 s/page and
+  ~2.75 GB peak. Not shipped as a routine option. If offered at all, it belongs behind an
+  explicit "slower, higher quality" opt-in — a product call for #90, not decided here.
+- **The 0.8b remains the default engine.** Nothing in this run changes the shipped default.
+
 ## Reproduce
 
 ```sh
@@ -104,17 +151,20 @@ ANDROID_SERIAL=emulator-5554 eval/run-benchmark.sh \
 
 ## Next steps
 
-- **Confirm `gemma-2-2b-it` and `Qwen2.5-1.5B-Instruct` on the physical phone.** Both fit
-  the 8 GB budget (1.7 GB / 1.0 GB Q4); the emulator gives quality but not real latency/RAM.
-  This is the deciding measurement for #72.
+- ~~Confirm `gemma-2-2b-it` and `Qwen2.5-1.5B-Instruct` on the physical phone.~~ **Done (#72)**
+  — see the phone-confirmation section. Qwen2.5-1.5B is the shipped selectable model;
+  gemma-2-2b-it is quality-best but ~35 s/page, held out of the default shortlist.
+- **#90 product call:** decide whether gemma-2-2b-it ships at all as a "slower, higher
+  quality" HF-auth opt-in, or is dropped from the picker entirely.
 - **Re-run `translategemma-4b` uncapped** (its own focused pass) to get all 17 cases — though
   its ~52 s/page already reads as too slow for on-device.
 
 ## Feeds
 
-- **#72** — the promotion candidate has shifted: `gemma-2-2b-it` (residue 0.027) and
-  `Qwen2.5-1.5B` (0.102) far outscore CAT-1.4b (0.252). Promote whichever confirms best on
-  the phone; CAT-1.4b is the fallback. Qwen3/Hunyuan/CAT-7B remain out on capability grounds.
+- **#72** — **resolved.** Phone-confirmed both leaders (run `20260818-104743`). Quality held;
+  latency split them. Shortlist: **Qwen2.5-1.5B** ships (hosted, Apache-2.0, ~15 s/page);
+  **gemma-2-2b-it** held out as quality-best-but-slow (~35 s/page, HF-auth). CAT-1.4b remains
+  the fallback. Qwen3/Hunyuan/CAT-7B stay out on capability grounds.
 - **ADR-0008** — the pre-registered promotion trigger now has a measured result that
   *overturns* the "specialist beats general" premise: general small instruct models win the
   bake-off. Licence check needed before shipping (Gemma terms / Qwen Apache-2.0).
