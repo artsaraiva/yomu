@@ -11,6 +11,8 @@ import com.yomu.app.db.ModelDao
 import com.yomu.app.db.entities.ModelEntity
 import com.yomu.app.db.entities.ModelStatus
 import com.yomu.app.db.entities.ModelType
+import com.yomu.app.translation.hf.HfDownloadResult
+import com.yomu.app.translation.hf.HfModelDownloader
 import com.yomu.core.Constants
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -30,7 +32,8 @@ import javax.inject.Singleton
 class ModelManager @Inject constructor(
     @ApplicationContext private val context: Context,
     private val modelDao: ModelDao,
-    private val okHttpClient: OkHttpClient
+    private val okHttpClient: OkHttpClient,
+    private val hfDownloader: HfModelDownloader
 ) {
     companion object {
         private const val ML_KIT_DOWNLOAD_TIMEOUT_MS = 120_000L
@@ -392,6 +395,54 @@ class ModelManager @Inject constructor(
             modelDao.updateModelStatus(modelId, ModelStatus.ERROR)
             false
         }
+    }
+
+    /**
+     * Download a model through the HuggingFace-authenticated path (ADR-0009 tiers 2/3, #90 part C):
+     * resumable, Bearer-authenticated, integrity-checked against the stored HF `oid` (= sha256).
+     * Returns [HfDownloadResult.GATED] when the user's account has not accepted the model's terms so
+     * the caller can prompt acceptance and retry with the same token.
+     *
+     * ponytail: uses the model's stored downloadUrl. For the gate to be meaningful the HF_AUTH
+     * entries must point at a *gated* GGUF repo; the current entries are public re-hosts staged during
+     * #84, so today this behaves as a plain authenticated download. Swapping to a gated URL needs no
+     * code change here — only the catalog/registry URL.
+     */
+    suspend fun downloadHfModel(
+        modelId: String,
+        token: String,
+        onProgress: (DownloadProgress) -> Unit = {}
+    ): HfDownloadResult = withContext(Dispatchers.IO) {
+        if (!isOnWifi()) return@withContext HfDownloadResult.FAILED
+        val model = modelDao.getModelById(modelId) ?: return@withContext HfDownloadResult.FAILED
+        if (!hasEnoughSpace(model.fileSize)) return@withContext HfDownloadResult.FAILED
+
+        modelDao.updateModelStatus(modelId, ModelStatus.DOWNLOADING)
+        val dest = File(getModelDir(model.type), model.fileName)
+
+        val result = hfDownloader.download(
+            url = model.downloadUrl,
+            dest = dest,
+            expectedSha256 = model.checksum,
+            token = token
+        ) { bytesDownloaded, totalBytes ->
+            if (totalBytes > 0) {
+                val progress = ((bytesDownloaded * 100) / totalBytes).toInt()
+                modelDao.updateDownloadProgress(modelId, progress)
+                onProgress(DownloadProgress(modelId, bytesDownloaded, totalBytes, progress))
+            }
+        }
+
+        modelDao.updateModelStatus(
+            modelId,
+            when (result) {
+                HfDownloadResult.SUCCESS -> ModelStatus.READY
+                // Gated is recoverable (accept terms, retry), so leave it AVAILABLE, not ERROR.
+                HfDownloadResult.GATED -> ModelStatus.AVAILABLE
+                HfDownloadResult.FAILED -> ModelStatus.ERROR
+            }
+        )
+        result
     }
 
     private suspend fun downloadMlKitTranslationModel(
