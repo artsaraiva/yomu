@@ -40,13 +40,13 @@ class TranslationEngineSelector @Inject constructor(
      * reloads the llama bridge onto the new GGUF. Rejects a non-hosted entry — the HF-auth download
      * path is not wired yet (#90 part C).
      */
-    fun selectLlmModel(option: LlmModelOption) {
+    suspend fun selectLlmModel(option: LlmModelOption) {
         if (option.tier != LlmModelTier.HOSTED) return
         sharedPreferences.edit().putString(Constants.PREF_LLM_MODEL, option.id).apply()
         applyLlmModel(option)
     }
 
-    private fun applyLlmModel(option: LlmModelOption) {
+    private suspend fun applyLlmModel(option: LlmModelOption) {
         val path = File(llmModelsDir, option.ggufFileName).absolutePath
         llamaBridge.selectModel(path, option.idKeyedBatch)
     }

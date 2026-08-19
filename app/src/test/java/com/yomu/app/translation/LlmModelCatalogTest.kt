@@ -65,4 +65,17 @@ class LlmModelCatalogTest {
         assertTrue(LlmModelCatalog.ALL.any { it.tier == LlmModelTier.HOSTED })
         assertTrue(LlmModelCatalog.ALL.any { it.tier == LlmModelTier.HF_AUTH })
     }
+
+    @Test
+    fun `every hosted entry carries a redistribution-compatible licence (AC 6)`() {
+        // ADR-0009: no entry ships HOSTED until its licence permits Yomu redistribution. Anything
+        // else must be HF_AUTH (fetched under the user's own account), never hosted.
+        val redistributable = setOf("MIT", "Apache-2.0")
+        LlmModelCatalog.ALL.filter { it.tier == LlmModelTier.HOSTED }.forEach {
+            assertTrue("${it.displayName}: ${it.licence}", it.licence in redistributable)
+        }
+        LlmModelCatalog.ALL.filter { it.tier == LlmModelTier.HF_AUTH }.forEach {
+            assertFalse("${it.displayName}: ${it.licence}", it.licence in redistributable)
+        }
+    }
 }

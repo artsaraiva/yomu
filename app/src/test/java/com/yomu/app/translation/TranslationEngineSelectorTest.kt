@@ -175,7 +175,7 @@ class TranslationEngineSelectorTest {
     }
 
     @Test
-    fun `selectLlmModel persists the id and reloads the bridge`() {
+    fun `selectLlmModel persists the id and reloads the bridge`() = runTest {
         val editor = Mockito.mock(SharedPreferences.Editor::class.java)
         Mockito.`when`(editor.putString(anyString(), anyString())).thenReturn(editor)
         val prefs = prefsWithEngine("llm")
@@ -197,7 +197,7 @@ class TranslationEngineSelectorTest {
     }
 
     @Test
-    fun `selectLlmModel rejects a non-hosted HF-auth model`() {
+    fun `selectLlmModel rejects a non-hosted HF-auth model`() = runTest {
         val editor = Mockito.mock(SharedPreferences.Editor::class.java)
         val prefs = prefsWithEngine("llm")
         Mockito.`when`(prefs.edit()).thenReturn(editor)

@@ -30,6 +30,14 @@ data class LlmModelOption(
     val ggufFileName: String,
     val sizeBytes: Long,
     val tier: LlmModelTier,
+    /**
+     * Confirmed licence (ADR-0009: licence sorts a model into a tier, and no entry ships HOSTED until
+     * its licence is confirmed to permit Yomu redistribution). Checked 2026-08-19:
+     * Qwen2.5 = Apache-2.0; CAT-Translate 0.8b/1.4b = MIT (cyberagent, finetunes of sbintuitions
+     * sarashina2.2, both declared MIT) → HOSTED. Gemma = Gemma Terms (restricts redistribution) →
+     * HF_AUTH. Also the "governed by its own licence" notice the ADR asks Yomu to surface.
+     */
+    val licence: String,
     /** Per-model (#84): the 0.8b/Qwen default refuse page context and stay per-line (false); larger
      *  siblings can emit one id-keyed reply for the whole page (true). */
     val idKeyedBatch: Boolean
@@ -55,6 +63,7 @@ object LlmModelCatalog {
         ggufFileName = Constants.QWEN25_15B_MODEL,
         sizeBytes = Constants.QWEN25_15B_SIZE,
         tier = LlmModelTier.HOSTED,
+        licence = "Apache-2.0",
         idKeyedBatch = false
     )
 
@@ -71,6 +80,7 @@ object LlmModelCatalog {
             ggufFileName = Constants.TRANSLATION_MODEL_4BIT,
             sizeBytes = Constants.TRANSLATION_MODEL_4BIT_SIZE,
             tier = LlmModelTier.HOSTED,
+            licence = "MIT",
             idKeyedBatch = false
         ),
         LlmModelOption(
@@ -79,6 +89,7 @@ object LlmModelCatalog {
             ggufFileName = Constants.CAT_TRANSLATION_14B_MODEL,
             sizeBytes = Constants.CAT_TRANSLATION_14B_SIZE,
             tier = LlmModelTier.HOSTED,
+            licence = "MIT",
             idKeyedBatch = true
         ),
         // Gemma Terms — Yomu cannot redistribute, so these ship through the user's own HF account.
@@ -88,6 +99,7 @@ object LlmModelCatalog {
             ggufFileName = Constants.GEMMA2_2B_MODEL,
             sizeBytes = Constants.GEMMA2_2B_SIZE,
             tier = LlmModelTier.HF_AUTH,
+            licence = "Gemma Terms",
             idKeyedBatch = true
         ),
         LlmModelOption(
@@ -96,6 +108,7 @@ object LlmModelCatalog {
             ggufFileName = Constants.TRANSLATEGEMMA_4B_MODEL,
             sizeBytes = Constants.TRANSLATEGEMMA_4B_SIZE,
             tier = LlmModelTier.HF_AUTH,
+            licence = "Gemma Terms",
             idKeyedBatch = true
         )
     )
