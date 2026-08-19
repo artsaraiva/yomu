@@ -27,9 +27,14 @@ class LlamaTranslationBridge(
      * Point the bridge at a different curated model (#90 part A). A no-op if unchanged; otherwise it
      * releases the loaded native model and drops to NotReady so the next [ensureReady] loads the new
      * GGUF. Safe to call while an engine other than LLM is active — the reload is lazy.
+     *
+     * Suspends on [readinessMutex], the same lock [ensureReady] and [generate] hold, so it can never
+     * free the native context while a generation is running on it (a switch mid-page would otherwise
+     * crash). It is suspend, not blocking, so waiting out a 120s batch never stalls the caller's
+     * thread (the ViewModel switches on a background coroutine — no ANR).
      */
-    fun selectModel(newModelPath: String, newIdKeyedBatch: Boolean) {
-        if (newModelPath == modelPath && newIdKeyedBatch == idKeyedBatch) return
+    suspend fun selectModel(newModelPath: String, newIdKeyedBatch: Boolean) = readinessMutex.withLock {
+        if (newModelPath == modelPath && newIdKeyedBatch == idKeyedBatch) return@withLock
         llamaBridge.release()
         modelPath = newModelPath
         idKeyedBatch = newIdKeyedBatch
@@ -100,8 +105,12 @@ class LlamaTranslationBridge(
         return generate(prompt, budget, BATCH_TIMEOUT_MS)
     }
 
-    private fun generate(prompt: String, maxTokens: Int, timeoutMs: Int): TranslationOutput? {
-        return when (val result = llamaBridge.generate(prompt, maxTokens, TEMPERATURE, timeoutMs)) {
+    // Holds readinessMutex across the native call so a concurrent selectModel cannot release the
+    // model out from under an in-flight generation (#90). If a switch slipped in between ensureReady
+    // and this lock, the model is unloaded here and llamaBridge.generate returns NotLoaded → null,
+    // which the caller treats as a failed line (source fallback) — no crash.
+    private suspend fun generate(prompt: String, maxTokens: Int, timeoutMs: Int): TranslationOutput? = readinessMutex.withLock {
+        return@withLock when (val result = llamaBridge.generate(prompt, maxTokens, TEMPERATURE, timeoutMs)) {
             is GenerationResult.Success -> {
                 val text = result.text.trim()
                 if (text.isBlank()) {

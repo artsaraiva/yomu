@@ -295,6 +295,8 @@ private fun LlmModelRow(
     val selectable = hosted && canRun
     val subtitle = buildString {
         append(option.sizeBytes.toFileSizeString())
+        append(" · ")
+        append(option.licence)
         append(if (hosted) " · Hosted" else " · HuggingFace sign-in required (coming soon)")
         if (hosted && !canRun) append(" · Won't fit this device")
     }

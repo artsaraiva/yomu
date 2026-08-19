@@ -96,8 +96,14 @@ class SettingsViewModel @Inject constructor(
     /** Pick which curated LLM fills the translation slot (#90 part A). Gated entries are ignored. */
     fun setLlmModel(option: LlmModelOption) {
         if (!_uiState.value.canRun(option)) return
-        translationEngineSelector.selectLlmModel(option)
-        _uiState.value = _uiState.value.copy(selectedLlmModelId = translationEngineSelector.currentLlmModel().id)
+        // Off the main thread: selectLlmModel waits out any in-flight generation before swapping the
+        // native model, which can take up to a batch timeout.
+        viewModelScope.launch {
+            translationEngineSelector.selectLlmModel(option)
+            _uiState.value = _uiState.value.copy(
+                selectedLlmModelId = translationEngineSelector.currentLlmModel().id
+            )
+        }
     }
 
     private fun deviceTotalMemBytes(): Long {
