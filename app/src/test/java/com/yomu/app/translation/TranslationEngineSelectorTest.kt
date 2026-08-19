@@ -197,8 +197,9 @@ class TranslationEngineSelectorTest {
     }
 
     @Test
-    fun `selectLlmModel rejects a non-hosted HF-auth model`() = runTest {
+    fun `selectLlmModel applies an HF-auth model now that the download path exists`() = runTest {
         val editor = Mockito.mock(SharedPreferences.Editor::class.java)
+        Mockito.`when`(editor.putString(anyString(), anyString())).thenReturn(editor)
         val prefs = prefsWithEngine("llm")
         Mockito.`when`(prefs.edit()).thenReturn(editor)
         val llamaBridge = Mockito.mock(LlamaTranslationBridge::class.java)
@@ -213,8 +214,8 @@ class TranslationEngineSelectorTest {
         val hfAuth = LlmModelCatalog.ALL.first { it.tier == LlmModelTier.HF_AUTH }
         selector.selectLlmModel(hfAuth)
 
-        Mockito.verifyNoInteractions(llamaBridge)
-        Mockito.verify(prefs, Mockito.never()).edit()
+        Mockito.verify(editor).putString("llm_model", hfAuth.id)
+        Mockito.verify(llamaBridge).selectModel(anyString(), Mockito.eq(hfAuth.idKeyedBatch))
     }
 
     private fun prefsWithEngine(engineId: String): SharedPreferences {

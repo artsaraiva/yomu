@@ -37,11 +37,11 @@ class TranslationEngineSelector @Inject constructor(
 
     /**
      * Choose which curated LLM occupies the translation slot (#90 part A). Persists the id and
-     * reloads the llama bridge onto the new GGUF. Rejects a non-hosted entry — the HF-auth download
-     * path is not wired yet (#90 part C).
+     * reloads the llama bridge onto the new GGUF. Both tiers are selectable now that the HF-auth
+     * download path exists (#90 part C); the UI only enables an entry once its GGUF is present and it
+     * fits the device, and a missing file degrades to a source-text fallback rather than a crash.
      */
     suspend fun selectLlmModel(option: LlmModelOption) {
-        if (option.tier != LlmModelTier.HOSTED) return
         sharedPreferences.edit().putString(Constants.PREF_LLM_MODEL, option.id).apply()
         applyLlmModel(option)
     }

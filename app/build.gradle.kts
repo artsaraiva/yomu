@@ -17,6 +17,10 @@ android {
         versionName = "1.0"
         testInstrumentationRunner = "com.yomu.app.CustomTestRunner"
         vectorDrawables { useSupportLibrary = true }
+
+        // AppAuth's RedirectUriReceiverActivity captures the HF OAuth redirect (#90 part C). Must
+        // match HfAuthConfig.REDIRECT_URI's scheme (yomu://auth/callback).
+        manifestPlaceholders["appAuthRedirectScheme"] = "yomu"
     }
 
     buildTypes {
@@ -69,6 +73,9 @@ dependencies {
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
+    // HuggingFace OAuth (PKCE) for the tier-2/3 authenticated model download (#90 part C).
+    implementation("net.openid:appauth:0.11.1")
 
     implementation("io.coil-kt:coil-compose:2.5.0")
     implementation("com.google.mlkit:translate:17.0.3")
