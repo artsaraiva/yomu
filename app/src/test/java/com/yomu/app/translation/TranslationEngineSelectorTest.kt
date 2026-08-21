@@ -160,6 +160,70 @@ class TranslationEngineSelectorTest {
         assertEquals(true, selector.supportsBatch())
     }
 
+    @Test
+    fun `currentLlmModel defaults when nothing is picked`() {
+        val prefs = prefsWithEngine("llm")
+        Mockito.`when`(prefs.getString(Mockito.eq("llm_model"), Mockito.any())).thenReturn(null)
+        val selector = TranslationEngineSelector(
+            Mockito.mock(MlKitTranslationBridge::class.java),
+            Mockito.mock(OpusMtTranslationBridge::class.java),
+            Mockito.mock(LlamaTranslationBridge::class.java),
+            prefs
+        )
+
+        assertSame(LlmModelCatalog.DEFAULT, selector.currentLlmModel())
+    }
+
+    @Test
+    fun `selectLlmModel persists the id and reloads the bridge`() = runTest {
+        val editor = Mockito.mock(SharedPreferences.Editor::class.java)
+        Mockito.`when`(editor.putString(anyString(), anyString())).thenReturn(editor)
+        val prefs = prefsWithEngine("llm")
+        Mockito.`when`(prefs.edit()).thenReturn(editor)
+        val llamaBridge = Mockito.mock(LlamaTranslationBridge::class.java)
+
+        val selector = TranslationEngineSelector(
+            Mockito.mock(MlKitTranslationBridge::class.java),
+            Mockito.mock(OpusMtTranslationBridge::class.java),
+            llamaBridge,
+            prefs
+        )
+
+        val floor = LlmModelCatalog.fromId(com.yomu.core.Constants.CAT_TRANSLATION_MODEL_ID)!!
+        selector.selectLlmModel(floor)
+
+        Mockito.verify(editor).putString("llm_model", floor.id)
+        Mockito.verify(llamaBridge).selectModel(anyString(), Mockito.eq(floor.idKeyedBatch))
+    }
+
+    @Test
+    fun `selectLlmModel applies an HF-auth model now that the download path exists`() = runTest {
+        val editor = Mockito.mock(SharedPreferences.Editor::class.java)
+        Mockito.`when`(editor.putString(anyString(), anyString())).thenReturn(editor)
+        val prefs = prefsWithEngine("llm")
+        Mockito.`when`(prefs.edit()).thenReturn(editor)
+        val llamaBridge = Mockito.mock(LlamaTranslationBridge::class.java)
+
+        val selector = TranslationEngineSelector(
+            Mockito.mock(MlKitTranslationBridge::class.java),
+            Mockito.mock(OpusMtTranslationBridge::class.java),
+            llamaBridge,
+            prefs
+        )
+
+        // Synthetic HF_AUTH option: the catalog has no HF_AUTH member today, but selectLlmModel must
+        // still apply one (tier no longer blocks selection now the download path exists).
+        val hfAuth = LlmModelCatalog.DEFAULT.copy(
+            id = "synthetic_hf",
+            tier = LlmModelTier.HF_AUTH,
+            idKeyedBatch = true
+        )
+        selector.selectLlmModel(hfAuth)
+
+        Mockito.verify(editor).putString("llm_model", hfAuth.id)
+        Mockito.verify(llamaBridge).selectModel(anyString(), Mockito.eq(hfAuth.idKeyedBatch))
+    }
+
     private fun prefsWithEngine(engineId: String): SharedPreferences {
         val prefs = Mockito.mock(SharedPreferences::class.java)
         Mockito.`when`(prefs.getString(Mockito.eq("translation_engine"), Mockito.any())).thenReturn(engineId)

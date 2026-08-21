@@ -50,6 +50,15 @@ object Constants {
     // (3.8GB) fits; the quant drop is the price of measuring a 7B on-device at all.
     const val HUNYUAN_MT_MODEL = "hunyuan_mt_7b_q3_k_m.gguf"
     
+    // GGUF file sizes (bytes) = the HuggingFace LFS-reported size of each pinned Q4_K_M revision.
+    // Single source of truth: both the ModelManager download registry (fileSize) and the LlmModelCatalog
+    // device-fit gate (sizeBytes) read these, so the two can never drift out of sync (#90).
+    const val QWEN25_15B_SIZE = 986_048_768L
+    const val TRANSLATION_MODEL_4BIT_SIZE = 528_205_184L
+    const val CAT_TRANSLATION_14B_SIZE = 931_179_904L
+    const val GEMMA2_2B_SIZE = 1_708_582_752L
+    const val TRANSLATEGEMMA_4B_SIZE = 2_489_909_760L
+
     const val OPUS_MT_ENCODER_MODEL = "opus_mt_encoder_model_quantized.onnx"
     const val OPUS_MT_DECODER_MODEL = "opus_mt_decoder_with_past_model_quantized.onnx"
     const val OPUS_MT_TOKENIZER = "tokenizer.json"
@@ -70,6 +79,9 @@ object Constants {
     const val PREF_BUTTON_POSITION_X = "button_position_x"
     const val PREF_BUTTON_POSITION_Y = "button_position_y"
     const val PREF_TRANSLATION_ENGINE = "translation_engine"
+    // Which curated LLM occupies the translation slot when engine == LLM (ADR-0009). Stores a
+    // ModelEntity id; nothing picked keeps the default (Qwen2.5-1.5B, ADR-0010).
+    const val PREF_LLM_MODEL = "llm_model"
     const val PREF_FONT_SIZE_SCALE = "font_size_scale"
     
     const val DEFAULT_TARGET_LANGUAGE = "en"

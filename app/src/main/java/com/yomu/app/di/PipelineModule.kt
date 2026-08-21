@@ -22,7 +22,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import java.io.File
-import javax.inject.Named
+import com.yomu.app.translation.LlmModelCatalog
 import javax.inject.Singleton
 
 @Module
@@ -59,26 +59,24 @@ object PipelineModule {
         return LlamaBridge(context)
     }
 
-    @Provides
-    @Singleton
-    @Named("llama_model_path")
-    fun provideLlamaModelPath(@ApplicationContext context: Context): String {
-        return File(
-            context.filesDir,
-            // Default translation model: Qwen2.5-1.5B-Instruct (ADR-0010). Phone-confirmed on-device
-            // winner — ~4x cleaner residue than the 0.8b at speed parity within budget. The 0.8b
-            // (TRANSLATION_MODEL_4BIT) stays as the selectable low-storage floor.
-            "${Constants.MODELS_DIR}/${Constants.LLM_MODELS_DIR}/${Constants.QWEN25_15B_MODEL}"
-        ).absolutePath
-    }
+    // filesDir/models/llm — where curated translation GGUFs are staged (#90).
+    private fun llmModelsDir(context: Context): File =
+        File(context.filesDir, "${Constants.MODELS_DIR}/${Constants.LLM_MODELS_DIR}")
 
     @Provides
     @Singleton
     fun provideLlamaTranslationBridge(
         llamaBridge: LlamaBridge,
-        @Named("llama_model_path") modelPath: String
+        @ApplicationContext context: Context,
+        sharedPreferences: SharedPreferences
     ): LlamaTranslationBridge {
-        return LlamaTranslationBridge(llamaBridge, modelPath)
+        // Initial model is the persisted LLM choice, or the ADR-0010 default (Qwen2.5-1.5B) when
+        // nothing is picked. Runtime-selected from here on via TranslationEngineSelector (#90 part A).
+        val selected = LlmModelCatalog.selectedOrDefault(
+            sharedPreferences.getString(Constants.PREF_LLM_MODEL, null)
+        )
+        val modelPath = File(llmModelsDir(context), selected.ggufFileName).absolutePath
+        return LlamaTranslationBridge(llamaBridge, modelPath, selected.idKeyedBatch)
     }
 
     @Provides
@@ -87,13 +85,15 @@ object PipelineModule {
         mlKitBridge: MlKitTranslationBridge,
         opusMtBridge: OpusMtTranslationBridge,
         llamaBridge: LlamaTranslationBridge,
-        sharedPreferences: SharedPreferences
+        sharedPreferences: SharedPreferences,
+        @ApplicationContext context: Context
     ): TranslationEngineSelector {
         return TranslationEngineSelector(
             mlKitBridge,
             opusMtBridge,
             llamaBridge,
-            sharedPreferences
+            sharedPreferences,
+            llmModelsDir(context)
         )
     }
 
@@ -106,6 +106,11 @@ object PipelineModule {
     fun provideTranslationEngine(selector: TranslationEngineSelector): TranslationEngine {
         // ponytail: engineId is fixed at DI construction; cache keys won't change mid-session
         // if the user switches engines. Acceptable for Phase 1.
+        // modelId is left null on purpose (#90 A.3): the persistent cache is read/written only on the
+        // per-line ML Kit/OPUS path (translateBubbles). Both LLM paths (translateBatch/translatePerLine)
+        // bypass the cache entirely, so switching curated LLMs can never serve another model's cached
+        // lines. buildCacheKey already takes modelId — thread the selected LLM id here if the LLM path
+        // ever starts caching.
         return TranslationEngine(selector, selector.engineId)
     }
 
