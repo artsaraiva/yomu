@@ -211,7 +211,13 @@ class TranslationEngineSelectorTest {
             prefs
         )
 
-        val hfAuth = LlmModelCatalog.ALL.first { it.tier == LlmModelTier.HF_AUTH }
+        // Synthetic HF_AUTH option: the catalog has no HF_AUTH member today, but selectLlmModel must
+        // still apply one (tier no longer blocks selection now the download path exists).
+        val hfAuth = LlmModelCatalog.DEFAULT.copy(
+            id = "synthetic_hf",
+            tier = LlmModelTier.HF_AUTH,
+            idKeyedBatch = true
+        )
         selector.selectLlmModel(hfAuth)
 
         Mockito.verify(editor).putString("llm_model", hfAuth.id)

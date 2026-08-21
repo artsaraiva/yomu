@@ -49,8 +49,9 @@ class LlmModelCatalogTest {
 
     @Test
     fun `a large model is gated out on a low-RAM 4GB device`() {
-        // TranslateGemma-4B (~2.5GB GGUF) plus resident overhead exceeds the usable-RAM budget on 4GB.
-        val big = LlmModelCatalog.fromId(Constants.TRANSLATEGEMMA_4B_MODEL_ID)!!
+        // A ~3GB GGUF plus resident overhead exceeds the usable-RAM budget on 4GB. Synthetic so the
+        // test does not depend on a specific large model staying in the shortlist.
+        val big = LlmModelCatalog.DEFAULT.copy(id = "synthetic_big", sizeBytes = 3_000_000_000L)
         assertFalse(LlmModelCatalog.canRunOnDevice(big, fourGb))
     }
 
@@ -61,9 +62,8 @@ class LlmModelCatalogTest {
     }
 
     @Test
-    fun `the shortlist contains both hosted and HF-auth tiers`() {
-        assertTrue(LlmModelCatalog.ALL.any { it.tier == LlmModelTier.HOSTED })
-        assertTrue(LlmModelCatalog.ALL.any { it.tier == LlmModelTier.HF_AUTH })
+    fun `the shortlist is all hosted today (no usable gated GGUF for the HF-auth candidates)`() {
+        assertTrue(LlmModelCatalog.ALL.all { it.tier == LlmModelTier.HOSTED })
     }
 
     @Test

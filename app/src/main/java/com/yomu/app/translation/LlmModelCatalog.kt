@@ -11,9 +11,9 @@ enum class LlmModelTier {
     HOSTED,
 
     /**
-     * Yomu-tested but not redistributable (Gemma Terms). Pulled through the HF API under the user's
-     * own credentials. The HF-auth download path is not wired yet (blocked on HF OAuth app
-     * registration, #90 part C), so these are surfaced but not selectable.
+     * Yomu-tested but not redistributable (e.g. Gemma Terms). Pulled through the HF API under the
+     * user's own credentials after they accept the model's gate. The download path is built
+     * ([com.yomu.app.translation.hf]); no catalog entry uses this tier today (see [LlmModelCatalog.ALL]).
      */
     HF_AUTH
 }
@@ -68,9 +68,15 @@ object LlmModelCatalog {
     )
 
     /**
-     * The curated selectable shortlist. HOSTED entries are selectable today; HF_AUTH entries are
-     * listed for transparency but disabled until the HF-auth path ships (#90 part C). The open
-     * "Custom — unsupported" slot (ADR-0001) is a separate escape hatch, not part of this shortlist.
+     * The curated selectable shortlist. All entries are HOSTED (redistribution-clean) today.
+     *
+     * Gemma / TranslateGemma were the intended HF_AUTH (tier-2) members, but there is no usable
+     * licence-clean gated GGUF for them: the official gated repo ships only a 10.5 GB f32 file, and
+     * the small Q4_K_M quants live only on *ungated* public re-hosts, where the gate — hence the
+     * whole "user accepts the licence under their own account" premise — cannot apply. So they are
+     * dropped rather than offered through a gate that does not exist. The HF-auth mechanism
+     * ([com.yomu.app.translation.hf]) stays wired and ready; add a member here the moment a model
+     * ships a small gated GGUF. The open "Custom — unsupported" slot (ADR-0001) is a separate hatch.
      */
     val ALL: List<LlmModelOption> = listOf(
         DEFAULT,
@@ -90,25 +96,6 @@ object LlmModelCatalog {
             sizeBytes = Constants.CAT_TRANSLATION_14B_SIZE,
             tier = LlmModelTier.HOSTED,
             licence = "MIT",
-            idKeyedBatch = true
-        ),
-        // Gemma Terms — Yomu cannot redistribute, so these ship through the user's own HF account.
-        LlmModelOption(
-            id = Constants.GEMMA2_2B_MODEL_ID,
-            displayName = "Gemma 2 2B Instruct",
-            ggufFileName = Constants.GEMMA2_2B_MODEL,
-            sizeBytes = Constants.GEMMA2_2B_SIZE,
-            tier = LlmModelTier.HF_AUTH,
-            licence = "Gemma Terms",
-            idKeyedBatch = true
-        ),
-        LlmModelOption(
-            id = Constants.TRANSLATEGEMMA_4B_MODEL_ID,
-            displayName = "TranslateGemma 4B",
-            ggufFileName = Constants.TRANSLATEGEMMA_4B_MODEL,
-            sizeBytes = Constants.TRANSLATEGEMMA_4B_SIZE,
-            tier = LlmModelTier.HF_AUTH,
-            licence = "Gemma Terms",
             idKeyedBatch = true
         )
     )

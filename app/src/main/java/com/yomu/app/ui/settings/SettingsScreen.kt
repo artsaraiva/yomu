@@ -313,8 +313,12 @@ private fun EngineModelCard(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                     }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    HfSignInRow(signedIn = state.hfSignedIn, onSignIn = onHfSignIn, onSignOut = onHfSignOut)
+                    // Only worth showing when a gated model actually needs it — none in the catalog
+                    // today, so this stays hidden until an HF_AUTH entry is added.
+                    if (state.llmModels.any { it.tier == LlmModelTier.HF_AUTH }) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        HfSignInRow(signedIn = state.hfSignedIn, onSignIn = onHfSignIn, onSignOut = onHfSignOut)
+                    }
                 }
             }
         }
