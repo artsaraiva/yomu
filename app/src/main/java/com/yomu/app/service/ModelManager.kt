@@ -11,6 +11,8 @@ import com.yomu.app.db.ModelDao
 import com.yomu.app.db.entities.ModelEntity
 import com.yomu.app.db.entities.ModelStatus
 import com.yomu.app.db.entities.ModelType
+import com.yomu.app.translation.hf.HfDownloadResult
+import com.yomu.app.translation.hf.HfModelDownloader
 import com.yomu.core.Constants
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -30,7 +32,8 @@ import javax.inject.Singleton
 class ModelManager @Inject constructor(
     @ApplicationContext private val context: Context,
     private val modelDao: ModelDao,
-    private val okHttpClient: OkHttpClient
+    private val okHttpClient: OkHttpClient,
+    private val hfDownloader: HfModelDownloader
 ) {
     companion object {
         private const val ML_KIT_DOWNLOAD_TIMEOUT_MS = 120_000L
@@ -122,7 +125,7 @@ class ModelManager @Inject constructor(
                 name = "CAT-Translate 0.8B (Q4_K_M)",
                 type = ModelType.LLM,
                 fileName = Constants.TRANSLATION_MODEL_4BIT,
-                fileSize = 528_205_184L,
+                fileSize = Constants.TRANSLATION_MODEL_4BIT_SIZE,
                 downloadUrl = "https://huggingface.co/mradermacher/CAT-Translate-0.8b-GGUF/resolve/main/CAT-Translate-0.8b.Q4_K_M.gguf",
                 checksum = "6de8e40b687eb2248727c8ad208c54af8c82ad52b415901859d5fcd7fd65bb4c",
                 status = ModelStatus.AVAILABLE,
@@ -139,7 +142,7 @@ class ModelManager @Inject constructor(
                 name = "CAT-Translate 1.4B (Q4_K_M)",
                 type = ModelType.LLM,
                 fileName = Constants.CAT_TRANSLATION_14B_MODEL,
-                fileSize = 931_179_904L,
+                fileSize = Constants.CAT_TRANSLATION_14B_SIZE,
                 downloadUrl = "https://huggingface.co/mradermacher/CAT-Translate-1.4b-GGUF/resolve/main/CAT-Translate-1.4b.Q4_K_M.gguf",
                 checksum = "332371e7aa764c6dde6df70956062e839aed69ad3db28e1af118aa99b6f63467",
                 status = ModelStatus.AVAILABLE,
@@ -180,7 +183,7 @@ class ModelManager @Inject constructor(
                 name = "TranslateGemma 4B (Q4_K_M)",
                 type = ModelType.LLM,
                 fileName = Constants.TRANSLATEGEMMA_4B_MODEL,
-                fileSize = 2_489_909_760L,
+                fileSize = Constants.TRANSLATEGEMMA_4B_SIZE,
                 downloadUrl = "https://huggingface.co/mradermacher/translategemma-4b-it-GGUF/resolve/main/translategemma-4b-it.Q4_K_M.gguf",
                 checksum = "81200d03e843d2ec1ece6eeafe7d13cb6e5211e1fcd336ade55790b683a08330",
                 status = ModelStatus.AVAILABLE,
@@ -192,7 +195,7 @@ class ModelManager @Inject constructor(
                 name = "Qwen2.5 1.5B Instruct (Q4_K_M)",
                 type = ModelType.LLM,
                 fileName = Constants.QWEN25_15B_MODEL,
-                fileSize = 986_048_768L,
+                fileSize = Constants.QWEN25_15B_SIZE,
                 downloadUrl = "https://huggingface.co/bartowski/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/Qwen2.5-1.5B-Instruct-Q4_K_M.gguf",
                 checksum = "1adf0b11065d8ad2e8123ea110d1ec956dab4ab038eab665614adba04b6c3370",
                 status = ModelStatus.AVAILABLE,
@@ -204,7 +207,7 @@ class ModelManager @Inject constructor(
                 name = "Gemma 2 2B Instruct (Q4_K_M)",
                 type = ModelType.LLM,
                 fileName = Constants.GEMMA2_2B_MODEL,
-                fileSize = 1_708_582_752L,
+                fileSize = Constants.GEMMA2_2B_SIZE,
                 downloadUrl = "https://huggingface.co/bartowski/gemma-2-2b-it-GGUF/resolve/main/gemma-2-2b-it-Q4_K_M.gguf",
                 checksum = "e0aee85060f168f0f2d8473d7ea41ce2f3230c1bc1374847505ea599288a7787",
                 status = ModelStatus.AVAILABLE,
@@ -392,6 +395,54 @@ class ModelManager @Inject constructor(
             modelDao.updateModelStatus(modelId, ModelStatus.ERROR)
             false
         }
+    }
+
+    /**
+     * Download a model through the HuggingFace-authenticated path (ADR-0009 tiers 2/3, #90 part C):
+     * resumable, Bearer-authenticated, integrity-checked against the stored HF `oid` (= sha256).
+     * Returns [HfDownloadResult.GATED] when the user's account has not accepted the model's terms so
+     * the caller can prompt acceptance and retry with the same token.
+     *
+     * ponytail: uses the model's stored downloadUrl. For the gate to be meaningful the HF_AUTH
+     * entries must point at a *gated* GGUF repo; the current entries are public re-hosts staged during
+     * #84, so today this behaves as a plain authenticated download. Swapping to a gated URL needs no
+     * code change here — only the catalog/registry URL.
+     */
+    suspend fun downloadHfModel(
+        modelId: String,
+        token: String,
+        onProgress: (DownloadProgress) -> Unit = {}
+    ): HfDownloadResult = withContext(Dispatchers.IO) {
+        if (!isOnWifi()) return@withContext HfDownloadResult.FAILED
+        val model = modelDao.getModelById(modelId) ?: return@withContext HfDownloadResult.FAILED
+        if (!hasEnoughSpace(model.fileSize)) return@withContext HfDownloadResult.FAILED
+
+        modelDao.updateModelStatus(modelId, ModelStatus.DOWNLOADING)
+        val dest = File(getModelDir(model.type), model.fileName)
+
+        val result = hfDownloader.download(
+            url = model.downloadUrl,
+            dest = dest,
+            expectedSha256 = model.checksum,
+            token = token
+        ) { bytesDownloaded, totalBytes ->
+            if (totalBytes > 0) {
+                val progress = ((bytesDownloaded * 100) / totalBytes).toInt()
+                modelDao.updateDownloadProgress(modelId, progress)
+                onProgress(DownloadProgress(modelId, bytesDownloaded, totalBytes, progress))
+            }
+        }
+
+        modelDao.updateModelStatus(
+            modelId,
+            when (result) {
+                HfDownloadResult.SUCCESS -> ModelStatus.READY
+                // Gated is recoverable (accept terms, retry), so leave it AVAILABLE, not ERROR.
+                HfDownloadResult.GATED -> ModelStatus.AVAILABLE
+                HfDownloadResult.FAILED -> ModelStatus.ERROR
+            }
+        )
+        result
     }
 
     private suspend fun downloadMlKitTranslationModel(

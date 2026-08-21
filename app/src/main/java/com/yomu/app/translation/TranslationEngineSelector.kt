@@ -7,6 +7,7 @@ import com.yomu.ml.TranslationBridge
 import com.yomu.ml.TranslationOutput
 import com.yomu.ml.TranslationStatus
 import com.yomu.ml.opusmt.OpusMtTranslationBridge
+import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -15,14 +16,40 @@ class TranslationEngineSelector @Inject constructor(
     private val mlKitBridge: MlKitTranslationBridge,
     private val opusMtBridge: OpusMtTranslationBridge,
     private val llamaBridge: LlamaTranslationBridge,
-    private val sharedPreferences: SharedPreferences
+    private val sharedPreferences: SharedPreferences,
+    // filesDir/models/llm — where curated GGUFs live. Defaulted so unit tests that mock the bridges
+    // need not supply it; DI passes the real directory.
+    private val llmModelsDir: File = File("")
 ) : TranslationBridge {
 
     private var current: TranslationEngineType = loadEngine()
 
+    // No startup reconfiguration: the DI provider constructs the llama bridge from the same
+    // persisted PREF_LLM_MODEL, so bridge and selector already agree at startup (#90 part A).
+
     val engineId: String get() = current.id
 
     fun currentEngine(): TranslationEngineType = current
+
+    /** The curated LLM currently in the translation slot (ADR-0009); default when nothing is picked. */
+    fun currentLlmModel(): LlmModelOption =
+        LlmModelCatalog.selectedOrDefault(sharedPreferences.getString(Constants.PREF_LLM_MODEL, null))
+
+    /**
+     * Choose which curated LLM occupies the translation slot (#90 part A). Persists the id and
+     * reloads the llama bridge onto the new GGUF. Both tiers are selectable now that the HF-auth
+     * download path exists (#90 part C); the UI only enables an entry once its GGUF is present and it
+     * fits the device, and a missing file degrades to a source-text fallback rather than a crash.
+     */
+    suspend fun selectLlmModel(option: LlmModelOption) {
+        sharedPreferences.edit().putString(Constants.PREF_LLM_MODEL, option.id).apply()
+        applyLlmModel(option)
+    }
+
+    private suspend fun applyLlmModel(option: LlmModelOption) {
+        val path = File(llmModelsDir, option.ggufFileName).absolutePath
+        llamaBridge.selectModel(path, option.idKeyedBatch)
+    }
 
     fun selectEngine(type: TranslationEngineType) {
         if (type == current) return

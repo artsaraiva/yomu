@@ -7,13 +7,40 @@ import java.io.File
 
 class LlamaTranslationBridge(
     private val llamaBridge: LlamaBridge,
-    private val modelPath: String,
+    modelPath: String,
     // Per-model, not per-class: the curated 0.8b refuses on any surrounding context (#68/#71) so it
     // stays on the per-line floor (false), but a larger sibling can emit one id-keyed reply for the
     // whole page (#72/#84). The #84 bake-off constructs capable candidates with this set true so
     // TranslationEngine.translate routes them through translateBatch instead of the per-line path.
-    private val idKeyedBatch: Boolean = false
+    idKeyedBatch: Boolean = false
 ) : TranslationBridge {
+
+    // Runtime-selected (ADR-0009 #90): which curated GGUF occupies the translation slot, switchable
+    // via [selectModel]. Was a compile-time constant hardcoded to the 0.8b path.
+    @Volatile
+    private var modelPath: String = modelPath
+
+    @Volatile
+    private var idKeyedBatch: Boolean = idKeyedBatch
+
+    /**
+     * Point the bridge at a different curated model (#90 part A). A no-op if unchanged; otherwise it
+     * releases the loaded native model and drops to NotReady so the next [ensureReady] loads the new
+     * GGUF. Safe to call while an engine other than LLM is active — the reload is lazy.
+     *
+     * Suspends on [readinessMutex], the same lock [ensureReady] and [generate] hold, so it can never
+     * free the native context while a generation is running on it (a switch mid-page would otherwise
+     * crash). It is suspend, not blocking, so waiting out a 120s batch never stalls the caller's
+     * thread (the ViewModel switches on a background coroutine — no ANR).
+     */
+    suspend fun selectModel(newModelPath: String, newIdKeyedBatch: Boolean) = readinessMutex.withLock {
+        if (newModelPath == modelPath && newIdKeyedBatch == idKeyedBatch) return@withLock
+        llamaBridge.release()
+        modelPath = newModelPath
+        idKeyedBatch = newIdKeyedBatch
+        status = TranslationStatus.NotReady
+        Log.i(TAG, "selectModel switched idKeyedBatch=$newIdKeyedBatch")
+    }
 
     companion object {
         private const val TAG = "LlamaTranslationBridge"
@@ -78,8 +105,12 @@ class LlamaTranslationBridge(
         return generate(prompt, budget, BATCH_TIMEOUT_MS)
     }
 
-    private fun generate(prompt: String, maxTokens: Int, timeoutMs: Int): TranslationOutput? {
-        return when (val result = llamaBridge.generate(prompt, maxTokens, TEMPERATURE, timeoutMs)) {
+    // Holds readinessMutex across the native call so a concurrent selectModel cannot release the
+    // model out from under an in-flight generation (#90). If a switch slipped in between ensureReady
+    // and this lock, the model is unloaded here and llamaBridge.generate returns NotLoaded → null,
+    // which the caller treats as a failed line (source fallback) — no crash.
+    private suspend fun generate(prompt: String, maxTokens: Int, timeoutMs: Int): TranslationOutput? = readinessMutex.withLock {
+        return@withLock when (val result = llamaBridge.generate(prompt, maxTokens, TEMPERATURE, timeoutMs)) {
             is GenerationResult.Success -> {
                 val text = result.text.trim()
                 if (text.isBlank()) {
