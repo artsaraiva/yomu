@@ -37,6 +37,47 @@ class BubbleDetectorNmsTest {
     }
 
     @Test
+    fun nonMaxSuppressDetections_dropsBoxNearlyContainedInAnother() {
+        // #88 bug B: the small box sits fully inside the big one but their IoU is ~0.04, so an
+        // IoU-only pass keeps both and their texts stack. Containment suppression drops the small one.
+        val big = detection(0.9f, floatArrayOf(0f, 0f, 200f, 200f))
+        val nested = detection(0.6f, floatArrayOf(50f, 50f, 90f, 90f))
+
+        val kept = nonMaxSuppressDetections(
+            detections = listOf(nested, big),
+            iouThreshold = 0.45f,
+            containmentThreshold = 0.97f
+        )
+
+        assertEquals(1, kept.size)
+        assertTrue(kept.contains(big))
+    }
+
+    @Test
+    fun nonMaxSuppressDetections_keepsNestedBoxWhenContainmentDisabled() {
+        // Default threshold disables containment, leaving the prior IoU-only behaviour intact.
+        val big = detection(0.9f, floatArrayOf(0f, 0f, 200f, 200f))
+        val nested = detection(0.6f, floatArrayOf(50f, 50f, 90f, 90f))
+
+        val kept = nonMaxSuppressDetections(
+            detections = listOf(nested, big),
+            iouThreshold = 0.45f
+        )
+
+        assertEquals(2, kept.size)
+    }
+
+    @Test
+    fun detectionContainedFraction_isFullWhenInnerInsideOuter() {
+        val outer = detection(0.9f, floatArrayOf(0f, 0f, 200f, 200f))
+        val inner = detection(0.6f, floatArrayOf(50f, 50f, 90f, 90f))
+
+        assertEquals(1.0f, detectionContainedFraction(inner, outer), 1e-4f)
+        // Only 1600/40000 of the big box lies inside the small one — not a containment either way.
+        assertEquals(0.04f, detectionContainedFraction(outer, inner), 1e-4f)
+    }
+
+    @Test
     fun detectionIou_calculatesExpectedValue() {
         val first = detection(0.9f, floatArrayOf(0f, 0f, 100f, 100f))
         val second = detection(0.8f, floatArrayOf(10f, 10f, 110f, 110f))
