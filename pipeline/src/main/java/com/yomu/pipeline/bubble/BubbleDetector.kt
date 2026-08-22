@@ -18,6 +18,12 @@ class BubbleDetector(private val onnxRuntime: OnnxRuntime) {
         private const val TAG = "BubbleDetector"
         private const val CONFIDENCE_THRESHOLD = 0.25f
         private const val NMS_IOU_THRESHOLD = 0.80f
+        // #88 bug B: a small box sitting almost entirely inside a bigger one has low IoU, so IoU-NMS
+        // keeps both — two boxes over the same balloon, whose translated texts then paint on top of
+        // each other. Suppress a box that is at least this fraction contained in a higher-confidence
+        // kept box. 0.97 (not lower) so only near-perfect duplicates go; genuinely-close distinct
+        // balloons the model under-separates stay for the detector eval (#57), not this heuristic.
+        private const val NMS_CONTAINMENT_THRESHOLD = 0.97f
     }
 
     private var isLoaded = false
@@ -48,7 +54,11 @@ class BubbleDetector(private val onnxRuntime: OnnxRuntime) {
 
         val rawDetections = onnxRuntime.runBitmapInference(path, bitmap)
         val confidenceFiltered = rawDetections.filter { it.confidence >= CONFIDENCE_THRESHOLD }
-        val detections = nonMaxSuppressDetections(confidenceFiltered, NMS_IOU_THRESHOLD)
+        val detections = nonMaxSuppressDetections(
+            confidenceFiltered,
+            NMS_IOU_THRESHOLD,
+            NMS_CONTAINMENT_THRESHOLD
+        )
         lastStats = DetectStats(thresholded = confidenceFiltered.size, kept = detections.size)
         Log.d(
             TAG,
@@ -86,22 +96,54 @@ class BubbleDetector(private val onnxRuntime: OnnxRuntime) {
 
 internal fun nonMaxSuppressDetections(
     detections: List<OnnxRuntime.Detection>,
-    iouThreshold: Float
+    iouThreshold: Float,
+    // Above 1 disables containment suppression (a fraction is never > 1), keeping IoU-only behaviour.
+    containmentThreshold: Float = Float.MAX_VALUE
 ): List<OnnxRuntime.Detection> {
     if (detections.isEmpty()) return emptyList()
     val sorted = detections.sortedByDescending { it.confidence }
     val kept = mutableListOf<OnnxRuntime.Detection>()
 
     for (candidate in sorted) {
-        val overlaps = kept.any { keptDetection ->
-            detectionIou(candidate, keptDetection) > iouThreshold
+        // Boxes are visited highest-confidence first, so a suppressed candidate always loses to a
+        // box we already trust more. IoU catches near-equal boxes; the containment checks catch the
+        // #88 case where one box nearly sits inside the other (either direction) but IoU stays low.
+        val redundant = kept.any { keptDetection ->
+            detectionIou(candidate, keptDetection) > iouThreshold ||
+                detectionContainedFraction(candidate, keptDetection) >= containmentThreshold ||
+                detectionContainedFraction(keptDetection, candidate) >= containmentThreshold
         }
-        if (!overlaps) {
+        if (!redundant) {
             kept.add(candidate)
         }
     }
 
     return kept
+}
+
+internal fun detectionContainedFraction(
+    inner: OnnxRuntime.Detection,
+    outer: OnnxRuntime.Detection
+): Float {
+    val ix1 = minOf(inner.bbox[0], inner.bbox[2])
+    val iy1 = minOf(inner.bbox[1], inner.bbox[3])
+    val ix2 = maxOf(inner.bbox[0], inner.bbox[2])
+    val iy2 = maxOf(inner.bbox[1], inner.bbox[3])
+
+    val ox1 = minOf(outer.bbox[0], outer.bbox[2])
+    val oy1 = minOf(outer.bbox[1], outer.bbox[3])
+    val ox2 = maxOf(outer.bbox[0], outer.bbox[2])
+    val oy2 = maxOf(outer.bbox[1], outer.bbox[3])
+
+    val interWidth = maxOf(0f, minOf(ix2, ox2) - maxOf(ix1, ox1))
+    val interHeight = maxOf(0f, minOf(iy2, oy2) - maxOf(iy1, oy1))
+    val interArea = interWidth * interHeight
+    if (interArea <= 0f) return 0f
+
+    val innerArea = maxOf(0f, ix2 - ix1) * maxOf(0f, iy2 - iy1)
+    if (innerArea <= 0f) return 0f
+
+    return interArea / innerArea
 }
 
 internal fun detectionIou(a: OnnxRuntime.Detection, b: OnnxRuntime.Detection): Float {
