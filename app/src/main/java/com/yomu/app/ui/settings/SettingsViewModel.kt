@@ -38,7 +38,7 @@ data class SettingsUiState(
     // model's HF page URL to open.
     val gatedTermsUrl: String? = null,
     val fontSizeScale: Float = Constants.DEFAULT_FONT_SIZE_SCALE,
-    val theme: String = "dark",
+    val theme: String = "system",
     val models: List<ModelEntity> = emptyList(),
     val downloadingId: String? = null,
     val downloadProgress: Int = 0
@@ -61,6 +61,9 @@ class SettingsViewModel @Inject constructor(
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
     init {
+        if (sharedPreferences.getString(Constants.PREF_THEME, "system") == "dark") {
+            sharedPreferences.edit().putString(Constants.PREF_THEME, "night").apply()
+        }
         val savedEngineId = sharedPreferences.getString(Constants.PREF_TRANSLATION_ENGINE, null)
         val engine = savedEngineId?.let { TranslationEngineType.fromId(it) } ?: TranslationEngineType.ML_KIT
         _uiState.value = SettingsUiState(
@@ -73,7 +76,7 @@ class SettingsViewModel @Inject constructor(
             hfSignedIn = hfAuthManager.isSignedIn(),
             deviceTotalMemBytes = deviceTotalMemBytes(),
             fontSizeScale = sharedPreferences.getFloat(Constants.PREF_FONT_SIZE_SCALE, Constants.DEFAULT_FONT_SIZE_SCALE),
-            theme = "dark"
+            theme = sharedPreferences.getString(Constants.PREF_THEME, "system") ?: "system"
         )
 
         viewModelScope.launch {
@@ -85,6 +88,12 @@ class SettingsViewModel @Inject constructor(
                 _uiState.value = _uiState.value.copy(models = models)
             }
         }
+    }
+
+    fun setTheme(theme: String) {
+        require(theme in listOf("system", "day", "night"))
+        sharedPreferences.edit().putString(Constants.PREF_THEME, theme).apply()
+        _uiState.value = _uiState.value.copy(theme = theme)
     }
 
     fun setTranslationMode(mode: String) {
