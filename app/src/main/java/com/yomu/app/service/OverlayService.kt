@@ -7,6 +7,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.content.res.Configuration
 import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.IBinder
@@ -66,6 +67,10 @@ class OverlayService : Service() {
     private var floatingButton: FloatingButtonView? = null
     private lateinit var statusOverlay: TranslationStatusOverlay
     private var quickSettingsPopup: QuickSettingsPopup? = null
+    private val themeListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (key == Constants.PREF_THEME) updateOverlayAppearance()
+    }
+
     private var buttonPositionX: Int = 0
     private var buttonPositionY: Int = 0
 
@@ -116,6 +121,7 @@ class OverlayService : Service() {
         floatingButtonOverlay = FloatingButtonOverlay(this, windowManager, closeZoneOverlay)
         translationRenderOverlay = TranslationRenderOverlay(this, windowManager)
         statusOverlay = TranslationStatusOverlay(this, windowManager)
+        sharedPreferences.registerOnSharedPreferenceChangeListener(themeListener)
         createNotificationChannel()
         translationPipeline.modelPaths = ModelPaths(
             bubbleDetectionPath = File(filesDir, "${Constants.MODELS_DIR}/${Constants.VISION_MODELS_DIR}/${Constants.BUBBLE_DETECTION_MODEL}").absolutePath,
@@ -172,7 +178,23 @@ class OverlayService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        removeQuickSettingsPopup()
+        closeZoneOverlay.remove()
+        floatingButtonOverlay.keepInBounds()
+        updateOverlayAppearance()
+    }
+
+    private fun updateOverlayAppearance() {
+        floatingButton?.updateAppearance()
+        closeZoneOverlay.updateAppearance()
+        quickSettingsPopup?.updateAppearance()
+        statusOverlay.updateAppearance()
+    }
+
     override fun onDestroy() {
+        sharedPreferences.unregisterOnSharedPreferenceChangeListener(themeListener)
         removeQuickSettingsPopup()
         removeFloatingButton()
         closeZoneOverlay.remove()
