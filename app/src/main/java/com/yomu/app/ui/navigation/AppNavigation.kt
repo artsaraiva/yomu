@@ -16,6 +16,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.yomu.app.ui.theme.ChromeContent
 import com.yomu.app.ui.home.HomeScreen
 import com.yomu.app.ui.history.HistoryScreen
 import com.yomu.app.ui.settings.SettingsScreen
@@ -60,16 +61,18 @@ fun AppNavigation(
             }
         }
     ) { innerPadding ->
+        ChromeContent(Modifier.padding(innerPadding)) {
         NavHost(
             navController = navController,
             startDestination = Screen.Home.route,
-            modifier = Modifier.padding(innerPadding)
+            modifier = Modifier
         ) {
             composable(Screen.Home.route) {
                 HomeScreen(onRequestScreenCapture = onRequestScreenCapture)
             }
             composable(Screen.History.route) { HistoryScreen() }
             composable(Screen.Settings.route) { SettingsScreen() }
+        }
         }
     }
 }

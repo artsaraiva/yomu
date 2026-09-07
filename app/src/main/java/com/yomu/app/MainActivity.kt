@@ -10,7 +10,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
-import androidx.compose.ui.graphics.Color
+import com.yomu.app.ui.theme.YomuTheme
 import com.yomu.app.service.OverlayService
 import com.yomu.app.ui.navigation.AppNavigation
 import dagger.hilt.android.AndroidEntryPoint
@@ -72,18 +72,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         setContent {
-            androidx.compose.material3.MaterialTheme(
-                colorScheme = androidx.compose.material3.darkColorScheme(
-                    primary = Color(0xFFFF5722),
-                    secondary = Color(0xFF4CAF50),
-                    surface = Color(0xFF1A1A1A),
-                    background = Color(0xFF121212),
-                    onPrimary = Color.White,
-                    onSecondary = Color.Black,
-                    onSurface = Color(0xFFE0E0E0),
-                    onBackground = Color(0xFFE0E0E0)
-                )
-            ) {
+            YomuTheme {
                 AppNavigation(
                     onRequestScreenCapture = { launchScreenCaptureConsent() }
                 )
