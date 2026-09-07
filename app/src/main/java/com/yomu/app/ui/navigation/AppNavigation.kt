@@ -85,7 +85,7 @@ fun AppNavigation(onRequestScreenCapture: () -> Unit = {}) {
                 }
             ) {
                 composable(Screen.Home.route) { HomeScreen(onRequestScreenCapture = onRequestScreenCapture) }
-                composable(Screen.History.route) { HistoryScreen() }
+                composable(Screen.History.route) { HistoryScreen(onRequestScreenCapture = onRequestScreenCapture) }
                 composable(Screen.Settings.route) { SettingsScreen() }
             }
         }
