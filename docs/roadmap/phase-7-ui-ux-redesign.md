@@ -2,7 +2,7 @@
 
 **Status:** Planned
 **Owner:** Yomu app
-**Milestone:** #17
+**Milestone:** #20
 
 ## Goal
 Give Yomu a coherent Paper Mario / paper-mache interface while preserving clarity and accessibility.
