@@ -75,6 +75,7 @@ object Constants {
     const val PREF_TRANSLATION_MODE = "translation_mode"
     const val PREF_TARGET_LANGUAGE = "target_language"
     const val PREF_SOURCE_LANGUAGE = "source_language"
+    const val PREF_THEME = "theme"
     const val PREF_AUTO_DETECT = "auto_detect"
     const val PREF_BUTTON_POSITION_X = "button_position_x"
     const val PREF_BUTTON_POSITION_Y = "button_position_y"

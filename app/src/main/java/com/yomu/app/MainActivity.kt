@@ -1,5 +1,11 @@
 package com.yomu.app
 
+import android.content.SharedPreferences
+import javax.inject.Inject
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.*
+import com.yomu.core.Constants
+import com.yomu.app.ui.theme.*
 import android.content.Intent
 import android.net.Uri
 import android.media.projection.MediaProjectionManager
@@ -17,6 +23,8 @@ import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    @Inject lateinit var sharedPreferences: SharedPreferences
 
     private val screenCaptureLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -72,7 +80,16 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         setContent {
-            YomuTheme {
+            var theme by remember { mutableStateOf(sharedPreferences.getString(Constants.PREF_THEME, "system") ?: "system") }
+            DisposableEffect(sharedPreferences) {
+                val listener = SharedPreferences.OnSharedPreferenceChangeListener { prefs, key ->
+                    if (key == Constants.PREF_THEME) theme = prefs.getString(key, "system") ?: "system"
+                }
+                sharedPreferences.registerOnSharedPreferenceChangeListener(listener)
+                onDispose { sharedPreferences.unregisterOnSharedPreferenceChangeListener(listener) }
+            }
+            val mode = resolveThemeMode(theme, isSystemInDarkTheme())
+            YomuTheme(colors = if (mode == ThemeMode.Night) NightPaper else DayPaper) {
                 AppNavigation(
                     onRequestScreenCapture = { launchScreenCaptureConsent() }
                 )
