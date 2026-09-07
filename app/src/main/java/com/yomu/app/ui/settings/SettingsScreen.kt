@@ -1,6 +1,8 @@
 package com.yomu.app.ui.settings
 
 import android.net.Uri
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -89,6 +91,8 @@ fun SettingsScreen(
                 FilterChip(
                     selected = state.translationMode == mode,
                     onClick = { viewModel.setTranslationMode(mode) },
+                    border = FilterChipDefaults.filterChipBorder(borderColor = MaterialTheme.colorScheme.onSurfaceVariant, selectedBorderColor = MaterialTheme.colorScheme.primary),
+                    leadingIcon = if (state.translationMode == mode) { { Icon(Icons.Default.Check, contentDescription = "Selected") } } else null,
                     label = { Text(mode.replaceFirstChar { it.uppercase() }, fontSize = 12.sp) }
                 )
             }
@@ -103,6 +107,8 @@ fun SettingsScreen(
                 FilterChip(
                     selected = state.selectedEngine == engine,
                     onClick = { viewModel.setTranslationEngine(engine) },
+                    border = FilterChipDefaults.filterChipBorder(borderColor = MaterialTheme.colorScheme.onSurfaceVariant, selectedBorderColor = MaterialTheme.colorScheme.primary),
+                    leadingIcon = if (state.selectedEngine == engine) { { Icon(Icons.Default.Check, contentDescription = "Selected") } } else null,
                     label = { Text(engine.label, fontSize = 12.sp) }
                 )
             }
@@ -172,6 +178,7 @@ fun SettingsScreen(
         Slider(
             value = state.fontSizeScale,
             onValueChange = { viewModel.setFontSizeScale(it) },
+            colors = SliderDefaults.colors(inactiveTrackColor = MaterialTheme.colorScheme.onSurfaceVariant),
             valueRange = 0.5f..2.0f,
             steps = 14,
             modifier = Modifier.fillMaxWidth()
@@ -200,7 +207,7 @@ fun SettingsScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text("Auto-detect manga pages", fontWeight = FontWeight.Medium, fontSize = 14.sp, modifier = Modifier.weight(1f))
-            Switch(
+            PaperSwitch(
                 checked = state.autoDetect,
                 onCheckedChange = { viewModel.setAutoDetect(it) }
             )

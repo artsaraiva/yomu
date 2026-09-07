@@ -46,3 +46,19 @@ fun PaperButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier
         Text(text, style = MaterialTheme.typography.labelLarge)
     }
 }
+
+@Composable
+fun PaperSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    androidx.compose.material3.Switch(
+        checked = checked, onCheckedChange = onCheckedChange,
+        colors = androidx.compose.material3.SwitchDefaults.colors(
+            uncheckedBorderColor = scheme.onSurfaceVariant,
+            uncheckedThumbColor = scheme.onSurfaceVariant,
+            uncheckedTrackColor = scheme.surfaceVariant,
+            checkedTrackColor = scheme.primary,
+            checkedThumbColor = scheme.onPrimary,
+            checkedBorderColor = scheme.onSurfaceVariant
+        )
+    )
+}

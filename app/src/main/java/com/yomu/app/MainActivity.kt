@@ -16,7 +16,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
-import com.yomu.app.ui.theme.YomuTheme
+import androidx.core.view.WindowCompat
 import com.yomu.app.service.OverlayService
 import com.yomu.app.ui.navigation.AppNavigation
 import dagger.hilt.android.AndroidEntryPoint
@@ -89,6 +89,12 @@ class MainActivity : ComponentActivity() {
                 onDispose { sharedPreferences.unregisterOnSharedPreferenceChangeListener(listener) }
             }
             val mode = resolveThemeMode(theme, isSystemInDarkTheme())
+            SideEffect {
+                WindowCompat.getInsetsController(window, window.decorView).apply {
+                    isAppearanceLightStatusBars = mode == ThemeMode.Day
+                    isAppearanceLightNavigationBars = mode == ThemeMode.Day
+                }
+            }
             YomuTheme(colors = if (mode == ThemeMode.Night) NightPaper else DayPaper) {
                 AppNavigation(
                     onRequestScreenCapture = { launchScreenCaptureConsent() }

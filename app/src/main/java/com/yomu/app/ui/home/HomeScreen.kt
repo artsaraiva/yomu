@@ -65,7 +65,7 @@ fun HomeScreen(
             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Reading overlay", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                    Switch(checked = state.isServiceRunning, onCheckedChange = { enabled ->
+                    PaperSwitch(checked = state.isServiceRunning, onCheckedChange = { enabled ->
                         if (enabled) onRequestScreenCapture() else viewModel.stopService()
                     })
                 }
