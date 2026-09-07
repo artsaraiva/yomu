@@ -260,7 +260,10 @@ class OverlayService : Service() {
     }
 
     private fun showQuickSettings() {
-        if (quickSettingsPopup != null) return
+        quickSettingsPopup?.let {
+            it.show(buttonPositionX, buttonPositionY)
+            return
+        }
 
         val popup = QuickSettingsPopup(
             context = this,
