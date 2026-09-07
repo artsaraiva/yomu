@@ -9,6 +9,7 @@ import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
 import kotlin.math.hypot
+import com.yomu.app.ui.theme.paperColors
 
 object CloseZoneGeometry {
     private const val BASE_RADIUS_DP = 120
@@ -65,9 +66,10 @@ class CloseZoneOverlay(
 
         val displayMetrics = context.resources.displayMetrics
         val density = displayMetrics.density
+        val available = overlayControlSize(context, windowManager)
         val bounds = CloseZoneGeometry.zoneBounds(
-            screenWidth = displayMetrics.widthPixels,
-            screenHeight = displayMetrics.heightPixels,
+            screenWidth = available.x,
+            screenHeight = available.y,
             density = density
         )
         zoneBounds = bounds
@@ -95,6 +97,10 @@ class CloseZoneOverlay(
         }
         closeZoneView = view
         windowManager.addView(view, params)
+    }
+
+    fun updateAppearance() {
+        closeZoneView?.invalidate()
     }
 
     fun remove() {
@@ -139,17 +145,18 @@ class CloseZoneView(context: Context) : View(context) {
 
     private val backgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val xPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = 0xFFFFFFFF.toInt()
+        color = context.paperColors().ink
         strokeWidth = 4f * density
         strokeCap = Paint.Cap.ROUND
     }
 
     private var currentRadius = baseRadiusPx
-    private var currentAlpha = 0.5f
+    private var withinZone = false
 
     fun updateAppearance(isWithin: Boolean, proximity: Float) {
         currentRadius = baseRadiusPx + proximity * (snapRadiusPx - baseRadiusPx)
-        currentAlpha = 0.5f + proximity * 0.5f
+        withinZone = isWithin
+        contentDescription = if (isWithin) "Release to stop reading" else "Drag here to stop reading"
         invalidate()
     }
 
@@ -158,19 +165,21 @@ class CloseZoneView(context: Context) : View(context) {
 
         val cx = width / 2f
         val cy = height / 2f
-        val alpha = (currentAlpha * 255).toInt().coerceIn(0, 255)
+        val colors = context.paperColors()
 
-        backgroundPaint.color = BACKGROUND_COLOR
-        backgroundPaint.alpha = alpha
+        backgroundPaint.color = colors.paperRaised
+        backgroundPaint.style = Paint.Style.FILL
         canvas.drawCircle(cx, cy, currentRadius, backgroundPaint)
 
-        xPaint.alpha = alpha
+        backgroundPaint.color = if (withinZone) colors.error else colors.inkMuted
+        backgroundPaint.style = Paint.Style.STROKE
+        backgroundPaint.strokeWidth = (if (withinZone) 4f else 2f) * density
+        canvas.drawCircle(cx, cy, currentRadius - 2f * density, backgroundPaint)
+
+        xPaint.color = colors.ink
         val crossRadius = currentRadius * 0.4f
         canvas.drawLine(cx - crossRadius, cy - crossRadius, cx + crossRadius, cy + crossRadius, xPaint)
         canvas.drawLine(cx - crossRadius, cy + crossRadius, cx + crossRadius, cy - crossRadius, xPaint)
     }
 
-    companion object {
-        private const val BACKGROUND_COLOR = 0xFFB00020.toInt()
-    }
 }
