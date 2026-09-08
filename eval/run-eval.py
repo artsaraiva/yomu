@@ -84,13 +84,15 @@ def print_summary(bubble: dict, translation: dict) -> None:
         for engine, s in sorted(engines.items(), key=lambda kv: kv[1]["role"] != "gate"):
             if s["role"] == "gate":
                 verdict = "PASS" if s["gate_pass"] else "FAIL"
-                print(f"  Engine: {engine}  [GATE - ADR-0004 page-level]  {verdict}")
+                print(f"  Engine: {engine}  [OUTPUT GATE]  {verdict}")
             else:
                 print(f"  Engine: {engine}  [floor - not ranked against the gate]")
             print(f"    Non-translation rate (gate 0):  {s['non_translation_rate']:.3f}")
             print(f"    Japanese-residue rate (gate 0): {s['japanese_residue_rate']:.3f}")
             print(f"    Bubble coverage (gate 100%):    {s['bubble_coverage']:.1%} "
                   f"({s['entries']} ids)")
+            print(f"    Pages completed: {s['completed_cases']}/{s['expected_cases']}")
+            print(f"    Mean bubble chrF2 (lexical similarity, not meaning): {s['mean_chrf']}")
             print(f"    Readability ratio (diagnostic): {s['readability_ratio']:.3f}")
     else:
         print("  No engine outputs scored.")
