@@ -1,11 +1,18 @@
 package com.yomu.app.overlay
 
+import android.animation.ValueAnimator
 import android.content.Context
+import android.database.ContentObserver
+import android.os.Handler
+import android.os.Looper
+import android.provider.Settings
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.view.View
+import android.view.animation.LinearInterpolator
+import kotlin.math.sin
 import com.yomu.app.ui.theme.paperColors
 
 class FloatingButtonView(context: Context) : View(context) {
@@ -23,6 +30,11 @@ class FloatingButtonView(context: Context) : View(context) {
         textSize = 24f * density
     }
     private val bounds = RectF()
+    private var rotationAngle = 0f
+    private var animator: ValueAnimator? = null
+    private val motionObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
+        override fun onChange(selfChange: Boolean) { updateAppearance() }
+    }
     var currentState: State = State.IDLE
         private set
 
@@ -35,27 +47,69 @@ class FloatingButtonView(context: Context) : View(context) {
 
     fun updateAppearance() {
         contentDescription = if (currentState == State.IDLE) "Translate screen. Hold for quick settings." else "Translating screen"
+        if (currentState == State.TRANSLATING && isAttachedToWindow && ValueAnimator.areAnimatorsEnabled()) {
+            if (animator == null) {
+                animator = ValueAnimator.ofFloat(0f, 1f).apply {
+                    duration = 1000L
+                    repeatCount = ValueAnimator.INFINITE
+                    interpolator = LinearInterpolator()
+                    addUpdateListener {
+                        rotationAngle = it.animatedFraction * 360f
+                        invalidate()
+                    }
+                    start()
+                }
+            }
+        } else {
+            stopAnimation()
+        }
         invalidate()
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        context.contentResolver.registerContentObserver(
+            Settings.Global.getUriFor(Settings.Global.ANIMATOR_DURATION_SCALE), false, motionObserver
+        )
+        updateAppearance()
+    }
+
+    override fun onDetachedFromWindow() {
+        context.contentResolver.unregisterContentObserver(motionObserver)
+        stopAnimation()
+        super.onDetachedFromWindow()
+    }
+
+    private fun stopAnimation() {
+        animator?.cancel()
+        animator = null
+        rotationAngle = 0f
     }
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         val colors = context.paperColors()
         val inset = 2f * density
-        bounds.set(inset, inset, width - inset, height - inset)
+        val cx = width / 2f
+        val cy = height / 2f
+        val radius = minOf(width, height) / 2f - inset
+        bounds.set(cx - radius, cy - radius, cx + radius, cy + radius)
         fill.color = colors.paperRaised
-        canvas.drawRoundRect(bounds, 18f * density, 18f * density, fill)
+        canvas.drawCircle(cx, cy, radius, fill)
+        edge.strokeWidth = 2f * density
         edge.color = colors.inkMuted
-        canvas.drawRoundRect(bounds, 18f * density, 18f * density, edge)
+        canvas.drawCircle(cx, cy, radius, edge)
         bounds.inset(4f * density, 4f * density)
         fill.color = if (currentState == State.IDLE) colors.accent else colors.paperRaised
-        canvas.drawRoundRect(bounds, 14f * density, 14f * density, fill)
+        canvas.drawCircle(cx, cy, bounds.width() / 2f, fill)
         textPaint.color = if (currentState == State.IDLE) colors.onAccent else colors.ink
         val textYOffset = -(textPaint.ascent() + textPaint.descent()) / 2f
         canvas.drawText(if (currentState == State.IDLE) "読" else "…", width / 2f, height / 2f + textYOffset, textPaint)
         if (currentState == State.TRANSLATING) {
             edge.color = colors.accent
-            canvas.drawArc(bounds, -90f, 100f, false, edge)
+            val pulse = if (animator == null) 0f else (1f + sin(Math.toRadians(rotationAngle.toDouble())).toFloat()) / 2f
+            edge.strokeWidth = (2f + pulse) * density
+            canvas.drawArc(bounds, rotationAngle - 90f, 100f + 20f * pulse, false, edge)
         }
     }
 }
