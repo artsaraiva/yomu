@@ -187,7 +187,11 @@ def has_cjk(text: str) -> bool:
 
 def is_non_translation(text: str) -> bool:
     lowered = (text or "").lower()
-    return any(marker in lowered for marker in NON_TRANSLATION_MARKERS)
+    introduction = re.match(
+        r"^\s*(?:sure[!,.]?\s*)?(?:here(?:['’]s| is| are)\s+(?:the |an? )?(?:english )?translations?\b|(?:english )?translation\s*:)",
+        lowered,
+    )
+    return bool(introduction) or any(marker in lowered for marker in NON_TRANSLATION_MARKERS)
 
 
 def score_translation(source: list[str], reference: list[str], output: list[str]) -> dict:
@@ -370,7 +374,9 @@ def run_translation_quality(stub: bool) -> dict[str, Any]:
             "japanese_residue_rate": residue / entries if entries else 0.0,
             "readability_ratio": out_words / ref_words if ref_words > 0 else 0.0,
             # Pass bars (#52): non-translation 0, residue 0, coverage 100% of ids. All-or-nothing.
-            "gate_pass": non_translation == 0 and residue == 0 and covered == entries,
+            "completed_cases": len(valid),
+            "expected_cases": len(results),
+            "gate_pass": len(valid) == len(results) and entries > 0 and non_translation == 0 and residue == 0 and covered == entries,
         }
 
     return {"cases": results, "summary": summary}
