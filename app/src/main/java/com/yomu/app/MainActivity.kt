@@ -1,5 +1,11 @@
 package com.yomu.app
 
+import android.content.SharedPreferences
+import javax.inject.Inject
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.*
+import com.yomu.core.Constants
+import com.yomu.app.ui.theme.*
 import android.content.Intent
 import android.net.Uri
 import android.media.projection.MediaProjectionManager
@@ -10,13 +16,15 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
-import androidx.compose.ui.graphics.Color
+import androidx.core.view.WindowCompat
 import com.yomu.app.service.OverlayService
 import com.yomu.app.ui.navigation.AppNavigation
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    @Inject lateinit var sharedPreferences: SharedPreferences
 
     private val screenCaptureLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -72,18 +80,22 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         setContent {
-            androidx.compose.material3.MaterialTheme(
-                colorScheme = androidx.compose.material3.darkColorScheme(
-                    primary = Color(0xFFFF5722),
-                    secondary = Color(0xFF4CAF50),
-                    surface = Color(0xFF1A1A1A),
-                    background = Color(0xFF121212),
-                    onPrimary = Color.White,
-                    onSecondary = Color.Black,
-                    onSurface = Color(0xFFE0E0E0),
-                    onBackground = Color(0xFFE0E0E0)
-                )
-            ) {
+            var theme by remember { mutableStateOf(sharedPreferences.getString(Constants.PREF_THEME, "system") ?: "system") }
+            DisposableEffect(sharedPreferences) {
+                val listener = SharedPreferences.OnSharedPreferenceChangeListener { prefs, key ->
+                    if (key == Constants.PREF_THEME) theme = prefs.getString(key, "system") ?: "system"
+                }
+                sharedPreferences.registerOnSharedPreferenceChangeListener(listener)
+                onDispose { sharedPreferences.unregisterOnSharedPreferenceChangeListener(listener) }
+            }
+            val mode = resolveThemeMode(theme, isSystemInDarkTheme())
+            SideEffect {
+                WindowCompat.getInsetsController(window, window.decorView).apply {
+                    isAppearanceLightStatusBars = mode == ThemeMode.Day
+                    isAppearanceLightNavigationBars = mode == ThemeMode.Day
+                }
+            }
+            YomuTheme(colors = if (mode == ThemeMode.Night) NightPaper else DayPaper) {
                 AppNavigation(
                     onRequestScreenCapture = { launchScreenCaptureConsent() }
                 )

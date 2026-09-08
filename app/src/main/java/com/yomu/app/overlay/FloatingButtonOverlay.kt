@@ -15,6 +15,7 @@ class FloatingButtonOverlay(
     private val closeZoneOverlay: CloseZoneOverlay
 ) {
     private var buttonView: FloatingButtonView? = null
+    private var buttonParams: WindowManager.LayoutParams? = null
 
     fun show(
         initialX: Int,
@@ -28,13 +29,10 @@ class FloatingButtonOverlay(
 
         val sizePx = (56 * context.resources.displayMetrics.density).toInt()
         val displayMetrics = context.resources.displayMetrics
-        val maxX = (displayMetrics.widthPixels - sizePx).coerceAtLeast(0)
-        val maxY = (displayMetrics.heightPixels - sizePx).coerceAtLeast(0)
-        val closeZoneBounds = CloseZoneGeometry.zoneBounds(
-            screenWidth = displayMetrics.widthPixels,
-            screenHeight = displayMetrics.heightPixels,
-            density = displayMetrics.density
-        )
+        val available = overlayControlSize(context, windowManager)
+        val margin = (8 * displayMetrics.density).toInt()
+        val maxX = (available.x - sizePx - margin).coerceAtLeast(margin)
+        val maxY = (available.y - sizePx - margin).coerceAtLeast(margin)
         val activationRadiusPx = CloseZoneGeometry.activationRadiusPx(displayMetrics.density)
 
         val params = WindowManager.LayoutParams(
@@ -48,8 +46,8 @@ class FloatingButtonOverlay(
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            x = initialX.coerceIn(0, maxX)
-            y = initialY.coerceIn(0, maxY)
+            x = initialX.coerceIn(margin, maxX)
+            y = initialY.coerceIn(margin, maxY)
         }
 
         val touchSlop = ViewConfiguration.get(context).scaledTouchSlop.toFloat()
@@ -79,8 +77,10 @@ class FloatingButtonOverlay(
                         if (gestureClassifier.onActionMove(event.rawX, event.rawY)) {
                             val dx = (event.rawX - downRawX).toInt()
                             val dy = (event.rawY - downRawY).toInt()
-                            params.x = (startX + dx).coerceIn(0, maxX)
-                            params.y = (startY + dy).coerceIn(0, maxY)
+                            val currentSize = overlayControlSize(context, windowManager)
+                            params.x = (startX + dx).coerceIn(margin, (currentSize.x - sizePx - margin).coerceAtLeast(margin))
+                            params.y = (startY + dy).coerceIn(margin, (currentSize.y - sizePx - margin).coerceAtLeast(margin))
+                            val closeZoneBounds = CloseZoneGeometry.zoneBounds(currentSize.x, currentSize.y, displayMetrics.density)
                             windowManager.updateViewLayout(touchedView, params)
 
                             val buttonCenter = CloseZoneGeometry.buttonCenter(params.x, params.y, sizePx)
@@ -124,13 +124,25 @@ class FloatingButtonOverlay(
             }
         }
 
+        buttonParams = params
         buttonView = view
         windowManager.addView(view, params)
         return view
     }
 
+    fun keepInBounds() {
+        val view = buttonView ?: return
+        val params = buttonParams ?: return
+        val available = overlayControlSize(context, windowManager)
+        val margin = (8 * context.resources.displayMetrics.density).toInt()
+        params.x = params.x.coerceIn(margin, (available.x - params.width - margin).coerceAtLeast(margin))
+        params.y = params.y.coerceIn(margin, (available.y - params.height - margin).coerceAtLeast(margin))
+        windowManager.updateViewLayout(view, params)
+    }
+
     fun remove() {
         buttonView?.let { windowManager.removeView(it) }
         buttonView = null
+        buttonParams = null
     }
 }

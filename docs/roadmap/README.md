@@ -24,7 +24,7 @@ The reset sequence is intentional: establish one functional path, measure it, th
 | [4 — Training Pipelines](phase-4-training-pipelines.md) | #14 | Planned | Training owned by `yomu-training` |
 | [5 — Reliability, Observability & History](phase-5-reliability-history.md) | #15 | Planned | Durable operation and useful diagnostics |
 | [6 — Automatic Detection](phase-6-automatic-detection.md) | #16 | Planned | Safe manga-region detection and auto mode |
-| [7 — UI/UX Redesign](phase-7-ui-ux-redesign.md) | #17 | Planned | Paper Mario / paper-mache visual direction |
+| [7 — UI/UX Redesign](phase-7-ui-ux-redesign.md) | #20 | Planned | Paper Mario / paper-mache visual direction |
 | [8 — Hybrid Providers & Monetization](phase-8-hybrid-monetization.md) | #18 | Planned | Local/cloud product and business model |
 | [9 — Continuous Release Infrastructure](phase-9-release-infrastructure.md) | #19 | Planned | Continuous delivery and maintenance |
 
