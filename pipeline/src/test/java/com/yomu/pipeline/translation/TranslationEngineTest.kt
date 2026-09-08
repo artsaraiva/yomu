@@ -16,6 +16,15 @@ import kotlinx.coroutines.test.runTest
 class TranslationEngineTest {
 
     @Test
+    fun translate_rejectsAssistantIntroduction() = runTest {
+        val bridge = FakeTranslationBridge(outputForText = mapOf(
+            "ありがとう" to TranslationOutput("Here's the English translation: Thank you.", 0.8f, 1L)
+        ))
+        val result = TranslationEngine(bridge).translate(listOf(singleBubbleBlock("ありがとう")))
+        assertEquals("ありがとう", result.translations.single().translatedText)
+    }
+
+    @Test
     fun translate_englishSuccessReplacesOcr() = runTest {
         val bridge = FakeTranslationBridge(
             status = TranslationStatus.Ready,
