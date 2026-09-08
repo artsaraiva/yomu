@@ -32,6 +32,7 @@ private fun hashSha256(input: String): String {
 // "I'm sorry, I can't come with you today" is legitimate dialogue, structurally identical to a
 // refusal without the object, so matching the object is what keeps the guard from eating real lines.
 private val NON_TRANSLATION_PATTERNS = listOf(
+    Regex("""(?i)^\s*(?:sure[!,.]?\s*)?(?:here(?:['’]s| is| are)\s+(?:the |an? )?(?:english )?translations?\b|(?:english )?translation\s*:)"""),
     Regex("""(?i)translate the following"""),
     Regex("""(?i)\bas an ai\b"""),
     Regex("""(?i)\bi\s*['’]?m unable to\b"""),
