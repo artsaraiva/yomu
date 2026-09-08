@@ -40,8 +40,8 @@ fun HomeScreen(
             onDismissRequest = { confirmClear = false },
             title = { Text("Clear recent translations?") },
             text = { Text("This removes your saved translations from this device.") },
-            confirmButton = { TextButton(onClick = { confirmClear = false; viewModel.clearHistory() }) { Text("Clear") } },
-            dismissButton = { TextButton(onClick = { confirmClear = false }) { Text("Keep") } }
+            confirmButton = { TextButton(colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface), onClick = { confirmClear = false; viewModel.clearHistory() }) { Text("Clear") } },
+            dismissButton = { TextButton(colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface), onClick = { confirmClear = false }) { Text("Keep") } }
         )
     }
     LazyColumn(
@@ -109,16 +109,16 @@ fun HomeScreen(
             }
         }
         item {
-            TextButton(onClick = onOpenSettings) {
+            TextButton(colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface), onClick = onOpenSettings) {
                 Text("Translated on your device · ${state.selectedEngine.label} ›", style = MaterialTheme.typography.bodyMedium)
             }
-            Text("${state.pagesTranslatedToday} pages translated today", style = MaterialTheme.typography.bodySmall)
+            Text("${state.pagesTranslatedToday} ${if (state.pagesTranslatedToday == 1) "page" else "pages"} translated today", style = MaterialTheme.typography.bodySmall)
         }
         if (state.historyLoading || state.historyError || state.hasRead) {
             item {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Recent", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-                    if (state.translations.isNotEmpty()) TextButton(onClick = { confirmClear = true }) { Text("Clear") }
+                    if (state.translations.isNotEmpty()) TextButton(colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface), onClick = { confirmClear = true }) { Text("Clear") }
                 }
             }
             if (state.clearError) item {

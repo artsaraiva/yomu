@@ -70,6 +70,6 @@ fun SetupScreen(state: HomeUiState, viewModel: HomeViewModel) {
                 }
             }
         }
-        TextButton(onClick = viewModel::dismissSetup) { Text("Back to Home") }
+        TextButton(colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface), onClick = viewModel::dismissSetup) { Text("Back to Home") }
     }
 }

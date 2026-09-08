@@ -5,6 +5,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.platform.LocalDensity
@@ -53,7 +54,7 @@ fun AppNavigation(onRequestScreenCapture: () -> Unit = {}) {
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
     if (state.modelsLoading || state.setupVisible) {
-        ChromeContent {
+        ChromeContent(Modifier.safeDrawingPadding()) {
             if (state.modelsLoading) PaperLoading("Getting Yomu ready…")
             else SetupScreen(state, viewModel)
         }
