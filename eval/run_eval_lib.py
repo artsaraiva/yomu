@@ -5,6 +5,11 @@ import re
 from pathlib import Path
 from typing import Any
 
+try:
+    from sacrebleu.metrics import CHRF
+except ImportError:
+    CHRF = None
+
 ROOT = Path(__file__).resolve().parent
 BUBBLE_CASES = ROOT / "bubble-detection" / "cases"
 TRANS_CASES = ROOT / "translation-quality" / "cases"
@@ -218,11 +223,14 @@ def score_translation(source: list[str], reference: list[str], output: list[str]
     # legitimately-kept onomatopoeia is not charged against the engine.
     residue = sum(1 for r, o in entries if has_cjk(o) and not has_cjk(r))
 
+    chrf_sum = sum(CHRF().sentence_score(o, [r]).score for r, o in entries) if CHRF else None
     ref_words = sum(len(words(r)) for r, _ in entries)
     out_words = sum(len(words(o)) for _, o in entries)
 
     return {
         "entries": total,
+        "chrf_sum": chrf_sum,
+        "mean_chrf": chrf_sum / total if chrf_sum is not None and total else None,
         "covered": covered,
         "non_translation": non_translation,
         "residue": residue,
@@ -327,7 +335,7 @@ def run_translation_quality(stub: bool) -> dict[str, Any]:
             outputs = []
             mode = "missing"
 
-        case_result: dict[str, Any] = {"case_id": case_dir.name, "mode": mode, "engines": []}
+        case_result: dict[str, Any] = {"case_id": case_dir.name, "mode": mode, "source": source, "reference": reference, "engines": []}
 
         if mode == "stub":
             score = score_translation(source, reference, translation_stub(reference))
@@ -344,6 +352,7 @@ def run_translation_quality(stub: bool) -> dict[str, Any]:
                 output = out_data.get("translations", [])
                 score = score_translation(source, reference, output)
                 score["engine"] = engine_name
+                score["translations"] = output
                 case_result["engines"].append(score)
 
         results.append(case_result)
@@ -367,6 +376,7 @@ def run_translation_quality(stub: bool) -> dict[str, Any]:
         ref_words = sum(s["ref_words"] for s in valid)
         out_words = sum(s["out_words"] for s in valid)
         summary["engines"][engine] = {
+            "mean_chrf": sum(s["chrf_sum"] for s in valid) / entries if CHRF and entries else None,
             "role": "floor" if engine in FLOOR_ENGINES else "gate",
             "entries": entries,
             "bubble_coverage": covered / entries if entries else 1.0,

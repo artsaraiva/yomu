@@ -84,6 +84,13 @@ def test_unrun_pages_cannot_pass():
             lib.TRANS_CASES = previous
 
 
+def test_reference_similarity_rewards_correct_translation():
+    good = score_translation(["ありがとう"], ["Thank you."], ["Thank you."])
+    bad = score_translation(["ありがとう"], ["Thank you."], ["Blue chairs fly."])
+    assert good["mean_chrf"] == 100.0
+    assert bad["mean_chrf"] < good["mean_chrf"]
+
+
 if __name__ == "__main__":
     for name, fn in sorted(globals().items()):
         if name.startswith("test_") and callable(fn):
