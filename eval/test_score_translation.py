@@ -54,6 +54,36 @@ def test_helpers():
     assert is_non_translation("I cannot translate this") and not is_non_translation("Hello there")
 
 
+def test_translation_introduction_is_not_dialogue():
+    assert is_non_translation("Here's the English translation: Hello")
+    assert not is_non_translation("Here is the sword you wanted.")
+
+
+def test_unrun_pages_cannot_pass():
+    import json
+    import tempfile
+    from pathlib import Path
+    import run_eval_lib as lib
+    with tempfile.TemporaryDirectory() as tmp:
+        previous = lib.TRANS_CASES
+        lib.TRANS_CASES = Path(tmp)
+        try:
+            for name in ("one", "two"):
+                case = Path(tmp) / name
+                case.mkdir()
+                (case / "source.txt").write_text("ありがとう\n")
+                (case / "reference.txt").write_text("Thank you.\n")
+            actual = Path(tmp) / "one" / "actual"
+            actual.mkdir()
+            (actual / "qwen.json").write_text(json.dumps({"translations": ["Thank you."]}))
+            summary = lib.run_translation_quality(False)["summary"]["engines"]["qwen"]
+            assert not summary["gate_pass"]
+            assert summary["completed_cases"] == 1
+            assert summary["expected_cases"] == 2
+        finally:
+            lib.TRANS_CASES = previous
+
+
 if __name__ == "__main__":
     for name, fn in sorted(globals().items()):
         if name.startswith("test_") and callable(fn):
