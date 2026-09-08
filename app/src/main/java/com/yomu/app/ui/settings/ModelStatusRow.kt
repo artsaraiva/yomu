@@ -22,6 +22,8 @@ internal fun ModelStatusRow(
     onDownload: () -> Unit,
     onDelete: () -> Unit
 ) {
+    Text(model.name, style = MaterialTheme.typography.titleSmall)
+    Text(model.fileSize.toFileSizeString(), style = MaterialTheme.typography.bodySmall)
     if (model.status == ModelStatus.ERROR && !isDownloading) {
         PaperError("Couldn't download this model.", onDownload)
         return
@@ -44,7 +46,7 @@ internal fun ModelStatusRow(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 ModelStatus.AVAILABLE -> Text(
-                    text = "${model.fileSize.toFileSizeString()} — Not downloaded",
+                    text = "Not downloaded",
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

@@ -5,11 +5,11 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
@@ -24,20 +24,42 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.yomu.app.ui.theme.ChromeContent
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import com.yomu.app.ui.home.HomeViewModel
+import com.yomu.app.ui.home.SetupScreen
+import com.yomu.app.ui.theme.PaperLoading
 import com.yomu.app.ui.home.HomeScreen
-import com.yomu.app.ui.history.HistoryScreen
 import com.yomu.app.ui.settings.SettingsScreen
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
     data object Home : Screen("home", "Home", Icons.Default.Home)
-    data object History : Screen("history", "History", Icons.Default.DateRange)
     data object Settings : Screen("settings", "Settings", Icons.Default.Settings)
 }
 
-val bottomNavItems = listOf(Screen.Home, Screen.History, Screen.Settings)
+val bottomNavItems = listOf(Screen.Home, Screen.Settings)
 
 @Composable
 fun AppNavigation(onRequestScreenCapture: () -> Unit = {}) {
+    val viewModel: HomeViewModel = hiltViewModel()
+    val state by viewModel.uiState.collectAsState()
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, viewModel) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) viewModel.refreshEnvironment()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    if (state.modelsLoading || state.setupVisible) {
+        ChromeContent(Modifier.safeDrawingPadding()) {
+            if (state.modelsLoading) PaperLoading("Getting Yomu ready…")
+            else SetupScreen(state, viewModel)
+        }
+        return
+    }
     val navController = rememberNavController()
     val scheme = MaterialTheme.colorScheme
     val reduceMotion = rememberReduceMotion()
@@ -84,8 +106,11 @@ fun AppNavigation(onRequestScreenCapture: () -> Unit = {}) {
                     else fadeOut(tween(180)) + slideOutHorizontally(tween(200)) { -it / 12 }
                 }
             ) {
-                composable(Screen.Home.route) { HomeScreen(onRequestScreenCapture = onRequestScreenCapture) }
-                composable(Screen.History.route) { HistoryScreen(onRequestScreenCapture = onRequestScreenCapture) }
+                composable(Screen.Home.route) {
+                    HomeScreen(viewModel, onRequestScreenCapture, onOpenSettings = {
+                        navController.navigate(Screen.Settings.route) { launchSingleTop = true }
+                    })
+                }
                 composable(Screen.Settings.route) { SettingsScreen() }
             }
         }
