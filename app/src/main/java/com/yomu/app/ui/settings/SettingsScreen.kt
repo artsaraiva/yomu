@@ -122,6 +122,20 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(20.dp))
 
+        if (state.selectedEngine == TranslationEngineType.LLM &&
+            state.selectedLlmModelId == com.yomu.core.Constants.QWEN25_15B_MODEL_ID) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Use surrounding dialogue (experimental)", modifier = Modifier.weight(1f))
+                PaperSwitch(checked = state.captureContext, onCheckedChange = viewModel::setCaptureContext)
+            }
+            Text(
+                "Uses nearby text in the current capture. Does not remember previous pages. " +
+                    "May take longer; experimental processing could cause the app to close unexpectedly.",
+                style = MaterialTheme.typography.bodySmall
+            )
+            Spacer(Modifier.height(20.dp))
+        }
+
         Text("Models", fontWeight = FontWeight.Medium, fontSize = 14.sp)
         Spacer(modifier = Modifier.height(8.dp))
 
