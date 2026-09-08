@@ -1,6 +1,7 @@
 package com.yomu.pipeline.translation
 
 import android.graphics.RectF
+import com.yomu.ml.TranslationPromptMode
 import com.yomu.ml.TranslationBridge
 import com.yomu.ml.TranslationOutput
 import com.yomu.ml.TranslationStatus
@@ -22,6 +23,34 @@ class TranslationEngineTest {
         ))
         val result = TranslationEngine(bridge).translate(listOf(singleBubbleBlock("ありがとう")))
         assertEquals("ありがとう", result.translations.single().translatedText)
+    }
+
+    @Test
+    fun translate_captureContextIsBoundedAndNeverUsesPreviousCapture() = runTest {
+        val bridge = FakeTranslationBridge(supportsBatch = true, promptMode = TranslationPromptMode.CAPTURE_CONTEXT)
+        val engine = TranslationEngine(bridge)
+        engine.translate(listOf(conversationBlock(1 to "太郎はどこ？", 2 to "ここだよ")), listOf("OLD" to "OLD"))
+        assertEquals(2, bridge.prompts.size)
+        assertTrue(bridge.prompts.first().contains("ここだよ"))
+        assertTrue(bridge.prompts.first().endsWith("太郎はどこ？"))
+        assertTrue(bridge.prompts.first().contains("Return only"))
+        assertFalse(bridge.prompts.first().contains("OLD"))
+        bridge.prompts.clear()
+        engine.translate(listOf(conversationBlock(1 to "別の漫画")))
+        assertFalse(bridge.prompts.single().contains("太郎"))
+        bridge.prompts.clear()
+        engine.translate(listOf(conversationBlock(1 to "隣".repeat(300), 2 to "対象", 3 to "後".repeat(300))))
+        assertTrue(bridge.prompts[1].length < 600)
+        assertEquals(0, bridge.batchCalls)
+    }
+
+    @Test
+    fun translate_instructModeOnlyIncludesTarget() = runTest {
+        val bridge = FakeTranslationBridge(supportsBatch = true, promptMode = TranslationPromptMode.TRANSLATION_ONLY)
+        TranslationEngine(bridge).translate(listOf(conversationBlock(1 to "こんにちは", 2 to "さようなら")))
+        assertTrue(bridge.prompts.first().contains("Return only"))
+        assertTrue(bridge.prompts.first().endsWith("こんにちは"))
+        assertFalse(bridge.prompts.first().contains("さようなら"))
     }
 
     @Test
@@ -397,7 +426,8 @@ class TranslationEngineTest {
         private val outputForText: Map<String, TranslationOutput> = emptyMap(),
         private val batchResponse: String? = null,
         private val supportsBatch: Boolean = false,
-        private val supportsIdKeyedBatch: Boolean = false
+        private val supportsIdKeyedBatch: Boolean = false,
+        private val promptMode: TranslationPromptMode = TranslationPromptMode.MODEL_CARD
     ) : TranslationBridge {
         override var status: TranslationStatus = status
         val translateCalls: MutableMap<String, Int> = mutableMapOf()
@@ -426,6 +456,8 @@ class TranslationEngineTest {
             batchPrompts.add(prompt)
             return batchResponse?.let { TranslationOutput(it, 0.8f, 100L) }
         }
+
+        override fun promptMode(): TranslationPromptMode = promptMode
 
         override fun supportsBatch(): Boolean = supportsBatch
 

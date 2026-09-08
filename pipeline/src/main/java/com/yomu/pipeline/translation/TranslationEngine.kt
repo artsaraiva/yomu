@@ -1,5 +1,6 @@
 package com.yomu.pipeline.translation
 
+import com.yomu.ml.TranslationPromptMode
 import com.yomu.ml.TranslationBridge
 import com.yomu.ml.TranslationOutput
 import com.yomu.ml.TranslationStatus
@@ -136,30 +137,39 @@ class TranslationEngine(
         }.filter { it.isNotEmpty() }
     }
 
-    /**
-     * Per-line path for the curated 0.8b (ADR-0002 #71 amendment). One call per non-empty bubble in
-     * reading order, each asking for exactly that bubble in CAT-Translate's trained single-text
-     * model-card form — no system prompt and, deliberately, no surrounding context. In-prompt page
-     * and session context were measured to make the 0.8b refuse ("I'm sorry, but I can't help with
-     * that") on device, the same trained-form fragility that killed the id-keyed batch (#68), so
-     * cross-panel context is deferred to a larger sibling (#72, the retained [translateBatch] path).
-     * Each result maps to the bubble whose call it was, so no reply can shift another bubble; a blank
-     * reply falls back to that bubble's source alone. The line-keyed cache stays bypassed.
-     */
     private suspend fun translatePerLine(blocks: List<ConversationBlock>): List<TranslatedBubble> {
         val items = nonEmptyPanels(blocks).flatten()
         if (items.isEmpty()) return emptyList()
 
-        return items.map { (bubbleId, original) ->
-            val output = translationBridge.translate(modelCardPrompt(original))
+        val mode = translationBridge.promptMode()
+        return items.mapIndexed { index, (bubbleId, original) ->
+            val surrounding = if (mode == TranslationPromptMode.CAPTURE_CONTEXT) {
+                listOfNotNull(items.getOrNull(index - 1), items.getOrNull(index + 1))
+                    .joinToString("\n") { it.second.take(80) }
+            } else ""
+            val prompt = if (mode == TranslationPromptMode.MODEL_CARD) modelCardPrompt(original)
+                else translationOnlyPrompt(original, surrounding)
+            val output = translationBridge.translate(prompt)
             val translated = output?.translatedText.usableTranslation()
             TranslatedBubble(
                 bubbleId = bubbleId,
                 originalText = original,
                 translatedText = translated ?: original,
-                confidence = if (translated != null) output!!.confidence else 0.1f
+                confidence = if (translated != null) (output?.confidence ?: 0.1f) else 0.1f
             )
         }
+    }
+
+    private fun translationOnlyPrompt(target: String, surrounding: String): String = buildString {
+        appendLine("Translate the target Japanese manga text into natural English. Return only the translation.")
+        appendLine("No introductions, explanations, labels, or added quotes. Preserve meaning and tone.")
+        if (surrounding.isNotBlank()) {
+            // ponytail: two neighbours, 80 chars each; expand only after measured context gains.
+            appendLine("Nearby dialogue (context only; do not translate):")
+            appendLine(surrounding)
+        }
+        appendLine("Target text (translate this only):")
+        append(target)
     }
 
     private fun modelCardPrompt(target: String): String =
