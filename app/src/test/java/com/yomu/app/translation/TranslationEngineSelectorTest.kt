@@ -2,6 +2,8 @@ package com.yomu.app.translation
 
 import android.content.SharedPreferences
 import com.yomu.app.translation.MlKitTranslationBridge
+import com.yomu.ml.TranslationPromptMode
+import com.yomu.core.Constants
 import com.yomu.ml.LlamaTranslationBridge
 import com.yomu.ml.TranslationOutput
 import com.yomu.ml.TranslationStatus
@@ -15,6 +17,22 @@ import org.mockito.ArgumentMatchers.anyString
 import org.mockito.Mockito
 
 class TranslationEngineSelectorTest {
+
+    @Test
+    fun `Qwen prompt mode follows persisted capture opt in and CAT ignores it`() {
+        val prefs = prefsWithEngine("llm")
+        val selector = TranslationEngineSelector(
+            Mockito.mock(MlKitTranslationBridge::class.java),
+            Mockito.mock(OpusMtTranslationBridge::class.java),
+            Mockito.mock(LlamaTranslationBridge::class.java), prefs
+        )
+        assertEquals(TranslationPromptMode.TRANSLATION_ONLY, selector.promptMode())
+        Mockito.`when`(prefs.getBoolean(Constants.PREF_CAPTURE_CONTEXT, false)).thenReturn(true)
+        assertEquals(TranslationPromptMode.CAPTURE_CONTEXT, selector.promptMode())
+        Mockito.`when`(prefs.getString(Mockito.eq(Constants.PREF_LLM_MODEL), Mockito.any()))
+            .thenReturn(Constants.CAT_TRANSLATION_MODEL_ID)
+        assertEquals(TranslationPromptMode.MODEL_CARD, selector.promptMode())
+    }
 
     @Test
     fun `fromId defaults to ML_KIT for unknown values`() {

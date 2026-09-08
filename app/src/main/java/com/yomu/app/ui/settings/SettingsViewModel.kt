@@ -28,6 +28,7 @@ data class SettingsUiState(
     val targetLanguage: String = "en",
     val sourceLanguage: String = "ja",
     val autoDetect: Boolean = true,
+    val captureContext: Boolean = false,
     val selectedEngine: TranslationEngineType = TranslationEngineType.ML_KIT,
     val selectedLlmModelId: String = LlmModelCatalog.DEFAULT.id,
     val llmModels: List<LlmModelOption> = LlmModelCatalog.ALL,
@@ -70,6 +71,7 @@ class SettingsViewModel @Inject constructor(
             translationMode = sharedPreferences.getString(Constants.PREF_TRANSLATION_MODE, "local") ?: "local",
             targetLanguage = sharedPreferences.getString(Constants.PREF_TARGET_LANGUAGE, "en") ?: "en",
             sourceLanguage = sharedPreferences.getString(Constants.PREF_SOURCE_LANGUAGE, "ja") ?: "ja",
+            captureContext = sharedPreferences.getBoolean(Constants.PREF_CAPTURE_CONTEXT, false),
             autoDetect = sharedPreferences.getBoolean(Constants.PREF_AUTO_DETECT, true),
             selectedEngine = engine,
             selectedLlmModelId = translationEngineSelector.currentLlmModel().id,
@@ -99,6 +101,11 @@ class SettingsViewModel @Inject constructor(
     fun setTranslationMode(mode: String) {
         sharedPreferences.edit().putString(Constants.PREF_TRANSLATION_MODE, mode).apply()
         _uiState.value = _uiState.value.copy(translationMode = mode)
+    }
+
+    fun setCaptureContext(enabled: Boolean) {
+        sharedPreferences.edit().putBoolean(Constants.PREF_CAPTURE_CONTEXT, enabled).apply()
+        _uiState.value = _uiState.value.copy(captureContext = enabled)
     }
 
     fun setAutoDetect(enabled: Boolean) {

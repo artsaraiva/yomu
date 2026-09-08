@@ -3,6 +3,7 @@ package com.yomu.app.translation
 import android.content.SharedPreferences
 import com.yomu.core.Constants
 import com.yomu.ml.LlamaTranslationBridge
+import com.yomu.ml.TranslationPromptMode
 import com.yomu.ml.TranslationBridge
 import com.yomu.ml.TranslationOutput
 import com.yomu.ml.TranslationStatus
@@ -67,6 +68,14 @@ class TranslationEngineSelector @Inject constructor(
 
     override suspend fun translate(sourceText: String): TranslationOutput? {
         return activeBridge().translate(sourceText)
+    }
+
+    override fun promptMode(): TranslationPromptMode {
+        if (current != TranslationEngineType.LLM || currentLlmModel().id != Constants.QWEN25_15B_MODEL_ID) {
+            return TranslationPromptMode.MODEL_CARD
+        }
+        return if (sharedPreferences.getBoolean(Constants.PREF_CAPTURE_CONTEXT, false))
+            TranslationPromptMode.CAPTURE_CONTEXT else TranslationPromptMode.TRANSLATION_ONLY
     }
 
     override fun supportsBatch(): Boolean {
