@@ -7,6 +7,14 @@ import org.junit.Test
 
 class ReadingStateTest {
     @Test
+    fun `reading is on only when ready and service is running`() {
+        assertEquals(ReadingStatus.NotReady, resolveReadingStatus(false, false))
+        assertEquals(ReadingStatus.NotReady, resolveReadingStatus(false, true))
+        assertEquals(ReadingStatus.Off, resolveReadingStatus(true, false))
+        assertEquals(ReadingStatus.On, resolveReadingStatus(true, true))
+    }
+
+    @Test
     fun `readiness requires both reading models and overlay permission`() {
         val ready = mapOf(
             Constants.BUBBLE_DETECTION_MODEL_ID to ModelStatus.READY,
