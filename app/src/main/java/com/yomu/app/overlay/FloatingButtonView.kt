@@ -30,7 +30,7 @@ class FloatingButtonView(context: Context) : View(context) {
     private var rotationAngle = 0f
     private var animator: ValueAnimator? = null
     private val motionListener = if (Build.VERSION.SDK_INT >= 33) {
-        ValueAnimator.DurationScaleChangeListener { updateAppearance() }
+        ValueAnimator.DurationScaleChangeListener { post { updateAppearance() } }
     } else null
     var currentState: State = State.IDLE
         private set
