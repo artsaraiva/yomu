@@ -20,6 +20,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.catch
+import com.yomu.app.db.entities.TranslationEntity
 import java.util.Calendar
 import javax.inject.Inject
 
@@ -28,7 +31,12 @@ data class HomeUiState(
     val translationMode: String = "local",
     val pagesTranslatedToday: Int = 0,
     val modelStatus: String = "Not downloaded",
-    val modelCount: Int = 0
+    val modelCount: Int = 0,
+    val latestTranslation: TranslationEntity? = null,
+    val historyLoading: Boolean = true,
+    val historyError: Boolean = false,
+    val serviceError: Boolean = false,
+    val confirmation: String? = null
 )
 
 @HiltViewModel
@@ -64,12 +72,14 @@ class HomeViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
     
+    private var historyJob: Job? = null
+
     private val serviceStateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             when (intent.action) {
-                OverlayService.ACTION_SERVICE_STARTED -> _uiState.value = _uiState.value.copy(isServiceRunning = true)
+                OverlayService.ACTION_SERVICE_STARTED -> _uiState.value = _uiState.value.copy(isServiceRunning = true, serviceError = false, confirmation = "Reading overlay ready")
                 OverlayService.ACTION_SERVICE_STOPPED -> _uiState.value = _uiState.value.copy(isServiceRunning = false)
-                OverlayService.ACTION_SERVICE_START_FAILED -> _uiState.value = _uiState.value.copy(isServiceRunning = false)
+                OverlayService.ACTION_SERVICE_START_FAILED -> _uiState.value = _uiState.value.copy(isServiceRunning = false, serviceError = true)
             }
         }
     }
@@ -94,6 +104,7 @@ class HomeViewModel @Inject constructor(
                 _uiState.value = _uiState.value.copy(pagesTranslatedToday = count)
             }
         }
+        loadRecentHistory()
         try {
             ContextCompat.registerReceiver(
                 context,
@@ -107,6 +118,26 @@ class HomeViewModel @Inject constructor(
             )
         } catch (_: Exception) {
         }
+    }
+
+    fun loadRecentHistory() {
+        historyJob?.cancel()
+        _uiState.value = _uiState.value.copy(historyLoading = true, historyError = false)
+        historyJob = viewModelScope.launch {
+            historyDao.getAllTranslations()
+                .catch { _uiState.value = _uiState.value.copy(historyLoading = false, historyError = true) }
+                .collect { translations ->
+                    _uiState.value = _uiState.value.copy(latestTranslation = translations.firstOrNull(), historyLoading = false)
+                }
+        }
+    }
+
+    fun dismissConfirmation() {
+        _uiState.value = _uiState.value.copy(confirmation = null)
+    }
+
+    fun dismissServiceError() {
+        _uiState.value = _uiState.value.copy(serviceError = false)
     }
 
     fun stopService() {

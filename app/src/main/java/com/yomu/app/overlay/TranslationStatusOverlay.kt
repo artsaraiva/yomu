@@ -1,7 +1,8 @@
 package com.yomu.app.overlay
 
 import android.content.Context
-import android.graphics.Color
+import com.yomu.app.ui.theme.paperColors
+import com.yomu.app.ui.theme.paperBackground
 import android.graphics.PixelFormat
 import android.os.Build
 import android.view.Gravity
@@ -33,8 +34,10 @@ class TranslationStatusOverlay(
 
             statusView = TextView(context).apply {
                 text = message
-                setTextColor(Color.WHITE)
-                setBackgroundColor(0xCC000000.toInt())
+                setTextColor(context.paperColors().ink)
+                background = context.paperBackground()
+                maxWidth = (overlayControlSize(context, windowManager).x - 32 * resources.displayMetrics.density).toInt().coerceAtLeast(1)
+                accessibilityLiveRegion = android.view.View.ACCESSIBILITY_LIVE_REGION_POLITE
                 textSize = 14f
                 val horizontalPadding = (12 * context.resources.displayMetrics.density).toInt()
                 val verticalPadding = (8 * context.resources.displayMetrics.density).toInt()
@@ -45,6 +48,13 @@ class TranslationStatusOverlay(
         }
 
         statusView?.text = message
+    }
+
+    fun updateAppearance() {
+        statusView?.apply {
+            setTextColor(context.paperColors().ink)
+            background = context.paperBackground()
+        }
     }
 
     fun remove() {

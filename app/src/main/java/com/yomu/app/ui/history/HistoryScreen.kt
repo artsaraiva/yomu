@@ -5,75 +5,40 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.yomu.app.ui.theme.*
 
 @Composable
 fun HistoryScreen(
-    viewModel: HistoryViewModel = hiltViewModel()
+    viewModel: HistoryViewModel = hiltViewModel(),
+    onRequestScreenCapture: () -> Unit = {}
 ) {
     val state by viewModel.uiState.collectAsState()
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(vertical = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                text = "History",
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
-
-            if (!state.isEmpty) {
-                TextButton(onClick = { viewModel.clearHistory() }) {
-                    Text("Clear")
-                }
+        item {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("History", style = MaterialTheme.typography.headlineLarge, modifier = Modifier.weight(1f))
+                if (!state.isEmpty) PaperButton("Clear", viewModel::clearHistory)
             }
         }
-
-        if (state.isEmpty) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = androidx.compose.ui.Alignment.Center
-            ) {
-                Text(
-                    text = "No translations yet.\nTap the floating button to translate manga.",
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        } else {
-            LazyColumn {
-                items(state.translations) { translation ->
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant
-                        )
-                    ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Text(
-                                text = translation.translatedText.take(100),
-                                fontSize = 13.sp,
-                                maxLines = 2
-                            )
-                            Text(
-                                text = "${translation.bubbleCount} bubbles · ${translation.translationTimeMs}ms",
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+        if (state.cleared) item { PaperSuccess("History cleared", viewModel::dismissConfirmation) }
+        if (state.clearError) item { PaperError("Couldn't clear history. Your translations are still saved.", viewModel::clearHistory) }
+        when {
+            state.loading -> item { PaperLoading("Loading translations…") }
+            state.loadError -> item { PaperError("Couldn't load your translations.", viewModel::loadHistory) }
+            state.isEmpty -> item { PaperEmpty("No translations yet. Use the floating button to translate manga on your screen.", "Start reading", onRequestScreenCapture) }
+            else -> items(state.translations, key = { it.id }) { translation ->
+                PaperSurface(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(translation.translatedText.take(100), style = MaterialTheme.typography.bodyMedium, maxLines = 2)
+                        Text("${translation.bubbleCount} bubbles · ${translation.translationTimeMs}ms", style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }
