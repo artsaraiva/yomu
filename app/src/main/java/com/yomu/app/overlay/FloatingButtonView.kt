@@ -2,10 +2,7 @@ package com.yomu.app.overlay
 
 import android.animation.ValueAnimator
 import android.content.Context
-import android.database.ContentObserver
-import android.os.Handler
-import android.os.Looper
-import android.provider.Settings
+import android.os.Build
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
@@ -32,9 +29,9 @@ class FloatingButtonView(context: Context) : View(context) {
     private val bounds = RectF()
     private var rotationAngle = 0f
     private var animator: ValueAnimator? = null
-    private val motionObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
-        override fun onChange(selfChange: Boolean) { updateAppearance() }
-    }
+    private val motionListener = if (Build.VERSION.SDK_INT >= 33) {
+        ValueAnimator.DurationScaleChangeListener { updateAppearance() }
+    } else null
     var currentState: State = State.IDLE
         private set
 
@@ -68,14 +65,16 @@ class FloatingButtonView(context: Context) : View(context) {
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        context.contentResolver.registerContentObserver(
-            Settings.Global.getUriFor(Settings.Global.ANIMATOR_DURATION_SCALE), false, motionObserver
-        )
+        if (Build.VERSION.SDK_INT >= 33) {
+            motionListener?.let { ValueAnimator.registerDurationScaleChangeListener(it) }
+        }
         updateAppearance()
     }
 
     override fun onDetachedFromWindow() {
-        context.contentResolver.unregisterContentObserver(motionObserver)
+        if (Build.VERSION.SDK_INT >= 33) {
+            motionListener?.let { ValueAnimator.unregisterDurationScaleChangeListener(it) }
+        }
         stopAnimation()
         super.onDetachedFromWindow()
     }
