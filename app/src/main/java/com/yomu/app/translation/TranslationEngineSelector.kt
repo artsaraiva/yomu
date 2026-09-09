@@ -70,6 +70,10 @@ class TranslationEngineSelector @Inject constructor(
         return activeBridge().translate(sourceText)
     }
 
+    override suspend fun translateBatch(prompt: String): TranslationOutput? {
+        return activeBridge().translateBatch(prompt)
+    }
+
     override fun promptMode(): TranslationPromptMode {
         if (current != TranslationEngineType.LLM || currentLlmModel().id != Constants.QWEN25_15B_MODEL_ID) {
             return TranslationPromptMode.MODEL_CARD

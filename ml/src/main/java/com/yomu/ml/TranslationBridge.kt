@@ -45,5 +45,7 @@ interface TranslationBridge {
      */
     fun supportsIdKeyedBatch(): Boolean = false
     fun clearMemory() {}
+
+    /** Releases model resources and resets readiness; call after translation work has stopped. */
     fun close()
 }
