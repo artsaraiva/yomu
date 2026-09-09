@@ -1,5 +1,6 @@
 package com.yomu.app
 
+import android.content.SharedPreferences
 import android.content.Context
 import android.graphics.RectF
 import android.os.Debug
@@ -9,6 +10,9 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.yomu.app.translation.TranslationEngineSelector
 import com.yomu.app.translation.TranslationEngineType
 import com.yomu.core.Constants
+import com.yomu.ml.TranslationBridge
+import com.yomu.ml.TranslationPromptMode
+import com.yomu.app.translation.LlmModelCatalog
 import com.yomu.ml.LlamaBridge
 import com.yomu.ml.LlamaTranslationBridge
 import com.yomu.ml.TranslationStatus
@@ -49,6 +53,9 @@ class EngineBenchmarkTest {
     // first or the first challenger's load races a still-resident model.
     @Inject
     lateinit var llamaBridge: LlamaTranslationBridge
+
+    @Inject
+    lateinit var preferences: SharedPreferences
 
     @Before
     fun init() {
@@ -94,6 +101,45 @@ class EngineBenchmarkTest {
                     dest.outputStream().use { input.copyTo(it) }
                 }
             }
+        }
+    }
+
+    @Test
+    fun comparePromptModes() = runBlocking {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val cases = loadCases(InstrumentationRegistry.getInstrumentation().context)
+        check(cases.isNotEmpty()) { "No benchmark cases staged" }
+        val outputDir = File(context.filesDir, "yomu-prompt-benchmark")
+        outputDir.deleteRecursively()
+        outputDir.mkdirs()
+        val previousEngine = selector.currentEngine()
+        val previousModel = selector.currentLlmModel()
+        val previousContext = preferences.getBoolean(Constants.PREF_CAPTURE_CONTEXT, false)
+        val rows = mutableListOf<TimingRow>()
+        try {
+            selector.selectEngine(TranslationEngineType.LLM)
+            selector.selectLlmModel(LlmModelCatalog.DEFAULT)
+            check(selector.ensureReady()) { "Qwen model unavailable: ${selector.status}" }
+            for (mode in TranslationPromptMode.entries) {
+                preferences.edit().putBoolean(Constants.PREF_CAPTURE_CONTEXT,
+                    mode == TranslationPromptMode.CAPTURE_CONTEXT).commit()
+                val bridge = if (mode == TranslationPromptMode.MODEL_CARD) {
+                    object : TranslationBridge by selector {
+                        override fun promptMode() = TranslationPromptMode.MODEL_CARD
+                    }
+                } else selector
+                check(bridge.promptMode() == mode)
+                val measured = TranslationEngine(bridge)
+                runEngineOverCases(measured, "qwen_" + mode.name.lowercase(), cases, outputDir, rows)
+                measured.release()
+                writeTimingCsv(outputDir, rows)
+            }
+            check(rows.size == cases.size * TranslationPromptMode.entries.size)
+        } finally {
+            writeTimingCsv(outputDir, rows)
+            preferences.edit().putBoolean(Constants.PREF_CAPTURE_CONTEXT, previousContext).commit()
+            selector.selectLlmModel(previousModel)
+            selector.selectEngine(previousEngine)
         }
     }
 

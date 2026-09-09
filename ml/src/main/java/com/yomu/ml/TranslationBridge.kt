@@ -13,7 +13,11 @@ data class TranslationOutput(
     val durationMs: Long
 )
 
+enum class TranslationPromptMode { MODEL_CARD, TRANSLATION_ONLY, CAPTURE_CONTEXT }
+
 interface TranslationBridge {
+    fun promptMode(): TranslationPromptMode = TranslationPromptMode.MODEL_CARD
+
     val status: TranslationStatus
 
     suspend fun ensureReady(): Boolean
