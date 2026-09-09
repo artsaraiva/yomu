@@ -13,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -78,13 +79,13 @@ fun SettingsScreen(
                     onClick = { viewModel.setTranslationEngine(engine) },
                     border = FilterChipDefaults.filterChipBorder(borderColor = MaterialTheme.colorScheme.onSurfaceVariant, selectedBorderColor = MaterialTheme.colorScheme.primary),
                     leadingIcon = if (state.selectedEngine == engine) { { Icon(Icons.Default.Check, contentDescription = "Selected") } } else null,
-                    label = { Text(engine.label, fontSize = 12.sp) }
+                    label = { Text(stringResource(engine.labelRes), fontSize = 12.sp) }
                 )
             }
         }
         Spacer(modifier = Modifier.height(4.dp))
         Text(
-            text = state.selectedEngine.description,
+            text = stringResource(state.selectedEngine.descriptionRes),
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

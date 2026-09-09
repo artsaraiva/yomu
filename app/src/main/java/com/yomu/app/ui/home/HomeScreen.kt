@@ -13,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
@@ -110,7 +111,7 @@ fun HomeScreen(
         }
         item {
             TextButton(colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface), onClick = onOpenSettings) {
-                Text("Translated on your device · ${state.selectedEngine.label} ›", style = MaterialTheme.typography.bodyMedium)
+                Text("Translated on your device · ${stringResource(state.selectedEngine.labelRes)} ›", style = MaterialTheme.typography.bodyMedium)
             }
             Text("${state.pagesTranslatedToday} ${if (state.pagesTranslatedToday == 1) "page" else "pages"} translated today", style = MaterialTheme.typography.bodySmall)
         }
