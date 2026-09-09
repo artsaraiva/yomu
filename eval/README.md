@@ -244,3 +244,30 @@ for internal evaluation only; do not redistribute.
 Citation: Hinami et al., "Towards Fully Automated Manga Translation", AAAI 2021.
 
 Prefer regenerating cases from `vendor/` rather than committing large image files.
+
+## Qwen prompt comparison
+
+Install `eval/requirements.txt` into a Python virtual environment. With one arm64 Android
+emulator/device connected and Qwen2.5-1.5B already downloaded in Yomu, run:
+
+```sh
+PYTHON_BIN=/path/to/venv/bin/python ./eval/run-prompt-benchmark.sh
+```
+
+Use `--skip-build` only when the app and test APKs already match the current source.
+The runner installs with `adb install -r -t`, preserving app data, and compares the old
+model-card prompt, translation-only instructions, and bounded current-capture dialogue.
+It restores the selected engine, model, and context setting after normal completion.
+An interrupted process may leave benchmark settings selected; check Settings afterward.
+
+Each run has an isolated directory under `eval/results/prompt-<timestamp>/`, containing
+model SHA-256, source revision/diff, corpus checksums, raw model logcat, per-mode outputs,
+timing CSV, and aligned source/reference/output scores. It rejects incomplete runs;
+a completed run may still fail the translation output gate.
+
+`mean_chrf` is the mean per-bubble chrF2 score from sacrebleu 2.5.1 (0–100), not semantic
+accuracy. It is null in the legacy scorer when sacrebleu is absent. The focused runner
+requires it. Scores measure processed output; raw refusals may instead appear as source
+fallbacks. Human review remains necessary for names, subjects, omissions, and invented meaning.
+
+See [the September prompt comparison](prompt-comparison-119.md) for the reviewed results.
