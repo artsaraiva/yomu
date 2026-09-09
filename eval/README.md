@@ -226,10 +226,10 @@ per-class breakdown. Do not read meaning into those labels or reintroduce per-cl
   floor. Readability ratio near 1.0 means the engine is producing a similar amount of
   English text as the reference; much higher or lower suggests hallucination or
   dropped content. Exact-match is a sanity check, not a quality target.
-  Every bar here is a **formatting** bar. Wrong names, flipped subjects and dropped
-  negations pass all of them, so semantic accuracy is reviewed by hand and recorded
-  separately in `eval/semantic-review-120.md` — a PASS says the output is shaped like
-  a translation, not that it says what the source said.
+  Every bar here scores the **form** of the output. Wrong names, flipped subjects and
+  dropped negations pass all of them, so semantic accuracy is reviewed by hand and
+  recorded separately in `eval/semantic-review-120.md` — a PASS says the output is
+  shaped like a translation, not that it says what the source said.
 
 Results are written to `eval/results/<timestamp>.json`.
 

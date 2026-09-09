@@ -6,6 +6,8 @@ import com.yomu.core.TranslatablePage
 import com.yomu.core.TranslationSlot
 import com.yomu.pipeline.context.ConversationBlock
 
+// Twin of is_non_translation in eval/run_eval_lib.py: the runtime rejects what the eval scores as a
+// non-translation, so a shape added on one side belongs on the other.
 private val NON_TRANSLATION_PATTERNS = listOf(
     Regex("""(?i)^\s*(?:sure[!,.]?\s*)?(?:here(?:['’]s| is| are)\s+(?:the |an? )?(?:english )?translations?\b|(?:english )?translation\s*:)"""),
     Regex("""(?i)translate the following"""),
@@ -29,7 +31,7 @@ internal fun looksLikeNonTranslation(text: String): Boolean {
     return tokens.map { it.lowercase() }.toSet().size * LOOP_UNIQUE_DIVISOR <= tokens.size
 }
 
-// A target with no letter or digit — a lone "?", "...", "!?" — carries nothing to translate, and
+// Source text with no letter or digit — a lone "?", "...", "!?" — carries nothing to translate, and
 // asking a model to translate it invites a request for the missing text instead (#120).
 private fun TranslatableBubble.carriesText(): Boolean = sourceText.any { it.isLetterOrDigit() }
 

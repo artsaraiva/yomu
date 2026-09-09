@@ -47,9 +47,9 @@ contrastive set and a possible future COMET-or-judge metric.
 | Readability ratio — output words / reference words | diagnostic, no bar |
 | Semantic accuracy — wrong names, flipped subjects, dropped negations | not scored here |
 
-Semantic errors pass every bar in this table. They are reviewed by hand and recorded separately in
-`eval/semantic-review-120.md`; a gate PASS says the output is shaped like a translation, not that it
-says what the source said.
+Every bar in this table scores the form of the output. Semantic errors pass all of them; they are
+reviewed by hand and recorded separately in `eval/semantic-review-120.md`, and a gate PASS says the
+output is shaped like a translation, not that it says what the source said.
 
 The **LLM** page-level call is the gate. **ML Kit** and **OPUS-MT** cannot take a page-level call, so
 they translate per bubble inside the same call and are reported on a **floor**, never ranked against

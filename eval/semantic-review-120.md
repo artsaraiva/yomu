@@ -1,6 +1,6 @@
 # Semantic review — Qwen2.5-1.5B page outputs
 
-The output gate scores **formatting failure**: Japanese residue, non-translation, bubble coverage
+The output gate scores the **form** of an output: Japanese residue, non-translation, bubble coverage
 (ADR-0004). Nothing in it looks at whether a translation says what the source said. This review
 scores that second axis by hand and keeps it separate, so a gate PASS is never read as evidence
 that the translation is right.
@@ -14,7 +14,7 @@ non-translation 0.000, Japanese residue 0.102 (15 entries — 13 of them the who
 fallback on `tencho-p21`, plus one each on `bourei-sparse-single` and `tojime-p35`), coverage
 100%, mean bubble chrF2 26.395.
 
-The formatting gate therefore fails this engine on residue alone. Every error listed below is in a
+The output gate therefore fails this engine on residue alone. Every error listed below is in a
 bubble the gate passes.
 
 ## Error classes
@@ -68,4 +68,4 @@ One reviewer against OpenMantra's English annotation, which is itself a loose tr
 bilingual human rating and not a score. It says the classes of meaning error present in current
 output; it does not measure how often they occur or rank engines. Adequacy ranking stays deferred
 to #30's contrastive set and a possible future COMET-or-judge metric (ADR-0004). Formatting fixes —
-#120's punctuation passthrough and clarification guard among them — move none of these lines.
+#120's punctuation handling and clarification guard among them — move none of these lines.
