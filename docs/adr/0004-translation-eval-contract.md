@@ -4,6 +4,8 @@ The translation half of the eval feeds engines OpenMantra's `text_ja` annotation
 
 Before this, the harness looped `TranslationEngineSelector.translate(line)` over lines of ground-truth Japanese while `translation-quality/SCHEMA.md` claimed the input was "actual OCR output, including noise". ADR-0002 had already made the page-level call the design target, so the harness measured an architecture the project had decided against, on an input its own schema disclaimed, with metrics that scored CAT-Translate 0.000 untranslated and 0.000 artifact on a run whose outputs included a verbatim echo of the system prompt and a line of untranslated Japanese.
 
+> **Revised by [#127](https://github.com/artsaraiva/yomu/issues/127) (2026-09-09).** The gate/floor split below is argued from `LlamaTranslationBridge.supportsBatch()`, which [#126](https://github.com/artsaraiva/yomu/issues/126) deleted along with the bridge delegation it belonged to. The distinction is unchanged; only its encoding moved. It is now explicit on `TranslationEngineType.role` (`GATE` / `FLOOR`) rather than inferred from a capability predicate, matching the `"role": "floor" | "gate"` the eval already emits. Read every `supportsBatch()` reference below as naming that role.
+
 ## Considered Options
 
 **Score real OCR output instead of annotation Japanese.** Rejected. The eval's job here is to rank translation engines for #35; feeding them OCR output makes that ranking a function of the OCR model #34 has not chosen yet, so every number would need re-deriving once it does. It also cannot be built today — the harness has no OCR half at all, and whether it gets one is #46's open question. The cost is real and is recorded below, not hidden.

@@ -95,7 +95,8 @@ class QuickSettingsPopup(
         selectedEngine = type
         val colors = context.paperColors()
         engineButtons.forEach { (engine, button) ->
-            button.text = if (engine == type) "✓ ${engine.label}" else engine.label
+            val label = context.getString(engine.labelRes)
+            button.text = if (engine == type) "✓ $label" else label
             button.isSelected = engine == type
             button.setTextColor(colors.ink)
             button.background = GradientDrawable().apply {
@@ -122,7 +123,7 @@ class QuickSettingsPopup(
         })
         addView(actionButton("Close quick settings") { remove() })
         TranslationEngineType.entries.forEach { engine ->
-            val button = actionButton(engine.label) { onEngineSelected(engine) }
+            val button = actionButton(context.getString(engine.labelRes)) { onEngineSelected(engine) }
             engineButtons[engine] = button
             addView(button, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) })
         }
