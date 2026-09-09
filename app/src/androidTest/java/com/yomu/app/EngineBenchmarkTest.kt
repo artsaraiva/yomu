@@ -1,21 +1,20 @@
 package com.yomu.app
 
-import android.content.SharedPreferences
 import android.content.Context
 import android.graphics.RectF
 import android.os.Debug
 import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.yomu.app.translation.TranslationEngineSelector
+import com.yomu.app.translation.EngineSelection
 import com.yomu.app.translation.TranslationEngineType
 import com.yomu.core.Constants
-import com.yomu.ml.TranslationBridge
-import com.yomu.ml.TranslationPromptMode
+import com.yomu.core.ModelProfile
+import com.yomu.core.TranslationPromptMode
+import com.yomu.core.TranslationStatus
 import com.yomu.app.translation.LlmModelCatalog
 import com.yomu.ml.LlamaBridge
 import com.yomu.ml.LlamaTranslationBridge
-import com.yomu.ml.TranslationStatus
 import com.yomu.pipeline.bubble.Bubble
 import com.yomu.pipeline.context.ContextAssembler
 import com.yomu.pipeline.ocr.OcrResult
@@ -40,7 +39,7 @@ class EngineBenchmarkTest {
     val hiltRule = HiltAndroidRule(this)
 
     @Inject
-    lateinit var selector: TranslationEngineSelector
+    lateinit var selector: EngineSelection
 
     @Inject
     lateinit var engine: TranslationEngine
@@ -53,9 +52,6 @@ class EngineBenchmarkTest {
     // first or the first challenger's load races a still-resident model.
     @Inject
     lateinit var llamaBridge: LlamaTranslationBridge
-
-    @Inject
-    lateinit var preferences: SharedPreferences
 
     @Before
     fun init() {
@@ -112,34 +108,26 @@ class EngineBenchmarkTest {
         val outputDir = File(context.filesDir, "yomu-prompt-benchmark")
         outputDir.deleteRecursively()
         outputDir.mkdirs()
-        val previousEngine = selector.currentEngine()
-        val previousModel = selector.currentLlmModel()
-        val previousContext = preferences.getBoolean(Constants.PREF_CAPTURE_CONTEXT, false)
         val rows = mutableListOf<TimingRow>()
+        val native = LlamaBridge(context)
+        val modelPath = File(
+            context.filesDir,
+            "${Constants.MODELS_DIR}/${Constants.LLM_MODELS_DIR}/${LlmModelCatalog.DEFAULT.ggufFileName}"
+        ).absolutePath
         try {
-            selector.selectEngine(TranslationEngineType.LLM)
-            selector.selectLlmModel(LlmModelCatalog.DEFAULT)
-            check(selector.ensureReady()) { "Qwen model unavailable: ${selector.status}" }
             for (mode in TranslationPromptMode.entries) {
-                preferences.edit().putBoolean(Constants.PREF_CAPTURE_CONTEXT,
-                    mode == TranslationPromptMode.CAPTURE_CONTEXT).commit()
-                val bridge = if (mode == TranslationPromptMode.MODEL_CARD) {
-                    object : TranslationBridge by selector {
-                        override fun promptMode() = TranslationPromptMode.MODEL_CARD
-                    }
-                } else selector
-                check(bridge.promptMode() == mode)
-                val measured = TranslationEngine(bridge)
+                val slot = LlamaTranslationBridge(native, ModelProfile(modelPath, false, mode))
+                check(slot.ensureReady()) { "Qwen model unavailable: ${slot.status}" }
+                val measured = TranslationEngine { slot }
                 runEngineOverCases(measured, "qwen_" + mode.name.lowercase(), cases, outputDir, rows)
-                measured.release()
+                measured.endSession()
+                slot.close()
                 writeTimingCsv(outputDir, rows)
             }
             check(rows.size == cases.size * TranslationPromptMode.entries.size)
         } finally {
             writeTimingCsv(outputDir, rows)
-            preferences.edit().putBoolean(Constants.PREF_CAPTURE_CONTEXT, previousContext).commit()
-            selector.selectLlmModel(previousModel)
-            selector.selectEngine(previousEngine)
+            native.release()
         }
     }
 
@@ -170,19 +158,20 @@ class EngineBenchmarkTest {
                 Log.i(TAG, "Benchmarking engine=$engineName")
 
                 selector.selectEngine(type)
+                val slot = selector.current()
                 val ready = runCatching {
-                    selector.ensureReady()
+                    slot.ensureReady()
                 }.getOrElse { false }
 
                 if (!ready) {
-                    val reason = (selector.status as? TranslationStatus.Error)?.reason ?: "not_ready"
+                    val reason = (slot.status as? TranslationStatus.Error)?.reason ?: "not_ready"
                     Log.e(TAG, "Engine $engineName not ready, skipping. reason=$reason")
                     continue
                 }
 
                 runEngineOverCases(engine, engineName, cases, outputDir, timingRows)
 
-                engine.release()
+                engine.endSession()
             }
 
             // #84 bake-off: measure the larger context-capable challengers on the SAME page-level
@@ -282,7 +271,7 @@ class EngineBenchmarkTest {
         benchDeadlineMs: Long
     ) {
         // Free the incumbent's native model so the first challenger loads into a clear slot.
-        runCatching { llamaBridge.release() }
+        runCatching { llamaBridge.close() }
 
         // Optional subset: `-Pandroid.testInstrumentationRunnerArguments.challengers=hunyuan_mt_7b,cat_translate_1.4b`
         // runs only those (comma-separated engine names). Four heavy LLMs rarely fit one timeout
@@ -306,7 +295,10 @@ class EngineBenchmarkTest {
                 continue
             }
             try {
-                val bridge = LlamaTranslationBridge(benchLlama, staged.absolutePath, idKeyedBatch = true)
+                val bridge = LlamaTranslationBridge(
+                    benchLlama,
+                    ModelProfile(staged.absolutePath, true, TranslationPromptMode.MODEL_CARD)
+                )
                 val ready = runCatching { bridge.ensureReady() }.getOrElse { false }
                 if (!ready) {
                     val reason = (bridge.status as? TranslationStatus.Error)?.reason ?: "not_ready"
@@ -320,10 +312,10 @@ class EngineBenchmarkTest {
                     System.currentTimeMillis() + PER_CHALLENGER_BUDGET_MS,
                     benchDeadlineMs
                 )
-                Log.i(TAG, "Benchmarking challenger=${candidate.engineName} idKeyedBatch=${bridge.supportsIdKeyedBatch()}")
-                val challengerEngine = TranslationEngine(bridge)
+                Log.i(TAG, "Benchmarking challenger=${candidate.engineName}")
+                val challengerEngine = TranslationEngine { bridge }
                 runEngineOverCases(challengerEngine, candidate.engineName, cases, outputDir, timingRows, challengerDeadline)
-                challengerEngine.release()
+                challengerEngine.endSession()
             } finally {
                 // Free native weights before the next challenger's load; the shared benchLlama is
                 // reused. Delete the staged copy so the next challenger has room.
