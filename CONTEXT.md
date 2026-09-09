@@ -15,8 +15,12 @@ A GGUF the user supplies from their own storage for the translation slot, alongs
 _Avoid_: sideloaded model, user model, BYO model, third-party model
 
 **Floor engine**:
-A translation engine that can only be asked one bubble at a time and so cannot run the page-level context architecture — OPUS-MT and ML Kit. Kept for devices that cannot run the LLM default; selectable, never the default, never scored against the LLM (it produces the per-line floor).
+A translation engine that can only be asked one bubble at a time and so cannot run the page-level context architecture — OPUS-MT and ML Kit. This is a prompt-shape floor, unrelated to the low-storage model option or a device's hardware floor.
 _Avoid_: fallback engine, legacy engine, secondary model
+
+**Translation slot**:
+The selected component that accepts one geometry-free page and owns every model-specific translation decision. Exactly one floor engine or LLM adapter fills it at a time.
+_Avoid_: translation bridge, selected engine wrapper
 
 ### Detection quality
 

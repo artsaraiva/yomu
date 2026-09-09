@@ -108,6 +108,7 @@ class LlamaTranslationBridge(
         sessionContext: List<Pair<String, String>>
     ): PageTranslation {
         val prompt = buildBatchPrompt(page, sessionContext)
+        // ponytail: chars/2 avoids tokenizer overhead; use exact tokenization if dense pages overflow N_CTX.
         val promptTokenEstimate = prompt.length / 2
         val budget = (N_CTX - promptTokenEstimate - BATCH_TOKEN_RESERVE)
             .coerceIn(BATCH_MIN_TOKENS, N_CTX)
