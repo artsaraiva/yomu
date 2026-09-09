@@ -1,305 +1,125 @@
 package com.yomu.pipeline.translation
 
 import android.graphics.RectF
-import com.yomu.ml.TranslationPromptMode
-import com.yomu.ml.TranslationBridge
-import com.yomu.ml.TranslationOutput
-import com.yomu.ml.TranslationStatus
+import com.yomu.core.PageTranslation
+import com.yomu.core.TranslatablePage
+import com.yomu.core.TranslationSlot
+import com.yomu.core.TranslationStatus
 import com.yomu.pipeline.bubble.Bubble
 import com.yomu.pipeline.context.ConversationBlock
 import com.yomu.pipeline.ocr.OcrResult
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import kotlinx.coroutines.test.runTest
 
 class TranslationEngineTest {
 
     @Test
-    fun translate_rejectsAssistantIntroduction() = runTest {
-        val bridge = FakeTranslationBridge(outputForText = mapOf(
-            "ありがとう" to TranslationOutput("Here's the English translation: Thank you.", 0.8f, 1L)
-        ))
-        val result = TranslationEngine(bridge).translate(listOf(singleBubbleBlock("ありがとう")))
-        assertEquals("ありがとう", result.translations.single().translatedText)
+    fun translate_appliesTranslationsAndResultMetadata() = runTest {
+        val slot = FakeTranslationSlot(
+            PageTranslation(mapOf(1 to "Hello"), "raw model output", 55L)
+        )
+
+        val result = TranslationEngine { slot }.translate(listOf(block(1 to "こんにちは")))
+
+        assertEquals("Hello", result.translations.single().translatedText)
+        assertEquals(0.8f, result.translations.single().confidence)
+        assertEquals("raw model output", result.rawResponse)
+        assertEquals(55L, result.translationTimeMs)
     }
 
     @Test
-    fun translate_captureContextIsBoundedAndNeverUsesPreviousCapture() = runTest {
-        val bridge = FakeTranslationBridge(supportsBatch = true, promptMode = TranslationPromptMode.CAPTURE_CONTEXT)
-        val engine = TranslationEngine(bridge)
-        engine.translate(listOf(conversationBlock(1 to "太郎はどこ？", 2 to "ここだよ")), listOf("OLD" to "OLD"))
-        assertEquals(2, bridge.prompts.size)
-        assertTrue(bridge.prompts.first().contains("ここだよ"))
-        assertTrue(bridge.prompts.first().endsWith("太郎はどこ？"))
-        assertTrue(bridge.prompts.first().contains("Return only"))
-        assertFalse(bridge.prompts.first().contains("OLD"))
-        bridge.prompts.clear()
-        engine.translate(listOf(conversationBlock(1 to "別の漫画")))
-        assertFalse(bridge.prompts.single().contains("太郎"))
-        bridge.prompts.clear()
-        engine.translate(listOf(conversationBlock(1 to "隣".repeat(300), 2 to "対象", 3 to "後".repeat(300))))
-        assertTrue(bridge.prompts[1].length < 600)
-        assertEquals(0, bridge.batchCalls)
+    fun translate_missingIdFallsBackToThatBubbleOnly() = runTest {
+        val slot = FakeTranslationSlot(PageTranslation(mapOf(1 to "Hello"), "", 1L))
+
+        val result = TranslationEngine { slot }
+            .translate(listOf(block(1 to "こんにちは", 2 to "さようなら")))
+
+        assertEquals(listOf("Hello", "さようなら"), result.translations.map { it.translatedText })
+        assertEquals(listOf(0.8f, 0.1f), result.translations.map { it.confidence })
     }
 
     @Test
-    fun translate_instructModeOnlyIncludesTarget() = runTest {
-        val bridge = FakeTranslationBridge(supportsBatch = true, promptMode = TranslationPromptMode.TRANSLATION_ONLY)
-        TranslationEngine(bridge).translate(listOf(conversationBlock(1 to "こんにちは", 2 to "さようなら")))
-        assertTrue(bridge.prompts.first().contains("Return only"))
-        assertTrue(bridge.prompts.first().endsWith("こんにちは"))
-        assertFalse(bridge.prompts.first().contains("さようなら"))
-    }
-
-    @Test
-    fun translate_englishSuccessReplacesOcr() = runTest {
-        val bridge = FakeTranslationBridge(
-            status = TranslationStatus.Ready,
-            outputForText = mapOf(
-                "こんにちは" to TranslationOutput(
-                    translatedText = "Hello there",
-                    confidence = 0.8f,
-                    durationMs = 55L
-                )
+    fun translate_rejectsNonTranslationWithoutDiscardingOtherIds() = runTest {
+        val slot = FakeTranslationSlot(
+            PageTranslation(
+                mapOf(1 to "Here's the English translation: Hello", 2 to "Goodbye"),
+                "",
+                1L
             )
         )
-        val engine = TranslationEngine(
-            bridge
-        )
 
-        val result = engine.translate(listOf(singleBubbleBlock("こんにちは")))
+        val result = TranslationEngine { slot }
+            .translate(listOf(block(1 to "こんにちは", 2 to "さようなら")))
 
-        assertEquals(1, result.translations.size)
-        assertEquals("Hello there", result.translations.first().translatedText)
-        assertEquals(0.8f, result.translations.first().confidence)
+        assertEquals(listOf("こんにちは", "Goodbye"), result.translations.map { it.translatedText })
     }
 
     @Test
-    fun translate_nullOutputFallsBack() = runTest {
-        val engine = TranslationEngine(
-            FakeTranslationBridge(status = TranslationStatus.Ready)
-        )
+    fun translate_projectsPanelsInReadingOrderWithoutGeometryOrEmptyOcr() = runTest {
+        val slot = FakeTranslationSlot(PageTranslation(emptyMap(), "", 1L))
+        val first = block(2 to "二", 1 to "一", 3 to "", readingOrder = listOf(1, 3, 2))
+        val second = block(4 to "四")
 
-        val result = engine.translate(listOf(singleBubbleBlock("おはよう")))
+        TranslationEngine { slot }.translate(listOf(first, second))
 
-        assertEquals("おはよう", result.translations.first().translatedText)
-        assertEquals(0.1f, result.translations.first().confidence)
+        assertEquals(listOf(listOf(1 to "一", 2 to "二"), listOf(4 to "四")), slot.pagePairs())
     }
 
     @Test
-    fun translate_notReadyFallsBack() = runTest {
-        val bridge = FakeTranslationBridge(status = TranslationStatus.NotReady)
-        val engine = TranslationEngine(bridge)
+    fun translate_limitsSourceTextAtTheSeam() = runTest {
+        val slot = FakeTranslationSlot(PageTranslation(emptyMap(), "", 1L))
 
-        val result = engine.translate(listOf(singleBubbleBlock("ありがとう")))
+        TranslationEngine { slot }.translate(listOf(block(1 to "長".repeat(400))))
 
-        assertEquals("ありがとう", result.translations.first().translatedText)
-        assertEquals(0.1f, result.translations.first().confidence)
+        assertEquals(300, slot.pages.single().panels.single().single().sourceText.length)
     }
 
     @Test
-    fun translate_emptyOutputFallsBack() = runTest {
-        val bridge = FakeTranslationBridge(
-            status = TranslationStatus.Ready,
-            outputForText = mapOf(
-                "空" to TranslationOutput(
-                    translatedText = "   ",
-                    confidence = 0.8f,
-                    durationMs = 5L
-                )
-            )
-        )
-        val engine = TranslationEngine(bridge)
+    fun translate_passesSessionContextToTheSlot() = runTest {
+        val slot = FakeTranslationSlot(PageTranslation(emptyMap(), "", 1L))
+        val context = listOf("前" to "Before")
 
-        val result = engine.translate(listOf(singleBubbleBlock("空")))
+        TranslationEngine { slot }.translate(listOf(block(1 to "今")), context)
 
-        assertEquals("空", result.translations.first().translatedText)
-        assertEquals(0.1f, result.translations.first().confidence)
+        assertEquals(context, slot.sessionContexts.single())
     }
 
     @Test
-    fun translate_llmPerLineTranslatesEachBubbleInItsOwnCall() = runTest {
-        val bridge = FakeTranslationBridge(
-            status = TranslationStatus.Ready,
-            outputForText = mapOf(
-                "こんにちは" to TranslationOutput("Hello", 0.8f, 10L),
-                "さようなら" to TranslationOutput("Goodbye", 0.8f, 10L)
-            ),
-            supportsBatch = true
-        )
-        val engine = TranslationEngine(bridge)
+    fun translate_resolvesTheSlotForEveryCall() = runTest {
+        val first = FakeTranslationSlot(PageTranslation(mapOf(1 to "First"), "", 1L))
+        val second = FakeTranslationSlot(PageTranslation(mapOf(1 to "Second"), "", 1L))
+        var current = first
+        val engine = TranslationEngine { current }
 
-        val result = engine.translate(listOf(conversationBlock(1 to "こんにちは", 2 to "さようなら")))
-
-        val byId = result.translations.associateBy { it.bubbleId }
-        assertEquals("Hello", byId[1]?.translatedText)
-        assertEquals("Goodbye", byId[2]?.translatedText)
-        // One call per bubble, and never the single-shot id-keyed batch call.
-        assertEquals(2, bridge.translateCallCount)
-        assertEquals(0, bridge.batchCalls)
+        assertEquals("First", engine.translate(listOf(block(1 to "源"))).translations.single().translatedText)
+        current = second
+        assertEquals("Second", engine.translate(listOf(block(1 to "源"))).translations.single().translatedText)
     }
 
     @Test
-    fun translate_llmPerLineMissingBubbleFallsBackToSourceForThatIdOnly() = runTest {
-        val bridge = FakeTranslationBridge(
-            status = TranslationStatus.Ready,
-            outputForText = mapOf(
-                "こんにちは" to TranslationOutput("Hello", 0.8f, 10L)
-            ),
-            supportsBatch = true
-        )
-        val engine = TranslationEngine(bridge)
+    fun translate_emptyPageDoesNotCallTheSlot() = runTest {
+        val slot = FakeTranslationSlot(PageTranslation(emptyMap(), "", 1L))
 
-        val result = engine.translate(listOf(conversationBlock(1 to "こんにちは", 2 to "さようなら")))
+        val result = TranslationEngine { slot }.translate(listOf(block(1 to "")))
 
-        val byId = result.translations.associateBy { it.bubbleId }
-        assertEquals("Hello", byId[1]?.translatedText)
-        assertEquals("さようなら", byId[2]?.translatedText)
-        assertEquals(0.8f, byId[1]?.confidence)
-        assertEquals(0.1f, byId[2]?.confidence)
+        assertTrue(result.translations.isEmpty())
+        assertTrue(slot.pages.isEmpty())
     }
 
     @Test
-    fun translate_llmPerLineUsesBareModelCardFormWithoutContext() = runTest {
-        val bridge = FakeTranslationBridge(
-            status = TranslationStatus.Ready,
-            outputForText = mapOf(
-                "こんにちは" to TranslationOutput("Hello", 0.8f, 10L),
-                "さようなら" to TranslationOutput("Goodbye", 0.8f, 10L)
-            ),
-            supportsBatch = true
-        )
-        val engine = TranslationEngine(bridge)
+    fun endSessionAndCloseUseTheirSingleLifecycleHooks() {
+        val slot = FakeTranslationSlot(PageTranslation(emptyMap(), "", 0L))
+        var closeCalls = 0
+        val engine = TranslationEngine({ slot }) { closeCalls++ }
 
-        engine.translate(listOf(conversationBlock(1 to "こんにちは", 2 to "さようなら")))
+        engine.endSession()
+        engine.close()
 
-        // The 0.8b refuses with any surrounding context (#71 amendment): each prompt carries only
-        // its own target line, never the other bubble's source.
-        val helloPrompt = bridge.prompts.single { it.contains("こんにちは") }
-        assertTrue(helloPrompt.endsWith("こんにちは"))
-        assertFalse(helloPrompt.contains("さようなら"))
-    }
-
-    @Test
-    fun translate_idKeyedBatchTranslatesAllBubblesWithOneCall() = runTest {
-        val bridge = FakeTranslationBridge(
-            status = TranslationStatus.Ready,
-            batchResponse = "[1] Hello\n[2] Goodbye",
-            supportsBatch = true,
-            supportsIdKeyedBatch = true
-        )
-        val engine = TranslationEngine(bridge)
-
-        val result = engine.translate(listOf(conversationBlock(1 to "こんにちは", 2 to "さようなら")))
-
-        assertEquals(2, result.translations.size)
-        assertEquals("Hello", result.translations[0].translatedText)
-        assertEquals("Goodbye", result.translations[1].translatedText)
-        assertEquals(1, bridge.batchCalls)
-    }
-
-    @Test
-    fun translate_idKeyedBatchMissingIdFallsBackToSourceForThatIdOnly() = runTest {
-        val bridge = FakeTranslationBridge(
-            status = TranslationStatus.Ready,
-            batchResponse = "[1] Hello",
-            supportsBatch = true,
-            supportsIdKeyedBatch = true
-        )
-        val engine = TranslationEngine(bridge)
-
-        val result = engine.translate(listOf(conversationBlock(1 to "こんにちは", 2 to "さようなら")))
-
-        assertEquals(2, result.translations.size)
-        assertEquals("Hello", result.translations[0].translatedText)
-        assertEquals("さようなら", result.translations[1].translatedText)
-        assertEquals(0.8f, result.translations[0].confidence)
-        assertEquals(0.1f, result.translations[1].confidence)
-    }
-
-    @Test
-    fun translate_idKeyedBatchIdReturnedOutOfOrderLandsInRightBubble() = runTest {
-        val bridge = FakeTranslationBridge(
-            status = TranslationStatus.Ready,
-            batchResponse = "[2] Goodbye\n[1] Hello",
-            supportsBatch = true,
-            supportsIdKeyedBatch = true
-        )
-        val engine = TranslationEngine(bridge)
-
-        val result = engine.translate(listOf(conversationBlock(1 to "こんにちは", 2 to "さようなら")))
-
-        val byId = result.translations.associateBy { it.bubbleId }
-        assertEquals("Hello", byId[1]?.translatedText)
-        assertEquals("Goodbye", byId[2]?.translatedText)
-    }
-
-    @Test
-    fun translate_idKeyedBatchMergedOrPrefacedLineDoesNotShiftLaterBubbles() = runTest {
-        // A prefaced line with no [id] and a merged extra line must be ignored, not consumed
-        // positionally — every id must still land in its own bubble.
-        val bridge = FakeTranslationBridge(
-            status = TranslationStatus.Ready,
-            batchResponse = "Sure! Here are the translations:\n[1] Hello\nand also\n[2] Goodbye",
-            supportsBatch = true,
-            supportsIdKeyedBatch = true
-        )
-        val engine = TranslationEngine(bridge)
-
-        val result = engine.translate(listOf(conversationBlock(1 to "こんにちは", 2 to "さようなら")))
-
-        val byId = result.translations.associateBy { it.bubbleId }
-        assertEquals("Hello", byId[1]?.translatedText)
-        assertEquals("Goodbye", byId[2]?.translatedText)
-    }
-
-    // Session context is prepended only on the id-keyed batch path (a larger sibling model, #72).
-    // The shipping 0.8b takes translatePerLine, which drops context by design (#71 amendment).
-    @Test
-    fun translate_idKeyedBatchPrependsSessionContextToPrompt() = runTest {
-        val bridge = FakeTranslationBridge(
-            status = TranslationStatus.Ready,
-            batchResponse = "[1] Hello",
-            supportsBatch = true,
-            supportsIdKeyedBatch = true
-        )
-        val engine = TranslationEngine(bridge)
-
-        engine.translate(
-            listOf(conversationBlock(1 to "こんにちは")),
-            sessionContext = listOf("前の台詞" to "The previous line")
-        )
-
-        val prompt = bridge.batchPrompts.single()
-        assertTrue(prompt.contains("Previous page"))
-        assertTrue(prompt.contains("前の台詞 => The previous line"))
-    }
-
-    @Test
-    fun translate_idKeyedBatchOmitsContextHeaderWhenSessionContextEmpty() = runTest {
-        val bridge = FakeTranslationBridge(
-            status = TranslationStatus.Ready,
-            batchResponse = "[1] Hello",
-            supportsBatch = true,
-            supportsIdKeyedBatch = true
-        )
-        val engine = TranslationEngine(bridge)
-
-        engine.translate(listOf(conversationBlock(1 to "こんにちは")))
-
-        assertFalse(bridge.batchPrompts.single().contains("Previous page"))
-    }
-
-    @Test
-    fun release_clearsBridgeMemory() {
-        val bridge = FakeTranslationBridge(status = TranslationStatus.Ready)
-        val engine = TranslationEngine(bridge)
-
-        engine.release()
-
-        assertEquals(1, bridge.clearMemoryCalls)
+        assertEquals(1, slot.endSessionCalls)
+        assertEquals(1, closeCalls)
     }
 
     @Test
@@ -321,147 +141,48 @@ class TranslationEngineTest {
         assertFalse(looksLikeNonTranslation("No no no no no no"))
     }
 
-    @Test
-    fun translate_perLineDropsNonTranslationOutputToSource() = runTest {
-        val bridge = FakeTranslationBridge(
-            status = TranslationStatus.Ready,
-            outputForText = mapOf(
-                "こんにちは" to TranslationOutput("I'm sorry, but I can't help with that.", 0.8f, 10L)
-            ),
-            supportsBatch = true
-        )
-        val engine = TranslationEngine(bridge)
-
-        val result = engine.translate(listOf(singleBubbleBlock("こんにちは")))
-
-        assertEquals("こんにちは", result.translations.first().translatedText)
-        assertEquals(0.1f, result.translations.first().confidence)
-    }
-
-    @Test
-    fun translate_batchDisabledUsesPerBubblePath() = runTest {
-        val bridge = FakeTranslationBridge(
-            status = TranslationStatus.Ready,
-            outputForText = mapOf(
-                "こんにちは" to TranslationOutput(
-                    translatedText = "Hello",
-                    confidence = 0.8f,
-                    durationMs = 10L
-                )
-            ),
-            supportsBatch = false
-        )
-        val engine = TranslationEngine(bridge)
-
-        val result = engine.translate(listOf(singleBubbleBlock("こんにちは")))
-
-        assertEquals("Hello", result.translations.first().translatedText)
-        assertEquals(1, bridge.translateCalls["こんにちは"])
-    }
-
-    @Test
-    fun translate_perBubblePathTranslatesRepeatedLineEveryTime() = runTest {
-        val bridge = FakeTranslationBridge(
-            status = TranslationStatus.Ready,
-            outputForText = mapOf(
-                "こんにちは" to TranslationOutput("Hello", 0.8f, 10L)
-            ),
-            supportsBatch = false
-        )
-        val engine = TranslationEngine(bridge)
-
-        val result = engine.translate(listOf(conversationBlock(1 to "こんにちは", 2 to "こんにちは")))
-
-        assertEquals(2, result.translations.size)
-        assertEquals("Hello", result.translations[0].translatedText)
-        assertEquals("Hello", result.translations[1].translatedText)
-        assertEquals(2, bridge.translateCalls["こんにちは"])
-    }
-
-    private fun singleBubbleBlock(text: String): ConversationBlock {
-        return conversationBlock(1 to text)
-    }
-
-    private fun conversationBlock(vararg bubbleTexts: Pair<Int, String>): ConversationBlock {
+    private fun block(
+        vararg bubbleTexts: Pair<Int, String>,
+        readingOrder: List<Int> = bubbleTexts.map { it.first }
+    ): ConversationBlock {
         val bubbles = bubbleTexts.map { (id, _) ->
-            Bubble(
-                id = id,
-                boundingBox = RectF(0f, 0f, 100f, 100f),
-                confidence = 0.9f
-            )
+            Bubble(id, RectF(0f, 0f, 100f, 100f), 0.9f)
         }
-        val textByBubbleId = bubbleTexts.associate { (id, text) ->
-            id to OcrResult(
-                text = text,
-                confidence = 1f,
-                boundingBox = floatArrayOf(0f, 0f, 1f, 1f)
-            )
+        val byId = bubbleTexts.associate { (id, text) ->
+            id to OcrResult(text, 1f, floatArrayOf(0f, 0f, 1f, 1f))
         }
-        val texts = bubbleTexts.map { (_, text) ->
-            OcrResult(
-                text = text,
-                confidence = 1f,
-                boundingBox = floatArrayOf(0f, 0f, 1f, 1f)
-            )
-        }
-
-        return ConversationBlock(
-            blockId = 1,
-            bubbles = bubbles,
-            texts = texts,
-            readingOrder = bubbleTexts.map { it.first },
-            textByBubbleId = textByBubbleId
-        )
+        return ConversationBlock(1, bubbles, byId.values.toList(), readingOrder, byId)
     }
 
-    private class FakeTranslationBridge(
-        status: TranslationStatus = TranslationStatus.Ready,
-        private val outputForText: Map<String, TranslationOutput> = emptyMap(),
-        private val batchResponse: String? = null,
-        private val supportsBatch: Boolean = false,
-        private val supportsIdKeyedBatch: Boolean = false,
-        private val promptMode: TranslationPromptMode = TranslationPromptMode.MODEL_CARD
-    ) : TranslationBridge {
-        override var status: TranslationStatus = status
-        val translateCalls: MutableMap<String, Int> = mutableMapOf()
-        val prompts: MutableList<String> = mutableListOf()
-        val batchPrompts: MutableList<String> = mutableListOf()
-        var translateCallCount: Int = 0
-        var batchCalls: Int = 0
-        var clearMemoryCalls: Int = 0
+    private class FakeTranslationSlot(
+        private val result: PageTranslation
+    ) : TranslationSlot {
+        override var status: TranslationStatus = TranslationStatus.Ready
+        val pages = mutableListOf<TranslatablePage>()
+        val sessionContexts = mutableListOf<List<Pair<String, String>>>()
+        var endSessionCalls = 0
 
-        override suspend fun ensureReady(): Boolean {
-            return this.status is TranslationStatus.Ready
+        override suspend fun ensureReady(): Boolean = true
+
+        override suspend fun translatePage(
+            page: TranslatablePage,
+            sessionContext: List<Pair<String, String>>
+        ): PageTranslation {
+            pages += page
+            sessionContexts += sessionContext
+            return result
         }
 
-        // The page-context path passes a whole prompt whose tail is the target line, so match an
-        // output whose key the prompt ends with; the floor path passes the bare source (exact key).
-        override suspend fun translate(sourceText: String): TranslationOutput? {
-            translateCalls[sourceText] = (translateCalls[sourceText] ?: 0) + 1
-            translateCallCount++
-            prompts.add(sourceText)
-            return outputForText[sourceText]
-                ?: outputForText.entries.firstOrNull { sourceText.endsWith(it.key) }?.value
-        }
-
-        override suspend fun translateBatch(prompt: String): TranslationOutput? {
-            batchCalls++
-            batchPrompts.add(prompt)
-            return batchResponse?.let { TranslationOutput(it, 0.8f, 100L) }
-        }
-
-        override fun promptMode(): TranslationPromptMode = promptMode
-
-        override fun supportsBatch(): Boolean = supportsBatch
-
-        override fun supportsIdKeyedBatch(): Boolean = supportsIdKeyedBatch
-
-        override fun clearMemory() {
-            clearMemoryCalls++
+        override fun endSession() {
+            endSessionCalls++
         }
 
         override fun close() {
             status = TranslationStatus.NotReady
+        }
+
+        fun pagePairs(): List<List<Pair<Int, String>>> = pages.single().panels.map { panel ->
+            panel.map { it.bubbleId to it.sourceText }
         }
     }
 }

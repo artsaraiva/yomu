@@ -1,6 +1,7 @@
 package com.yomu.app.translation
 
 import com.yomu.core.Constants
+import com.yomu.core.TranslationPromptMode
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -14,6 +15,7 @@ class LlmModelCatalogTest {
     @Test
     fun `default is Qwen2_5 1_5B`() {
         assertEquals(Constants.QWEN25_15B_MODEL_ID, LlmModelCatalog.DEFAULT.id)
+        assertEquals(TranslationPromptMode.TRANSLATION_ONLY, LlmModelCatalog.DEFAULT.promptMode)
     }
 
     @Test
@@ -26,6 +28,7 @@ class LlmModelCatalogTest {
     fun `selectedOrDefault resolves a known id`() {
         val floor = LlmModelCatalog.selectedOrDefault(Constants.CAT_TRANSLATION_MODEL_ID)
         assertEquals(Constants.CAT_TRANSLATION_MODEL_ID, floor.id)
+        assertEquals(TranslationPromptMode.MODEL_CARD, floor.promptMode)
     }
 
     @Test

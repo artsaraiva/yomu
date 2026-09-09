@@ -6,10 +6,9 @@ import com.yomu.core.Constants
 import com.yomu.ml.LlamaBridge
 import com.yomu.ml.LlamaTranslationBridge
 import com.yomu.ml.OnnxRuntime
-import com.yomu.ml.TranslationBridge
 import com.yomu.ml.opusmt.OpusMtTranslationBridge
+import com.yomu.app.translation.EngineSelection
 import com.yomu.app.translation.MlKitTranslationBridge
-import com.yomu.app.translation.TranslationEngineSelector
 import com.yomu.pipeline.TranslationPipeline
 import com.yomu.pipeline.bubble.BubbleDetector
 import com.yomu.pipeline.context.ContextAssembler
@@ -70,25 +69,29 @@ object PipelineModule {
         @ApplicationContext context: Context,
         sharedPreferences: SharedPreferences
     ): LlamaTranslationBridge {
-        // Initial model is the persisted LLM choice, or the ADR-0010 default (Qwen2.5-1.5B) when
-        // nothing is picked. Runtime-selected from here on via TranslationEngineSelector (#90 part A).
         val selected = LlmModelCatalog.selectedOrDefault(
             sharedPreferences.getString(Constants.PREF_LLM_MODEL, null)
         )
-        val modelPath = File(llmModelsDir(context), selected.ggufFileName).absolutePath
-        return LlamaTranslationBridge(llamaBridge, modelPath, selected.idKeyedBatch)
+        return LlamaTranslationBridge(
+            llamaBridge,
+            LlmModelCatalog.profileFor(
+                selected,
+                llmModelsDir(context),
+                sharedPreferences.getBoolean(Constants.PREF_CAPTURE_CONTEXT, false)
+            )
+        )
     }
 
     @Provides
     @Singleton
-    fun provideTranslationEngineSelector(
+    fun provideEngineSelection(
         mlKitBridge: MlKitTranslationBridge,
         opusMtBridge: OpusMtTranslationBridge,
         llamaBridge: LlamaTranslationBridge,
         sharedPreferences: SharedPreferences,
         @ApplicationContext context: Context
-    ): TranslationEngineSelector {
-        return TranslationEngineSelector(
+    ): EngineSelection {
+        return EngineSelection(
             mlKitBridge,
             opusMtBridge,
             llamaBridge,
@@ -99,12 +102,8 @@ object PipelineModule {
 
     @Provides
     @Singleton
-    fun provideTranslationBridge(selector: TranslationEngineSelector): TranslationBridge = selector
-
-    @Provides
-    @Singleton
-    fun provideTranslationEngine(selector: TranslationEngineSelector): TranslationEngine {
-        return TranslationEngine(selector)
+    fun provideTranslationEngine(selection: EngineSelection): TranslationEngine {
+        return TranslationEngine(selection::current, selection::close)
     }
 
     @Provides

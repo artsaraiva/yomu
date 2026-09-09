@@ -1,10 +1,11 @@
 package com.yomu.ml.opusmt
 
 import android.util.Log
+import com.yomu.core.PageTranslation
+import com.yomu.core.TranslatablePage
+import com.yomu.core.TranslationSlot
+import com.yomu.core.TranslationStatus
 import com.yomu.ml.OnnxRuntime
-import com.yomu.ml.TranslationBridge
-import com.yomu.ml.TranslationOutput
-import com.yomu.ml.TranslationStatus
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -13,11 +14,10 @@ class OpusMtTranslationBridge(
     private val encoderModelPath: String,
     private val decoderModelPath: String,
     private val tokenizerPath: String
-) : TranslationBridge {
+) : TranslationSlot {
 
     companion object {
         private const val TAG = "OpusMtTranslationBridge"
-        private const val CONFIDENCE = 0.85f
     }
 
     private val readinessMutex = Mutex()
@@ -44,10 +44,25 @@ class OpusMtTranslationBridge(
         ready
     }
 
-    override suspend fun translate(sourceText: String): TranslationOutput? {
-        if (sourceText.isBlank()) return null
-        if (status !is TranslationStatus.Ready && !ensureReady()) return null
+    override suspend fun translatePage(
+        page: TranslatablePage,
+        sessionContext: List<Pair<String, String>>
+    ): PageTranslation {
+        if (status !is TranslationStatus.Ready && !ensureReady()) {
+            return PageTranslation(emptyMap(), "", 0L)
+        }
+        val outputs = page.panels.flatten().mapNotNull { bubble ->
+            translate(bubble.sourceText)?.let { output -> bubble.bubbleId to output }
+        }
+        return PageTranslation(
+            byId = outputs.associate { (id, output) -> id to output.text },
+            rawResponse = outputs.joinToString("\n") { (id, output) -> "[$id] ${output.text}" },
+            durationMs = outputs.sumOf { it.second.durationMs }
+        )
+    }
 
+    private suspend fun translate(sourceText: String): TranslatedText? {
+        if (sourceText.isBlank()) return null
         val t = translator ?: return null
         val startMs = System.currentTimeMillis()
         return try {
@@ -63,7 +78,7 @@ class OpusMtTranslationBridge(
                     TAG,
                     "translate success sourceLength=${sourceText.length} translatedLength=${text.length} durationMs=$durationMs"
                 )
-                TranslationOutput(text, CONFIDENCE, durationMs)
+                TranslatedText(text, durationMs)
             }
         } catch (e: Exception) {
             Log.e(TAG, "translate failed sourceLength=${sourceText.length}", e)
@@ -72,7 +87,7 @@ class OpusMtTranslationBridge(
         }
     }
 
-    override fun supportsBatch(): Boolean = false
+    override fun endSession() = Unit
 
     override fun close() {
         translator?.close()
@@ -80,4 +95,6 @@ class OpusMtTranslationBridge(
         status = TranslationStatus.NotReady
         Log.i(TAG, "close completed")
     }
+
+    private data class TranslatedText(val text: String, val durationMs: Long)
 }

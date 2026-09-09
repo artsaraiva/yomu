@@ -1,170 +1,225 @@
 package com.yomu.ml
 
+import com.yomu.core.ModelProfile
+import com.yomu.core.TranslatableBubble
+import com.yomu.core.TranslatablePage
+import com.yomu.core.TranslationPromptMode
+import com.yomu.core.TranslationStatus
 import java.io.File
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LlamaTranslationBridgeTest {
 
     @Test
-    fun translate_successResultMapsToTranslationOutput() = runTest {
+    fun translatePage_modelCardTranslatesEachBubbleWithoutContext() = runTest {
         val model = File.createTempFile("model", ".gguf")
-        val bridge = LlamaTranslationBridge(
-            llamaBridge = FakeLlamaBridge(GenerationResult.Success(" Hello ", 100L)),
-            modelPath = model.absolutePath
-        )
-        bridge.ensureReady()
+        val native = FakeLlamaBridge { prompt ->
+            GenerationResult.Success(if (prompt.endsWith("こんにちは")) "Hello" else "Goodbye", 10L)
+        }
+        val slot = LlamaTranslationBridge(native, profile(model, TranslationPromptMode.MODEL_CARD))
 
-        val output = bridge.translate("こんにちは")
+        val result = slot.translatePage(page(1 to "こんにちは", 2 to "さようなら"), emptyList())
 
-        assertEquals("Hello", output?.translatedText)
-        assertEquals(0.8f, output?.confidence)
-        assertEquals(100L, output?.durationMs)
+        assertEquals(mapOf(1 to "Hello", 2 to "Goodbye"), result.byId)
+        assertEquals(2, native.prompts.size)
+        assertTrue(native.prompts[0].endsWith("こんにちは"))
+        assertFalse(native.prompts[0].contains("さようなら"))
+        assertEquals(20L, result.durationMs)
         model.delete()
     }
 
     @Test
-    fun translate_blankResultReturnsNull() = runTest {
+    fun translatePage_translationOnlyPromptContainsOnlyTheTarget() = runTest {
         val model = File.createTempFile("model", ".gguf")
-        val bridge = LlamaTranslationBridge(
-            llamaBridge = FakeLlamaBridge(GenerationResult.Blank(50L)),
-            modelPath = model.absolutePath
-        )
-        bridge.ensureReady()
+        val native = FakeLlamaBridge { GenerationResult.Success("Hello", 1L) }
+        val slot = LlamaTranslationBridge(native, profile(model, TranslationPromptMode.TRANSLATION_ONLY))
 
-        assertNull(bridge.translate("こんにちは"))
+        slot.translatePage(page(1 to "こんにちは", 2 to "さようなら"), emptyList())
+
+        assertTrue(native.prompts.first().contains("Return only"))
+        assertTrue(native.prompts.first().endsWith("こんにちは"))
+        assertFalse(native.prompts.first().contains("さようなら"))
         model.delete()
     }
 
     @Test
-    fun translate_errorResultReturnsNull() = runTest {
+    fun translatePage_captureContextUsesOnlyBoundedCurrentPageNeighbours() = runTest {
         val model = File.createTempFile("model", ".gguf")
-        val bridge = LlamaTranslationBridge(
-            llamaBridge = FakeLlamaBridge(GenerationResult.Error("fail", 30L)),
-            modelPath = model.absolutePath
-        )
-        bridge.ensureReady()
+        val native = FakeLlamaBridge { GenerationResult.Success("English", 1L) }
+        val slot = LlamaTranslationBridge(native, profile(model, TranslationPromptMode.CAPTURE_CONTEXT))
 
-        assertNull(bridge.translate("こんにちは"))
+        slot.translatePage(
+            page(1 to "前".repeat(300), 2 to "対象", 3 to "後".repeat(300)),
+            listOf("OLD" to "OLD")
+        )
+
+        val targetPrompt = native.prompts[1]
+        assertTrue(targetPrompt.contains("Nearby dialogue"))
+        assertTrue(targetPrompt.endsWith("対象"))
+        assertFalse(targetPrompt.contains("OLD"))
+        assertTrue(targetPrompt.length < 600)
         model.delete()
     }
 
     @Test
-    fun translate_notLoadedResultReturnsNull() = runTest {
+    fun translatePage_idKeyedBatchBuildsOnePagePromptAndParsesById() = runTest {
         val model = File.createTempFile("model", ".gguf")
-        val bridge = LlamaTranslationBridge(
-            llamaBridge = FakeLlamaBridge(GenerationResult.NotLoaded(0L)),
-            modelPath = model.absolutePath
+        val native = FakeLlamaBridge {
+            GenerationResult.Success("Here are the translations:\n[2] Goodbye\nignored\n[1] Hello", 100L)
+        }
+        val slot = LlamaTranslationBridge(native, profile(model, idKeyedBatch = true))
+        val page = TranslatablePage(
+            listOf(
+                listOf(TranslatableBubble(1, "こんにちは")),
+                listOf(TranslatableBubble(2, "さようなら"))
+            )
         )
-        bridge.ensureReady()
 
-        assertNull(bridge.translate("こんにちは"))
+        val result = slot.translatePage(page, listOf("前の台詞" to "The previous line"))
+
+        assertEquals(mapOf(2 to "Goodbye", 1 to "Hello"), result.byId)
+        assertEquals(1, native.prompts.size)
+        assertTrue(native.prompts.single().contains("前の台詞 => The previous line"))
+        assertTrue(native.prompts.single().contains("[1] こんにちは\n---\n[2] さようなら"))
+        assertEquals(100L, result.durationMs)
         model.delete()
     }
 
     @Test
-    fun supportsBatch_returnsTrue() {
-        val bridge = LlamaTranslationBridge(
-            llamaBridge = FakeLlamaBridge(GenerationResult.Success("x", 1L)),
-            modelPath = ""
-        )
-
-        assertTrue(bridge.supportsBatch())
-    }
-
-    @Test
-    fun supportsIdKeyedBatch_defaultsFalseForThe08b() {
-        val bridge = LlamaTranslationBridge(
-            llamaBridge = FakeLlamaBridge(GenerationResult.Success("x", 1L)),
-            modelPath = ""
-        )
-
-        assertFalse(bridge.supportsIdKeyedBatch())
-    }
-
-    @Test
-    fun supportsIdKeyedBatch_trueWhenConstructedForACapableChallenger() {
-        val bridge = LlamaTranslationBridge(
-            llamaBridge = FakeLlamaBridge(GenerationResult.Success("x", 1L)),
-            modelPath = "",
-            idKeyedBatch = true
-        )
-
-        assertTrue(bridge.supportsIdKeyedBatch())
-    }
-
-    @Test
-    fun translateBatch_requestsLargerBudgetThanPerLine() = runTest {
+    fun translatePage_idKeyedBatchOmitsMissingIds() = runTest {
         val model = File.createTempFile("model", ".gguf")
-        val fake = FakeLlamaBridge(GenerationResult.Success("[1] Hello", 100L))
-        val bridge = LlamaTranslationBridge(llamaBridge = fake, modelPath = model.absolutePath)
-        bridge.ensureReady()
+        val slot = LlamaTranslationBridge(
+            FakeLlamaBridge { GenerationResult.Success("[1] Hello", 1L) },
+            profile(model, idKeyedBatch = true)
+        )
 
-        bridge.translate("こんにちは")
-        val perLineTokens = fake.lastMaxTokens
-        bridge.translateBatch("[1] こんにちは\n[2] さようなら")
-        val batchTokens = fake.lastMaxTokens
+        val result = slot.translatePage(page(1 to "こんにちは", 2 to "さようなら"), emptyList())
 
-        // A whole page must not be truncated to the 64-token per-line cap.
+        assertEquals(mapOf(1 to "Hello"), result.byId)
+        model.delete()
+    }
+
+    @Test
+    fun translatePage_blankOrFailedLinesAreOmitted() = runTest {
+        val model = File.createTempFile("model", ".gguf")
+        val results = ArrayDeque<GenerationResult>().apply {
+            add(GenerationResult.Blank(1L))
+            add(GenerationResult.Error("fail", 2L))
+        }
+        val slot = LlamaTranslationBridge(
+            FakeLlamaBridge { results.removeFirst() },
+            profile(model)
+        )
+
+        val result = slot.translatePage(page(1 to "一", 2 to "二"), emptyList())
+
+        assertTrue(result.byId.isEmpty())
+        model.delete()
+    }
+
+    @Test
+    fun translatePage_batchRequestsLargerBudgetThanPerLine() = runTest {
+        val model = File.createTempFile("model", ".gguf")
+        val native = FakeLlamaBridge { GenerationResult.Success("[1] Hello", 1L) }
+        val slot = LlamaTranslationBridge(native, profile(model))
+
+        slot.translatePage(page(1 to "こんにちは"), emptyList())
+        val perLineTokens = native.maxTokens.single()
+        slot.selectModel(profile(model, idKeyedBatch = true))
+        slot.translatePage(page(1 to "こんにちは", 2 to "さようなら"), emptyList())
+        val batchTokens = native.maxTokens.last()
+
         assertTrue("batch=$batchTokens perLine=$perLineTokens", batchTokens > perLineTokens)
         model.delete()
     }
 
     @Test
-    fun selectModel_switchingModelDropsToNotReadyAndUpdatesIdKeyedBatch() = runTest {
+    fun selectModel_switchesTheWholeProfileAndDropsReadiness() = runTest {
         val model = File.createTempFile("model", ".gguf")
-        val bridge = LlamaTranslationBridge(
-            llamaBridge = FakeLlamaBridge(GenerationResult.Success("x", 1L)),
-            modelPath = model.absolutePath
-        )
-        bridge.ensureReady()
-        assertTrue(bridge.status is TranslationStatus.Ready)
-        assertFalse(bridge.supportsIdKeyedBatch())
+        val native = FakeLlamaBridge { GenerationResult.Success("x", 1L) }
+        val slot = LlamaTranslationBridge(native, profile(model))
+        assertTrue(slot.ensureReady())
 
-        bridge.selectModel("/other.gguf", newIdKeyedBatch = true)
+        slot.selectModel(ModelProfile("/other.gguf", true, TranslationPromptMode.CAPTURE_CONTEXT))
 
-        // Switching forces a reload on the next ensureReady, and carries the new model's capability.
-        assertTrue(bridge.status is TranslationStatus.NotReady)
-        assertTrue(bridge.supportsIdKeyedBatch())
+        assertEquals(TranslationStatus.NotReady, slot.status)
+        assertEquals(1, native.releaseCalls)
         model.delete()
     }
 
     @Test
-    fun selectModel_sameSelectionIsANoOp() = runTest {
+    fun selectModel_sameProfileIsANoOp() = runTest {
         val model = File.createTempFile("model", ".gguf")
-        val bridge = LlamaTranslationBridge(
-            llamaBridge = FakeLlamaBridge(GenerationResult.Success("x", 1L)),
-            modelPath = model.absolutePath
-        )
-        bridge.ensureReady()
+        val native = FakeLlamaBridge { GenerationResult.Success("x", 1L) }
+        val profile = profile(model)
+        val slot = LlamaTranslationBridge(native, profile)
+        assertTrue(slot.ensureReady())
 
-        bridge.selectModel(model.absolutePath, newIdKeyedBatch = false)
+        slot.selectModel(profile)
 
-        assertTrue(bridge.status is TranslationStatus.Ready)
+        assertEquals(TranslationStatus.Ready, slot.status)
+        assertEquals(0, native.releaseCalls)
         model.delete()
     }
 
-    private class FakeLlamaBridge(private val result: GenerationResult) : LlamaBridge(null) {
-        var lastMaxTokens: Int = -1
+    @Test
+    fun endSessionClearsMemoryAndCloseReleasesWeights() {
+        val native = FakeLlamaBridge { GenerationResult.Success("x", 1L) }
+        val slot = LlamaTranslationBridge(native, ModelProfile("", false, TranslationPromptMode.MODEL_CARD))
+
+        slot.endSession()
+        slot.close()
+
+        assertEquals(1, native.clearMemoryCalls)
+        assertEquals(1, native.releaseCalls)
+        assertEquals(TranslationStatus.NotReady, slot.status)
+    }
+
+    private fun profile(
+        model: File,
+        promptMode: TranslationPromptMode = TranslationPromptMode.MODEL_CARD,
+        idKeyedBatch: Boolean = false
+    ): ModelProfile = ModelProfile(model.absolutePath, idKeyedBatch, promptMode)
+
+    private fun page(vararg bubbles: Pair<Int, String>): TranslatablePage =
+        TranslatablePage(listOf(bubbles.map { (id, source) -> TranslatableBubble(id, source) }))
+
+    private class FakeLlamaBridge(
+        private val resultForPrompt: (String) -> GenerationResult
+    ) : LlamaBridge(null) {
+        val prompts = mutableListOf<String>()
+        val maxTokens = mutableListOf<Int>()
+        var releaseCalls = 0
+        var clearMemoryCalls = 0
+
         override val isNativeAvailable: Boolean get() = true
         override val isModelLoaded: Boolean get() = true
         override fun loadModel(modelPath: String, nCtx: Int, nGpuLayers: Int): Boolean = true
         override fun loadModel(modelPath: String, nCtx: Int, nGpuLayers: Int, nThreads: Int): Boolean = true
-        override fun generate(prompt: String, maxTokens: Int, temperature: Float): GenerationResult = result
+        override fun generate(prompt: String, maxTokens: Int, temperature: Float): GenerationResult =
+            resultForPrompt(prompt)
+
         override fun generate(
             prompt: String,
             maxTokens: Int,
             temperature: Float,
             timeoutMs: Int
         ): GenerationResult {
-            lastMaxTokens = maxTokens
-            return result
+            prompts += prompt
+            this.maxTokens += maxTokens
+            return resultForPrompt(prompt)
         }
-        override fun release() {}
-        override fun clearMemory() {}
+
+        override fun release() {
+            releaseCalls++
+        }
+
+        override fun clearMemory() {
+            clearMemoryCalls++
+        }
     }
 }

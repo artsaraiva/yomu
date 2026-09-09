@@ -3,10 +3,12 @@ package com.yomu.app.translation
 import android.content.SharedPreferences
 import android.util.Log
 import com.yomu.core.Constants
+import com.yomu.core.ModelProfile
+import com.yomu.core.TranslationPromptMode
+import com.yomu.core.TranslationStatus
 import com.yomu.ml.GenerationResult
 import com.yomu.ml.LlamaBridge
 import com.yomu.ml.LlamaTranslationBridge
-import com.yomu.ml.TranslationStatus
 import com.yomu.ml.opusmt.OpusMtTranslationBridge
 import com.yomu.pipeline.context.ConversationBlock
 import com.yomu.pipeline.ocr.OcrResult
@@ -19,18 +21,22 @@ import org.mockito.Mockito
 
 class SelectedTranslationEngineTest {
     private val native = Mockito.mock(LlamaBridge::class.java)
-    private val llm = LlamaTranslationBridge(native, "unused.gguf", idKeyedBatch = true)
+    private val llm = LlamaTranslationBridge(
+        native,
+        ModelProfile("unused.gguf", true, TranslationPromptMode.MODEL_CARD)
+    )
     private val prefs = Mockito.mock(SharedPreferences::class.java)
 
     private fun engine(selected: String = "llm"): TranslationEngine {
         Mockito.`when`(prefs.getString(Constants.PREF_TRANSLATION_ENGINE, null)).thenReturn(selected)
         Mockito.`when`(native.isNativeAvailable).thenReturn(true)
         Mockito.`when`(native.isModelLoaded).thenReturn(true)
-        return TranslationEngine(TranslationEngineSelector(
+        val selection = EngineSelection(
             Mockito.mock(MlKitTranslationBridge::class.java),
             Mockito.mock(OpusMtTranslationBridge::class.java),
             llm, prefs
-        ))
+        )
+        return TranslationEngine(selection::current, selection::close)
     }
 
     @Test
