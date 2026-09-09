@@ -100,32 +100,6 @@ class TranslationEngineTest {
     }
 
     @Test
-    fun translate_cacheRepeatedSourceCallsBridgeOnce() = runTest {
-        val bridge = FakeTranslationBridge(
-            status = TranslationStatus.Ready,
-            outputForText = mapOf(
-                "同じ" to TranslationOutput(
-                    translatedText = "Same",
-                    confidence = 0.8f,
-                    durationMs = 10L
-                )
-            )
-        )
-        val engine = TranslationEngine(bridge)
-
-        val block = conversationBlock(
-            1 to "同じ",
-            2 to "同じ"
-        )
-        val result = engine.translate(listOf(block))
-
-        assertEquals(2, result.translations.size)
-        assertEquals("Same", result.translations[0].translatedText)
-        assertEquals("Same", result.translations[1].translatedText)
-        assertEquals(1, bridge.translateCalls["同じ"])
-    }
-
-    @Test
     fun translate_emptyOutputFallsBack() = runTest {
         val bridge = FakeTranslationBridge(
             status = TranslationStatus.Ready,
@@ -383,6 +357,25 @@ class TranslationEngineTest {
 
         assertEquals("Hello", result.translations.first().translatedText)
         assertEquals(1, bridge.translateCalls["こんにちは"])
+    }
+
+    @Test
+    fun translate_perBubblePathTranslatesRepeatedLineEveryTime() = runTest {
+        val bridge = FakeTranslationBridge(
+            status = TranslationStatus.Ready,
+            outputForText = mapOf(
+                "こんにちは" to TranslationOutput("Hello", 0.8f, 10L)
+            ),
+            supportsBatch = false
+        )
+        val engine = TranslationEngine(bridge)
+
+        val result = engine.translate(listOf(conversationBlock(1 to "こんにちは", 2 to "こんにちは")))
+
+        assertEquals(2, result.translations.size)
+        assertEquals("Hello", result.translations[0].translatedText)
+        assertEquals("Hello", result.translations[1].translatedText)
+        assertEquals(2, bridge.translateCalls["こんにちは"])
     }
 
     private fun singleBubbleBlock(text: String): ConversationBlock {

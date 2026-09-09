@@ -28,8 +28,6 @@ class TranslationEngineSelector @Inject constructor(
     // No startup reconfiguration: the DI provider constructs the llama bridge from the same
     // persisted PREF_LLM_MODEL, so bridge and selector already agree at startup (#90 part A).
 
-    val engineId: String get() = current.id
-
     fun currentEngine(): TranslationEngineType = current
 
     /** The curated LLM currently in the translation slot (ADR-0009); default when nothing is picked. */
