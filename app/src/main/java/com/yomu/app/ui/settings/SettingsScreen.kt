@@ -67,40 +67,8 @@ fun SettingsScreen(
             modifier = Modifier.padding(bottom = 16.dp)
         )
 
-        PaperSurface(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp)) {
-                Text("Appearance", style = MaterialTheme.typography.titleLarge)
-                listOf("system" to "Follow system", "day" to "Day paper", "night" to "Night paper").forEach { (mode, label) ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        RadioButton(selected = state.theme == mode, onClick = {
-                            viewModel.setTheme(mode)
-                            themeConfirmation = "$label selected"
-                        })
-                        Text(label, style = MaterialTheme.typography.bodyMedium)
-                    }
-                }
-            }
-        }
-        themeConfirmation?.let { PaperSuccess(it) { themeConfirmation = null } }
-        Spacer(Modifier.height(20.dp))
-
-        Text("Translation Mode", fontWeight = FontWeight.Medium, fontSize = 14.sp)
-        Spacer(modifier = Modifier.height(8.dp))
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("local", "hybrid", "cloud").forEach { mode ->
-                FilterChip(
-                    selected = state.translationMode == mode,
-                    onClick = { viewModel.setTranslationMode(mode) },
-                    border = FilterChipDefaults.filterChipBorder(borderColor = MaterialTheme.colorScheme.onSurfaceVariant, selectedBorderColor = MaterialTheme.colorScheme.primary),
-                    leadingIcon = if (state.translationMode == mode) { { Icon(Icons.Default.Check, contentDescription = "Selected") } } else null,
-                    label = { Text(mode.replaceFirstChar { it.uppercase() }, fontSize = 12.sp) }
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        Text("Translation Engine", fontWeight = FontWeight.Medium, fontSize = 14.sp)
+        Text("Translation", style = MaterialTheme.typography.titleLarge)
+        Text("How Yomu turns Japanese into English, on your device.", style = MaterialTheme.typography.bodyMedium)
         Spacer(modifier = Modifier.height(8.dp))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             TranslationEngineType.entries.forEach { engine ->
@@ -136,16 +104,31 @@ fun SettingsScreen(
             Spacer(Modifier.height(20.dp))
         }
 
-        Text("Models", fontWeight = FontWeight.Medium, fontSize = 14.sp)
-        Spacer(modifier = Modifier.height(8.dp))
+        TranslationEngineType.entries.forEach { engine ->
+            EngineModelCard(
+                engine = engine,
+                state = state,
+                onDownload = { viewModel.downloadModel(it) },
+                onDownloadHf = { viewModel.downloadHfModel(it) },
+                onDelete = { viewModel.deleteModel(it) },
+                onSelectLlm = { viewModel.setLlmModel(it) },
+                onHfSignIn = { hfSignInLauncher.launch(viewModel.hfAuthorizeIntent()) },
+                onHfSignOut = { viewModel.signOutHf() }
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+        }
 
+        Spacer(modifier = Modifier.height(20.dp))
+
+        Text("Reading", style = MaterialTheme.typography.titleLarge)
+        Spacer(Modifier.height(8.dp))
         val visionModels = state.models.filter { it.type == ModelType.VISION }
         if (visionModels.isNotEmpty()) {
             PaperSurface(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Required Models", fontWeight = FontWeight.Medium)
+                    Text("Reading models", fontWeight = FontWeight.Medium)
                     Text(
-                        text = "Needed for bubble detection and OCR",
+                        text = "The parts that find the speech bubbles and read the Japanese. Downloaded once, used with every engine.",
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -167,54 +150,6 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(8.dp))
         }
 
-        TranslationEngineType.entries.forEach { engine ->
-            EngineModelCard(
-                engine = engine,
-                state = state,
-                onDownload = { viewModel.downloadModel(it) },
-                onDownloadHf = { viewModel.downloadHfModel(it) },
-                onDelete = { viewModel.deleteModel(it) },
-                onSelectLlm = { viewModel.setLlmModel(it) },
-                onHfSignIn = { hfSignInLauncher.launch(viewModel.hfAuthorizeIntent()) },
-                onHfSignOut = { viewModel.signOutHf() }
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-        }
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        Text("Font Size", fontWeight = FontWeight.Medium, fontSize = 14.sp)
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = "${(state.fontSizeScale * 100).toInt()}%",
-            fontSize = 14.sp
-        )
-        Slider(
-            value = state.fontSizeScale,
-            onValueChange = { viewModel.setFontSizeScale(it) },
-            colors = SliderDefaults.colors(inactiveTrackColor = MaterialTheme.colorScheme.onSurfaceVariant),
-            valueRange = 0.5f..2.0f,
-            steps = 14,
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        Text("Language", fontWeight = FontWeight.Medium, fontSize = 14.sp)
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = "${state.sourceLanguage.uppercase()} → ${state.targetLanguage.uppercase()}",
-            fontSize = 14.sp,
-            modifier = Modifier.padding(vertical = 4.dp)
-        )
-        Text(
-            text = "Japanese → English (Phase 1)",
-            fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        Spacer(modifier = Modifier.height(20.dp))
-
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -232,6 +167,40 @@ fun SettingsScreen(
             text = "When enabled, the floating button will pulse when manga is detected on screen.",
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        PaperSurface(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp)) {
+                Text("Appearance", style = MaterialTheme.typography.titleLarge)
+                listOf("system" to "Follow system", "day" to "Day paper", "night" to "Night paper").forEach { (mode, label) ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        RadioButton(selected = state.theme == mode, onClick = {
+                            viewModel.setTheme(mode)
+                            themeConfirmation = "$label selected"
+                        })
+                        Text(label, style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+            }
+        }
+        themeConfirmation?.let { PaperSuccess(it) { themeConfirmation = null } }
+        Spacer(Modifier.height(20.dp))
+
+        Text("Font Size", fontWeight = FontWeight.Medium, fontSize = 14.sp)
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "${(state.fontSizeScale * 100).toInt()}%",
+            fontSize = 14.sp
+        )
+        Slider(
+            value = state.fontSizeScale,
+            onValueChange = { viewModel.setFontSizeScale(it) },
+            colors = SliderDefaults.colors(inactiveTrackColor = MaterialTheme.colorScheme.onSurfaceVariant),
+            valueRange = 0.5f..2.0f,
+            steps = 14,
+            modifier = Modifier.fillMaxWidth()
         )
 
         Spacer(modifier = Modifier.height(20.dp))
