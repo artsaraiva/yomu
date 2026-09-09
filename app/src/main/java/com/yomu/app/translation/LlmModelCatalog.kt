@@ -1,6 +1,9 @@
 package com.yomu.app.translation
 
 import com.yomu.core.Constants
+import com.yomu.core.ModelProfile
+import com.yomu.core.TranslationPromptMode
+import java.io.File
 
 /**
  * How a curated LLM reaches the device (ADR-0009 three-tier split). Licence sorts a model into a
@@ -40,7 +43,8 @@ data class LlmModelOption(
     val licence: String,
     /** Per-model (#84): the 0.8b/Qwen default refuse page context and stay per-line (false); larger
      *  siblings can emit one id-keyed reply for the whole page (true). */
-    val idKeyedBatch: Boolean
+    val idKeyedBatch: Boolean,
+    val promptMode: TranslationPromptMode
 )
 
 object LlmModelCatalog {
@@ -64,7 +68,8 @@ object LlmModelCatalog {
         sizeBytes = Constants.QWEN25_15B_SIZE,
         tier = LlmModelTier.HOSTED,
         licence = "Apache-2.0",
-        idKeyedBatch = false
+        idKeyedBatch = false,
+        promptMode = TranslationPromptMode.TRANSLATION_ONLY
     )
 
     /**
@@ -82,12 +87,13 @@ object LlmModelCatalog {
         DEFAULT,
         LlmModelOption(
             id = Constants.CAT_TRANSLATION_MODEL_ID,
-            displayName = "CAT-Translate 0.8B (low-storage floor)",
+            displayName = "CAT-Translate 0.8B (low-storage option)",
             ggufFileName = Constants.TRANSLATION_MODEL_4BIT,
             sizeBytes = Constants.TRANSLATION_MODEL_4BIT_SIZE,
             tier = LlmModelTier.HOSTED,
             licence = "MIT",
-            idKeyedBatch = false
+            idKeyedBatch = false,
+            promptMode = TranslationPromptMode.MODEL_CARD
         ),
         LlmModelOption(
             id = Constants.CAT_TRANSLATION_14B_MODEL_ID,
@@ -96,7 +102,8 @@ object LlmModelCatalog {
             sizeBytes = Constants.CAT_TRANSLATION_14B_SIZE,
             tier = LlmModelTier.HOSTED,
             licence = "MIT",
-            idKeyedBatch = true
+            idKeyedBatch = true,
+            promptMode = TranslationPromptMode.MODEL_CARD
         )
     )
 
@@ -104,6 +111,18 @@ object LlmModelCatalog {
 
     /** The selected option, or the default when nothing (or an unknown id) is persisted. */
     fun selectedOrDefault(id: String?): LlmModelOption = fromId(id) ?: DEFAULT
+
+    fun profileFor(
+        option: LlmModelOption,
+        modelsDir: File,
+        captureContext: Boolean
+    ): ModelProfile = ModelProfile(
+        modelPath = File(modelsDir, option.ggufFileName).absolutePath,
+        idKeyedBatch = option.idKeyedBatch,
+        promptMode = if (
+            captureContext && option.promptMode == TranslationPromptMode.TRANSLATION_ONLY
+        ) TranslationPromptMode.CAPTURE_CONTEXT else option.promptMode
+    )
 
     /**
      * Whether [option] can run on a device reporting [totalMemBytes] of RAM (part D). The default is

@@ -24,7 +24,7 @@ import com.yomu.app.overlay.OverlayBubbleState
 import com.yomu.app.overlay.QuickSettingsPopup
 import com.yomu.app.overlay.TranslationRenderOverlay
 import com.yomu.app.overlay.TranslationStatusOverlay
-import com.yomu.app.translation.TranslationEngineSelector
+import com.yomu.app.translation.EngineSelection
 import com.yomu.app.translation.TranslationEngineType
 import com.yomu.app.db.entities.TranslationSessionEntity
 import com.yomu.core.Constants
@@ -58,7 +58,7 @@ class OverlayService : Service() {
     @Inject lateinit var translationPipeline: TranslationPipeline
     @Inject lateinit var sharedPreferences: SharedPreferences
     @Inject lateinit var sessionManager: SessionManager
-    @Inject lateinit var translationEngineSelector: TranslationEngineSelector
+    @Inject lateinit var translationEngineSelector: EngineSelection
 
     private lateinit var windowManager: WindowManager
     private lateinit var closeZoneOverlay: CloseZoneOverlay

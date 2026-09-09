@@ -20,6 +20,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.yomu.app.db.entities.ModelType
 import com.yomu.app.translation.TranslationEngineType
 import com.yomu.app.ui.theme.*
+import com.yomu.core.TranslationPromptMode
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -90,8 +91,9 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(20.dp))
 
+        val selectedLlm = state.llmModels.firstOrNull { it.id == state.selectedLlmModelId }
         if (state.selectedEngine == TranslationEngineType.LLM &&
-            state.selectedLlmModelId == com.yomu.core.Constants.QWEN25_15B_MODEL_ID) {
+            selectedLlm?.promptMode == TranslationPromptMode.TRANSLATION_ONLY) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Use surrounding dialogue (experimental)", modifier = Modifier.weight(1f))
                 PaperSwitch(checked = state.captureContext, onCheckedChange = viewModel::setCaptureContext)

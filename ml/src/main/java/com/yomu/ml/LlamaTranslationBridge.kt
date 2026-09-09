@@ -201,9 +201,5 @@ class LlamaTranslationBridge(
         Log.i(TAG, "close completed")
     }
 
-    fun release() {
-        close()
-    }
-
     private data class GeneratedText(val text: String, val durationMs: Long)
 }
