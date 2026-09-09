@@ -8,6 +8,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.yomu.app.R
 import com.yomu.app.translation.LlmModelOption
 import com.yomu.app.translation.LlmModelTier
 import com.yomu.app.translation.TranslationEngineType
@@ -67,7 +68,7 @@ internal fun EngineModelCard(
                         )
                     } else {
                         Text(
-                            text = "~111MB OPUS-MT JA→EN, INT8 quantized",
+                            text = stringResource(R.string.engine_opus_mt_size),
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
