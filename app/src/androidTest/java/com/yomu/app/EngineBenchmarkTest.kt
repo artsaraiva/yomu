@@ -174,11 +174,6 @@ class EngineBenchmarkTest {
                 engine.endSession()
             }
 
-            // #84 bake-off: measure the larger context-capable challengers on the SAME page-level
-            // id-keyed batch path (each reports supportsIdKeyedBatch() = true, so TranslationEngine
-            // routes them through translateBatch, not the 0.8b's per-line floor). The 0.8b stays the
-            // shipped default and the incumbent baseline above; this only measures the siblings so
-            // #72 / ADR-0008 promote a winner on numbers, not a guess.
             benchmarkChallengers(context, cases, outputDir, timingRows, benchDeadlineMs)
 
             writeTimingCsv(outputDir, timingRows)
