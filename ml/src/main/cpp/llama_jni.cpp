@@ -1,3 +1,4 @@
+#include "prompt_budget.h"
 #include <jni.h>
 #include <string>
 #include <vector>
@@ -229,18 +230,10 @@ Java_com_yomu_ml_LlamaBridge_nativeGenerate(
     }
     tokens.resize(written);
 
-    int context_size = (int)llama_n_ctx(g_ctx);
-    int max_prompt_tokens = 512;
-    int context_limit = context_size - max_tokens - 8;
-    if (max_prompt_tokens > context_limit) {
-        max_prompt_tokens = context_limit;
-    }
-    if (max_prompt_tokens <= 0) {
-        max_prompt_tokens = context_size / 2;
-    }
-    if ((int)tokens.size() > max_prompt_tokens) {
-        LOGE("Prompt too long: %d tokens, trimming to %d", (int)tokens.size(), max_prompt_tokens);
-        tokens.erase(tokens.begin(), tokens.end() - max_prompt_tokens);
+    if (!prompt_fits((int)tokens.size(), (int)llama_n_batch(g_ctx), (int)llama_n_ctx(g_ctx), max_tokens)) {
+        LOGE("Prompt exceeds decode budget: %d tokens; refusing to truncate instructions", (int)tokens.size());
+        g_abort_deadline_ms.store(0, std::memory_order_relaxed);
+        return env->NewStringUTF("");
     }
 
     // Process prompt

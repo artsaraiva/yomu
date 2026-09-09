@@ -82,6 +82,7 @@ object Constants {
     const val PREF_TRANSLATION_ENGINE = "translation_engine"
     // Which curated LLM occupies the translation slot when engine == LLM (ADR-0009). Stores a
     // ModelEntity id; nothing picked keeps the default (Qwen2.5-1.5B, ADR-0010).
+    const val PREF_CAPTURE_CONTEXT = "capture_context"
     const val PREF_LLM_MODEL = "llm_model"
     const val PREF_FONT_SIZE_SCALE = "font_size_scale"
     
