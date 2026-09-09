@@ -54,6 +54,13 @@ def test_helpers():
     assert is_non_translation("I cannot translate this") and not is_non_translation("Hello there")
 
 
+def test_clarification_requests_are_not_translations():
+    assert is_non_translation("Could you please provide the target Japanese manga text?")
+    assert is_non_translation("The English translation of the given Japanese text is: Hello")
+    assert is_non_translation('The Japanese text "こんにちは" translates to "Hello" in English.')
+    assert not is_non_translation("Please provide the sword tomorrow.")
+
+
 def test_translation_introduction_is_not_dialogue():
     assert is_non_translation("Here's the English translation: Hello")
     assert not is_non_translation("Here is the sword you wanted.")
