@@ -182,9 +182,6 @@ class EngineBenchmarkTest {
 
                 runEngineOverCases(engine, engineName, cases, outputDir, timingRows)
 
-                // Clear the in-memory translation cache between engines. It is keyed by source text
-                // only, not by engine, so without this one engine would be served another's cached
-                // translations and every per-engine number would be corrupt.
                 engine.release()
             }
 
@@ -324,7 +321,7 @@ class EngineBenchmarkTest {
                     benchDeadlineMs
                 )
                 Log.i(TAG, "Benchmarking challenger=${candidate.engineName} idKeyedBatch=${bridge.supportsIdKeyedBatch()}")
-                val challengerEngine = TranslationEngine(bridge, candidate.engineName)
+                val challengerEngine = TranslationEngine(bridge)
                 runEngineOverCases(challengerEngine, candidate.engineName, cases, outputDir, timingRows, challengerDeadline)
                 challengerEngine.release()
             } finally {

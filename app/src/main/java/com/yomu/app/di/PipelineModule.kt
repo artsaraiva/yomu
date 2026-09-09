@@ -104,14 +104,7 @@ object PipelineModule {
     @Provides
     @Singleton
     fun provideTranslationEngine(selector: TranslationEngineSelector): TranslationEngine {
-        // ponytail: engineId is fixed at DI construction; cache keys won't change mid-session
-        // if the user switches engines. Acceptable for Phase 1.
-        // modelId is left null on purpose (#90 A.3): the persistent cache is read/written only on the
-        // per-line ML Kit/OPUS path (translateBubbles). Both LLM paths (translateBatch/translatePerLine)
-        // bypass the cache entirely, so switching curated LLMs can never serve another model's cached
-        // lines. buildCacheKey already takes modelId — thread the selected LLM id here if the LLM path
-        // ever starts caching.
-        return TranslationEngine(selector, selector.engineId)
+        return TranslationEngine(selector)
     }
 
     @Provides

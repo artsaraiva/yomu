@@ -5,29 +5,6 @@ import com.yomu.ml.TranslationBridge
 import com.yomu.ml.TranslationOutput
 import com.yomu.ml.TranslationStatus
 import com.yomu.pipeline.context.ConversationBlock
-import java.security.MessageDigest
-import java.text.Normalizer
-
-interface TranslationCacheRepository {
-    suspend fun get(engineId: String, modelId: String?, sourceText: String): TranslationOutput?
-    suspend fun put(engineId: String, modelId: String?, sourceText: String, output: TranslationOutput)
-}
-
-fun normalizeForCache(text: String): String {
-    return Normalizer.normalize(text.trim().replace(Regex("\\s+"), " "), Normalizer.Form.NFKC)
-}
-
-fun buildCacheKey(engineId: String, modelId: String?, sourceText: String): String {
-    val normalized = normalizeForCache(sourceText)
-    val input = "$engineId:${modelId ?: ""}:$normalized"
-    return hashSha256(input)
-}
-
-private fun hashSha256(input: String): String {
-    val digest = MessageDigest.getInstance("SHA-256")
-    return digest.digest(input.toByteArray(Charsets.UTF_8))
-        .joinToString("") { "%02x".format(it) }
-}
 
 // Refusals are matched only with a *task* object (help/translate/…), never bare "I'm sorry … can't":
 // "I'm sorry, I can't come with you today" is legitimate dialogue, structurally identical to a
@@ -80,21 +57,11 @@ data class TranslationResult(
 )
 
 class TranslationEngine(
-    private val translationBridge: TranslationBridge,
-    private val engineId: String = "default",
-    private val modelId: String? = null,
-    private val cacheRepository: TranslationCacheRepository? = null
+    private val translationBridge: TranslationBridge
 ) {
 
     companion object {
         private const val MAX_SOURCE_CHARS = 300
-        private const val CACHE_SIZE = 128
-    }
-
-    private val cache = object : LinkedHashMap<String, TranslationOutput>(CACHE_SIZE, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, TranslationOutput>?): Boolean {
-            return size > CACHE_SIZE
-        }
     }
 
     suspend fun ensureReady(): Boolean {
@@ -190,13 +157,7 @@ class TranslationEngine(
         for (block in blocks) {
             for (bubbleId in block.readingOrder) {
                 val original = block.textByBubbleId[bubbleId]?.text?.take(MAX_SOURCE_CHARS) ?: continue
-                val cached = cache[original] ?: cacheRepository?.get(engineId, modelId, original)?.also {
-                    cache[original] = it
-                }
-                val output = cached ?: translationBridge.translate(original)?.also { translated ->
-                    cache[original] = translated
-                    cacheRepository?.put(engineId, modelId, original, translated)
-                }
+                val output = translationBridge.translate(original)
                 val translated = output?.translatedText.usableTranslation()
                 translations.add(
                     TranslatedBubble(
@@ -219,7 +180,7 @@ class TranslationEngine(
      * the previous page's source/translation pairs prepended as session context. The response is
      * parsed by id: a bubble whose id does not come back falls back to its own source text and only
      * that bubble, so a dropped/merged/prefaced line never shifts later bubbles into the wrong
-     * balloon. The line-keyed cache is bypassed so the same line may translate differently per scene.
+     * balloon.
      */
     private suspend fun translateBatch(
         blocks: List<ConversationBlock>,
@@ -289,12 +250,10 @@ class TranslationEngine(
     }
 
     fun release() {
-        cache.clear()
         translationBridge.clearMemory()
     }
 
     fun close() {
-        cache.clear()
         translationBridge.close()
     }
 }

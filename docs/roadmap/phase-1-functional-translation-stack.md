@@ -8,7 +8,7 @@
 Deliver one reliable Japanese-to-English vertical path from manual capture through OCR, translation, and positioned overlay output.
 
 ## Scope
-Stabilize the existing pipeline, translation bridge selection, readiness/error states, caching, and a usable manual single-page flow. Do not choose a long-term model or add automatic detection here.
+Stabilize the existing pipeline, translation bridge selection, readiness/error states, and a usable manual single-page flow. Do not choose a long-term model or add automatic detection here.
 
 ## Exit criteria
 The path works on a representative device and supported manga inputs, failures are surfaced without data loss, and baseline latency/output evidence is recorded for Phase 2.
