@@ -44,7 +44,10 @@ question mark into invented dialogue. This review is diagnostic, not a bilingual
 
 The old prompt produces explanatory wrappers in raw output. The new prompt substantially reduces
 verbosity, but one rendered clarification remains. Runtime fallback guards and scoring are
-conservative heuristics, not guarantees. Follow-up: #120.
+conservative heuristics, not guarantees. Follow-up: #120 — punctuation-only targets now skip the
+model entirely and the runtime guard rejects the clarification shapes the scorer already caught.
+The meaning errors above are the other axis and are unmoved by that fix; they are reviewed on their
+own in `eval/semantic-review-120.md`.
 
 ## Validation and limits
 
