@@ -196,7 +196,15 @@ def is_non_translation(text: str) -> bool:
         r"^\s*(?:sure[!,.]?\s*)?(?:here(?:['’]s| is| are)\s+(?:the |an? )?(?:english )?translations?\b|(?:english )?translation\s*:)",
         lowered,
     )
-    return bool(introduction) or any(marker in lowered for marker in NON_TRANSLATION_MARKERS)
+    clarification = re.search(
+        r"\b(?:please provide|provide me with)\b.{0,80}\b(?:japanese|manga|target|complete)\s+(?:manga\s+)?text\b",
+        lowered,
+    )
+    explanation = re.match(
+        r"^\s*the (?:(?:english )?translation of (?:the )?(?:given )?japanese text\b|japanese text\b.{0,150}\btranslates? to\b)",
+        lowered,
+    )
+    return bool(introduction or clarification or explanation) or any(marker in lowered for marker in NON_TRANSLATION_MARKERS)
 
 
 def score_translation(source: list[str], reference: list[str], output: list[str]) -> dict:
