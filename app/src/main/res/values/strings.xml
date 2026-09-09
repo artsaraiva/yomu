@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="engine_ml_kit_label">ML Kit</string>
+    <string name="engine_ml_kit_description">Fast on-device baseline (Google). Temporary — quality not final.</string>
+
+    <string name="engine_opus_mt_label">OPUS-MT</string>
+    <string name="engine_opus_mt_description">Local-first JA→EN. ~115MB. Good quality, no telemetry.</string>
+
+    <string name="engine_llm_label">Local LLM</string>
+    <string name="engine_llm_description">On-device JA→EN. Pick a curated model below; default Qwen2.5-1.5B.</string>
+</resources>

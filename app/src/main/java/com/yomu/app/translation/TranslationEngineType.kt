@@ -1,9 +1,25 @@
 package com.yomu.app.translation
 
-enum class TranslationEngineType(val id: String, val label: String, val description: String) {
-    ML_KIT("ml_kit", "ML Kit", "Fast on-device baseline (Google). Temporary — quality not final."),
-    OPUS_MT("opus_mt", "OPUS-MT", "Local-first JA→EN. ~115MB. Good quality, no telemetry."),
-    LLM("llm", "Local LLM", "On-device JA→EN. Pick a curated model below; default Qwen2.5-1.5B.");
+import androidx.annotation.StringRes
+import com.yomu.app.R
+
+/**
+ * Whether an engine can take the page-level call the context architecture needs.
+ *
+ * A [FLOOR] engine can only be asked one bubble at a time, so it never runs that architecture and
+ * is never ranked against the [GATE] (CONTEXT.md, "Floor engine" / "Gate engine"; ADR-0004).
+ */
+enum class EngineRole { GATE, FLOOR }
+
+enum class TranslationEngineType(
+    val id: String,
+    val role: EngineRole,
+    @StringRes val labelRes: Int,
+    @StringRes val descriptionRes: Int
+) {
+    ML_KIT("ml_kit", EngineRole.FLOOR, R.string.engine_ml_kit_label, R.string.engine_ml_kit_description),
+    OPUS_MT("opus_mt", EngineRole.FLOOR, R.string.engine_opus_mt_label, R.string.engine_opus_mt_description),
+    LLM("llm", EngineRole.GATE, R.string.engine_llm_label, R.string.engine_llm_description);
 
     companion object {
         fun fromId(id: String): TranslationEngineType =

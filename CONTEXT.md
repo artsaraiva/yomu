@@ -18,6 +18,10 @@ _Avoid_: sideloaded model, user model, BYO model, third-party model
 A translation engine that can only be asked one bubble at a time and so cannot run the page-level context architecture — OPUS-MT and ML Kit. This is a prompt-shape floor, unrelated to the low-storage model option or a device's hardware floor.
 _Avoid_: fallback engine, legacy engine, secondary model
 
+**Gate engine**:
+A translation engine that takes the page-level call and so runs the page-level context architecture — the LLM. The counterpart of a floor engine; the eval scores it against the gate and reports the floors separately (ADR-0004).
+_Avoid_: primary engine, main model, context engine
+
 **Translation slot**:
 The selected component that accepts one geometry-free page and owns every model-specific translation decision. Exactly one floor engine or LLM adapter fills it at a time.
 _Avoid_: translation bridge, selected engine wrapper
