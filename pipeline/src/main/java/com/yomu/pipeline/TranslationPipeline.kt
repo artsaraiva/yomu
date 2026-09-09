@@ -12,7 +12,6 @@ import com.yomu.pipeline.typesetting.TypesetBubble
 import com.yomu.pipeline.typesetting.Typesetter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
 
 data class ModelPaths(
     val bubbleDetectionPath: String,
@@ -39,7 +38,6 @@ class TranslationPipeline(
 
     companion object {
         private const val TAG = "TranslationPipeline"
-        private const val TRANSLATION_READY_TIMEOUT_MS = 120_000L
     }
 
     enum class Stage {
@@ -165,18 +163,7 @@ class TranslationPipeline(
 
             currentStage = Stage.TRANSLATION
             callback?.onStageProgress(Stage.TRANSLATION, 0.6f)
-            if (!translationEngine.isReady()) {
-                Log.i(TAG, "translationEnsureReady start")
-                val ready = withTimeoutOrNull(TRANSLATION_READY_TIMEOUT_MS) {
-                    translationEngine.ensureReady()
-                } ?: false
-                Log.i(TAG, "translationEnsureReady complete ready=$ready statusReady=${translationEngine.isReady()}")
-            }
-            val translationResult = if (translationEngine.isReady()) {
-                translationEngine.translate(pageContext.blocks, sessionContext)
-            } else {
-                translationEngine.fallback(pageContext.blocks)
-            }
+            val translationResult = translationEngine.translate(pageContext.blocks, sessionContext)
             callback?.onStageProgress(Stage.TRANSLATION, 0.8f)
 
             currentStage = Stage.TYPESETTING
@@ -218,7 +205,7 @@ class TranslationPipeline(
 
     fun release() {
         contextAssembler.reset()
-        translationEngine.release()
+        translationEngine.endSession()
     }
 
     fun close() {
