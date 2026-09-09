@@ -14,7 +14,7 @@ import com.yomu.app.db.HistoryDao
 import com.yomu.app.db.entities.ModelStatus
 import com.yomu.app.service.ModelManager
 import com.yomu.app.service.OverlayService
-import com.yomu.app.translation.TranslationEngineSelector
+import com.yomu.app.translation.EngineSelection
 import com.yomu.app.translation.TranslationEngineType
 import com.yomu.core.Constants
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -35,7 +35,7 @@ class HomeViewModel @Inject constructor(
     private val sharedPreferences: SharedPreferences,
     private val modelManager: ModelManager,
     private val historyDao: HistoryDao,
-    private val engineSelector: TranslationEngineSelector
+    private val engineSelector: EngineSelection
 ) : ViewModel() {
     private companion object {
         const val SETUP_COMPLETE = "reading_setup_complete"

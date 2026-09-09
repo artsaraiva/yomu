@@ -10,7 +10,7 @@ import com.yomu.app.db.entities.ModelEntity
 import com.yomu.app.service.ModelManager
 import com.yomu.app.translation.LlmModelCatalog
 import com.yomu.app.translation.LlmModelOption
-import com.yomu.app.translation.TranslationEngineSelector
+import com.yomu.app.translation.EngineSelection
 import com.yomu.app.translation.TranslationEngineType
 import com.yomu.app.translation.hf.HfAuthManager
 import com.yomu.app.translation.hf.HfDownloadResult
@@ -53,7 +53,7 @@ data class SettingsUiState(
 class SettingsViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val sharedPreferences: SharedPreferences,
-    private val translationEngineSelector: TranslationEngineSelector,
+    private val engineSelection: EngineSelection,
     private val modelManager: ModelManager,
     private val hfAuthManager: HfAuthManager
 ) : ViewModel() {
@@ -74,7 +74,7 @@ class SettingsViewModel @Inject constructor(
             captureContext = sharedPreferences.getBoolean(Constants.PREF_CAPTURE_CONTEXT, false),
             autoDetect = sharedPreferences.getBoolean(Constants.PREF_AUTO_DETECT, true),
             selectedEngine = engine,
-            selectedLlmModelId = translationEngineSelector.currentLlmModel().id,
+            selectedLlmModelId = engineSelection.currentLlmModel().id,
             hfSignedIn = hfAuthManager.isSignedIn(),
             deviceTotalMemBytes = deviceTotalMemBytes(),
             fontSizeScale = sharedPreferences.getFloat(Constants.PREF_FONT_SIZE_SCALE, Constants.DEFAULT_FONT_SIZE_SCALE),
@@ -106,6 +106,9 @@ class SettingsViewModel @Inject constructor(
     fun setCaptureContext(enabled: Boolean) {
         sharedPreferences.edit().putBoolean(Constants.PREF_CAPTURE_CONTEXT, enabled).apply()
         _uiState.value = _uiState.value.copy(captureContext = enabled)
+        viewModelScope.launch {
+            engineSelection.selectLlmModel(engineSelection.currentLlmModel())
+        }
     }
 
     fun setAutoDetect(enabled: Boolean) {
@@ -114,7 +117,7 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun setTranslationEngine(type: TranslationEngineType) {
-        translationEngineSelector.selectEngine(type)
+        engineSelection.selectEngine(type)
         _uiState.value = _uiState.value.copy(selectedEngine = type)
     }
 
@@ -124,9 +127,9 @@ class SettingsViewModel @Inject constructor(
         // Off the main thread: selectLlmModel waits out any in-flight generation before swapping the
         // native model, which can take up to a batch timeout.
         viewModelScope.launch {
-            translationEngineSelector.selectLlmModel(option)
+            engineSelection.selectLlmModel(option)
             _uiState.value = _uiState.value.copy(
-                selectedLlmModelId = translationEngineSelector.currentLlmModel().id
+                selectedLlmModelId = engineSelection.currentLlmModel().id
             )
         }
     }
