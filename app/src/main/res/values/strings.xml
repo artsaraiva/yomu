@@ -4,7 +4,10 @@
     <string name="engine_ml_kit_description">Fast on-device baseline (Google). Temporary — quality not final.</string>
 
     <string name="engine_opus_mt_label">OPUS-MT</string>
-    <string name="engine_opus_mt_description">Local-first JA→EN. ~115MB. Good quality, no telemetry.</string>
+    <!-- ~111MB is the ModelManager manifest total: encoder 50,705,822 + decoder 54,359,578 +
+         tokenizer 5,991,485. Restated in engine_opus_mt_size; update both if the manifest moves. -->
+    <string name="engine_opus_mt_description">Local-first JA→EN. ~111MB. Good quality, no telemetry.</string>
+    <string name="engine_opus_mt_size">~111MB OPUS-MT JA→EN, INT8 quantized</string>
 
     <string name="engine_llm_label">Local LLM</string>
     <string name="engine_llm_description">On-device JA→EN. Pick a curated model below; default Qwen2.5-1.5B.</string>
