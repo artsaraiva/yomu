@@ -146,13 +146,12 @@ class LlamaTranslationBridge(
     }
 
     override fun close() {
+        llamaBridge.release()
         status = TranslationStatus.NotReady
         Log.i(TAG, "close completed")
     }
 
     fun release() {
-        llamaBridge.release()
-        status = TranslationStatus.NotReady
-        Log.i(TAG, "release completed")
+        close()
     }
 }
