@@ -1,14 +1,11 @@
 package com.yomu.pipeline.translation
 
-import com.yomu.ml.TranslationPromptMode
-import com.yomu.ml.TranslationBridge
-import com.yomu.ml.TranslationOutput
-import com.yomu.ml.TranslationStatus
+import com.yomu.core.PageTranslation
+import com.yomu.core.TranslatableBubble
+import com.yomu.core.TranslatablePage
+import com.yomu.core.TranslationSlot
 import com.yomu.pipeline.context.ConversationBlock
 
-// Refusals are matched only with a *task* object (help/translate/…), never bare "I'm sorry … can't":
-// "I'm sorry, I can't come with you today" is legitimate dialogue, structurally identical to a
-// refusal without the object, so matching the object is what keeps the guard from eating real lines.
 private val NON_TRANSLATION_PATTERNS = listOf(
     Regex("""(?i)^\s*(?:sure[!,.]?\s*)?(?:here(?:['’]s| is| are)\s+(?:the |an? )?(?:english )?translations?\b|(?:english )?translation\s*:)"""),
     Regex("""(?i)translate the following"""),
@@ -18,25 +15,16 @@ private val NON_TRANSLATION_PATTERNS = listOf(
 )
 
 private val TOKEN_SPLIT = Regex("""\s+""")
-
-// A broken model loops one phrase ("I'm sorry" ×N). Flag only a clear loop: enough tokens that a
-// short line can't trip it, and at most a quarter of them distinct. "I love you I love you I love
-// you" (9 tokens, 3 distinct) and short screams ("No no no", "Ha ha ha") stay under the bar.
 private const val MIN_LOOP_TOKENS = 8
 private const val LOOP_UNIQUE_DIVISOR = 4
 
-// A too-small model sometimes refuses ("I'm sorry, I can't help…"), echoes the instruction back, or
-// loops one phrase instead of translating. Rendering that scaffolding into a bubble is worse than
-// showing the source, so callers treat a match as a failed line and fall back to the original text.
-// Deliberately conservative: bare "I'm sorry!" and apologetic dialogue are NOT matched.
 internal fun looksLikeNonTranslation(text: String): Boolean {
     val trimmed = text.trim()
     if (trimmed.isEmpty()) return false
     if (NON_TRANSLATION_PATTERNS.any { it.containsMatchIn(trimmed) }) return true
     val tokens = trimmed.split(TOKEN_SPLIT).filter { it.isNotBlank() }
     if (tokens.size < MIN_LOOP_TOKENS) return false
-    val distinct = tokens.map { it.lowercase() }.toSet().size
-    return distinct * LOOP_UNIQUE_DIVISOR <= tokens.size
+    return tokens.map { it.lowercase() }.toSet().size * LOOP_UNIQUE_DIVISOR <= tokens.size
 }
 
 private fun String?.usableTranslation(): String? =
@@ -51,209 +39,63 @@ data class TranslatedBubble(
 
 data class TranslationResult(
     val translations: List<TranslatedBubble>,
-    val rawPrompt: String,
     val rawResponse: String,
     val translationTimeMs: Long
 )
 
 class TranslationEngine(
-    private val translationBridge: TranslationBridge
+    private val slotProvider: () -> TranslationSlot,
+    private val closeSlots: () -> Unit
 ) {
+
+    constructor(slotProvider: () -> TranslationSlot) : this(
+        slotProvider,
+        { slotProvider().close() }
+    )
 
     companion object {
         private const val MAX_SOURCE_CHARS = 300
+        private const val TRANSLATED_CONFIDENCE = 0.8f
+        private const val FALLBACK_CONFIDENCE = 0.1f
     }
-
-    suspend fun ensureReady(): Boolean {
-        return translationBridge.ensureReady()
-    }
-
-    fun isReady(): Boolean = translationBridge.status is TranslationStatus.Ready
 
     suspend fun translate(
         blocks: List<ConversationBlock>,
         sessionContext: List<Pair<String, String>> = emptyList()
     ): TranslationResult {
-        val startTime = System.currentTimeMillis()
+        val page = project(blocks)
+        val bubbles = page.panels.flatten()
+        if (bubbles.isEmpty()) return TranslationResult(emptyList(), "", 0L)
 
-        val translated = when {
-            translationBridge.supportsIdKeyedBatch() -> translateBatch(blocks, sessionContext)
-            translationBridge.supportsBatch() -> translatePerLine(blocks)
-            else -> translateBubbles(blocks)
+        val output = slotProvider().translatePage(page, sessionContext)
+        val translations = bubbles.map { bubble ->
+            val translated = output.byId[bubble.bubbleId].usableTranslation()
+            TranslatedBubble(
+                bubbleId = bubble.bubbleId,
+                originalText = bubble.sourceText,
+                translatedText = translated ?: bubble.sourceText,
+                confidence = if (translated == null) FALLBACK_CONFIDENCE else TRANSLATED_CONFIDENCE
+            )
         }
-        val translations = translated.ifEmpty { fallbackTranslations(blocks) }
-
-        return TranslationResult(
-            translations = translations,
-            rawPrompt = "",
-            rawResponse = translations.joinToString("\n") { translation ->
-                "[${translation.bubbleId}] ${translation.translatedText}"
-            },
-            translationTimeMs = System.currentTimeMillis() - startTime
-        )
+        return TranslationResult(translations, output.rawResponse, output.durationMs)
     }
 
-    // Bubbles grouped by panel in reading order, empty-OCR bubbles dropped (ADR-0002: no gap
-    // markers), each as (bubbleId, source). Shared by both LLM paths so they filter identically.
-    private fun nonEmptyPanels(blocks: List<ConversationBlock>): List<List<Pair<Int, String>>> {
-        return blocks.map { block ->
+    private fun project(blocks: List<ConversationBlock>): TranslatablePage = TranslatablePage(
+        blocks.map { block ->
             block.readingOrder.mapNotNull { bubbleId ->
-                val original = block.textByBubbleId[bubbleId]?.text?.take(MAX_SOURCE_CHARS)
-                if (original.isNullOrBlank()) null else bubbleId to original
+                block.textByBubbleId[bubbleId]?.text
+                    ?.take(MAX_SOURCE_CHARS)
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { TranslatableBubble(bubbleId, it) }
             }
         }.filter { it.isNotEmpty() }
-    }
+    )
 
-    private suspend fun translatePerLine(blocks: List<ConversationBlock>): List<TranslatedBubble> {
-        val items = nonEmptyPanels(blocks).flatten()
-        if (items.isEmpty()) return emptyList()
-
-        val mode = translationBridge.promptMode()
-        return items.mapIndexed { index, (bubbleId, original) ->
-            val surrounding = if (mode == TranslationPromptMode.CAPTURE_CONTEXT) {
-                listOfNotNull(items.getOrNull(index - 1), items.getOrNull(index + 1))
-                    .joinToString("\n") { it.second.take(80) }
-            } else ""
-            val prompt = if (mode == TranslationPromptMode.MODEL_CARD) modelCardPrompt(original)
-                else translationOnlyPrompt(original, surrounding)
-            val output = translationBridge.translate(prompt)
-            val translated = output?.translatedText.usableTranslation()
-            TranslatedBubble(
-                bubbleId = bubbleId,
-                originalText = original,
-                translatedText = translated ?: original,
-                confidence = if (translated != null) (output?.confidence ?: 0.1f) else 0.1f
-            )
-        }
-    }
-
-    private fun translationOnlyPrompt(target: String, surrounding: String): String = buildString {
-        appendLine("Translate the target Japanese manga text into natural English. Return only the translation.")
-        appendLine("No introductions, explanations, labels, or added quotes. Preserve meaning and tone.")
-        if (surrounding.isNotBlank()) {
-            // ponytail: two neighbours, 80 chars each; expand only after measured context gains.
-            appendLine("Nearby dialogue (context only; do not translate):")
-            appendLine(surrounding)
-        }
-        appendLine("Target text (translate this only):")
-        append(target)
-    }
-
-    private fun modelCardPrompt(target: String): String =
-        "Translate the following Japanese text into English.\n\n$target"
-
-    fun fallback(blocks: List<ConversationBlock>): TranslationResult {
-        val translations = fallbackTranslations(blocks)
-        return TranslationResult(
-            translations = translations,
-            rawPrompt = "",
-            rawResponse = "",
-            translationTimeMs = 0L
-        )
-    }
-
-    private suspend fun translateBubbles(blocks: List<ConversationBlock>): List<TranslatedBubble> {
-        val translations = mutableListOf<TranslatedBubble>()
-        for (block in blocks) {
-            for (bubbleId in block.readingOrder) {
-                val original = block.textByBubbleId[bubbleId]?.text?.take(MAX_SOURCE_CHARS) ?: continue
-                val output = translationBridge.translate(original)
-                val translated = output?.translatedText.usableTranslation()
-                translations.add(
-                    TranslatedBubble(
-                        bubbleId = bubbleId,
-                        originalText = original,
-                        translatedText = translated ?: original,
-                        confidence = if (translated != null) (output?.confidence ?: 0.1f) else 0.1f
-                    )
-                )
-            }
-        }
-        return translations
-    }
-
-    /**
-     * Single-call id-keyed page path (ADR-0002), retained for a model that can emit it (#72's
-     * larger CAT-Translate sibling; gated by [TranslationBridge.supportsIdKeyedBatch]). The curated
-     * 0.8b cannot (#68) and takes [translatePerLine] instead. Every non-empty bubble goes out in
-     * one call, each addressed by its real detector id (`[<id>] text`), panels rendered as markers,
-     * the previous page's source/translation pairs prepended as session context. The response is
-     * parsed by id: a bubble whose id does not come back falls back to its own source text and only
-     * that bubble, so a dropped/merged/prefaced line never shifts later bubbles into the wrong
-     * balloon.
-     */
-    private suspend fun translateBatch(
-        blocks: List<ConversationBlock>,
-        sessionContext: List<Pair<String, String>>
-    ): List<TranslatedBubble> {
-        val panels = nonEmptyPanels(blocks)
-        val items = panels.flatten()
-        if (items.isEmpty()) return emptyList()
-
-        val prompt = buildBatchPrompt(panels, sessionContext)
-        val output = translationBridge.translateBatch(prompt) ?: return fallbackTranslations(blocks)
-        val parsed = parseIdKeyedTranslations(output.translatedText)
-
-        return items.map { (bubbleId, original) ->
-            val translated = parsed[bubbleId].usableTranslation()
-            TranslatedBubble(
-                bubbleId = bubbleId,
-                originalText = original,
-                translatedText = translated ?: original,
-                confidence = if (translated != null) output.confidence else 0.1f
-            )
-        }
-    }
-
-    private fun buildBatchPrompt(
-        panels: List<List<Pair<Int, String>>>,
-        sessionContext: List<Pair<String, String>>
-    ): String = buildString {
-        if (sessionContext.isNotEmpty()) {
-            appendLine("Previous page (for context):")
-            sessionContext.forEach { (source, target) -> appendLine("$source => $target") }
-            appendLine()
-        }
-        appendLine(
-            "Translate each Japanese line to English. Keep the [id] tag before each line. " +
-                "Panels are separated by ---."
-        )
-        panels.forEachIndexed { index, panel ->
-            if (index > 0) appendLine("---")
-            panel.forEach { (bubbleId, original) -> appendLine("[$bubbleId] $original") }
-        }
-    }
-
-    private fun parseIdKeyedTranslations(response: String): Map<Int, String> {
-        val regex = "^\\s*\\[(\\d+)]\\s*(.*)$".toRegex()
-        return response.lineSequence()
-            .mapNotNull { line ->
-                val match = regex.matchEntire(line) ?: return@mapNotNull null
-                val id = match.groupValues[1].toIntOrNull() ?: return@mapNotNull null
-                id to match.groupValues[2].trim()
-            }
-            .toMap()
-    }
-
-    private fun fallbackTranslations(blocks: List<ConversationBlock>): List<TranslatedBubble> {
-        return blocks.flatMap { block ->
-            block.bubbles.mapNotNull { bubble ->
-                val original = block.textByBubbleId[bubble.id]?.text?.take(MAX_SOURCE_CHARS) ?: return@mapNotNull null
-                TranslatedBubble(
-                    bubbleId = bubble.id,
-                    originalText = original,
-                    translatedText = original,
-                    confidence = 0.1f
-                )
-            }
-        }
-    }
-
-    fun release() {
-        translationBridge.clearMemory()
+    fun endSession() {
+        slotProvider().endSession()
     }
 
     fun close() {
-        translationBridge.close()
+        closeSlots()
     }
 }

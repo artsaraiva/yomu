@@ -1,45 +1,33 @@
 package com.yomu.ml
 
 import android.util.Log
+import com.yomu.core.ModelProfile
+import com.yomu.core.PageTranslation
+import com.yomu.core.TranslatableBubble
+import com.yomu.core.TranslatablePage
+import com.yomu.core.TranslationPromptMode
+import com.yomu.core.TranslationSlot
+import com.yomu.core.TranslationStatus
+import java.io.File
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import java.io.File
 
 class LlamaTranslationBridge(
     private val llamaBridge: LlamaBridge,
-    modelPath: String,
-    // Per-model, not per-class: the curated 0.8b refuses on any surrounding context (#68/#71) so it
-    // stays on the per-line floor (false), but a larger sibling can emit one id-keyed reply for the
-    // whole page (#72/#84). The #84 bake-off constructs capable candidates with this set true so
-    // TranslationEngine.translate routes them through translateBatch instead of the per-line path.
-    idKeyedBatch: Boolean = false
-) : TranslationBridge {
-
-    // Runtime-selected (ADR-0009 #90): which curated GGUF occupies the translation slot, switchable
-    // via [selectModel]. Was a compile-time constant hardcoded to the 0.8b path.
-    @Volatile
-    private var modelPath: String = modelPath
+    profile: ModelProfile
+) : TranslationSlot {
 
     @Volatile
-    private var idKeyedBatch: Boolean = idKeyedBatch
+    private var profile: ModelProfile = profile
 
-    /**
-     * Point the bridge at a different curated model (#90 part A). A no-op if unchanged; otherwise it
-     * releases the loaded native model and drops to NotReady so the next [ensureReady] loads the new
-     * GGUF. Safe to call while an engine other than LLM is active — the reload is lazy.
-     *
-     * Suspends on [readinessMutex], the same lock [ensureReady] and [generate] hold, so it can never
-     * free the native context while a generation is running on it (a switch mid-page would otherwise
-     * crash). It is suspend, not blocking, so waiting out a 120s batch never stalls the caller's
-     * thread (the ViewModel switches on a background coroutine — no ANR).
-     */
-    suspend fun selectModel(newModelPath: String, newIdKeyedBatch: Boolean) = readinessMutex.withLock {
-        if (newModelPath == modelPath && newIdKeyedBatch == idKeyedBatch) return@withLock
-        llamaBridge.release()
-        modelPath = newModelPath
-        idKeyedBatch = newIdKeyedBatch
-        status = TranslationStatus.NotReady
-        Log.i(TAG, "selectModel switched idKeyedBatch=$newIdKeyedBatch")
+    suspend fun selectModel(newProfile: ModelProfile) = readinessMutex.withLock {
+        if (newProfile == profile) return@withLock
+        if (newProfile.modelPath != profile.modelPath) {
+            llamaBridge.release()
+            status = TranslationStatus.NotReady
+        }
+        profile = newProfile
+        Log.i(TAG, "selectModel switched idKeyedBatch=${newProfile.idKeyedBatch}")
     }
 
     companion object {
@@ -47,20 +35,13 @@ class LlamaTranslationBridge(
         private const val N_CTX = 2048
         private const val N_GPU_LAYERS = 0
         private val N_THREADS = Runtime.getRuntime().availableProcessors().coerceAtMost(4)
-        // One bubble's English, not one short line: the per-line page-context path (#71) sends the
-        // whole page as context and asks for a single bubble back, but a dense narration box (up to
-        // MAX_SOURCE_CHARS of source) can exceed 64 output tokens. 64 was #58's truncation → residue
-        // gate failure (#65 US-12); size the per-bubble budget above it. Generation still stops at
-        // EOS, so short balloons are unaffected — this only lifts the ceiling for long ones.
         private const val MAX_TOKENS = 256
-        // Reserve room for the prompt-final tokens and EOS so prompt + output stays within N_CTX.
         private const val BATCH_TOKEN_RESERVE = 96
-        // Floor for the page-level budget: keep it well above the per-line MAX_TOKENS so a dense
-        // page never silently falls back to the truncating cap ADR-0002 removed.
         private const val BATCH_MIN_TOKENS = 256
         private const val TEMPERATURE = 0.2f
         private const val TIMEOUT_MS = 15_000
         private const val BATCH_TIMEOUT_MS = 120_000
+        private const val NEIGHBOUR_CHARS = 80
     }
 
     private val readinessMutex = Mutex()
@@ -79,38 +60,117 @@ class LlamaTranslationBridge(
             status = TranslationStatus.Ready
             return@withLock true
         }
-        if (!File(modelPath).exists()) {
+        if (!File(profile.modelPath).exists()) {
             status = TranslationStatus.Error("model_missing")
             return@withLock false
         }
-        val loaded = llamaBridge.loadModel(modelPath, N_CTX, N_GPU_LAYERS, N_THREADS)
+        val loaded = llamaBridge.loadModel(profile.modelPath, N_CTX, N_GPU_LAYERS, N_THREADS)
         status = if (loaded) TranslationStatus.Ready else TranslationStatus.Error("load_failed")
         loaded
     }
 
-    override suspend fun translate(sourceText: String): TranslationOutput? {
-        if (sourceText.isBlank()) return null
-        if (status !is TranslationStatus.Ready && !ensureReady()) return null
-        return generate(sourceText, MAX_TOKENS, TIMEOUT_MS)
+    override suspend fun translatePage(
+        page: TranslatablePage,
+        sessionContext: List<Pair<String, String>>
+    ): PageTranslation {
+        if (page.panels.flatten().isEmpty()) return PageTranslation(emptyMap(), "", 0L)
+        if (status !is TranslationStatus.Ready && !ensureReady()) {
+            return PageTranslation(emptyMap(), "", 0L)
+        }
+        return if (profile.idKeyedBatch) translateBatch(page, sessionContext) else translatePerLine(page)
     }
 
-    override suspend fun translateBatch(prompt: String): TranslationOutput? {
-        if (prompt.isBlank()) return null
-        if (status !is TranslationStatus.Ready && !ensureReady()) return null
-        // ponytail: chars/2 is a rough token estimate that keeps prompt + output within N_CTX
-        // without a tokenizer; its ceiling is a page dense enough to overflow N_CTX, where an exact
-        // tokenizer would be needed. #58's corpus (~8-9 short ids/page) stays far under.
+    private suspend fun translatePerLine(page: TranslatablePage): PageTranslation {
+        val bubbles = page.panels.flatten()
+        val outputs = bubbles.mapIndexedNotNull { index, bubble ->
+            val prompt = when (profile.promptMode) {
+                TranslationPromptMode.MODEL_CARD -> modelCardPrompt(bubble.sourceText)
+                TranslationPromptMode.TRANSLATION_ONLY -> translationOnlyPrompt(bubble.sourceText, "")
+                TranslationPromptMode.CAPTURE_CONTEXT -> translationOnlyPrompt(
+                    bubble.sourceText,
+                    listOfNotNull(bubbles.getOrNull(index - 1), bubbles.getOrNull(index + 1))
+                        .joinToString("\n") { it.sourceText.take(NEIGHBOUR_CHARS) }
+                )
+            }
+            generate(prompt, MAX_TOKENS, TIMEOUT_MS)?.let { bubble to it }
+        }
+        return PageTranslation(
+            byId = outputs.associate { (bubble, output) -> bubble.bubbleId to output.text },
+            rawResponse = outputs.joinToString("\n") { (bubble, output) ->
+                "[${bubble.bubbleId}] ${output.text}"
+            },
+            durationMs = outputs.sumOf { it.second.durationMs }
+        )
+    }
+
+    private suspend fun translateBatch(
+        page: TranslatablePage,
+        sessionContext: List<Pair<String, String>>
+    ): PageTranslation {
+        val prompt = buildBatchPrompt(page, sessionContext)
+        // ponytail: chars/2 avoids tokenizer overhead; use exact tokenization if dense pages overflow N_CTX.
         val promptTokenEstimate = prompt.length / 2
-        val budget = (N_CTX - promptTokenEstimate - BATCH_TOKEN_RESERVE).coerceIn(BATCH_MIN_TOKENS, N_CTX)
-        return generate(prompt, budget, BATCH_TIMEOUT_MS)
+        val budget = (N_CTX - promptTokenEstimate - BATCH_TOKEN_RESERVE)
+            .coerceIn(BATCH_MIN_TOKENS, N_CTX)
+        val output = generate(prompt, budget, BATCH_TIMEOUT_MS)
+            ?: return PageTranslation(emptyMap(), "", 0L)
+        return PageTranslation(
+            byId = parseIdKeyedTranslations(output.text),
+            rawResponse = output.text,
+            durationMs = output.durationMs
+        )
     }
 
-    // Holds readinessMutex across the native call so a concurrent selectModel cannot release the
-    // model out from under an in-flight generation (#90). If a switch slipped in between ensureReady
-    // and this lock, the model is unloaded here and llamaBridge.generate returns NotLoaded → null,
-    // which the caller treats as a failed line (source fallback) — no crash.
-    private suspend fun generate(prompt: String, maxTokens: Int, timeoutMs: Int): TranslationOutput? = readinessMutex.withLock {
-        return@withLock when (val result = llamaBridge.generate(prompt, maxTokens, TEMPERATURE, timeoutMs)) {
+    private fun modelCardPrompt(target: String): String =
+        "Translate the following Japanese text into English.\n\n$target"
+
+    private fun translationOnlyPrompt(target: String, surrounding: String): String = buildString {
+        appendLine("Translate the target Japanese manga text into natural English. Return only the translation.")
+        appendLine("No introductions, explanations, labels, or added quotes. Preserve meaning and tone.")
+        if (surrounding.isNotBlank()) {
+            appendLine("Nearby dialogue (context only; do not translate):")
+            appendLine(surrounding)
+        }
+        appendLine("Target text (translate this only):")
+        append(target)
+    }
+
+    private fun buildBatchPrompt(
+        page: TranslatablePage,
+        sessionContext: List<Pair<String, String>>
+    ): String = buildString {
+        if (sessionContext.isNotEmpty()) {
+            appendLine("Previous page (for context):")
+            sessionContext.forEach { (source, target) -> appendLine("$source => $target") }
+            appendLine()
+        }
+        appendLine(
+            "Translate each Japanese line to English. Keep the [id] tag before each line. " +
+                "Panels are separated by ---."
+        )
+        page.panels.forEachIndexed { index, panel ->
+            if (index > 0) appendLine("---")
+            panel.forEach { bubble -> appendLine("[${bubble.bubbleId}] ${bubble.sourceText}") }
+        }
+    }
+
+    private fun parseIdKeyedTranslations(response: String): Map<Int, String> {
+        val regex = "^\\s*\\[(\\d+)]\\s*(.*)$".toRegex()
+        return response.lineSequence().mapNotNull { line ->
+            val match = regex.matchEntire(line) ?: return@mapNotNull null
+            val id = match.groupValues[1].toIntOrNull() ?: return@mapNotNull null
+            id to match.groupValues[2].trim()
+        }.toMap()
+    }
+
+    private suspend fun generate(
+        prompt: String,
+        maxTokens: Int,
+        timeoutMs: Int
+    ): GeneratedText? = readinessMutex.withLock {
+        return@withLock when (
+            val result = llamaBridge.generate(prompt, maxTokens, TEMPERATURE, timeoutMs)
+        ) {
             is GenerationResult.Success -> {
                 val text = result.text.trim()
                 if (text.isBlank()) {
@@ -119,16 +179,11 @@ class LlamaTranslationBridge(
                 } else {
                     Log.i(
                         TAG,
-                        "generate success promptLength=${prompt.length} translatedLength=${text.length} maxTokens=$maxTokens durationMs=${result.durationMs}"
+                        "generate success promptLength=${prompt.length} translatedLength=${text.length} " +
+                            "maxTokens=$maxTokens durationMs=${result.durationMs}"
                     )
-                    // Raw model text, so a failed run can be diagnosed as prompt-format vs. model
-                    // quality without re-instrumenting the device (ADR-0002 eval honesty).
                     Log.i(TAG, "generate raw=${text.replace("\n", "\\n")}")
-                    TranslationOutput(
-                        translatedText = text,
-                        confidence = 0.8f,
-                        durationMs = result.durationMs
-                    )
+                    GeneratedText(text, result.durationMs)
                 }
             }
             is GenerationResult.Blank,
@@ -137,11 +192,7 @@ class LlamaTranslationBridge(
         }
     }
 
-    override fun supportsBatch(): Boolean = true
-
-    override fun supportsIdKeyedBatch(): Boolean = idKeyedBatch
-
-    override fun clearMemory() {
+    override fun endSession() {
         llamaBridge.clearMemory()
     }
 
@@ -151,7 +202,5 @@ class LlamaTranslationBridge(
         Log.i(TAG, "close completed")
     }
 
-    fun release() {
-        close()
-    }
+    private data class GeneratedText(val text: String, val durationMs: Long)
 }
