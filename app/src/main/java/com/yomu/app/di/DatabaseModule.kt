@@ -5,7 +5,6 @@ import androidx.room.Room
 import com.yomu.app.db.AppDatabase
 import com.yomu.app.db.HistoryDao
 import com.yomu.app.db.ModelDao
-import com.yomu.app.db.TranslationCacheDao
 import com.yomu.app.db.TranslationSessionDao
 import com.yomu.core.Constants
 import dagger.Module
@@ -42,16 +41,5 @@ object DatabaseModule {
     @Provides
     fun provideTranslationSessionDao(database: AppDatabase): TranslationSessionDao {
         return database.translationSessionDao()
-    }
-
-    @Provides
-    fun provideTranslationCacheDao(database: AppDatabase): TranslationCacheDao {
-        return database.translationCacheDao()
-    }
-
-    @Provides
-    @Singleton
-    fun provideTranslationCacheRepository(dao: TranslationCacheDao): com.yomu.pipeline.translation.TranslationCacheRepository {
-        return com.yomu.app.db.TranslationCacheRepository(dao)
     }
 }

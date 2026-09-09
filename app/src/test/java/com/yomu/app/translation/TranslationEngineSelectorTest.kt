@@ -48,7 +48,7 @@ class TranslationEngineSelectorTest {
     }
 
     @Test
-    fun `engineId returns current engine id`() {
+    fun `currentEngine returns the persisted engine`() {
         val prefs = prefsWithEngine("ml_kit")
         val selector = TranslationEngineSelector(
             Mockito.mock(MlKitTranslationBridge::class.java),
@@ -57,7 +57,6 @@ class TranslationEngineSelectorTest {
             prefs
         )
 
-        assertEquals("ml_kit", selector.engineId)
         assertEquals(TranslationEngineType.ML_KIT, selector.currentEngine())
     }
 
@@ -80,7 +79,6 @@ class TranslationEngineSelectorTest {
         selector.selectEngine(TranslationEngineType.OPUS_MT)
 
         assertEquals(TranslationEngineType.OPUS_MT, selector.currentEngine())
-        assertEquals("opus_mt", selector.engineId)
         Mockito.verify(editor).putString("translation_engine", "opus_mt")
         Mockito.verify(editor).apply()
     }
