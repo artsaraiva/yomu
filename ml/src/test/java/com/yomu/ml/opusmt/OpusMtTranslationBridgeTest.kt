@@ -1,9 +1,11 @@
 package com.yomu.ml.opusmt
 
 import android.content.Context
+import com.yomu.core.TranslatableBubble
+import com.yomu.core.TranslatablePage
+import com.yomu.core.TranslationStatus
 import com.yomu.ml.OnnxRuntime
 import org.mockito.Mockito.mock
-import com.yomu.ml.TranslationStatus
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
@@ -49,22 +51,15 @@ class OpusMtTranslationBridgeTest {
     }
 
     @Test
-    fun translate_notReadyAndLoadFails_returnsNull() = runTest {
+    fun translatePage_notReadyAndLoadFails_returnsNoTranslations() = runTest {
         val bridge = createBridge()
 
-        assertNull(bridge.translate("こんにちは"))
-    }
-
-    @Test
-    fun supportsBatch_returnsFalse() {
-        val bridge = OpusMtTranslationBridge(
-            OnnxRuntime(mock(Context::class.java)),
-            encoderModelPath = "",
-            decoderModelPath = "",
-            tokenizerPath = ""
+        val result = bridge.translatePage(
+            TranslatablePage(listOf(listOf(TranslatableBubble(1, "こんにちは")))),
+            emptyList()
         )
 
-        assertFalse(bridge.supportsBatch())
+        assertTrue(result.byId.isEmpty())
     }
 
     @Test
