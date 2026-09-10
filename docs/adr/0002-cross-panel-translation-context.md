@@ -75,3 +75,13 @@ The #68 amendment relaxed "one call per page" to "one target bubble per call **c
 **Prerequisite found in the same testing:** on-device OCR was emitting raw `[CLS]`/`[SEP]` special tokens and space-separated characters (#74), which corrupted every source line and independently made the model echo. The ADR-0004 gate never caught it because `EngineBenchmarkTest` feeds ground-truth `text_ja`, not real OCR. Fixed under #74; the refusal finding above is on clean OCR input.
 
 **Evidence:** #71 device run (SM-S911B, real OCR, #74 fix in place): with page/session context in the prompt, every bubble refused (assistant-style "I'm sorry, but I can't help…"); with the bare model-card form, the model translates (consistent with #68's per-line 0.03 residue).
+
+## Amendment (#138): page-level is reaffirmed; cross-page session memory is withdrawn
+
+**Status:** accepted, amends this ADR. Decided by [ADR-0013](0013-grammar-constrained-page-level-batch.md) on the [#137](https://github.com/artsaraiva/yomu/issues/137) spike.
+
+**Reaffirmed on measurement.** One page-level id-keyed call per capture is the shipped architecture again, now with its output shape enforced at sample time by a GBNF grammar. On the current default (Qwen2.5-1.5B, not the 0.8b the #68 and #71 amendments were written against) the page-level call is **26% faster per page than per-line at equal memory**, and the grammar makes the #68 failure mode — a page whose id tags come back malformed and whose bubbles are therefore all rendered as untranslated source — structurally unreachable. The #68 and #71 amendments stand as written for the 0.8b, which keeps its bare per-line form as a slot strategy.
+
+**Withdrawn.** "The previous page's source/translation pairs as session memory", and the `OverlayService`-held `List<Pair<ja, en>>` that carries it. It reached a model for the first time in #137 and failed: the production-shaped payload exceeds the 512-token `n_batch` prompt cap on 4 of 17 pages, each silently rendering the untranslated page; surviving pages were slower and no arm showed a quality gain. The plumbing is deleted rather than left dormant. Cross-panel coherence now comes from the whole page being in one call — which is what this ADR decided in the first place — and koharu's identical design (its `TranslationContext` is populated only under `#[cfg(test)]`) corroborates it independently.
+
+**Consequence for the #53 amendment.** [ADR-0006](0006-coherence-gate-contract.md)'s directional gate — accuracy *with* session context against accuracy with it blanked — no longer has a cross-page arm to measure. It becomes runnable on **intra-page** coherence only.
