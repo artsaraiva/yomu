@@ -185,6 +185,43 @@ class LlamaTranslationBridgeTest {
         idKeyedBatch: Boolean = false
     ): ModelProfile = ModelProfile(model.absolutePath, idKeyedBatch, promptMode)
 
+    // SPIKE #137: the grammar is what makes a dropped id, a merged pair or a preamble unreachable,
+    // so it has to name every id in prompt order. A grammar that silently lost an id would read as
+    // a model coverage failure in the benchmark.
+    @Test
+    fun translatePage_grammarPinsEveryIdInPromptOrder() = runTest {
+        val model = File.createTempFile("model", ".gguf")
+        val native = FakeLlamaBridge { GenerationResult.Success("[4] Hi\n[9] Bye", 1L) }
+        val slot = LlamaTranslationBridge(
+            native,
+            profile(model, TranslationPromptMode.MODEL_CARD, idKeyedBatch = true),
+            useGrammar = true
+        )
+
+        slot.translatePage(page(4 to "やあ", 9 to "またね"), emptyList())
+
+        assertEquals(
+            "root ::= \"[4] \" line \"\\n\" \"[9] \" line \"\\n\"\nline ::= [^\\r\\n]{1,160}\n",
+            native.grammars.single()
+        )
+        model.delete()
+    }
+
+    @Test
+    fun translatePage_grammarIsEmptyUnlessTheArmAsksForIt() = runTest {
+        val model = File.createTempFile("model", ".gguf")
+        val native = FakeLlamaBridge { GenerationResult.Success("[4] Hi", 1L) }
+        val slot = LlamaTranslationBridge(
+            native,
+            profile(model, TranslationPromptMode.MODEL_CARD, idKeyedBatch = true)
+        )
+
+        slot.translatePage(page(4 to "やあ"), emptyList())
+
+        assertEquals("", native.grammars.single())
+        model.delete()
+    }
+
     private fun page(vararg bubbles: Pair<Int, String>): TranslatablePage =
         TranslatablePage(listOf(bubbles.map { (id, source) -> TranslatableBubble(id, source) }))
 
@@ -193,6 +230,7 @@ class LlamaTranslationBridgeTest {
     ) : LlamaBridge(null) {
         val prompts = mutableListOf<String>()
         val maxTokens = mutableListOf<Int>()
+        val grammars = mutableListOf<String>()
         var releaseCalls = 0
         var clearMemoryCalls = 0
 
@@ -207,10 +245,12 @@ class LlamaTranslationBridgeTest {
             prompt: String,
             maxTokens: Int,
             temperature: Float,
-            timeoutMs: Int
+            timeoutMs: Int,
+            grammar: String
         ): GenerationResult {
             prompts += prompt
             this.maxTokens += maxTokens
+            grammars += grammar
             return resultForPrompt(prompt)
         }
 

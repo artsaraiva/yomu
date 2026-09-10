@@ -14,7 +14,14 @@ import kotlinx.coroutines.sync.withLock
 
 class LlamaTranslationBridge(
     private val llamaBridge: LlamaBridge,
-    profile: ModelProfile
+    profile: ModelProfile,
+    /**
+     * SPIKE #137: constrain the page-level batch reply to the `[id] text` shape at sample time.
+     * Off by default, so every existing construction is the shipped path unchanged. Deliberately a
+     * constructor flag rather than a [ModelProfile] field: this is a throwaway measurement arm, not
+     * a catalog capability, and the architecture ticket decides whether it becomes one.
+     */
+    private val useGrammar: Boolean = false
 ) : TranslationSlot {
 
     @Volatile
@@ -38,6 +45,21 @@ class LlamaTranslationBridge(
         private const val MAX_TOKENS = 256
         private const val BATCH_TOKEN_RESERVE = 96
         private const val BATCH_MIN_TOKENS = 256
+
+        // #136: the old budget was "all of N_CTX the prompt does not use", which is fed to the
+        // native prompt_fits as `output` and so *shrinks* the prompt allowance to N_CTX - budget - 8
+        // -- the model self-refusing prompts that would have fit. Cap it at what a page's reply
+        // actually needs (~30 bubbles x ~15 tokens plus id tags) and the binding limit goes back to
+        // being n_batch, where #136 says it belongs.
+        private const val MAX_BATCH_OUTPUT = 768
+
+        // An unbounded `line` rule is not a neutral choice: with no repetition penalty in the
+        // sampler, the model finishes the last id and then keeps writing inside that same line
+        // forever -- observed on 5 of 17 pages, each running to the token cap with the final
+        // bubble's text turned into a loop. The bound is the escape hatch the grammar itself has to
+        // provide. 160 is ~2x the longest line in the corpus's human reference translations (max
+        // 75 chars, median 22), so it cannot clip a plausible translation.
+        private const val MAX_LINE_CHARS = 160
         private const val TEMPERATURE = 0.2f
         private const val TIMEOUT_MS = 15_000
         private const val BATCH_TIMEOUT_MS = 120_000
@@ -111,8 +133,9 @@ class LlamaTranslationBridge(
         // ponytail: chars/2 avoids tokenizer overhead; use exact tokenization if dense pages overflow N_CTX.
         val promptTokenEstimate = prompt.length / 2
         val budget = (N_CTX - promptTokenEstimate - BATCH_TOKEN_RESERVE)
-            .coerceIn(BATCH_MIN_TOKENS, N_CTX)
-        val output = generate(prompt, budget, BATCH_TIMEOUT_MS)
+            .coerceIn(BATCH_MIN_TOKENS, MAX_BATCH_OUTPUT)
+        val grammar = if (useGrammar) buildBatchGrammar(page) else ""
+        val output = generate(prompt, budget, BATCH_TIMEOUT_MS, grammar)
             ?: return PageTranslation(emptyMap(), "", 0L)
         return PageTranslation(
             byId = parseIdKeyedTranslations(output.text),
@@ -154,6 +177,22 @@ class LlamaTranslationBridge(
         }
     }
 
+    /**
+     * GBNF pinning the reply to exactly one `[id] text` line per bubble, in prompt order, with the
+     * ids as literals. Two rules regardless of bubble count. Preamble, refusal, a dropped id, a
+     * merged pair and a re-ordered reply are all structurally unreachable -- which is what
+     * [parseIdKeyedTranslations] and the [com.yomu.pipeline.translation.looksLikeNonTranslation]
+     * regexes are currently detecting after the fact.
+     *
+     * Deliberately structural only: nothing here forbids Japanese characters or constrains content,
+     * so the residue and meaning metrics still measure the model rather than the grammar.
+     */
+    private fun buildBatchGrammar(page: TranslatablePage): String {
+        val ids = page.panels.flatten().map { it.bubbleId }
+        val root = ids.joinToString(" ") { "\"[$it] \" line \"\\n\"" }
+        return "root ::= $root\nline ::= [^\\r\\n]{1,$MAX_LINE_CHARS}\n"
+    }
+
     private fun parseIdKeyedTranslations(response: String): Map<Int, String> {
         val regex = "^\\s*\\[(\\d+)]\\s*(.*)$".toRegex()
         return response.lineSequence().mapNotNull { line ->
@@ -166,10 +205,11 @@ class LlamaTranslationBridge(
     private suspend fun generate(
         prompt: String,
         maxTokens: Int,
-        timeoutMs: Int
+        timeoutMs: Int,
+        grammar: String = ""
     ): GeneratedText? = readinessMutex.withLock {
         return@withLock when (
-            val result = llamaBridge.generate(prompt, maxTokens, TEMPERATURE, timeoutMs)
+            val result = llamaBridge.generate(prompt, maxTokens, TEMPERATURE, timeoutMs, grammar)
         ) {
             is GenerationResult.Success -> {
                 val text = result.text.trim()

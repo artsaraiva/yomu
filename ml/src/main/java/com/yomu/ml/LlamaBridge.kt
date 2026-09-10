@@ -81,6 +81,19 @@ open class LlamaBridge(private val context: Context?) : TextGenerationBridge {
         maxTokens: Int,
         temperature: Float,
         timeoutMs: Int
+    ): GenerationResult = generate(prompt, maxTokens, temperature, timeoutMs, grammar = "")
+
+    /**
+     * SPIKE #137: [grammar] is a GBNF string constraining the sampler; empty means unconstrained,
+     * which is the shipped behaviour byte for byte. A grammar that fails to parse refuses the
+     * generation (native returns "") rather than falling back to unconstrained sampling.
+     */
+    open fun generate(
+        prompt: String,
+        maxTokens: Int,
+        temperature: Float,
+        timeoutMs: Int,
+        grammar: String
     ): GenerationResult {
         if (!isLoaded) {
             Log.w(TAG, "generate skipped model_not_loaded")
@@ -88,7 +101,7 @@ open class LlamaBridge(private val context: Context?) : TextGenerationBridge {
         }
         val startMs = System.currentTimeMillis()
         try {
-            val result = nativeGenerate(prompt, maxTokens, temperature, timeoutMs)
+            val result = nativeGenerate(prompt, maxTokens, temperature, timeoutMs, grammar)
             val durationMs = System.currentTimeMillis() - startMs
             val text = result.orEmpty()
             if (text.isBlank()) {
@@ -114,7 +127,13 @@ open class LlamaBridge(private val context: Context?) : TextGenerationBridge {
     }
 
     private external fun nativeLoadModel(path: String, nCtx: Int, nGpuLayers: Int, nThreads: Int): Boolean
-    private external fun nativeGenerate(prompt: String, maxTokens: Int, temperature: Float, timeoutMs: Int): String?
+    private external fun nativeGenerate(
+        prompt: String,
+        maxTokens: Int,
+        temperature: Float,
+        timeoutMs: Int,
+        grammar: String
+    ): String?
     private external fun nativeClearMemory()
     private external fun nativeRelease()
 }

@@ -4,6 +4,7 @@
 #include <vector>
 #include <cstring>
 #include <chrono>
+#include <cmath>
 #include <atomic>
 #include <algorithm>
 #include <android/log.h>
@@ -19,6 +20,13 @@ static llama_model *g_model = nullptr;
 static llama_context *g_ctx = nullptr;
 static const llama_vocab *g_vocab = nullptr;
 static llama_sampler *g_sampler = nullptr;
+// SPIKE #137: grammar sampler, deliberately held OUTSIDE g_sampler. llama_grammar_apply_impl writes
+// -INFINITY without clearing cur_p->sorted, and top_k leaves it true, so a grammar placed after
+// top_k in the same chain yields NaN probabilities. Wrapped in its own one-element chain purely so
+// llama_perf_sampler() works on it -- that API only accepts chains, and the grammar's own sampling
+// time is the number this spike exists to produce.
+static llama_sampler *g_grammar = nullptr;
+static int g_grammar_rejections = 0;
 static std::atomic<int64_t> g_abort_deadline_ms{0};
 
 static const int64_t DEFAULT_TIMEOUT_MS = 1000;
@@ -46,6 +54,7 @@ static bool rebuild_sampler(float temperature) {
     }
 
     auto sparams = llama_sampler_chain_default_params();
+    sparams.no_perf = false;  // SPIKE #137: chain defaults to no_perf = true, which zeroes t_sample_ms.
     g_sampler = llama_sampler_chain_init(sparams);
     if (!g_sampler) {
         return false;
@@ -56,6 +65,88 @@ static bool rebuild_sampler(float temperature) {
     llama_sampler_chain_add(g_sampler, llama_sampler_init_temp(temperature));
     llama_sampler_chain_add(g_sampler, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
     return true;
+}
+
+static void free_grammar() {
+    if (g_grammar) {
+        llama_sampler_free(g_grammar);
+        g_grammar = nullptr;
+    }
+}
+
+// Build the grammar sampler for this generation. An empty string means "no grammar" and succeeds.
+//
+// llama_sampler_init_grammar returns NULL when grammar_str fails to parse. The pre-existing code
+// fed init_* returns straight to llama_sampler_chain_add, which dereferences unconditionally, so a
+// malformed grammar would SIGSEGV instead of erroring; hence the explicit check. Failing here
+// refuses the generation rather than silently sampling unconstrained, which would put an
+// unconstrained arm's output under a grammar arm's name.
+static bool rebuild_grammar(const char *grammar_str) {
+    free_grammar();
+    g_grammar_rejections = 0;
+    if (!grammar_str || grammar_str[0] == '\0') {
+        return true;
+    }
+
+    llama_sampler *grammar = llama_sampler_init_grammar(g_vocab, grammar_str, "root");
+    if (!grammar) {
+        LOGE("Grammar failed to parse; refusing to generate unconstrained");
+        return false;
+    }
+
+    auto gparams = llama_sampler_chain_default_params();
+    gparams.no_perf = false;
+    g_grammar = llama_sampler_chain_init(gparams);
+    if (!g_grammar) {
+        llama_sampler_free(grammar);
+        LOGE("Failed to create grammar chain");
+        return false;
+    }
+    llama_sampler_chain_add(g_grammar, grammar);
+    return true;
+}
+
+static void set_logits(std::vector<llama_token_data> &cur, int n_vocab) {
+    const float *logits = llama_get_logits_ith(g_ctx, -1);
+    cur.resize((size_t)n_vocab);
+    for (llama_token i = 0; i < n_vocab; i++) {
+        cur[i] = { i, logits[i], 0.0f };
+    }
+}
+
+// Upstream's rejection-sampling shape (common/sampling.cpp): sample from the ordinary chain first,
+// test the chosen token against the grammar through a one-element array, and only on rejection
+// re-sample with the grammar applied *before* the chain -- which is the ordering that keeps the
+// sorted flag honest. Without a grammar this is the shipped call unchanged, so the control arm runs
+// production's exact path.
+static llama_token sample_token(std::vector<llama_token_data> &cur, int n_vocab) {
+    if (!g_grammar) {
+        // llama_sampler_sample accepts into the chain internally; the extra llama_sampler_accept
+        // that used to follow this call was redundant (harmless only because top_k/top_p/temp/dist
+        // all declare .accept = nullptr) and would double-advance grammar state once one exists.
+        return llama_sampler_sample(g_sampler, g_ctx, -1);
+    }
+
+    set_logits(cur, n_vocab);
+    llama_token_data_array cur_p = { cur.data(), cur.size(), -1, false };
+    llama_sampler_apply(g_sampler, &cur_p);
+    llama_token id = cur_p.data[cur_p.selected].id;
+
+    llama_token_data single = { id, 1.0f, 0.0f };
+    llama_token_data_array single_arr = { &single, 1, -1, false };
+    llama_sampler_apply(g_grammar, &single_arr);
+    if (single_arr.data[0].logit == -INFINITY) {
+        g_grammar_rejections++;
+        set_logits(cur, n_vocab);
+        cur_p = { cur.data(), cur.size(), -1, false };
+        llama_sampler_apply(g_grammar, &cur_p);
+        llama_sampler_apply(g_sampler, &cur_p);
+        id = cur_p.data[cur_p.selected].id;
+    }
+
+    llama_sampler_accept(g_grammar, id);
+    llama_sampler_accept(g_sampler, id);
+    return id;
 }
 
 // Format the prompt the way the loaded model was trained to receive it.
@@ -172,7 +263,8 @@ Java_com_yomu_ml_LlamaBridge_nativeGenerate(
     jstring prompt,
     jint max_tokens,
     jfloat temperature,
-    jint timeout_ms) {
+    jint timeout_ms,
+    jstring grammar) {
 
     const int64_t started_ms = now_ms();
 
@@ -198,6 +290,19 @@ Java_com_yomu_ml_LlamaBridge_nativeGenerate(
 
     if (!g_sampler) {
         LOGE("Sampler unavailable");
+        g_abort_deadline_ms.store(0, std::memory_order_relaxed);
+        return env->NewStringUTF("");
+    }
+
+    bool grammar_ok = true;
+    if (grammar) {
+        const char *grammar_str = env->GetStringUTFChars(grammar, nullptr);
+        grammar_ok = rebuild_grammar(grammar_str);
+        env->ReleaseStringUTFChars(grammar, grammar_str);
+    } else {
+        free_grammar();
+    }
+    if (!grammar_ok) {
         g_abort_deadline_ms.store(0, std::memory_order_relaxed);
         return env->NewStringUTF("");
     }
@@ -254,10 +359,11 @@ Java_com_yomu_ml_LlamaBridge_nativeGenerate(
     int n_len = 0;
     llama_token new_token_id;
     llama_token eos = llama_vocab_eos(g_vocab);
+    const int n_vocab = llama_vocab_n_tokens(g_vocab);
+    std::vector<llama_token_data> cur;
 
     while (n_len < max_tokens) {
-        new_token_id = llama_sampler_sample(g_sampler, g_ctx, -1);
-        llama_sampler_accept(g_sampler, new_token_id);
+        new_token_id = sample_token(cur, n_vocab);
 
         if (new_token_id == eos) break;
 
@@ -285,7 +391,17 @@ Java_com_yomu_ml_LlamaBridge_nativeGenerate(
     }
 
     const int64_t elapsed_ms = now_ms() - started_ms;
-    LOGI("Generation complete tokens=%d resultLength=%zu durationMs=%lld", n_len, result.size(), (long long)elapsed_ms);
+    // SPIKE #137: the per-token grammar overhead figure this ticket exists to produce. No published
+    // number exists (upstream's own common/sampling.cpp carries "// TODO: measure grammar
+    // performance"), so it is measured here: base chain sampling time vs grammar chain time, both
+    // separate from decode.
+    const llama_perf_sampler_data base_perf = llama_perf_sampler(g_sampler);
+    const double grammar_ms = g_grammar ? llama_perf_sampler(g_grammar).t_sample_ms : 0.0;
+    LOGI("Generation complete tokens=%d resultLength=%zu durationMs=%lld "
+         "sampleMs=%.2f grammarMs=%.2f grammarRejections=%d grammar=%d",
+         n_len, result.size(), (long long)elapsed_ms,
+         base_perf.t_sample_ms, grammar_ms, g_grammar_rejections, g_grammar ? 1 : 0);
+    free_grammar();
     g_abort_deadline_ms.store(0, std::memory_order_relaxed);
     return env->NewStringUTF(result.c_str());
 }
@@ -301,6 +417,8 @@ Java_com_yomu_ml_LlamaBridge_nativeClearMemory(JNIEnv *, jobject /* this */) {
 extern "C" JNIEXPORT void JNICALL
 Java_com_yomu_ml_LlamaBridge_nativeRelease(JNIEnv *env, jobject /* this */) {
     LOGI("Releasing model resources");
+
+    free_grammar();
 
     if (g_sampler) {
         llama_sampler_free(g_sampler);
