@@ -16,29 +16,30 @@ This file governs all AI agent behavior in this repository.
 5. **commit after every passing test.** Each green test = one commit.
 6. **no session links.** This repo is public. Never put a `claude.ai/code/session_...` URL in a commit trailer, PR body, or issue — it is an account-scoped identifier that is a dead link for every reader, and git history is permanent. Generic tool attribution (`🤖 Generated with Claude Code`) is fine. Claude Code emits the session trailer by default; suppress it with `attribution: {"commit": "", "pr": ""}` in `settings.json`.
 
-### Phase, Issue, and Branch Workflow
+### Issue and Branch Workflow
 
-`docs/roadmap/README.md` maps each phase to its GitHub milestone. Read it before planning any non-trivial work. Do not guess the phase or milestone.
+Work is tracked as plain GitHub issues on `artsaraiva/yomu`. **There are no phases and no
+milestones** — the ten-phase roadmap sequence stopped matching how the work actually ordered itself
+and has been scrapped. Do not assign a milestone, do not ask which phase owns a piece of work, and
+do not use "that's phase N" as a reason to defer something. `docs/roadmap/` still describes the old
+scheme and is stale; treat it as history, not as a plan.
 
 | Situation | Required action |
 |---|---|
-| Any phase-scoped feature, bugfix, refactor, or research task | Create a real GitHub issue first → assign its roadmap milestone → create a focused branch → PR closes the issue |
-| Bug found during device testing or review | Create issue in the owning phase milestone before implementation |
-| New follow-up discovered during a PR | Create a separate issue in the owning milestone; do not expand the current PR unless user explicitly approves it |
-| Infrastructure work (CI, Dependabot, review, security) | Create issue in the Infrastructure milestone before implementation |
+| Any feature, bugfix, refactor, or research task | Create a real GitHub issue first → create a focused branch → PR closes the issue |
+| Bug found during device testing or review | Create an issue before implementation |
+| New follow-up discovered during a PR | Create a separate issue; do not expand the current PR unless the user explicitly approves it |
+| Infrastructure work (CI, Dependabot, review, security) | Create an issue before implementation |
 | Trivial typo or one-line documentation correction | Direct branch/PR is allowed; no issue required |
 
-**Required sequence for phase work:**
-1. Read `docs/roadmap/README.md` and the owning phase doc.
-2. Create an issue with the behavior, acceptance criteria, and a link to the phase doc.
-3. Assign the issue to the matching GitHub milestone before creating the branch.
-4. Create one focused branch for that issue: `feat/<issue-number>-<short-description>` or `fix/<issue-number>-<short-description>`.
-5. Keep the PR focused. Its body must open with a bare `Closes #<issue-number>` and mention the phase/milestone.
-6. Self-review the PR diff, run required verification, then request review.
+**Required sequence:**
+1. Create an issue with the behavior and acceptance criteria.
+2. Create one focused branch for that issue: `feat/<issue-number>-<short-description>` or `fix/<issue-number>-<short-description>`.
+3. Keep the PR focused. Its body must open with a bare `Closes #<issue-number>`.
+4. Self-review the PR diff, run required verification, then request review.
 
 **Rules:**
-- Issues track real unfinished work; do not create retrospective placeholder issues merely to populate completed milestones.
-- Close completed milestones from commit/PR evidence when no real follow-up work remains.
+- Issues track real unfinished work; do not create retrospective placeholder issues.
 - One issue normally maps to one branch and one PR. Split unrelated work into separate issues/PRs.
 - **The closing keyword must be bare: `Closes #44`.** GitHub does not parse a markdown-linked number, so `Resolves the [#44](https://github.com/artsaraiva/yomu/issues/44) decision` creates no link — the issue shows no PR beside it and nothing auto-closes. This silently cost four PRs their links (#37, #42, #45, #50). Prose may link an issue however it likes; the keyword line may not. Verify after opening:
   ```
@@ -46,7 +47,7 @@ This file governs all AI agent behavior in this repository.
   ```
   An empty list means unlinked. Editing the body fixes it even after the PR is merged.
 - Use label `future` only for work intentionally deferred beyond the current delivery window.
-- For this repository, use `github-personal_*` tools and the `artsaraiva/yomu` milestones; never use the work-account GitHub tools.
+- For this repository, use `github-personal_*` tools and never the work-account GitHub tools.
 
 ### GitHub Workflow
 
@@ -97,7 +98,7 @@ When a physical device or emulator is connected, use the `android-mcp_*` tools t
 
 - **Stack:** Kotlin, Jetpack Compose, Hilt, Room, ONNX Runtime, llama.cpp
 - **Architecture:** Main app + foreground overlay service
-- **Phase 1 scope:** Japanese→English, single-page, Android, local-only, system-wide overlay
+- **Scope:** Japanese→English, single-page, Android, local-only, system-wide overlay
 ### When stuck
 
 1. Read the relevant spec or plan doc first.
