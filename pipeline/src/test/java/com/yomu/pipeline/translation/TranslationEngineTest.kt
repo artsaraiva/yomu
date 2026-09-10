@@ -110,6 +110,37 @@ class TranslationEngineTest {
     }
 
     @Test
+    fun translate_keepsPunctuationOnlyBubblesWithoutAskingTheSlot() = runTest {
+        val slot = FakeTranslationSlot(PageTranslation(mapOf(1 to "Hello"), "", 1L))
+
+        val result = TranslationEngine { slot }
+            .translate(listOf(block(1 to "こんにちは", 2 to "?", 3 to "……")))
+
+        assertEquals(listOf(listOf(1 to "こんにちは")), slot.pagePairs())
+        assertEquals(listOf("Hello", "?", "……"), result.translations.map { it.translatedText })
+    }
+
+    @Test
+    fun translate_punctuationOnlyPageDoesNotCallTheSlot() = runTest {
+        val slot = FakeTranslationSlot(PageTranslation(emptyMap(), "", 1L))
+
+        val result = TranslationEngine { slot }.translate(listOf(block(1 to "?")))
+
+        assertTrue(slot.pages.isEmpty())
+        assertEquals(listOf("?"), result.translations.map { it.translatedText })
+    }
+
+    @Test
+    fun translate_keepsBubblesWhoseTextIsOnlyPunctuationAroundWords() = runTest {
+        val slot = FakeTranslationSlot(PageTranslation(mapOf(1 to "Huh?!"), "", 1L))
+
+        val result = TranslationEngine { slot }.translate(listOf(block(1 to "え?!")))
+
+        assertEquals(listOf(listOf(1 to "え?!")), slot.pagePairs())
+        assertEquals(listOf("Huh?!"), result.translations.map { it.translatedText })
+    }
+
+    @Test
     fun endSessionAndCloseUseTheirSingleLifecycleHooks() {
         val slot = FakeTranslationSlot(PageTranslation(emptyMap(), "", 0L))
         var closeCalls = 0
@@ -132,6 +163,16 @@ class TranslationEngineTest {
     }
 
     @Test
+    fun looksLikeNonTranslation_flagsClarificationRequestsAndExplanations() {
+        assertTrue(looksLikeNonTranslation("Please provide the Japanese text you want translated."))
+        assertTrue(looksLikeNonTranslation("Could you please provide the target Japanese manga text?"))
+        assertTrue(looksLikeNonTranslation("Provide me with the complete manga text to translate."))
+        assertTrue(looksLikeNonTranslation("It seems the text is missing. Please provide the Japanese manga text."))
+        assertTrue(looksLikeNonTranslation("The English translation of the given Japanese text is: Hello"))
+        assertTrue(looksLikeNonTranslation("The Japanese text \"こんにちは\" translates to \"Hello\" in English."))
+    }
+
+    @Test
     fun looksLikeNonTranslation_keepsLegitDialogue() {
         assertFalse(looksLikeNonTranslation("I'm sorry!"))
         assertFalse(looksLikeNonTranslation("I'm sorry, I can't come with you today."))
@@ -139,6 +180,9 @@ class TranslationEngineTest {
         assertFalse(looksLikeNonTranslation("This is a picture of a native of the moon."))
         assertFalse(looksLikeNonTranslation("I love you I love you I love you"))
         assertFalse(looksLikeNonTranslation("No no no no no no"))
+        assertFalse(looksLikeNonTranslation("Please provide the sword tomorrow."))
+        assertFalse(looksLikeNonTranslation("Provide me with your best excuse, then."))
+        assertFalse(looksLikeNonTranslation("The Japanese text on that sign scared me."))
     }
 
     private fun block(

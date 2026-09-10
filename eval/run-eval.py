@@ -94,6 +94,7 @@ def print_summary(bubble: dict, translation: dict) -> None:
             print(f"    Pages completed: {s['completed_cases']}/{s['expected_cases']}")
             print(f"    Mean bubble chrF2 (lexical similarity, not meaning): {s['mean_chrf']}")
             print(f"    Readability ratio (diagnostic): {s['readability_ratio']:.3f}")
+            print("    Semantic accuracy: not scored here - see eval/semantic-review-120.md")
     else:
         print("  No engine outputs scored.")
 

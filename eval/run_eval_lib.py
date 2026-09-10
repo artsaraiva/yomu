@@ -190,6 +190,8 @@ def has_cjk(text: str) -> bool:
     return bool(text) and CJK.search(text) is not None
 
 
+# Twin of NON_TRANSLATION_PATTERNS in pipeline/.../TranslationEngine.kt: the runtime rejects what
+# this scores, so a shape added on one side belongs on the other.
 def is_non_translation(text: str) -> bool:
     lowered = (text or "").lower()
     introduction = re.match(
