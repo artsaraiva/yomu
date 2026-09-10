@@ -86,4 +86,37 @@ class OverlayCoordinateMapperTest {
         assertEquals(250f, mapped.right)
         assertEquals(300f, mapped.bottom)
     }
+
+    @Test
+    fun `a box grown past the bottom slides back on screen`() {
+        val clamped = OverlayCoordinateMapper.clampToCanvas(
+            OverlayBounds(10f, 900f, 110f, 1100f),
+            1000f
+        )
+
+        assertEquals(800f, clamped.top, 0.01f)
+        assertEquals(1000f, clamped.bottom, 0.01f)
+        assertEquals(10f, clamped.left, 0.01f)
+    }
+
+    @Test
+    fun `a box grown past the top slides back on screen`() {
+        val clamped = OverlayCoordinateMapper.clampToCanvas(
+            OverlayBounds(10f, -60f, 110f, 140f),
+            1000f
+        )
+
+        assertEquals(0f, clamped.top, 0.01f)
+        assertEquals(200f, clamped.bottom, 0.01f)
+    }
+
+    @Test
+    fun `a box taller than the canvas is pinned to the top`() {
+        val clamped = OverlayCoordinateMapper.clampToCanvas(
+            OverlayBounds(0f, -50f, 100f, 1200f),
+            1000f
+        )
+
+        assertEquals(0f, clamped.top, 0.01f)
+    }
 }
