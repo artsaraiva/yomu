@@ -66,6 +66,24 @@ def test_translation_introduction_is_not_dialogue():
     assert not is_non_translation("Here is the sword you wanted.")
 
 
+def test_punctuation_target_clarification_is_a_non_translation():
+    # #120: a lone "?" bubble drew "please provide the text" replies from Qwen. The engine now
+    # keeps such bubbles verbatim, and a clarification that still reaches the scorer fails the gate.
+    s = score_translation(
+        ["？", "ありがとう"],
+        ["?", "Thank you."],
+        ["Please provide the Japanese manga text you want translated.", "Thank you."],
+    )
+    assert s["non_translation"] == 1
+
+
+def test_punctuation_source_kept_verbatim_is_clean():
+    s = score_translation(["？", "……"], ["?", "..."], ["？", "……"])
+    assert s["non_translation"] == 0
+    assert s["residue"] == 0
+    assert s["bubble_coverage"] == 1.0
+
+
 def test_unrun_pages_cannot_pass():
     import json
     import tempfile

@@ -6,12 +6,16 @@ import com.yomu.core.TranslatablePage
 import com.yomu.core.TranslationSlot
 import com.yomu.pipeline.context.ConversationBlock
 
+// Twin of is_non_translation in eval/run_eval_lib.py: the runtime rejects what the eval scores as a
+// non-translation, so a shape added on one side belongs on the other.
 private val NON_TRANSLATION_PATTERNS = listOf(
     Regex("""(?i)^\s*(?:sure[!,.]?\s*)?(?:here(?:['’]s| is| are)\s+(?:the |an? )?(?:english )?translations?\b|(?:english )?translation\s*:)"""),
     Regex("""(?i)translate the following"""),
     Regex("""(?i)\bas an ai\b"""),
     Regex("""(?i)\bi\s*['’]?m unable to\b"""),
-    Regex("""(?i)\bi\s+(?:can['’]?t|cannot|can not|will not|won['’]?t)\s+(?:help|assist|translate|provide|comply|fulfill|do that|with that)""")
+    Regex("""(?i)\bi\s+(?:can['’]?t|cannot|can not|will not|won['’]?t)\s+(?:help|assist|translate|provide|comply|fulfill|do that|with that)"""),
+    Regex("""(?i)\b(?:please provide|provide me with)\b.{0,80}\b(?:japanese|manga|target|complete)\s+(?:manga\s+)?text\b"""),
+    Regex("""(?i)^\s*the (?:(?:english )?translation of (?:the )?(?:given )?japanese text\b|japanese text\b.{0,150}\btranslates? to\b)""")
 )
 
 private val TOKEN_SPLIT = Regex("""\s+""")
@@ -26,6 +30,10 @@ internal fun looksLikeNonTranslation(text: String): Boolean {
     if (tokens.size < MIN_LOOP_TOKENS) return false
     return tokens.map { it.lowercase() }.toSet().size * LOOP_UNIQUE_DIVISOR <= tokens.size
 }
+
+// Source text with no letter or digit — a lone "?", "...", "!?" — carries nothing to translate, and
+// asking a model to translate it invites a request for the missing text instead (#120).
+private fun TranslatableBubble.carriesText(): Boolean = sourceText.any { it.isLetterOrDigit() }
 
 private fun String?.usableTranslation(): String? =
     this?.takeIf { it.isNotBlank() && !looksLikeNonTranslation(it) }
@@ -67,9 +75,20 @@ class TranslationEngine(
         val bubbles = page.panels.flatten()
         if (bubbles.isEmpty()) return TranslationResult(emptyList(), "", 0L)
 
-        val output = slotProvider().translatePage(page, sessionContext)
+        val translatable = TranslatablePage(
+            page.panels.mapNotNull { panel -> panel.filter { it.carriesText() }.ifEmpty { null } }
+        )
+        val output = if (translatable.panels.isEmpty()) {
+            PageTranslation(emptyMap(), "", 0L)
+        } else {
+            slotProvider().translatePage(translatable, sessionContext)
+        }
         val translations = bubbles.map { bubble ->
-            val translated = output.byId[bubble.bubbleId].usableTranslation()
+            val translated = if (bubble.carriesText()) {
+                output.byId[bubble.bubbleId].usableTranslation()
+            } else {
+                bubble.sourceText
+            }
             TranslatedBubble(
                 bubbleId = bubble.bubbleId,
                 originalText = bubble.sourceText,
