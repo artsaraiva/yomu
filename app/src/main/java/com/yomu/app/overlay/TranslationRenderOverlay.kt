@@ -148,7 +148,10 @@ class TranslationRenderOverlay(
         paint: Paint,
         params: OverlayCoordinateMapper.MapParams
     ) {
-        val mappedBounds = OverlayCoordinateMapper.map(bubble.boundingBox, params)
+        val mappedBounds = OverlayCoordinateMapper.clampToCanvas(
+            OverlayCoordinateMapper.map(bubble.boundingBox, params),
+            canvas.height.toFloat()
+        )
         val bx = mappedBounds.left
         val by = mappedBounds.top
         val bw = mappedBounds.width()
@@ -163,10 +166,13 @@ class TranslationRenderOverlay(
         canvas.clipRect(bx, by, bx + bw, by + bh)
 
         paint.color = bubble.textColor
-        paint.textSize = bubble.fontSize
+        // The box is mapped into canvas space; the typeset size has to follow it or text that
+        // was measured to fit overflows the drawn bubble.
+        val scale = minOf(params.scaleX, params.scaleY)
+        paint.textSize = bubble.fontSize * scale
         paint.typeface = Typeface.DEFAULT
 
-        val lineHeight = paint.fontSpacing * TRANSLATED_LINE_SPACING
+        val lineHeight = bubble.lineHeight * scale
         val totalTextHeight = lineHeight * bubble.textLines.size
         val blockTop = by + (bh - totalTextHeight) / 2f
         var textY = blockTop - paint.fontMetrics.ascent

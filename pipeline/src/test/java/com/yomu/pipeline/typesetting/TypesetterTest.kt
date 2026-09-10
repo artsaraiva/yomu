@@ -1,5 +1,7 @@
 package com.yomu.pipeline.typesetting
 
+import android.graphics.Paint
+import android.graphics.Typeface
 import com.yomu.pipeline.translation.TranslatedBubble
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -28,8 +30,7 @@ class TypesetterTest {
             mapOf(1 to bounds(200f, 80f))
         )
         val b = result.first()
-        val lineHeight = b.fontSize * 1.5f
-        assertTrue(lineHeight * b.textLines.size <= 80f * 1.1f)
+        assertTrue(b.lineHeight * b.textLines.size <= 80f * 1.1f)
     }
 
     @Test
@@ -89,5 +90,84 @@ class TypesetterTest {
         )
         assertTrue(!result.first().translatedText.contains("  "))
         assertTrue(!result.first().translatedText.contains("\n"))
+    }
+
+    private fun assertFitsDrawnBox(b: TypesetBubble) {
+        val paint = Paint().apply {
+            typeface = Typeface.DEFAULT
+            textSize = b.fontSize
+        }
+        val boxWidth = (b.boundingBox[2] - b.boundingBox[0]) * 0.8f
+        val boxHeight = (b.boundingBox[3] - b.boundingBox[1]) * 0.8f
+        val textHeight = b.lineHeight * b.textLines.size
+        assertTrue("Text height $textHeight must fit box height $boxHeight", textHeight <= boxHeight + 0.01f)
+        for (line in b.textLines) {
+            assertTrue("Line '$line' must fit box width", paint.measureText(line) <= boxWidth + 0.01f)
+        }
+    }
+
+    @Test
+    fun `long text in a small box keeps every character`() {
+        val text = "The quick brown fox jumps over the lazy dog again and again and again"
+        val b = typesetter.typeset(
+            listOf(bubble(1, text)),
+            mapOf(1 to bounds(40f, 40f))
+        ).first()
+
+        assertEquals(text, b.textLines.joinToString(" "))
+        assertFitsDrawnBox(b)
+    }
+
+    @Test
+    fun `box grows instead of dropping lines`() {
+        val b = typesetter.typeset(
+            listOf(bubble(1, "The quick brown fox jumps over the lazy dog. ".repeat(3).trim())),
+            mapOf(1 to bounds(40f, 40f))
+        ).first()
+
+        assertTrue("Box should have grown", b.boundingBox[3] - b.boundingBox[1] > 40f)
+        assertEquals("Growth is centred", 20f, (b.boundingBox[1] + b.boundingBox[3]) / 2f, 0.01f)
+    }
+
+    @Test
+    fun `text beyond the growth budget is ellipsized not silently dropped`() {
+        val b = typesetter.typeset(
+            listOf(bubble(1, "word ".repeat(400).trim())),
+            mapOf(1 to bounds(40f, 40f))
+        ).first()
+
+        assertTrue("Cut must be visible", b.textLines.last().endsWith("\u2026"))
+        assertFitsDrawnBox(b)
+    }
+
+    @Test
+    fun `scale above one enlarges text in a tight bubble and grows its box`() {
+        val text = "Hello world this is a test of a longer translated line"
+        val plain = Typesetter(fontSizeScale = 1.0f).typeset(
+            listOf(bubble(1, text)),
+            mapOf(1 to bounds(60f, 60f))
+        ).first()
+        val scaled = Typesetter(fontSizeScale = 2.0f).typeset(
+            listOf(bubble(1, text)),
+            mapOf(1 to bounds(60f, 60f))
+        ).first()
+
+        assertTrue("Scale must still enlarge tight bubbles", scaled.fontSize > plain.fontSize)
+        assertTrue(
+            "Box absorbs the larger text",
+            scaled.boundingBox[3] - scaled.boundingBox[1] > plain.boundingBox[3] - plain.boundingBox[1]
+        )
+        assertFitsDrawnBox(scaled)
+    }
+
+    @Test
+    fun `scale above one keeps the fit invariant`() {
+        for (scale in listOf(1.0f, 1.5f, 2.0f, 4.0f)) {
+            val b = Typesetter(fontSizeScale = scale).typeset(
+                listOf(bubble(1, "Hello world this is a test of a longer translated line")),
+                mapOf(1 to bounds(200f, 100f))
+            ).first()
+            assertFitsDrawnBox(b)
+        }
     }
 }
