@@ -41,3 +41,13 @@ Qwen2.5-1.5B is **~4× cleaner on Japanese residue** than 0.8b (0.102 vs 0.388),
 **Floors and slots are untouched.** OPUS-MT (gated on [#14](https://github.com/artsaraiva/yomu/issues/14)) and ML Kit remain the no-LLM per-line floors. The custom-GGUF sideload slot (ADR-0001) and the curated selectable shortlist (ADR-0009) stand as written — this ADR only moves which curated entry is the default and reclassifies 0.8b's role within the set.
 
 **Supersedes in part:** ADR-0008's "the curated default is CAT-Translate-0.8b" and ADR-0009's "the 0.8b stays the safe default for every device / the default still changes only on the ADR-0008 trigger." The default is now Qwen2.5-1.5B-Instruct; 0.8b is the low-storage floor. The rest of both ADRs — the selectable-set structure, the three delivery tiers, the floors, the custom slot, the fine-tune trigger (now anchored to Qwen) — stands.
+
+## Correction (#138): the provenance claim above is false
+
+**Status:** accepted, corrects this ADR. Recorded by [ADR-0013](0013-grammar-constrained-page-level-batch.md).
+
+The consequence headed *"The new default is already measured on the shipped architecture"* asserts that Qwen's 0.102 residue was scored through the page-level id-keyed batch path with `supportsIdKeyedBatch() = true` — "**the same call the app ships**". The app has never shipped that call. `LlmModelCatalog.DEFAULT` has carried `idKeyedBatch = false` since [#90](https://github.com/artsaraiva/yomu/issues/90) (`0fceeff`), so every capture has routed to `translatePerLine`. The measurement is real and the path it ran on is correctly named; only the claim that production ran the same path is wrong. The paragraph stays as written rather than being edited out — this repository's problem is claims that read as measured, so the wrong sentence is more useful with its correction beside it than deleted.
+
+**The conclusion is unaffected.** The bake-off was arm-consistent: Qwen and CAT-Translate-0.8b were both measured on the page-level path, so the 0.102-vs-0.388 ranking that demoted the 0.8b holds. [#137](https://github.com/artsaraiva/yomu/issues/137) strengthens it — Qwen scores 0.000 residue per-line and 0.014 page-level on the ADR-0004 corpus, both far below the number that demoted the floor. ADR-0013 makes the page-level call the shipped architecture, which retires the discrepancy rather than papering over it.
+
+**One number remains unknown.** CAT-Translate-0.8b has never been scored **per-line on the ADR-0004 corpus**. Its 0.03 per-line residue is [#68](https://github.com/artsaraiva/yomu/issues/68)'s, measured on a different corpus, and its 0.388 in the table above is page-level. The floor's residue on the shipped harness, in the form the floor actually runs, does not exist.
