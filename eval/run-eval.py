@@ -20,12 +20,18 @@ from typing import Any
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
-from run_eval_lib import SEPARATION_THRESHOLD, run_bubble_detection, run_translation_quality
+from run_eval_lib import (
+    PROBE_MIN_RUN,
+    SEPARATION_THRESHOLD,
+    run_bubble_detection,
+    run_repetition_probe,
+    run_translation_quality,
+)
 
 RESULTS_DIR = ROOT / "results"
 
 
-def print_summary(bubble: dict, translation: dict) -> None:
+def print_summary(bubble: dict, translation: dict, probe: dict) -> None:
     print("=" * 60)
     print("Yomu Phase 1 Eval Summary")
     print("=" * 60)
@@ -103,6 +109,22 @@ def print_summary(bubble: dict, translation: dict) -> None:
             if "error" in e:
                 print(f"  {c['case_id']}/{e['engine']}: {e['error']}")
 
+    # Reported beside the gate, never gated (#152): the probe is targeted at a known failure mode
+    # by construction, so a pass bar on it would reward avoiding these particular bubbles.
+    print("\nRepetition Probe (reported, NEVER gated)")
+    print(f"  Bubbles: {len(probe.get('bubbles', []))}")
+    for engine, s in sorted(probe.get("engines", {}).items()):
+        print(f"  Engine: {engine}")
+        print(f"    Harm (output run shorter than a reference run of >= {PROBE_MIN_RUN}): "
+              f"{s['harm']}/{s['scored_bubbles']} scored bubbles")
+        for b in s["bubbles"]:
+            if not b["scored"]:
+                continue
+            flag = "HARM" if b["harm"] else "ok"
+            source = probe["bubbles"][b["id"]]["source"]
+            print(f"    [{flag}] id={b['id']} ref_run={b['reference_run']} "
+                  f"out_run={b['output_run']} source={source}")
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Yomu Phase 1 eval harness")
@@ -130,8 +152,9 @@ def main() -> None:
         bubble = run_bubble_detection(args.stub)
     if not args.no_translation:
         translation = run_translation_quality(args.stub)
+    probe = run_repetition_probe(args.stub)
 
-    print_summary(bubble, translation)
+    print_summary(bubble, translation, probe)
 
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
@@ -143,6 +166,7 @@ def main() -> None:
                 "stub": args.stub,
                 "bubble_detection": bubble,
                 "translation_quality": translation,
+                "repetition_probe": probe,
             },
             ensure_ascii=False,
             indent=2,

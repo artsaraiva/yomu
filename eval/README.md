@@ -20,13 +20,18 @@ eval/
 ├── README.md
 ├── run-eval.py              # Phase 1 eval harness CLI
 ├── run_eval_lib.py          # Scoring and case-loading logic
-├── generate-cases.py        # Build cases from vendor/OpenMantra
+├── generate-cases.py        # Build gate cases from vendor/OpenMantra
+├── generate-repetition-probe.py  # Build the repetition probe from vendor/OpenMantra
 ├── bubble-detection/
 │   ├── SCHEMA.md
 │   └── cases/<case-id>/     # page.jpg + expected.json
-└── translation-quality/
+├── translation-quality/
+│   ├── SCHEMA.md
+│   └── cases/<case-id>/     # page.jpg + source.txt + reference.txt
+└── repetition-probe/        # Targeted probe, reported beside the gate, never gated (#152)
     ├── SCHEMA.md
-    └── cases/<case-id>/     # page.jpg + source.txt + reference.txt
+    ├── bubbles.json         # Generated, gitignored
+    └── actual/<engine>.json # On-device output, gitignored
 ```
 
 ## Populating the dataset
@@ -37,6 +42,7 @@ The OpenMantra dataset is vendored, not committed:
 git clone https://github.com/mantra-inc/open-mantra-dataset.git \
   vendor/open-mantra-dataset
 python3 eval/generate-cases.py
+python3 eval/generate-repetition-probe.py
 ```
 
 `vendor/` and the copied `page.jpg` files are gitignored. Cases are regenerated
@@ -45,9 +51,23 @@ small derived metadata.
 
 ## Running the harness
 
+`run_eval_lib.py` scores chrF2 through sacrebleu, so the harness needs the dependencies in
+`eval/requirements.txt`. Create the virtualenv once (it is gitignored):
+
 ```bash
-./eval/run-eval.py --stub
+python3 -m venv eval/.venv
+eval/.venv/bin/pip install -r eval/requirements.txt
 ```
+
+Then run the harness and the scorer tests:
+
+```bash
+eval/.venv/bin/python eval/run-eval.py --stub
+eval/.venv/bin/python -m pytest eval -q
+```
+
+Without sacrebleu the harness still runs and every gate metric is still scored, but `mean_chrf` is
+null and the chrF test fails — that is a missing dependency, not a regression.
 
 `--stub` runs the scoring logic with synthetic perfect outputs. For real engine
 comparison, collect on-device outputs and place them in the format below, then
@@ -230,6 +250,14 @@ per-class breakdown. Do not read meaning into those labels or reintroduce per-cl
   dropped negations pass all of them, so semantic accuracy is reviewed by hand and
   recorded separately in `eval/semantic-review-120.md` — a PASS says the output is
   shaped like a translation, not that it says what the source said.
+
+- **Repetition probe**: **harm** — the output's longest repeated-unit run is shorter than the
+  reference's, on a bubble whose reference run is 3 or more. It answers one question the gate
+  cannot: did a repetition penalty eat a laugh, a scream or a verbal tic the human translator kept?
+  Read it as a **pointer, never a bar** — the set is targeted at that failure by construction, so a
+  pass bar on it would reward avoiding these particular bubbles rather than fixing the penalty. The
+  per-bubble runs are printed beside the count so every hit can be read against its source.
+  See `repetition-probe/SCHEMA.md`.
 
 Results are written to `eval/results/<timestamp>.json`.
 
