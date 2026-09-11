@@ -4,6 +4,7 @@ import itertools
 import json
 import re
 from pathlib import Path
+from collections.abc import Callable
 from typing import Any, NamedTuple
 
 try:
@@ -35,6 +36,27 @@ COVER = "cover"
 # much. Below it they are tied, and the choice is made on licence, model size, and latency —
 # never on score. 78 boxes cannot resolve a 3pp gap, and neither can all 1592 in OpenMantra.
 SEPARATION_THRESHOLD = 0.08
+
+# Every dimension this scorer reports, checked against eval-contract.json before anything is
+# printed. Adding a metric here without registering it there is a hard failure, which is what stops
+# a number nobody agreed to measure from appearing beside the gate (#44).
+DETECTION_METRICS = (
+    "containment_recall",
+    "localisation_recall",
+    "merging_detections",
+    "false_positives",
+    "missed",
+)
+TRANSLATION_METRICS = (
+    "non_translation_rate",
+    "japanese_residue_rate",
+    "bubble_coverage",
+    "output_shape",
+    "source_echo_rate",
+    "readability_ratio",
+    "mean_chrf",
+)
+PROBE_METRICS = ("repetition_harm",)
 
 
 def pad_box(box: dict, pad: float, image_width: int, image_height: int) -> dict:
@@ -391,7 +413,11 @@ def load_lines(path: Path) -> list[str]:
     return path.read_text(encoding="utf-8").splitlines()
 
 
-def _detection_arm(case_ids: list[str], boxes_for: Any, mode: str) -> dict[str, Any]:
+def _detection_arm(
+    case_ids: list[str],
+    boxes_for: Callable[[str, dict], list[dict]],
+    mode: str,
+) -> dict[str, Any]:
     """Score one detector arm over `case_ids`. `boxes_for(case_id, expected)` returns its boxes."""
     results: list[dict] = []
     for case_id in case_ids:
@@ -410,6 +436,7 @@ def _detection_arm(case_ids: list[str], boxes_for: Any, mode: str) -> dict[str, 
         score["kind"] = expected.get("kind", STORY)
         results.append(score)
 
+    run_records.assert_registered(run_records.DETECTION, DETECTION_METRICS)
     return {
         "cases": results,
         # The gate is story boxes only. Cover pages carry title typography no bubble detector
@@ -419,7 +446,9 @@ def _detection_arm(case_ids: list[str], boxes_for: Any, mode: str) -> dict[str, 
     }
 
 
-def run_bubble_detection(run: Any = None, stub: bool = False) -> dict[str, Any]:
+def run_bubble_detection(
+    run: run_records.ValidatedRun | None = None, stub: bool = False
+) -> dict[str, Any]:
     """Detection arms, scored from the run's detection records (or synthesised in stub mode)."""
     arms: dict[str, Any] = {}
     if stub or run is None:
@@ -492,7 +521,7 @@ def dense_output(
     return output, shape
 
 
-def _translation_arms(run: Any) -> dict[str, Any]:
+def _translation_arms(run: run_records.ValidatedRun) -> dict[str, run_records.ArmResult]:
     return {
         arm_id: validated
         for arm_id, validated in run.arms.items()
@@ -500,7 +529,9 @@ def _translation_arms(run: Any) -> dict[str, Any]:
     }
 
 
-def run_translation_quality(run: Any = None, stub: bool = False) -> dict[str, Any]:
+def run_translation_quality(
+    run: run_records.ValidatedRun | None = None, stub: bool = False
+) -> dict[str, Any]:
     results: list[dict] = []
     engines: dict[str, Any] = {}
     if not TRANS_CASES.exists():
@@ -621,10 +652,13 @@ def run_translation_quality(run: Any = None, stub: bool = False) -> dict[str, An
             ),
         }
 
+    run_records.assert_registered(run_records.TRANSLATION, TRANSLATION_METRICS)
     return {"cases": results, "summary": summary}
 
 
-def run_repetition_probe(run: Any = None, stub: bool = False) -> dict[str, Any]:
+def run_repetition_probe(
+    run: run_records.ValidatedRun | None = None, stub: bool = False
+) -> dict[str, Any]:
     """Score the repetition probe. Reported alongside the gate, never gated (#152)."""
     if not PROBE_BUBBLES.exists():
         return {"bubbles": [], "engines": {}}
@@ -638,6 +672,10 @@ def run_repetition_probe(run: Any = None, stub: bool = False) -> dict[str, Any]:
         # The probe rides the same transport as the gate: its records are translation records whose
         # case id is the probe's own (#142).
         for arm_id, validated in _translation_arms(run).items():
+            # An arm the validator rejected gets no probe number either: harm counted off a broken
+            # instrument reads the same as harm counted off a working one (#142).
+            if not validated.valid:
+                continue
             records = [
                 r
                 for r in validated.by_case.get(run_records.PROBE_CASE_ID, [])
@@ -651,4 +689,5 @@ def run_repetition_probe(run: Any = None, stub: bool = False) -> dict[str, Any]:
     elif stub:
         engines["stub"] = score_repetition_probe(reference, translation_stub(reference))
 
+    run_records.assert_registered(run_records.TRANSLATION, PROBE_METRICS)
     return {"bubbles": bubbles, "engines": engines}

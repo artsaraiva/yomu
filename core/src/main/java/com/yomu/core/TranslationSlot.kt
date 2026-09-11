@@ -129,7 +129,18 @@ data class PageTranslation(
     val outcome: TranslationOutcome = TranslationOutcome.SUCCESS,
     /** Machine-readable cause, never prose: `load_failed`, `model_missing`, an exception class. */
     val errorCode: String? = null
-)
+) {
+    companion object {
+        /** The empty page every slot returns when it could not be made ready, with its reason. */
+        fun notLoaded(status: TranslationStatus): PageTranslation = PageTranslation(
+            emptyMap(),
+            "",
+            0L,
+            TranslationOutcome.NOT_LOADED,
+            (status as? TranslationStatus.Error)?.reason ?: "not_ready"
+        )
+    }
+}
 
 interface TranslationSlot {
     val status: TranslationStatus

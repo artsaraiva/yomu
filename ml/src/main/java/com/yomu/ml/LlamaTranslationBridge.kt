@@ -83,13 +83,7 @@ class LlamaTranslationBridge(
     ): PageTranslation {
         if (page.panels.flatten().isEmpty()) return PageTranslation(emptyMap(), "", 0L)
         if (status !is TranslationStatus.Ready && !ensureReady()) {
-            return PageTranslation(
-                emptyMap(),
-                "",
-                0L,
-                TranslationOutcome.NOT_LOADED,
-                (status as? TranslationStatus.Error)?.reason ?: "not_ready"
-            )
+            return PageTranslation.notLoaded(status)
         }
         return if (profile.idKeyedBatch) translateBatch(page, sessionContext) else translatePerLine(page)
     }
@@ -118,7 +112,9 @@ class LlamaTranslationBridge(
             rawResponse = outputs.joinToString("\n") { (bubble, output) ->
                 "[${bubble.bubbleId}] ${output.text}"
             },
-            durationMs = generated.sumOf { it.second.durationMs },
+            // Successes only, unchanged: #137 and #153 published latency rows on this definition,
+            // and widening it to include failed generations would break comparability with them.
+            durationMs = outputs.sumOf { it.second.durationMs },
             outcome = failure?.outcome ?: TranslationOutcome.SUCCESS,
             errorCode = failure?.errorCode
         )

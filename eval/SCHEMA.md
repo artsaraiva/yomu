@@ -161,8 +161,14 @@ afterwards, fails the count or the hash and the run is rejected.
 
 **Fatal — nothing in the run is scoreable:** a missing or malformed manifest, records file or
 completion marker; a `schema_version` mismatch; a run-id, record-count or records-hash mismatch; a
-record carrying another run's id; a corpus or contract hash that no longer matches disk; a record
-naming an arm the manifest never declared.
+record carrying another run's id; a corpus or contract hash that no longer matches disk; a reported
+metric that `eval-contract.json` does not register for its stage.
+
+**Unrequested arms are named, not scored and not fatal.** `connectedAndroidTest` runs every `@Test`
+in `EngineBenchmarkTest`, so the prompt-mode comparison and the #153 penalty sweep write their own
+arms into the same records file. Rejecting the whole run for that would invert the per-arm isolation
+this contract exists to give. The #36 protection runs the other way: a *declared* arm with no
+records is invalid.
 
 **Per arm — that arm is invalid, others still report:**
 
@@ -193,7 +199,12 @@ page, so one case legitimately observes two call shapes. The rule:
   and reportable as a degraded result;
 - but only when the arm declared `permits_fallback: true`. An arm declaring no fallback that observes
   one is invalid;
-- a second call shape with no preceding `overflow` is invalid, unchanged.
+- a second call shape with no preceding `overflow` is invalid, unchanged;
+- and a record after an `overflow` must be a *different* call shape. Re-issuing the declared one is a
+  retry, not a fallback, and would report the same page measured twice under one arm.
+
+No arm declares `permits_fallback` today, because nothing emits `overflow` yet — the JNI still
+collapses it to an empty string. When #146/#149 land, the batch arms in `run-benchmark.sh` set it.
 
 Disabling the fallback under eval was rejected in #146: it would make the harness measure something
 production does not do, which is the shape of #36 and #58.
@@ -204,6 +215,10 @@ The machine-readable metric registry: every metric the eval may report, the stag
 whether it is gated, and the exact inputs it may read. `expected.json:boxes[].label` is listed under
 `forbidden_inputs` — the labels are substring guesses from `generate-cases.py`, kept only for schema
 stability (#44). chrF is registered as an explicitly **ungated diagnostic**.
+
+It is enforced, not just checked in: the scorer calls `run_records.assert_registered` with the
+dimensions it is about to report, and a metric with no entry — or an entry for a different stage —
+fails the run before anything is printed.
 
 The manifest carries this file's SHA-256. Changing the contract invalidates in-flight runs, which is
 the intended cost of changing what the eval is allowed to measure.

@@ -2,6 +2,7 @@ package com.yomu.app
 
 import androidx.test.platform.app.InstrumentationRegistry
 import com.yomu.core.GenerationParams
+import com.yomu.core.ModelProfile
 import com.yomu.core.TranslationOutcome
 import org.json.JSONArray
 import org.json.JSONObject
@@ -58,7 +59,7 @@ class RunRecords private constructor(val runId: String, private val file: File) 
     )
 
     fun contextAssembly(
-        armId: String,
+        arm: ArmMeta,
         caseId: String,
         outcome: TranslationOutcome,
         durationMs: Long,
@@ -66,7 +67,7 @@ class RunRecords private constructor(val runId: String, private val file: File) 
         blockIds: List<List<Int>>,
         errorCode: String? = null
     ) = append(
-        base(armId, caseId, STAGE_CONTEXT, outcome, durationMs, errorCode).apply {
+        base(arm.armId, caseId, STAGE_CONTEXT, outcome, durationMs, errorCode).apply {
             put("input_ids", JSONArray(inputIds))
             put("output_block_ids", JSONArray(blockIds.map { JSONArray(it) }))
         }
@@ -162,6 +163,28 @@ data class ArmMeta(
         const val CALL_SHAPE_PER_BUBBLE = "per_bubble"
         const val CALL_SHAPE_PAGE_IMAGE = "page_image"
 
+        const val LLM_PROVIDER = "llama.cpp"
+
+        /**
+         * An LLM arm's identity, taken from the profile the slot is actually running.
+         *
+         * Deriving it from the live [ModelProfile] rather than from what the harness configured is
+         * the whole point of the observed/expected split: the host declares the same fields in
+         * `manifest.json` from the fixture on disk, and the scorer rejects the arm when they
+         * disagree.
+         */
+        fun from(armId: String, profile: ModelProfile): ArmMeta {
+            val fileName = File(profile.modelPath).name
+            return ArmMeta(
+                armId = armId,
+                provider = LLM_PROVIDER,
+                modelId = fileName,
+                quantization = quantizationOf(fileName),
+                callShape = if (profile.idKeyedBatch) CALL_SHAPE_BATCH else CALL_SHAPE_PER_LINE,
+                generation = profile.generation
+            )
+        }
+
         /** Snake_case to match the manifest's `gen.<name>` keys, which the host writes in Python. */
         fun generationJson(params: GenerationParams): JSONObject = JSONObject().apply {
             put("temperature", params.temperature.toDouble())
@@ -183,7 +206,7 @@ data class ArmMeta(
          * than a guess, so the manifest comparison fails loudly instead of matching by accident.
          */
         fun quantizationOf(fileName: String): String =
-            Regex("""(i1[_-])?q\d+(_[0kK])?(_[a-zA-Z])?""")
+            Regex("""(i1[_-])?q\d+(_[0k])?(_[a-z])?""")
                 .find(fileName.lowercase())
                 ?.value
                 ?.uppercase()

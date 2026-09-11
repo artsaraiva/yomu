@@ -261,10 +261,31 @@ def test_detection_with_zero_boxes_is_a_valid_measured_result(tmp_path):
     assert "bubble" in run.valid_arms
 
 
-def test_unknown_arm_in_records_is_fatal(tmp_path):
-    run_dir = write_run(tmp_path, [detection_record(arm_id="ghost_engine"), context_record(), translation_record()])
-    with pytest.raises(RunError, match="arms the manifest never declared"):
-        validate_run(run_dir)
+def test_unrequested_arm_is_reported_not_scored(tmp_path):
+    """The same device run carries arms the host did not plan -- they must not break the planned ones.
+
+    `connectedAndroidTest` runs every @Test in EngineBenchmarkTest, so the prompt-mode comparison and
+    the #153 penalty sweep write their own arms into the same records file. Rejecting the whole run
+    for that would invert the per-arm isolation rule this contract exists to provide.
+    """
+    extra = translation_record(arm_id="repeat_1.2")
+    run = validate_run(write_run(tmp_path, good_records() + [extra]))
+    assert run.unrequested_arms == ["repeat_1.2"]
+    assert run.invalid_arms == {}
+    assert set(run.valid_arms) == {"bubble", LLM_ARM["arm_id"]}
+
+
+def test_a_fallback_record_may_not_repeat_the_declared_call_shape(tmp_path):
+    # A second batch call after an overflow is a retry, not the declared per-line fallback.
+    arm = dict(LLM_ARM, permits_fallback=True)
+    records = [
+        detection_record(),
+        context_record(),
+        translation_record(outcome="overflow", results=[]),
+        translation_record(),
+    ]
+    run = validate_run(write_run(tmp_path, records, arms=[DETECTOR_ARM, arm]))
+    assert "repeats the declared call_shape" in errors_for(run, LLM_ARM["arm_id"])
 
 
 # --- #146 amendment: a declared per-line fallback after an overflow ---------------------------
@@ -423,6 +444,25 @@ def test_44_the_contract_forbids_scoring_detection_labels():
     for name, metric in contract["metrics"].items():
         for source in metric["inputs"]:
             assert source not in contract["forbidden_inputs"], f"{name} reads a forbidden input"
+
+
+def test_44_an_unregistered_scored_dimension_is_rejected():
+    """The registry is enforced, not merely checked in: an unregistered metric fails the run."""
+    run_records.assert_registered("translation", ["bubble_coverage", "mean_chrf"])
+    with pytest.raises(RunError, match="not registered"):
+        run_records.assert_registered("translation", ["label_accuracy"])
+    # Registered, but for the wrong stage: a detection metric may not be reported as a translation
+    # one, which is how a heuristic dimension would sneak across (#44).
+    with pytest.raises(RunError, match="not registered"):
+        run_records.assert_registered("translation", ["containment_recall"])
+
+
+def test_44_every_reported_metric_is_registered():
+    import run_eval_lib
+
+    run_records.assert_registered(run_records.DETECTION, run_eval_lib.DETECTION_METRICS)
+    run_records.assert_registered(run_records.TRANSLATION, run_eval_lib.TRANSLATION_METRICS)
+    run_records.assert_registered(run_records.TRANSLATION, run_eval_lib.PROBE_METRICS)
 
 
 def test_44_the_manifest_pins_the_live_contract_hash(tmp_path):

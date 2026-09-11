@@ -74,13 +74,7 @@ class MlKitTranslationBridge @Inject constructor() : TranslationSlot {
         val bubbles = page.panels.flatten()
         if (bubbles.isEmpty()) return PageTranslation(emptyMap(), "", 0L)
         if (status !is TranslationStatus.Ready && !ensureReady()) {
-            return PageTranslation(
-                emptyMap(),
-                "",
-                0L,
-                TranslationOutcome.NOT_LOADED,
-                (status as? TranslationStatus.Error)?.reason ?: "not_ready"
-            )
+            return PageTranslation.notLoaded(status)
         }
         val outputs = bubbles.mapNotNull { bubble ->
             translate(bubble.sourceText)?.let { output -> bubble.bubbleId to output }
