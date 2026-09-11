@@ -2,6 +2,8 @@
 
 > **Revised in part by [ADR-0009](0009-selectable-translation-model-set.md).** The "local file picker only — no URL loading" clause below is relaxed for one specific path: a **HuggingFace-authenticated** download, where the user signs into their own HF account and Yomu pulls a GGUF through the HF API under the user's credentials. ADR-0009 explains why that path answers this ADR's objections (structured API not arbitrary URLs; HF's LFS oid gives integrity; the user's own account accepts any model's gate). Arbitrary-URL loading stays rejected; the local file picker stays.
 
+> **The HuggingFace carve-out above is retracted by [ADR-0014](0014-quantization-deliverables-and-revision-pinning.md).** That path was deleted (no gated model it could serve, and its OAuth redirect was never registered), so the custom slot is local-file-picker-only again, as this ADR originally had it. A gated GGUF now reaches the device by manual sideload. Arbitrary-URL loading remains rejected on the original reasoning.
+
 Yomu ships a curated translation model that it selects, downloads, and supports, and additionally lets users load their own GGUF from local storage via the Android file picker. Custom models are labelled "Custom — unsupported" in Settings and that label follows through to translation results, so a screenshot of a bad translation is self-diagnosing. The monetized surface is cloud credits, not local model quality, so an open local slot costs no revenue — which is what makes this permissiveness affordable at all.
 
 ## Considered Options
