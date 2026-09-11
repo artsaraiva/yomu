@@ -78,16 +78,6 @@ class TranslationEngineTest {
     }
 
     @Test
-    fun translate_passesSessionContextToTheSlot() = runTest {
-        val slot = FakeTranslationSlot(PageTranslation(emptyMap(), "", 1L))
-        val context = listOf("前" to "Before")
-
-        TranslationEngine { slot }.translate(listOf(block(1 to "今")), context)
-
-        assertEquals(context, slot.sessionContexts.single())
-    }
-
-    @Test
     fun translate_resolvesTheSlotForEveryCall() = runTest {
         val first = FakeTranslationSlot(PageTranslation(mapOf(1 to "First"), "", 1L))
         val second = FakeTranslationSlot(PageTranslation(mapOf(1 to "Second"), "", 1L))
@@ -203,17 +193,12 @@ class TranslationEngineTest {
     ) : TranslationSlot {
         override var status: TranslationStatus = TranslationStatus.Ready
         val pages = mutableListOf<TranslatablePage>()
-        val sessionContexts = mutableListOf<List<Pair<String, String>>>()
         var endSessionCalls = 0
 
         override suspend fun ensureReady(): Boolean = true
 
-        override suspend fun translatePage(
-            page: TranslatablePage,
-            sessionContext: List<Pair<String, String>>
-        ): PageTranslation {
+        override suspend fun translatePage(page: TranslatablePage): PageTranslation {
             pages += page
-            sessionContexts += sessionContext
             return result
         }
 
