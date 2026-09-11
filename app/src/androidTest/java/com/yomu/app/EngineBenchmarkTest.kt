@@ -197,7 +197,9 @@ class EngineBenchmarkTest {
                 slot.close()
                 writeTimingCsv(outputDir, rows)
             }
-            check(rows.size == cases.size * GATE_ARMS.size)
+            check(rows.size == cases.size * GATE_ARMS.size) {
+                "Expected ${cases.size * GATE_ARMS.size} gate rows, got ${rows.size}"
+            }
         } finally {
             writeTimingCsv(outputDir, rows)
             logTimingCsv(rows)
