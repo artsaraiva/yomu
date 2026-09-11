@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.yomu.core.Constants
+import com.yomu.core.TranslationOutcome
 import com.yomu.pipeline.bubble.BubbleDetector
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
@@ -18,8 +19,12 @@ import java.io.File
 import javax.inject.Inject
 
 /**
- * Runs the real BubbleDetector against the eval case pages and emits results as `RESULT_JSON`
- * logcat lines that `run-benchmark.sh` scrapes, mirroring [EngineBenchmarkTest].
+ * Runs the real BubbleDetector against the eval case pages and writes one structured detection
+ * record per arm/case into the run directory (#165), mirroring [EngineBenchmarkTest].
+ *
+ * Nothing is scraped out of logcat any more. A detector arm that never runs writes no record, and
+ * the scorer reports it as invalid rather than as an implicit pass — which is the #36 failure, where
+ * detection was silently stubbed and reported a fake 100%.
  *
  * Pages come from `assets/eval-cases/<case-id>/page.jpg`, copied in by `run-benchmark.sh` before
  * the build. They are gitignored: the images derive from the CC BY-NC OpenMantra dataset and must
@@ -61,7 +66,18 @@ class BubbleDetectionBenchmarkTest {
             "Missing incumbent asset models/${DETECTORS.first().assetName}; run eval/run-benchmark.sh so it stages the detector weights before the build"
         }
 
+        val records = RunRecords.open()
+        Log.i(TAG, "Writing detection records for run=${records.runId}")
+
         for (detector in detectors) {
+            val arm = ArmMeta(
+                armId = detector.engine,
+                provider = PROVIDER,
+                modelId = detector.id,
+                quantization = QUANTIZATION,
+                callShape = ArmMeta.CALL_SHAPE_PAGE_IMAGE,
+                targetLanguage = null
+            )
             // A single BubbleDetector cannot switch weights (loadModel is a no-op once loaded), so
             // release between detectors to reset it for the next model path.
             val modelFile = File(context.cacheDir, detector.assetName)
@@ -77,16 +93,28 @@ class BubbleDetectionBenchmarkTest {
                     BitmapFactory.decodeStream(it)
                 } ?: error("Failed to decode eval-cases/$caseId/page.jpg")
 
+                // Monotonic, per the record contract: wall-clock would drift under a device time
+                // change mid-run and the duration is a reported metric.
                 val startNs = System.nanoTime()
-                val boxes = bubbleDetector.detect(bitmap)
-                val detectMs = (System.nanoTime() - startNs) / 1_000_000.0
+                val detected = runCatching { bubbleDetector.detect(bitmap) }
+                val detectMs = (System.nanoTime() - startNs) / 1_000_000L
+                val boxes = detected.getOrDefault(emptyList())
                 val stats = bubbleDetector.lastStats
 
-                val json = JSONObject().apply {
-                    put("detect_ms", detectMs)
-                    put("nms_thresholded", stats?.thresholded ?: boxes.size)
-                    put("nms_kept", stats?.kept ?: boxes.size)
-                    put("boxes", JSONArray(boxes.map { bubble ->
+                records.detection(
+                    arm = arm,
+                    caseId = caseId,
+                    // Zero boxes is a valid measured result whose recall fails; only a thrown
+                    // detector is an error (#142).
+                    outcome = if (detected.isSuccess) {
+                        TranslationOutcome.SUCCESS
+                    } else {
+                        TranslationOutcome.ERROR
+                    },
+                    durationMs = detectMs,
+                    pageWidth = bitmap.width,
+                    pageHeight = bitmap.height,
+                    boxes = JSONArray(boxes.map { bubble ->
                         JSONObject().apply {
                             put("x", bubble.boundingBox.left.toInt())
                             put("y", bubble.boundingBox.top.toInt())
@@ -96,9 +124,11 @@ class BubbleDetectionBenchmarkTest {
                             // instead of re-running inference at each threshold on device.
                             put("conf", bubble.confidence)
                         }
-                    }))
-                }
-                Log.i(TAG, "RESULT_JSON case=$caseId engine=${detector.engine} json=$json")
+                    }),
+                    nmsThresholded = stats?.thresholded ?: boxes.size,
+                    nmsKept = stats?.kept ?: boxes.size,
+                    errorCode = detected.exceptionOrNull()?.let { it::class.simpleName }
+                )
                 bitmap.recycle()
             }
 
@@ -110,9 +140,14 @@ class BubbleDetectionBenchmarkTest {
 
     companion object {
         private const val TAG = "BubbleDetectionBenchmarkTest"
+        private const val PROVIDER = "onnxruntime"
 
-        // engine= is the tag run-benchmark.sh writes to <engine>.json. The incumbent keeps engine=bubble
-        // so its actual.json path is unchanged; the challenger lands in a parallel actual_s.json.
+        // The detector weights ship as unquantized ONNX. Stated, not guessed: the manifest declares
+        // the same value and the scorer requires them to agree.
+        private const val QUANTIZATION = "fp32"
+
+        // `engine` is the arm id in manifest.json and in the run records; `id` is the model id the
+        // record carries as observed metadata, so a stubbed or swapped detector cannot pass (#36).
         private val DETECTORS = listOf(
             DetectorAsset("yolo26n", "bubble", Constants.BUBBLE_DETECTION_MODEL),
             DetectorAsset("yolo26s", "bubble_s", "bubble_detection_s.onnx"),

@@ -30,8 +30,17 @@ Source manga page, for visual context.
 
 The on-device `EngineBenchmarkTest` builds bubbles from the boxes + `text_ja`, calls
 `ContextAssembler.assemble(...)` then `TranslationEngine.translate(blocks)` **once per page**, and
-writes `actual/<engine>.json` as `{ "engine": ..., "translations": [...] }` — a dense array indexed
-by bubble id, empty string where the engine returned no entry for that id.
+writes a `context_assembly` and a `translation` record per arm/case into the run directory — see
+[`../SCHEMA.md`](../SCHEMA.md).
+
+A translation record carries `requested_ids` and the **raw** `{bubble_id, text}` results, *before*
+`TranslationEngine` substitutes source text for an id the model never answered. The scorer projects
+them onto the source lines: a requested id with no result becomes `""` and fails coverage, and a
+non-requested id (a punctuation-only bubble the engine keeps verbatim) is filled with its source,
+which is what production renders. Scoring the post-substitution list is how #137 shipped a page
+reporting 100% coverage that the model never answered.
+
+There is no `actual/<engine>.json` any more. Sharing output files across runs is how #58 shipped.
 
 ## Metrics and pass bars (ADR-0004 + #52)
 
@@ -44,7 +53,9 @@ contrastive set and a possible future COMET-or-judge metric.
 | Non-translation rate — output echoes the instruction or a refusal template | **gate: 0** |
 | Japanese-residue rate — output has a CJK codepoint the reference lacks | **gate: 0** |
 | Bubble coverage — fraction of ids the engine returned | **gate: 100%** |
+| Output shape — no missing, extra, or duplicate returned id | **gate: pass** |
 | Readability ratio — output words / reference words | diagnostic, no bar |
+| Mean bubble chrF2 — lexical overlap | **explicitly ungated** diagnostic |
 | Semantic accuracy — wrong names, flipped subjects, dropped negations | not scored here |
 
 Every bar in this table scores the form of the output. Semantic errors pass all of them; they are

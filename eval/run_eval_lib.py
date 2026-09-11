@@ -11,13 +11,16 @@ try:
 except ImportError:
     CHRF = None
 
+import run_records
+
 ROOT = Path(__file__).resolve().parent
 BUBBLE_CASES = ROOT / "bubble-detection" / "cases"
 TRANS_CASES = ROOT / "translation-quality" / "cases"
 PROBE_BUBBLES = ROOT / "repetition-probe" / "bubbles.json"
 
-BUBBLE_ACTUAL = "actual.json"
-TRANS_ACTUAL_DIR = "actual"
+# There are deliberately no shared `actual*` output files any more. Every engine output is read from
+# the run directory it was produced in, so a skipped engine cannot be scored against a prior run's
+# leftovers (#58).
 
 
 # ADR-0003: detections are padded before scoring, mirroring the crop the pipeline hands OCR.
@@ -388,110 +391,196 @@ def load_lines(path: Path) -> list[str]:
     return path.read_text(encoding="utf-8").splitlines()
 
 
-def run_bubble_detection(stub: bool) -> dict[str, Any]:
+def _detection_arm(case_ids: list[str], boxes_for: Any, mode: str) -> dict[str, Any]:
+    """Score one detector arm over `case_ids`. `boxes_for(case_id, expected)` returns its boxes."""
     results: list[dict] = []
-    if not BUBBLE_CASES.exists():
-        return {"cases": results}
-
-    for case_dir in sorted(BUBBLE_CASES.iterdir()):
-        if not case_dir.is_dir():
-            continue
-        expected_path = case_dir / "expected.json"
+    for case_id in case_ids:
+        expected_path = BUBBLE_CASES / case_id / "expected.json"
         if not expected_path.exists():
             continue
-
         expected = load_json(expected_path)
-        boxes = expected.get("boxes", [])
-
-        actual_path = case_dir / BUBBLE_ACTUAL
-        if actual_path.exists():
-            actual = load_json(actual_path).get("boxes", [])
-            mode = "actual"
-        elif stub:
-            actual = bubble_stub(boxes)
-            mode = "stub"
-        else:
-            actual = []
-            mode = "missing"
-
+        # #44: only x/y/w/h are read. `label` is a substring guess from generate-cases.py and is
+        # listed as a forbidden input in eval-contract.json.
+        gt = expected.get("boxes", [])
         score = score_bubbles(
-            boxes, actual, expected["image_width"], expected["image_height"]
+            gt, boxes_for(case_id, expected), expected["image_width"], expected["image_height"]
         )
-        score["case_id"] = case_dir.name
+        score["case_id"] = case_id
         score["mode"] = mode
         score["kind"] = expected.get("kind", STORY)
         results.append(score)
-
-    story = [r for r in results if r["kind"] == STORY]
-    cover = [r for r in results if r["kind"] == COVER]
 
     return {
         "cases": results,
         # The gate is story boxes only. Cover pages carry title typography no bubble detector
         # finds, so they tax every candidate by the same constant and discriminate nothing (#44).
-        "summary": pool_summary(story),
-        "cover_text": pool_summary(cover),
+        "summary": pool_summary([r for r in results if r["kind"] == STORY]),
+        "cover_text": pool_summary([r for r in results if r["kind"] == COVER]),
     }
 
 
-def run_translation_quality(stub: bool) -> dict[str, Any]:
-    results: list[dict] = []
-    engines: set[str] = set()
-    if not TRANS_CASES.exists():
-        return {"cases": results}
+def run_bubble_detection(run: Any = None, stub: bool = False) -> dict[str, Any]:
+    """Detection arms, scored from the run's detection records (or synthesised in stub mode)."""
+    arms: dict[str, Any] = {}
+    if stub or run is None:
+        if not BUBBLE_CASES.exists():
+            return {"arms": arms}
+        case_ids = [d.name for d in sorted(BUBBLE_CASES.iterdir()) if d.is_dir()]
+        arm = _detection_arm(
+            case_ids,
+            lambda case_id, expected: bubble_stub(expected.get("boxes", [])),
+            "stub",
+        )
+        arm.update(valid=True, errors=[])
+        arms["stub"] = arm
+        return {"arms": arms}
 
-    for case_dir in sorted(TRANS_CASES.iterdir()):
-        if not case_dir.is_dir():
+    for arm_id, validated in run.arms.items():
+        if validated.stage != run_records.DETECTION:
             continue
-        source_path = case_dir / "source.txt"
-        reference_path = case_dir / "reference.txt"
+        boxes_by_case = {
+            case_id: next(
+                (r for r in records if r.get("stage") == run_records.DETECTION), {}
+            ).get("boxes", [])
+            for case_id, records in validated.by_case.items()
+        }
+        arm = _detection_arm(
+            validated.meta.get("cases", []),
+            lambda case_id, expected, table=boxes_by_case: table.get(case_id, []),
+            "records",
+        )
+        arm.update(valid=validated.valid, errors=list(validated.errors))
+        arms[arm_id] = arm
+    return {"arms": arms}
+
+
+def dense_output(
+    source: list[str], requested_ids: list[int], results: list[dict]
+) -> tuple[list[str], dict[str, Any]]:
+    """Project a translation record's raw `{bubble_id, text}` results onto the source lines.
+
+    Records carry the provider's raw results **before** `TranslationEngine` substitutes source text,
+    so an id the model never answered arrives here as "" and fails coverage instead of hiding behind
+    the substitution (#137). Ids outside `requested_ids` are the punctuation-only bubbles the engine
+    keeps verbatim without calling the model at all; they are filled with their source, which is
+    what production renders.
+
+    The second return value is the output-shape report: a missing, extra or duplicate returned id is
+    a measured engine failure, so it fails its own gate while every expected id stays in the
+    denominator (#41).
+    """
+    by_id: dict[int, str] = {}
+    duplicates: list[int] = []
+    for entry in results:
+        bubble_id = entry.get("bubble_id")
+        if bubble_id in by_id:
+            duplicates.append(bubble_id)
+        by_id[bubble_id] = entry.get("text", "")
+
+    requested = set(requested_ids)
+    output = [
+        by_id.get(i, "" if i in requested else source[i]) for i in range(len(source))
+    ]
+    shape = {
+        "missing_ids": sorted(requested - set(by_id)),
+        "extra_ids": sorted(set(by_id) - requested),
+        "duplicate_ids": sorted(set(duplicates)),
+    }
+    shape["output_shape_pass"] = not any(
+        shape[k] for k in ("missing_ids", "extra_ids", "duplicate_ids")
+    )
+    return output, shape
+
+
+def _translation_arms(run: Any) -> dict[str, Any]:
+    return {
+        arm_id: validated
+        for arm_id, validated in run.arms.items()
+        if validated.stage == run_records.TRANSLATION
+    }
+
+
+def run_translation_quality(run: Any = None, stub: bool = False) -> dict[str, Any]:
+    results: list[dict] = []
+    engines: dict[str, Any] = {}
+    if not TRANS_CASES.exists():
+        return {"cases": results, "summary": {"engines": {}}}
+
+    arms = {} if (stub or run is None) else _translation_arms(run)
+    case_ids = sorted(d.name for d in TRANS_CASES.iterdir() if d.is_dir())
+
+    for case_id in case_ids:
+        source_path = TRANS_CASES / case_id / "source.txt"
+        reference_path = TRANS_CASES / case_id / "reference.txt"
         if not source_path.exists() or not reference_path.exists():
             continue
 
         source = load_lines(source_path)
         reference = load_lines(reference_path)
+        case_result: dict[str, Any] = {
+            "case_id": case_id,
+            "mode": "stub" if not arms else "records",
+            "source": source,
+            "reference": reference,
+            "engines": [],
+        }
 
-        actual_dir = case_dir / TRANS_ACTUAL_DIR
-        if actual_dir.exists():
-            outputs = sorted(actual_dir.glob("*.json"))
-            mode = "actual"
-        elif stub:
-            outputs = []
-            mode = "stub"
+        if not arms:
+            if stub:
+                score = score_translation(source, reference, translation_stub(reference))
+                score["engine"] = "stub"
+                score["output_shape_pass"] = True
+                case_result["engines"].append(score)
+                engines["stub"] = None
         else:
-            outputs = []
-            mode = "missing"
-
-        case_result: dict[str, Any] = {"case_id": case_dir.name, "mode": mode, "source": source, "reference": reference, "engines": []}
-
-        if mode == "stub":
-            score = score_translation(source, reference, translation_stub(reference))
-            score["engine"] = "stub"
-            case_result["engines"].append(score)
-            engines.add("stub")
-        elif not outputs:
-            case_result["engines"].append({"engine": "none", "error": "no engine output found"})
-        else:
-            for out_path in outputs:
-                engine_name = out_path.stem
-                engines.add(engine_name)
-                out_data = load_json(out_path)
-                output = out_data.get("translations", [])
+            requested_ids = run.manifest["cases"].get(case_id, {}).get("requested_ids", [])
+            for arm_id, validated in arms.items():
+                engines[arm_id] = validated
+                records = [
+                    r
+                    for r in validated.by_case.get(case_id, [])
+                    if r.get("stage") == run_records.TRANSLATION
+                ]
+                if not records:
+                    case_result["engines"].append(
+                        {"engine": arm_id, "error": f"no translation record for {case_id}"}
+                    )
+                    continue
+                # A declared per-line fallback after an `overflow` writes further records for the
+                # same page (#146). Later results win: they are the pass that actually produced the
+                # page's translations.
+                merged: list[dict] = []
+                for record in records:
+                    merged.extend(record.get("results") or [])
+                output, shape = dense_output(source, requested_ids, merged)
                 score = score_translation(source, reference, output)
-                score["engine"] = engine_name
+                score["engine"] = arm_id
                 score["translations"] = output
+                score["outcome"] = records[-1].get("outcome")
+                score.update(shape)
                 case_result["engines"].append(score)
 
         results.append(case_result)
 
     summary: dict[str, Any] = {"engines": {}}
-    for engine in engines:
+    for engine, validated in engines.items():
         valid = [
             e
             for r in results
             for e in r["engines"]
             if e.get("engine") == engine and "error" not in e
         ]
+        # An arm the validator rejected gets no aggregate at all: reporting a mean for an instrument
+        # that failed its own contract is the exact shape of the four historical failures (#142).
+        # Checked before `valid` is consulted, so an arm that produced nothing at all is still named
+        # rather than silently absent.
+        if validated is not None and not validated.valid:
+            summary["engines"][engine] = {
+                "role": "floor" if engine in FLOOR_ENGINES else "gate",
+                "valid": False,
+                "errors": list(validated.errors),
+            }
+            continue
         if not valid:
             continue
         # Rates are aggregated over entries, never averaged over cases (#44): a 3-bubble page must
@@ -516,29 +605,49 @@ def run_translation_quality(stub: bool) -> dict[str, Any]:
             "japanese_residue_rate": residue / entries if entries else 0.0,
             "readability_ratio": out_words / ref_words if ref_words > 0 else 0.0,
             # Pass bars (#52): non-translation 0, residue 0, coverage 100% of ids. All-or-nothing.
+            "valid": True,
             "completed_cases": len(valid),
             "expected_cases": len(results),
-            "gate_pass": len(valid) == len(results) and entries > 0 and non_translation == 0 and residue == 0 and covered == entries,
+            # A missing/extra/duplicate returned id is a measured failure of the engine, not of the
+            # instrument: it fails here and keeps every id in the denominator above (#41).
+            "output_shape_pass": all(s.get("output_shape_pass", True) for s in valid),
+            "gate_pass": (
+                len(valid) == len(results)
+                and entries > 0
+                and non_translation == 0
+                and residue == 0
+                and covered == entries
+                and all(s.get("output_shape_pass", True) for s in valid)
+            ),
         }
 
     return {"cases": results, "summary": summary}
 
 
-def run_repetition_probe(stub: bool) -> dict[str, Any]:
+def run_repetition_probe(run: Any = None, stub: bool = False) -> dict[str, Any]:
     """Score the repetition probe. Reported alongside the gate, never gated (#152)."""
     if not PROBE_BUBBLES.exists():
         return {"bubbles": [], "engines": {}}
 
     bubbles = load_json(PROBE_BUBBLES)["bubbles"]
     reference = [b["reference"] for b in bubbles]
+    sources = [b["source"] for b in bubbles]
 
     engines: dict[str, Any] = {}
-    actual_dir = PROBE_BUBBLES.parent / TRANS_ACTUAL_DIR
-    outputs = sorted(actual_dir.glob("*.json")) if actual_dir.exists() else []
-    if outputs:
-        for out_path in outputs:
-            translations = load_json(out_path).get("translations", [])
-            engines[out_path.stem] = score_repetition_probe(reference, translations)
+    if run is not None:
+        # The probe rides the same transport as the gate: its records are translation records whose
+        # case id is the probe's own (#142).
+        for arm_id, validated in _translation_arms(run).items():
+            records = [
+                r
+                for r in validated.by_case.get(run_records.PROBE_CASE_ID, [])
+                if r.get("stage") == run_records.TRANSLATION
+            ]
+            if not records:
+                continue
+            merged = [entry for record in records for entry in (record.get("results") or [])]
+            output, _ = dense_output(sources, list(range(len(sources))), merged)
+            engines[arm_id] = score_repetition_probe(reference, output)
     elif stub:
         engines["stub"] = score_repetition_probe(reference, translation_stub(reference))
 
