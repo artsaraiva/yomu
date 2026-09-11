@@ -255,7 +255,9 @@ subtracting across devices. The repetition-penalty sweep below is the worked ins
   Every bar here scores the **form** of the output. Wrong names, flipped subjects and
   dropped negations pass all of them, so semantic accuracy is reviewed by hand and
   recorded separately in `eval/semantic-review-120.md` — a PASS says the output is
-  shaped like a translation, not that it says what the source said.
+  shaped like a translation, not that it says what the source said. The same taxonomy
+  applied to two engines at once is `eval/meaning-comparison-145.md` (Qwen2.5-1.5B against
+  CAT-Translate-1.4b).
 
 - **Repetition probe**: **harm** — the output's longest repeated-unit run is shorter than the
   reference's, on a bubble whose reference run is 3 or more. It answers one question the gate
