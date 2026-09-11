@@ -34,12 +34,17 @@ vendor/
 
 # Eval harness generated results
 eval/results/
-eval/bubble-detection/cases/*/actual.json
-eval/bubble-detection/cases/*/actual_s.json
-eval/translation-quality/cases/*/actual/
 
 # OpenMantra page images are generated from vendor; do not commit
 eval/**/page.jpg
+
+# Legacy shared engine outputs. #165 stopped producing these -- every run is now scored in its own
+# eval/benchmark-results/<run-id>/ directory -- but a machine that ran the old harness still has
+# them on disk. Ignored so they stay out of git; safe to delete.
+eval/bubble-detection/cases/*/actual.json
+eval/bubble-detection/cases/*/actual_s.json
+eval/translation-quality/cases/*/actual/
+eval/repetition-probe/actual/
 
 # Test assets are staged copies of eval/ cases, rebuilt by eval/run-benchmark.sh on every run.
 # The canonical copies under eval/ are the tracked ones.
@@ -57,7 +62,6 @@ __pycache__/
 
 # Repetition probe (#152): derived CC BY-NC content, regenerate from vendor/
 eval/repetition-probe/bubbles.json
-eval/repetition-probe/actual/
 
 # Eval harness virtualenv
 eval/.venv/

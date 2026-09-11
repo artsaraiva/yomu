@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Paired detector comparison for #57: incumbent yolo26n vs the yolo26s candidate.
 
-Reads, per case, `expected.json` plus both detectors' outputs (`actual.json` for the incumbent,
-`actual_s.json` for the candidate, both written by run-benchmark.sh from the on-device run) and
-produces every number the pre-registered #33 rule needs:
+Reads, per case, `expected.json` plus both detectors' detection records from a run directory
+(`--run-dir`, the structured artifact run-benchmark.sh writes -- see eval/SCHEMA.md) and produces
+every number the pre-registered #33 rule needs:
 
   - story containment at each detector's OWN best crop pad (the ranking number), at zero pad, and
     at the fixed 4% pad production ships today (ADR-0003);
@@ -20,6 +20,7 @@ Then it applies the rule fixed in the #33 grilling BEFORE any number existed:
 This is a one-off decision aid feeding #33's ADR, not a permanent gate -- run-eval.py is untouched.
 """
 
+import argparse
 import statistics
 import sys
 from pathlib import Path
@@ -27,10 +28,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
+import run_records
 from run_eval_lib import BUBBLE_CASES, STORY, load_json, pool_summary, score_bubbles
 
-INCUMBENT = ("yolo26n (incumbent)", "actual.json")
-CANDIDATE = ("yolo26s (candidate)", "actual_s.json")
+# (label, arm id in the run manifest)
+INCUMBENT = ("yolo26n (incumbent)", "bubble")
+CANDIDATE = ("yolo26s (candidate)", "bubble_s")
 
 FIXED_PAD = 0.04  # ADR-0003, what production ships today
 PAD_GRID = [i / 100 for i in range(0, 9)]  # 0.00 .. 0.08, "own best pad" is the argmax over this
@@ -38,24 +41,37 @@ CONF_SWEEP = [0.25, 0.35, 0.45, 0.55]
 SEPARATION_PP = 8.0
 
 
-def load_cases():
-    """Cases that carry expected + both detectors' outputs, so the comparison is paired."""
+def detection_records(run, arm_id):
+    """That arm's detection record per case id, or {} when the arm was not in this run."""
+    arm = run.arms.get(arm_id)
+    if arm is None:
+        return {}
+    return {
+        case_id: next(r for r in records if r.get("stage") == run_records.DETECTION)
+        for case_id, records in arm.by_case.items()
+        if any(r.get("stage") == run_records.DETECTION for r in records)
+    }
+
+
+def load_cases(run):
+    """Cases that carry expected + both detectors' records, so the comparison is paired."""
+    incumbent = detection_records(run, INCUMBENT[1])
+    candidate = detection_records(run, CANDIDATE[1])
     cases = []
     for case_dir in sorted(BUBBLE_CASES.iterdir()):
         expected_path = case_dir / "expected.json"
-        inc_path = case_dir / INCUMBENT[1]
-        cand_path = case_dir / CANDIDATE[1]
-        if not (expected_path.exists() and inc_path.exists() and cand_path.exists()):
+        case_id = case_dir.name
+        if not expected_path.exists() or case_id not in incumbent or case_id not in candidate:
             continue
         expected = load_json(expected_path)
         cases.append({
-            "id": case_dir.name,
+            "id": case_id,
             "kind": expected.get("kind", STORY),
             "w": expected["image_width"],
             "h": expected["image_height"],
             "expected": expected.get("boxes", []),
-            "actual.json": load_json(inc_path).get("boxes", []),
-            "actual_s.json": load_json(cand_path).get("boxes", []),
+            INCUMBENT[1]: incumbent[case_id],
+            CANDIDATE[1]: candidate[case_id],
         })
     return cases
 
@@ -66,7 +82,7 @@ def pool(cases, detector_key, pad, min_conf=0.0, kind=STORY):
     for c in cases:
         if c["kind"] != kind:
             continue
-        actual = [b for b in c[detector_key] if b.get("conf", 1.0) >= min_conf]
+        actual = [b for b in c[detector_key].get("boxes", []) if b.get("conf", 1.0) >= min_conf]
         scored.append(score_bubbles(c["expected"], actual, c["w"], c["h"], pad_fraction=pad))
     return pool_summary(scored)
 
@@ -95,16 +111,16 @@ def fmt(pool_result):
             f"fp {pool_result['total_false_positives']}")
 
 
-def nms_and_timing(name, detector_files):
-    """thresholded/kept and detect_ms live on the raw detector json, not the box list."""
+def nms_and_timing(name, cases, detector_key):
+    """thresholded/kept and duration live on the record itself, not on the box list."""
     thr = kept = 0
     times = []
-    for path in detector_files:
-        d = load_json(path)
-        thr += d.get("nms_thresholded", 0)
-        kept += d.get("nms_kept", 0)
-        if "detect_ms" in d:
-            times.append(d["detect_ms"])
+    for case in cases:
+        record = case[detector_key]
+        thr += record.get("nms_thresholded", 0)
+        kept += record.get("nms_kept", 0)
+        if "duration_ms" in record:
+            times.append(record["duration_ms"])
     removed = thr - kept
     print(f"  NMS: thresholded {thr} -> kept {kept} (removed {removed}"
           f"{'; NMS never fired -- #33 says delete it, not tune it' if removed == 0 else ''})")
@@ -114,15 +130,20 @@ def nms_and_timing(name, detector_files):
               f"({len(times)} pages)")
 
 
-def raw_files(detector_actual_name):
-    return [c / detector_actual_name for c in sorted(BUBBLE_CASES.iterdir())
-            if (c / detector_actual_name).exists()]
-
-
 def main():
-    cases = load_cases()
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--run-dir", required=True, help="a run directory written by run-benchmark.sh")
+    args = parser.parse_args()
+
+    try:
+        run = run_records.validate_run(Path(args.run_dir))
+    except run_records.RunError as exc:
+        print(f"Run rejected: {exc}", file=sys.stderr)
+        sys.exit(2)
+
+    cases = load_cases(run)
     if not cases:
-        print("No paired cases found (need expected.json + actual.json + actual_s.json). "
+        print("No paired cases found (need both the bubble and bubble_s arms in this run). "
               "Run eval/run-benchmark.sh with the yolo26s asset staged.", file=sys.stderr)
         sys.exit(1)
 
@@ -144,7 +165,7 @@ def main():
         cover = pool(cases, key, bp, kind="cover")
         if cover["total_expected"]:
             print(f"    cover (never gated): {fmt(cover)}")
-        nms_and_timing(name, raw_files(key))
+        nms_and_timing(name, cases, key)
 
     inc = pool(cases, INCUMBENT[1], inc_bp)
     cand = pool(cases, CANDIDATE[1], cand_bp)

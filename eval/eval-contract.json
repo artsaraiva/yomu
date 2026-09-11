@@ -1,0 +1,89 @@
+{
+  "contract_version": 1,
+  "comment": [
+    "Machine-readable registry of every metric the eval may report, and the inputs each one is",
+    "allowed to read. The run manifest carries this file's SHA-256, so a run scored against a",
+    "different contract is rejected rather than silently compared.",
+    "#44 is the reason the provenance is machine-readable rather than prose: the detection `label`",
+    "field is a substring guess from generate-cases.py, and it was scored as if it were annotation.",
+    "It is listed under forbidden_inputs below, and the scorer refuses any dimension not registered",
+    "here."
+  ],
+  "forbidden_inputs": [
+    "expected.json:boxes[].label"
+  ],
+  "metrics": {
+    "containment_recall": {
+      "stage": "detection",
+      "gated": true,
+      "inputs": ["expected.json:boxes[].x|y|w|h", "record:boxes[].x|y|w|h"]
+    },
+    "localisation_recall": {
+      "stage": "detection",
+      "gated": false,
+      "inputs": ["expected.json:boxes[].x|y|w|h", "record:boxes[].x|y|w|h"]
+    },
+    "merging_detections": {
+      "stage": "detection",
+      "gated": false,
+      "inputs": ["expected.json:boxes[].x|y|w|h", "record:boxes[].x|y|w|h"]
+    },
+    "false_positives": {
+      "stage": "detection",
+      "gated": false,
+      "inputs": ["expected.json:boxes[].x|y|w|h", "record:boxes[].x|y|w|h"]
+    },
+    "missed": {
+      "stage": "detection",
+      "gated": false,
+      "inputs": ["expected.json:boxes[].x|y|w|h", "record:boxes[].x|y|w|h"]
+    },
+    "non_translation_rate": {
+      "stage": "translation",
+      "gated": true,
+      "inputs": ["record:results[].text"]
+    },
+    "japanese_residue_rate": {
+      "stage": "translation",
+      "gated": true,
+      "inputs": ["record:results[].text", "reference.txt"]
+    },
+    "bubble_coverage": {
+      "stage": "translation",
+      "gated": true,
+      "inputs": ["record:results[].bubble_id", "record:requested_ids", "source.txt"]
+    },
+    "output_shape": {
+      "stage": "translation",
+      "gated": true,
+      "inputs": ["record:results[].bubble_id", "record:requested_ids"]
+    },
+    "source_echo_rate": {
+      "stage": "translation",
+      "gated": false,
+      "inputs": ["record:results[].text", "source.txt"]
+    },
+    "readability_ratio": {
+      "stage": "translation",
+      "gated": false,
+      "inputs": ["record:results[].text", "reference.txt"]
+    },
+    "mean_chrf": {
+      "stage": "translation",
+      "gated": false,
+      "comment": "Explicitly ungated diagnostic: chrF2 is lexical overlap, not meaning (#52).",
+      "inputs": ["record:results[].text", "reference.txt"]
+    },
+    "repetition_harm": {
+      "stage": "translation",
+      "gated": false,
+      "comment": "Probe-only, reported beside the gate and never gated (#152).",
+      "inputs": ["record:results[].text", "repetition-probe/bubbles.json:reference"]
+    },
+    "duration_ms": {
+      "stage": "*",
+      "gated": false,
+      "inputs": ["record:duration_ms"]
+    }
+  }
+}

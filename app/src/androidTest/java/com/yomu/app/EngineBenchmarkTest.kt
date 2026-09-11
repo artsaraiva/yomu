@@ -13,6 +13,7 @@ import com.yomu.core.GenerationParams
 import com.yomu.core.ModelProfile
 import com.yomu.core.TranslatableBubble
 import com.yomu.core.TranslatablePage
+import com.yomu.core.TranslationOutcome
 import com.yomu.core.TranslationPromptMode
 import com.yomu.core.TranslationStatus
 import com.yomu.app.translation.LlmModelCatalog
@@ -111,9 +112,7 @@ class EngineBenchmarkTest {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val cases = loadCases(InstrumentationRegistry.getInstrumentation().context)
         check(cases.isNotEmpty()) { "No benchmark cases staged" }
-        val outputDir = File(context.filesDir, "yomu-prompt-benchmark")
-        outputDir.deleteRecursively()
-        outputDir.mkdirs()
+        val records = RunRecords.open()
         val rows = mutableListOf<TimingRow>()
         val native = LlamaBridge(context)
         val modelPath = File(
@@ -125,16 +124,44 @@ class EngineBenchmarkTest {
                 val slot = LlamaTranslationBridge(native, ModelProfile(modelPath, false, mode))
                 check(slot.ensureReady()) { "Qwen model unavailable: ${slot.status}" }
                 val measured = TranslationEngine { slot }
-                runEngineOverCases(measured, "qwen_" + mode.name.lowercase(), cases, outputDir, rows)
+                runEngineOverCases(
+                    measured,
+                    llmArm("qwen_" + mode.name.lowercase(), slot),
+                    cases,
+                    records,
+                    rows
+                )
                 measured.endSession()
                 slot.close()
-                writeTimingCsv(outputDir, rows)
             }
             check(rows.size == cases.size * TranslationPromptMode.entries.size)
         } finally {
-            writeTimingCsv(outputDir, rows)
             native.release()
         }
+    }
+
+    /**
+     * An LLM arm's identity, read off the slot's live [LlamaTranslationBridge.activeProfile].
+     *
+     * Reading it here rather than restating what the test configured is the whole point of the
+     * observed/expected split: the host declares the same fields in `manifest.json` from the fixture
+     * on disk, and the scorer rejects the arm when they disagree.
+     */
+    private fun llmArm(armId: String, slot: LlamaTranslationBridge): ArmMeta {
+        val profile = slot.activeProfile
+        val fileName = File(profile.modelPath).name
+        return ArmMeta(
+            armId = armId,
+            provider = LLM_PROVIDER,
+            modelId = fileName,
+            quantization = ArmMeta.quantizationOf(fileName),
+            callShape = if (profile.idKeyedBatch) {
+                ArmMeta.CALL_SHAPE_BATCH
+            } else {
+                ArmMeta.CALL_SHAPE_PER_LINE
+            },
+            generation = profile.generation
+        )
     }
 
     /**
@@ -159,10 +186,7 @@ class EngineBenchmarkTest {
         val cases = loadCases(assets)
         val probe = loadProbeBubbles(assets)
         check(cases.isNotEmpty()) { "No benchmark cases staged" }
-        val outputDir = File(context.filesDir, "yomu-penalty").apply {
-            deleteRecursively()
-            mkdirs()
-        }
+        val records = RunRecords.open()
         val rows = mutableListOf<TimingRow>()
         val native = LlamaBridge(context)
         val option = LlmModelCatalog.DEFAULT
@@ -187,24 +211,22 @@ class EngineBenchmarkTest {
                     )
                 )
                 check(slot.ensureReady()) { "Qwen model unavailable: ${slot.status}" }
+                val armMeta = llmArm(arm, slot)
                 Log.i(TAG, "Penalty arm=$arm probe bubbles=${probe.size} cases=${cases.size}")
-                runProbe(slot, arm, probe, outputDir)
+                runProbe(slot, armMeta, probe, records)
                 // The gate corpus only carries the candidate and its control. 1.2 is a probe-only
                 // arm: it exists to locate the harm threshold, and #139 pre-registered one gate arm.
                 if (penalty in GATE_ARMS) {
                     val measured = TranslationEngine { slot }
-                    runEngineOverCases(measured, arm, cases, outputDir, rows)
+                    runEngineOverCases(measured, armMeta, cases, records, rows)
                     measured.endSession()
                 }
                 slot.close()
-                writeTimingCsv(outputDir, rows)
             }
             check(rows.size == cases.size * GATE_ARMS.size) {
                 "Expected ${cases.size * GATE_ARMS.size} gate rows, got ${rows.size}"
             }
         } finally {
-            writeTimingCsv(outputDir, rows)
-            logTimingCsv(rows)
             native.release()
         }
     }
@@ -219,22 +241,41 @@ class EngineBenchmarkTest {
      */
     private suspend fun runProbe(
         slot: LlamaTranslationBridge,
-        arm: String,
+        arm: ArmMeta,
         probe: List<String>,
-        outputDir: File
+        records: RunRecords
     ) {
-        val translations = probe.mapIndexed { id, source ->
+        val results = mutableMapOf<Int, String>()
+        var durationMs = 0L
+        var failure: TranslationOutcome? = null
+        var errorCode: String? = null
+        probe.forEachIndexed { id, source ->
             val page = TranslatablePage(listOf(listOf(TranslatableBubble(id, source))))
             val result = runCatching { slot.translatePage(page, emptyList()) }.getOrNull()
-            val text = result?.byId?.get(id).orEmpty()
-            Log.i(TAG, "Probe arm=$arm bubble=$id durationMs=${result?.durationMs ?: 0} out=$text")
-            text
+            durationMs += result?.durationMs ?: 0L
+            val text = result?.byId?.get(id)
+            if (text != null) results[id] = text
+            val outcome = result?.outcome ?: TranslationOutcome.ERROR
+            if (outcome != TranslationOutcome.SUCCESS && failure == null) {
+                failure = outcome
+                errorCode = result?.errorCode
+            }
+            Log.i(TAG, "Probe arm=${arm.armId} bubble=$id durationMs=${result?.durationMs ?: 0} out=$text")
         }
         slot.endSession()
-        // Written as well as logged: a looping arm emits multi-kilobyte lines and logcat's chatty
-        // filter drops them, so the log alone is not a reliable transport for this set.
-        writeEngineResult(outputDir, PROBE_CASE_ID, arm, translations)
-        logEngineResult(PROBE_CASE_ID, arm, translations)
+        // One record for the whole probe: it is bubble-granular, so it has no case of its own and
+        // rides the translation transport under PROBE_CASE_ID. The records file is the transport
+        // precisely because logcat's chatty filter drops the multi-kilobyte lines a looping arm
+        // emits -- that silently lost 12 of 22 probe bubbles the first time this sweep ran (#152).
+        records.translation(
+            arm = arm,
+            caseId = RunRecords.PROBE_CASE_ID,
+            outcome = failure ?: TranslationOutcome.SUCCESS,
+            durationMs = durationMs,
+            requestedIds = probe.indices.toList(),
+            rawById = results,
+            errorCode = errorCode
+        )
     }
 
     /** The probe's source lines, in bubble-id order. Staged into assets by run-benchmark.sh. */
@@ -255,15 +296,17 @@ class EngineBenchmarkTest {
         runBlocking {
             val context = InstrumentationRegistry.getInstrumentation().targetContext
             val cases = loadCases(InstrumentationRegistry.getInstrumentation().context)
-            val outputDir = File(context.filesDir, "yomu-benchmark")
-            outputDir.mkdirs()
+            val records = RunRecords.open()
+            Log.i(TAG, "Writing engine records for run=${records.runId}")
 
             val timingRows = mutableListOf<TimingRow>()
             // The whole instrumentation test must finish inside the harness's ~20-min ceiling or it
             // is killed and no results are written. The enum engines + 0.8b are the baseline and run
             // unbounded; the challenger phase is capped so a slow/thinking model (Qwen3 ran to the
-            // 120s batch timeout on every case) can't starve the rest and abort the whole run before
-            // writeTimingCsv. Deadline is absolute wall-clock from test start.
+            // 120s batch timeout on every case) can't starve the rest and abort the whole run. Each
+            // record is appended as it is produced, so a kill loses only the unrun cases -- and the
+            // scorer sees their arm as incomplete rather than as a clean result. Deadline is
+            // absolute wall-clock from test start.
             val benchDeadlineMs = System.currentTimeMillis() + TOTAL_BENCHMARK_BUDGET_MS
 
             // A heavy challenger's 17 cases won't fit the timeout window after the ~11-min enum
@@ -283,22 +326,27 @@ class EngineBenchmarkTest {
                 }.getOrElse { false }
 
                 if (!ready) {
+                    // No record is written, so the scorer reports this requested arm as invalid and
+                    // exits nonzero. A skipped engine must never be scored as if it ran (#58).
                     val reason = (slot.status as? TranslationStatus.Error)?.reason ?: "not_ready"
                     Log.e(TAG, "Engine $engineName not ready, skipping. reason=$reason")
                     continue
                 }
 
-                runEngineOverCases(engine, engineName, cases, outputDir, timingRows)
+                val arm = when (slot) {
+                    is LlamaTranslationBridge -> llmArm(engineName, slot)
+                    else -> FLOOR_ARMS.getValue(engineName)
+                }
+                runEngineOverCases(engine, arm, cases, records, timingRows)
 
                 engine.endSession()
             }
 
-            benchmarkChallengers(context, cases, outputDir, timingRows, benchDeadlineMs)
+            benchmarkChallengers(context, cases, records, timingRows, benchDeadlineMs)
 
-            writeTimingCsv(outputDir, timingRows)
             logTimingCsv(timingRows)
             selector.close()
-            Log.i(TAG, "Benchmark complete. Output: ${outputDir.absolutePath}")
+            Log.i(TAG, "Benchmark complete. Records: ${records.runId}")
         }
     }
 
@@ -317,15 +365,29 @@ class EngineBenchmarkTest {
      */
     private suspend fun runEngineOverCases(
         engine: TranslationEngine,
-        engineName: String,
+        arm: ArmMeta,
         cases: List<BenchCase>,
-        outputDir: File,
+        records: RunRecords,
         timingRows: MutableList<TimingRow>,
         deadlineMs: Long = Long.MAX_VALUE
     ) {
+        val engineName = arm.armId
         for ((index, case) in cases.withIndex()) {
             if (System.currentTimeMillis() >= deadlineMs) {
+                // Recorded, not merely logged: `skipped_budget` invalidates the arm in the scorer,
+                // which is the correct outcome for pages that were never measured (#142).
                 Log.w(TAG, "Budget exhausted for engine=$engineName; ${cases.size - index} of ${cases.size} cases unrun")
+                for (unrun in cases.drop(index)) {
+                    records.append(
+                        JSONObject()
+                            .put("run_id", records.runId)
+                            .put("arm_id", engineName)
+                            .put("case_id", unrun.caseId)
+                            .put("stage", RunRecords.STAGE_TRANSLATION)
+                            .put("outcome", "skipped_budget")
+                            .put("duration_ms", 0)
+                    )
+                }
                 break
             }
             // ADR-0004: one reader trigger per page. Ground-truth boxes stand in for detections and
@@ -347,12 +409,36 @@ class EngineBenchmarkTest {
                 )
             }.toMap()
 
-            val page = assembler.assemble(bubbles, ocrResults, case.width, case.height)
-            val result = runCatching { engine.translate(page.blocks) }.getOrNull()
+            val assembleNs = System.nanoTime()
+            val assembled = runCatching { assembler.assemble(bubbles, ocrResults, case.width, case.height) }
+            records.contextAssembly(
+                armId = engineName,
+                caseId = case.caseId,
+                outcome = if (assembled.isSuccess) TranslationOutcome.SUCCESS else TranslationOutcome.ERROR,
+                durationMs = (System.nanoTime() - assembleNs) / 1_000_000L,
+                inputIds = bubbles.map { it.id },
+                blockIds = assembled.getOrNull()?.blocks?.map { it.readingOrder }.orEmpty(),
+                errorCode = assembled.exceptionOrNull()?.let { it::class.simpleName }
+            )
+            val page = assembled.getOrNull() ?: continue
+
+            val translated = runCatching { engine.translate(page.blocks) }
+            val result = translated.getOrNull()
             val pssKb = Debug.getPss()
 
-            val byId = result?.translations.orEmpty().associateBy { it.bubbleId }
-            val translations = case.source.indices.map { id -> byId[id]?.translatedText ?: "" }
+            records.translation(
+                arm = arm,
+                caseId = case.caseId,
+                // A thrown call is `error`; everything else carries the cause the slot typed at the
+                // boundary that knew it (#142), never one recovered from a log line.
+                outcome = result?.outcome ?: TranslationOutcome.ERROR,
+                durationMs = result?.translationTimeMs ?: 0L,
+                requestedIds = result?.requestedIds.orEmpty(),
+                // Raw, before TranslationEngine substitutes source text for a missing id (#137).
+                rawById = result?.rawById.orEmpty(),
+                errorCode = result?.errorCode
+                    ?: translated.exceptionOrNull()?.let { it::class.simpleName }
+            )
 
             timingRows.add(
                 TimingRow(
@@ -364,10 +450,7 @@ class EngineBenchmarkTest {
                     success = result != null
                 )
             )
-            Log.i(TAG, "Result engine=$engineName case=${case.caseId} bubbles=${ocrResults.size} durationMs=${result?.translationTimeMs ?: 0} pssKb=$pssKb covered=${byId.size}")
-
-            writeEngineResult(outputDir, case.caseId, engineName, translations)
-            logEngineResult(case.caseId, engineName, translations)
+            Log.i(TAG, "Result engine=$engineName case=${case.caseId} bubbles=${ocrResults.size} durationMs=${result?.translationTimeMs ?: 0} pssKb=$pssKb covered=${result?.rawById?.size ?: 0}")
         }
     }
 
@@ -380,7 +463,7 @@ class EngineBenchmarkTest {
     private suspend fun benchmarkChallengers(
         context: Context,
         cases: List<BenchCase>,
-        outputDir: File,
+        records: RunRecords,
         timingRows: MutableList<TimingRow>,
         benchDeadlineMs: Long
     ) {
@@ -428,7 +511,14 @@ class EngineBenchmarkTest {
                 )
                 Log.i(TAG, "Benchmarking challenger=${candidate.engineName}")
                 val challengerEngine = TranslationEngine { bridge }
-                runEngineOverCases(challengerEngine, candidate.engineName, cases, outputDir, timingRows, challengerDeadline)
+                runEngineOverCases(
+                    challengerEngine,
+                    llmArm(candidate.engineName, bridge),
+                    cases,
+                    records,
+                    timingRows,
+                    challengerDeadline
+                )
                 challengerEngine.endSession()
             } finally {
                 // Free native weights before the next challenger's load; the shared benchLlama is
@@ -510,40 +600,9 @@ class EngineBenchmarkTest {
         }
     }
 
-    private fun writeEngineResult(
-        outputDir: File,
-        caseId: String,
-        engineName: String,
-        translations: List<String>
-    ) {
-        val caseDir = File(outputDir, caseId).apply { mkdirs() }
-        val json = JSONObject().apply {
-            put("engine", engineName)
-            put("translations", JSONArray(translations))
-        }
-        File(caseDir, "$engineName.json").writeText(json.toString(2))
-    }
-
-    private fun logEngineResult(caseId: String, engineName: String, translations: List<String>) {
-        val json = JSONObject().apply {
-            put("engine", engineName)
-            put("translations", JSONArray(translations))
-        }
-        Log.i(TAG, "RESULT_JSON case=$caseId engine=$engineName json=${json.toString()}")
-    }
-
-    private fun writeTimingCsv(outputDir: File, rows: List<TimingRow>) {
-        val file = File(outputDir, "benchmark_timing.csv")
-        file.bufferedWriter().use { writer ->
-            writer.write("case_id,engine,bubble_count,duration_ms,peak_pss_kb,success")
-            writer.newLine()
-            rows.forEach { row ->
-                writer.write("${row.caseId},${row.engine},${row.bubbleCount},${row.durationMs},${row.pssKb},${row.success}")
-                writer.newLine()
-            }
-        }
-    }
-
+    // No RESULT_JSON / TIMING extraction and no canonical timing CSV: the scorer reads the run
+    // records, and per-page duration is a field on every one of them (#165). Peak PSS has no home in
+    // the record contract yet, so it stays a log line below -- a diagnostic, never a scored input.
     private fun logTimingCsv(rows: List<TimingRow>) {
         rows.forEach { row ->
             Log.i(TAG, "TIMING case=${row.caseId} engine=${row.engine} bubbles=${row.bubbleCount} durationMs=${row.durationMs} peakPssKb=${row.pssKb} success=${row.success}")
@@ -584,10 +643,32 @@ class EngineBenchmarkTest {
     companion object {
         private const val TAG = "EngineBenchmarkTest"
         private const val FIXTURE_DIR = "/data/local/tmp/yomu-fixtures"
+        private const val LLM_PROVIDER = "llama.cpp"
         private val ENGINES = listOf(
             TranslationEngineType.ML_KIT,
             TranslationEngineType.OPUS_MT,
             TranslationEngineType.LLM
+        )
+
+        // The two floor engines (ADR-0004) cannot take a page-level call: they translate per bubble
+        // inside it. Neither exposes a model profile, so their identity is stated here and declared
+        // identically by the host in manifest.json. ML Kit is the managed provider the contract
+        // allows a null artifact hash for, since Play services fetches its model on demand.
+        private val FLOOR_ARMS = mapOf(
+            "mlkit" to ArmMeta(
+                armId = "mlkit",
+                provider = "mlkit",
+                modelId = "mlkit-nl-translate-ja-en",
+                quantization = "n/a",
+                callShape = ArmMeta.CALL_SHAPE_PER_BUBBLE
+            ),
+            "opusmt" to ArmMeta(
+                armId = "opusmt",
+                provider = "opusmt",
+                modelId = "opus-mt-ja-en",
+                quantization = "n/a",
+                callShape = ArmMeta.CALL_SHAPE_PER_BUBBLE
+            )
         )
 
         // #84 challengers, scored on the id-keyed batch path alongside the 0.8b baseline. Engine
@@ -625,10 +706,6 @@ class EngineBenchmarkTest {
         private const val MEASUREMENT_SEED = 0
 
         private const val PROBE_ASSET_DIR = "eval-probe"
-
-        // The probe is bubble-granular, not page-granular, so it has no case id of its own; this is
-        // the key its RESULT_JSON line carries so the extractor can route it to repetition-probe/.
-        private const val PROBE_CASE_ID = "repetition-probe"
 
         private const val TOTAL_BENCHMARK_BUDGET_MS = 17L * 60_000L
         private const val PER_CHALLENGER_BUDGET_MS = 6L * 60_000L

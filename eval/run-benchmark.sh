@@ -3,11 +3,13 @@ set -eEuo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SCRIPT_DIR="$REPO_ROOT/eval"
-DEVICE_BENCHMARK_DIR="/sdcard/Android/data/com.yomu.app/files/yomu-benchmark"
-TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
-RUN_DIR="$SCRIPT_DIR/benchmark-results/$TIMESTAMP"
-RAW_ARTIFACTS_DIR="$RUN_DIR/raw-artifacts"
+APP_ID="com.yomu.app"
+# The run id is the directory name on both sides. It is unique per run, and every record carries it,
+# so a prior run's outputs can never be scored as this one's (#58).
+RUN_ID="$(date +%Y%m%d-%H%M%S)"
+RUN_DIR="$SCRIPT_DIR/benchmark-results/$RUN_ID"
 LOG_FILE="$RUN_DIR/benchmark.log"
+# Diagnostic only. The scorer never reads it (#142).
 LOGCAT_FILE="$RUN_DIR/logcat.log"
 
 SKIP_BUILD=0
@@ -55,7 +57,7 @@ for arg in "$@"; do
   esac
 done
 
-mkdir -p "$RAW_ARTIFACTS_DIR"
+mkdir -p "$RUN_DIR"
 exec > >(tee -a "$LOG_FILE") 2>&1
 
 START_TS="$(date +%s)"
@@ -188,11 +190,14 @@ fi
 # later needs no change here. ML Kit is not fixturable - Play services fetches it on demand.
 FIXTURE_DIR="$SCRIPT_DIR/fixtures/models"
 DEVICE_FIXTURE_DIR="/data/local/tmp/yomu-fixtures"
-LLM_FIXTURE="$FIXTURE_DIR/llm/cat_translate_0.8b_q4_k_m.gguf"
-LLM_FIXTURE_URL="https://huggingface.co/mradermacher/CAT-Translate-0.8b-GGUF/resolve/main/CAT-Translate-0.8b.Q4_K_M.gguf"
+# The `llm` enum arm loads whatever LlmModelCatalog.DEFAULT names, which ADR-0010 made
+# Qwen2.5-1.5B. The fixture staged here has to be that file or the arm is never ready and the run
+# reports it invalid. The 0.8b it replaced is demoted to a floor and is no longer fetched.
+LLM_FIXTURE="$FIXTURE_DIR/llm/qwen25_1.5b_instruct_q4_k_m.gguf"
+LLM_FIXTURE_URL="https://huggingface.co/bartowski/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/Qwen2.5-1.5B-Instruct-Q4_K_M.gguf"
 
 if [ ! -f "$LLM_FIXTURE" ]; then
-  printf 'Fetching CAT-Translate weights (~500MB, once)...\n'
+  printf 'Fetching Qwen2.5-1.5B weights (~1GB, once)...\n'
   mkdir -p "$(dirname "$LLM_FIXTURE")"
   curl -L --fail --progress-bar -o "$LLM_FIXTURE" "$LLM_FIXTURE_URL"
 fi
@@ -304,7 +309,66 @@ fi
 printf '\n[%s] Live logcat (run in another terminal):\n' "$(date '+%Y-%m-%d %H:%M:%S')"
 printf '  adb logcat -s "EngineBenchmarkTest:*" "BubbleDetectionBenchmarkTest:*" "LlamaBridge:*" "LlamaTranslationBridge:*" "LlamaJNI:*" "OpusMtTranslator:*" "OpusMtTranslationBridge:*"\n\n'
 
-step_start 4 'device test'
+step_start 4 'plan the run'
+# The manifest is the host's independent statement of what this run should produce: which arms, with
+# which model artefacts and call shapes, over which cases and bubble ids. The device records what it
+# actually did, and run_records.py refuses to score a run where the two disagree. Both halves are
+# needed — manifest-only call-shape metadata is the provenance mistake ADR-0010 corrected (#142).
+SKIP_BASELINE=0
+for a in ${GRADLE_EXTRA_ARGS[@]+"${GRADLE_EXTRA_ARGS[@]}"}; do
+  case "$a" in *testInstrumentationRunnerArguments.skipBaseline=true) SKIP_BASELINE=1 ;; esac
+done
+
+ARM_ARGS=()
+add_arm() { ARM_ARGS+=(--arm "$1"); }
+
+# Detection arms. Weights ride into the test APK as assets, so an arm exists exactly when its asset
+# was staged above.
+add_arm "arm_id=bubble,stage=detection,provider=onnxruntime,model_id=yolo26n,quantization=fp32,target_language=,call_shape=page_image,model_file=$BUBBLE_MODEL_FILE"
+if [ -f "$BUBBLE_S_MODEL_FILE" ]; then
+  add_arm "arm_id=bubble_s,stage=detection,provider=onnxruntime,model_id=yolo26s,quantization=fp32,target_language=,call_shape=page_image,model_file=$BUBBLE_S_MODEL_FILE"
+fi
+
+if [ "$SKIP_BASELINE" -eq 0 ]; then
+  # ADR-0004 floors. ML Kit is the managed provider the contract allows a null artefact hash for,
+  # since Play services fetches its model on demand; its package version stands in for the hash.
+  MLKIT_VERSION="$(sed -n 's/.*com\.google\.mlkit:translate:\([^"]*\)".*/\1/p' "$REPO_ROOT/app/build.gradle.kts" | head -1)"
+  add_arm "arm_id=mlkit,stage=translation,provider=mlkit,provider_version=${MLKIT_VERSION:-unknown},model_id=mlkit-nl-translate-ja-en,quantization=n/a,call_shape=per_bubble"
+  add_arm "arm_id=opusmt,stage=translation,provider=opusmt,provider_version=onnx-local,model_id=opus-mt-ja-en,quantization=n/a,call_shape=per_bubble"
+  # The `llm` arm is whatever LlmModelCatalog.DEFAULT names, on its per-line call shape.
+  add_arm "arm_id=llm,stage=translation,provider=llama.cpp,model_id=$(basename "$LLM_FIXTURE"),call_shape=per_line,model_file=$LLM_FIXTURE"
+fi
+
+# #84 challengers: declared only when their fixture is actually on disk, matching the device's
+# skip-a-missing-fixture behaviour. All run the id-keyed batch path.
+for entry in "${CHALLENGER_FIXTURES[@]}"; do
+  name="${entry%%|*}"; rest="${entry#*|}"; path="${rest%%|*}"
+  requested "$name" || continue
+  [ -f "$path" ] || continue
+  add_arm "arm_id=$name,stage=translation,provider=llama.cpp,model_id=$(basename "$path"),call_shape=id_keyed_batch,model_file=$path"
+done
+
+DEVICE_MODEL="$(adb shell getprop ro.product.model | tr -d '\r')"
+ANDROID_API="$(adb shell getprop ro.build.version.sdk | tr -d '\r')"
+APP_APK="$REPO_ROOT/app/build/outputs/apk/debug/app-debug.apk"
+TEST_APK="$REPO_ROOT/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"
+APK_ARGS=()
+[ -f "$APP_APK" ] && APK_ARGS+=(--app-apk "$APP_APK")
+[ -f "$TEST_APK" ] && APK_ARGS+=(--test-apk "$TEST_APK")
+
+python3 "$SCRIPT_DIR/run_records.py" manifest \
+  --run-id "$RUN_ID" \
+  --started-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  --out "$RUN_DIR/manifest.json" \
+  --device-model "$DEVICE_MODEL" \
+  --android-api "$ANDROID_API" \
+  ${APK_ARGS[@]+"${APK_ARGS[@]}"} \
+  "${ARM_ARGS[@]}"
+step_done 4 'plan the run' "$STEP_TS"
+
+step_start 5 'device test'
+# Clear any previous run directory on device so an aborted earlier attempt cannot contribute records.
+adb shell "run-as $APP_ID rm -rf files/yomu-benchmark" >/dev/null 2>&1 || true
 adb logcat -c
 
 adb logcat -s "EngineBenchmarkTest:*" "BubbleDetectionBenchmarkTest:*" "LlamaBridge:*" "LlamaTranslationBridge:*" "LlamaJNI:*" "OpusMtTranslator:*" "OpusMtTranslationBridge:*" > "$LOGCAT_FILE" 2>/dev/null &
@@ -322,7 +386,9 @@ TAIL_PID=$!
 # PIPESTATUS[0] is gradle's own status, so a grep that matches nothing cannot be mistaken for a
 # test failure, and pipefail cannot mask one.
 set +e
-./gradlew :app:connectedAndroidTest ${GRADLE_EXTRA_ARGS[@]+"${GRADLE_EXTRA_ARGS[@]}"} 2>&1 | grep -E "Starting|completed\.|BUILD"
+./gradlew :app:connectedAndroidTest \
+  "-Pandroid.testInstrumentationRunnerArguments.runId=$RUN_ID" \
+  ${GRADLE_EXTRA_ARGS[@]+"${GRADLE_EXTRA_ARGS[@]}"} 2>&1 | grep -E "Starting|completed\.|BUILD"
 TEST_STATUS=${PIPESTATUS[0]}
 set -e
 
@@ -330,150 +396,75 @@ sleep 3
 kill $LOGCAT_PID 2>/dev/null || true
 kill $TAIL_PID 2>/dev/null || true
 wait $LOGCAT_PID 2>/dev/null || true
-step_done 4 'device test' "$STEP_TS"
+step_done 5 'device test' "$STEP_TS"
 
-step_start 5 'extract artifacts'
-parse_logcat_results() {
-  local logcat="$1"
-  local out_dir="$2"
+step_start 6 'extract run records'
+# The device wrote records under its own files dir, which is not world-readable; run-as is the only
+# way in without root. Nothing is scraped from logcat any more (#142) -- its chatty filter silently
+# dropped 12 of 22 probe bubbles the one time this run relied on it (#152).
+if ! adb exec-out "run-as $APP_ID tar c -C files yomu-benchmark/$RUN_ID" \
+     | tar x -C "$RUN_DIR" --strip-components=2; then
+  printf 'Could not extract files/yomu-benchmark/%s from the device.\n' "$RUN_ID" >&2
+fi
+# COMPLETE pins the record count and the records SHA-256, so a truncated extraction or a file
+# appended to afterwards is rejected rather than scored.
+python3 "$SCRIPT_DIR/run_records.py" complete --run-dir "$RUN_DIR"
+printf 'Run records: %s\n' "$RUN_DIR/records.jsonl"
+printf 'Logcat (diagnostic only): %s\n' "$LOGCAT_FILE"
+step_done 6 'extract run records' "$STEP_TS"
 
-  while IFS= read -r line; do
-    case "$line" in
-      *"RESULT_JSON case="*)
-        local case_id engine json_str
-        case_id="$(printf '%s' "$line" | sed -n 's/.*case=\([^ ]*\).*/\1/p')"
-        engine="$(printf '%s' "$line" | sed -n 's/.*engine=\([^ ]*\).*/\1/p')"
-        json_str="$(printf '%s' "$line" | sed 's/.*json=//')"
-        if [ -n "$case_id" ] && [ -n "$engine" ] && [ -n "$json_str" ]; then
-          local case_dir="$out_dir/$case_id"
-          mkdir -p "$case_dir"
-          printf '%s' "$json_str" > "$case_dir/$engine.json"
-        fi
-        ;;
-    esac
-  done < "$logcat"
-}
-
-parse_logcat_results "$LOGCAT_FILE" "$RAW_ARTIFACTS_DIR/yomu-benchmark"
-
-for case_dir in "$RAW_ARTIFACTS_DIR"/yomu-benchmark/*/; do
-  [ -d "$case_dir" ] || continue
-  case_id="$(basename "$case_dir")"
-
-  bubble_json="$case_dir/bubble.json"
-  if [ -f "$bubble_json" ]; then
-    cp "$bubble_json" "$SCRIPT_DIR/bubble-detection/cases/$case_id/actual.json"
-  fi
-  # #57: yolo26s candidate detections land alongside the incumbent's actual.json.
-  bubble_s_json="$case_dir/bubble_s.json"
-  if [ -f "$bubble_s_json" ]; then
-    cp "$bubble_s_json" "$SCRIPT_DIR/bubble-detection/cases/$case_id/actual_s.json"
-  fi
-
-  # Clear the case's actual/ before copying this run's engines. Without this, an engine that was
-  # skipped this run (not ready — ML Kit's model not downloaded, OPUS-MT's #14 tokenizer defect)
-  # keeps its stale JSON from a prior run and is scored as if fresh — the "green harness measuring
-  # nothing" failure this eval has hit repeatedly (#36, #41).
-  target_dir="$SCRIPT_DIR/translation-quality/cases/$case_id/actual"
-  rm -rf "$target_dir"
-  mkdir -p "$target_dir"
-  for engine_json in "$case_dir"/*.json; do
-    [ -f "$engine_json" ] || continue
-    case "$(basename "$engine_json")" in
-      bubble.json|bubble_s.json) continue ;;
-    esac
-    cp "$engine_json" "$target_dir/$(basename "$engine_json")"
-  done
-done
-
-local_timing_csv="$RAW_ARTIFACTS_DIR/yomu-benchmark/benchmark_timing.csv"
-printf 'case_id,engine,line_index,duration_ms,success\n' > "$local_timing_csv"
-grep 'TIMING ' "$LOGCAT_FILE" | while IFS= read -r line; do
-  case_id="$(printf '%s' "$line" | sed -n 's/.*case=\([^ ]*\).*/\1/p')"
-  engine="$(printf '%s' "$line" | sed -n 's/.*engine=\([^ ]*\).*/\1/p')"
-  line_idx="$(printf '%s' "$line" | sed -n 's/.*line=\([^ ]*\).*/\1/p')"
-  duration="$(printf '%s' "$line" | sed -n 's/.*durationMs=\([^ ]*\).*/\1/p')"
-  success="$(printf '%s' "$line" | sed -n 's/.*success=\([^ ]*\).*/\1/p')"
-  printf '%s,%s,%s,%s,%s\n' "$case_id" "$engine" "$line_idx" "$duration" "$success" >> "$local_timing_csv"
-done
-
-printf 'Artifacts extracted from logcat to %s\n' "$RAW_ARTIFACTS_DIR"
-printf 'Logcat log: %s\n' "$LOGCAT_FILE"
-
-print_stats_table() {
-  printf '\n========== Benchmark Results ==========\n'
-  printf '%-10s %8s %10s %10s %10s\n' "Engine" "Lines" "Avg" "Min" "Max"
-  printf '%-10s %8s %10s %10s %10s\n' "------" "------" "-------" "-------" "-------"
-  for engine in mlkit opusmt llm; do
-    # An engine with no results is the normal case for one that was skipped, and grep exiting 1
-    # must not abort the run: this table is cosmetic, the artifacts are already extracted.
-    grep "Result engine=$engine " "$LOGCAT_FILE" 2>/dev/null | sed -n 's/.*durationMs=\([0-9]*\).*/\1/p' > "/tmp/yomu-stats-$engine.$$" || true
-    local line_count=0 sum=0 min=99999999 max=0
-    while IFS= read -r d; do
-      [ -z "$d" ] && continue
-      line_count=$((line_count + 1))
-      sum=$((sum + d))
-      [ "$d" -lt "$min" ] && min=$d
-      [ "$d" -gt "$max" ] && max=$d
-    done < "/tmp/yomu-stats-$engine.$$"
-    rm -f "/tmp/yomu-stats-$engine.$$"
-    if [ "$line_count" -gt 0 ]; then
-      printf '%-10s %8d %5dms %5dms %5dms\n' "$engine" "$line_count" "$((sum / line_count))" "$min" "$max"
-    else
-      grep "Engine $engine not ready" "$LOGCAT_FILE" >/dev/null 2>&1 && \
-        printf '%-10s %8s %10s %10s %10s\n' "$engine" "--" "skipped" "--" "--" || \
-        printf '%-10s %8s %10s %10s %10s\n' "$engine" "--" "no data" "--" "--"
-    fi
-  done
-}
-
-print_stats_table
-printf '\n'
-step_done 5 'extract artifacts' "$STEP_TS"
-
-EVAL_RESULT_PATH=''
+EVAL_STATUS=0
 if [ "$SKIP_EVAL" -eq 0 ]; then
-  step_start 6 'score results'
+  step_start 7 'score results'
   eval_stdout_file="$RUN_DIR/run-eval-output.log"
-  python3 "$SCRIPT_DIR/run-eval.py" | tee "$eval_stdout_file"
+  # Scores the run directory in place. No outputs are copied into eval/**/actual* -- that sharing is
+  # what let a skipped engine be scored against a prior run (#58).
+  set +e
+  python3 "$SCRIPT_DIR/run-eval.py" --run-dir "$RUN_DIR" | tee "$eval_stdout_file"
+  EVAL_STATUS=${PIPESTATUS[0]}
+  set -e
+  EVAL_RESULT_PATH=''
   while IFS= read -r line; do
     case "$line" in
-      "Results written to "*)
-        EVAL_RESULT_PATH="${line#Results written to }"
-        ;;
+      "Results written to "*) EVAL_RESULT_PATH="${line#Results written to }" ;;
     esac
   done < "$eval_stdout_file"
   if [ -n "$EVAL_RESULT_PATH" ] && [ -f "$EVAL_RESULT_PATH" ]; then
     cp "$EVAL_RESULT_PATH" "$RUN_DIR/scored-results.json"
-  else
-    printf 'Could not determine scored results path from eval output.\n' >&2
-    exit 1
   fi
 
   # #57: if the yolo26s candidate ran, print the paired detector comparison and the pre-registered
   # verdict that feeds #33. No-op when only the incumbent was scored.
-  if ls "$SCRIPT_DIR"/bubble-detection/cases/*/actual_s.json >/dev/null 2>&1; then
+  if grep -q '"arm_id": "bubble_s"' "$RUN_DIR/manifest.json" 2>/dev/null; then
     detector_cmp_file="$RUN_DIR/detector-comparison.txt"
-    python3 "$SCRIPT_DIR/score-detector-comparison.py" | tee "$detector_cmp_file"
+    python3 "$SCRIPT_DIR/score-detector-comparison.py" --run-dir "$RUN_DIR" | tee "$detector_cmp_file" || true
   fi
-  step_done 6 'score results' "$STEP_TS"
+  step_done 7 'score results' "$STEP_TS"
 else
-  printf '\n[%s] Step 6 skipped: score results (--skip-eval)\n' "$(date '+%Y-%m-%d %H:%M:%S')"
+  printf '\n[%s] Step 7 skipped: score results (--skip-eval)\n' "$(date '+%Y-%m-%d %H:%M:%S')"
 fi
 
-step_start 7 'summary'
+step_start 8 'summary'
+printf 'Run id: %s\n' "$RUN_ID"
 printf 'Run directory: %s\n' "$RUN_DIR"
 printf 'Benchmark log: %s\n' "$LOG_FILE"
-printf 'Logcat log: %s\n' "$LOGCAT_FILE"
-printf 'Raw artifacts: %s\n' "$RAW_ARTIFACTS_DIR"
+printf 'Logcat log (diagnostic only): %s\n' "$LOGCAT_FILE"
+printf 'Manifest: %s\n' "$RUN_DIR/manifest.json"
+printf 'Records: %s\n' "$RUN_DIR/records.jsonl"
 if [ "$SKIP_EVAL" -eq 0 ]; then
   printf 'Scored results: %s\n' "$RUN_DIR/scored-results.json"
 fi
 printf 'Total elapsed: %s\n' "$(elapsed_since "$START_TS")"
-step_done 7 'summary' "$STEP_TS"
+step_done 8 'summary' "$STEP_TS"
 
 if [ "$TEST_STATUS" -ne 0 ]; then
-  printf '\nThe device test reported failures; artifacts above were still extracted.\n' >&2
+  printf '\nThe device test reported failures; records above were still extracted.\n' >&2
   printf 'Per-test detail: app/build/reports/androidTests/connected/\n' >&2
   exit "$TEST_STATUS"
+fi
+
+# A requested arm the scorer rejected must not exit green, even when every other arm scored (#142).
+if [ "$EVAL_STATUS" -ne 0 ]; then
+  printf '\nScoring reported invalid arms; see the summary above.\n' >&2
+  exit "$EVAL_STATUS"
 fi
