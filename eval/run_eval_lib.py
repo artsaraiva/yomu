@@ -4,7 +4,7 @@ import itertools
 import json
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 try:
     from sacrebleu.metrics import CHRF
@@ -211,6 +211,20 @@ def is_non_translation(text: str) -> bool:
     return bool(introduction or clarification or explanation) or any(marker in lowered for marker in NON_TRANSLATION_MARKERS)
 
 
+class Entry(NamedTuple):
+    """One scored bubble id.
+
+    The source is carried, not just the reference and output, because coverage cannot fail on this
+    path: TranslationEngine substitutes bubble.sourceText when the slot returns nothing, so a page
+    the model never answered still reports 100% covered (#137). An id whose output is its own source
+    is that substitution, counted separately as a source echo.
+    """
+
+    source: str
+    reference: str
+    output: str
+
+
 def score_translation(source: list[str], reference: list[str], output: list[str]) -> dict:
     """Score one page-level call, matched to the reference by bubble id (ADR-0004).
 
@@ -220,32 +234,30 @@ def score_translation(source: list[str], reference: list[str], output: list[str]
     source lines carry no text and leave every denominator.
     """
     n = len(source)
-    # (source, reference, output) for ids that carry source text. The source is kept because
-    # coverage cannot fail on this path — TranslationEngine substitutes bubble.sourceText when the
-    # slot returns nothing, so a page the model never answered still reports 100% covered (#137).
-    # An id whose output is its own source is that substitution, and it is counted separately.
-    entries: list[tuple[str, str, str]] = []
+    entries: list[Entry] = []
     for i in range(n):
         if not source[i].strip():
             continue
         ref = reference[i] if i < len(reference) else ""
         out = output[i] if i < len(output) else ""
-        entries.append((source[i], ref, out))
+        entries.append(Entry(source[i], ref, out))
 
     total = len(entries)
-    covered = sum(1 for _, _, o in entries if o.strip())
+    covered = sum(1 for e in entries if e.output.strip())
     # Only a source line carrying Japanese counts: the corpus has punctuation-only bubbles ("...",
     # "?") whose correct output is the same string, and charging those would put a permanent floor
     # under a cross-check whose whole job is to read 0 when nothing was substituted.
-    source_echo = sum(1 for s, _, o in entries if has_cjk(s) and o.strip() == s.strip())
-    non_translation = sum(1 for _, _, o in entries if is_non_translation(o))
+    source_echo = sum(1 for e in entries if has_cjk(e.source) and e.output.strip() == e.source.strip())
+    non_translation = sum(1 for e in entries if is_non_translation(e.output))
     # Reference-adjudicated: CJK in the output is residue only where the reference has none, so a
     # legitimately-kept onomatopoeia is not charged against the engine.
-    residue = sum(1 for _, r, o in entries if has_cjk(o) and not has_cjk(r))
+    residue = sum(1 for e in entries if has_cjk(e.output) and not has_cjk(e.reference))
 
-    chrf_sum = sum(CHRF().sentence_score(o, [r]).score for _, r, o in entries) if CHRF else None
-    ref_words = sum(len(words(r)) for _, r, _ in entries)
-    out_words = sum(len(words(o)) for _, _, o in entries)
+    chrf_sum = (
+        sum(CHRF().sentence_score(e.output, [e.reference]).score for e in entries) if CHRF else None
+    )
+    ref_words = sum(len(words(e.reference)) for e in entries)
+    out_words = sum(len(words(e.output)) for e in entries)
 
     return {
         "entries": total,

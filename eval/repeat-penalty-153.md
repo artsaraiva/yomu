@@ -21,12 +21,32 @@ shipped per-line `TRANSLATION_ONLY` path, seed pinned to 0 so the arms differ by
 - **Probe (#152):** 22 bubbles, arms 1.0 / 1.1 / 1.2.
 - **Gate corpus:** the 17 ADR-0004 pages, arms 1.0 and 1.1.
 
-**Device: an arm64 emulator (`sdk_gphone16k_arm64`), not the reference phone.** The 1.0 arm was run
-rather than differenced against #137's published `qwen_perline` row for exactly that reason — a
-delta taken against another device's numbers measures the device. It landed close enough to make
-the point moot: 3360 ms/page median against the phone's 3228, peak PSS 2073 MiB against 2074.
+Per-page and per-bubble timings for every arm are in `repeat-penalty-153-timing.csv`, so the
+latency claims below are checkable without a re-run.
+
+## Deviations from the pre-registered protocol
+
+Three, all forced by the device, all recorded here rather than folded into the design:
+
+1. **#153 says "reference phone". This ran on an arm64 emulator (`sdk_gphone16k_arm64`).** No phone
+   was available. Everything that depends on the hardware — median ms/page, peak PSS — is this
+   emulator's, and nothing here should be read as a phone measurement.
+2. **#139 names #137's published `qwen_perline` row as the control; this run uses its own 1.0 arm
+   instead.** That row was measured on the phone, and differencing 1.1-on-emulator against
+   1.0-on-phone would put the device inside the delta. The paired comparison the gate asks for is
+   preserved; the thing it is paired against changed. The phone row stays in the table beside it as
+   a reference point, and the two are never subtracted.
+3. **#153 asks for one gate arm at 1.1; two were run.** That is the direct cost of deviation 2 —
+   the control had to be measured, not cited. It doubled the expensive run.
+
+The emulator's absolute numbers happen to land beside the phone's — 3360 ms/page median against
+3228, peak PSS 2073 MiB against 2074. That is worth knowing and is not load-bearing: no conclusion
+below rests on it, and deviation 2 stands regardless of how close the two devices turned out to be.
 
 ## Gate corpus — paired delta, 1.1 against 1.0 on the same device
+
+The Δ column is 1.1 − 1.0, both measured here. The last column is #137's phone row, printed for
+reference and never subtracted from the others (deviation 2).
 
 | | 1.0 (control) | 1.1 (candidate) | Δ | #137 `qwen_perline` (phone) |
 | --- | --- | --- | --- | --- |
@@ -36,8 +56,8 @@ the point moot: 3360 ms/page median against the phone's 3228, peak PSS 2073 MiB 
 | Source echoes | 0 | 0 | 0 | — |
 | Readability ratio | 1.034 | 1.027 | −0.007 | 1.016 |
 | Mean bubble chrF2 | 27.89 | 28.15 | +0.26 | 27.40 |
-| Median ms/page | 3360 | 3406 | +46 | 3228 |
-| Peak PSS | 2073 MiB | 2075 MiB | +2 | 2074 MiB |
+| Median ms/page | 3360 | 3406 | +46 | 3228 (phone) |
+| Peak PSS | 2073 MiB | 2075 MiB | +2 | 2074 MiB (phone) |
 
 **Benefit clause: not met.** Neither gated failure rate moves at all. The single residue hit is the
 same bubble in both arms — `烏丸葬儀社社長 烏丸枢（からすまくるる）　２５歳` on `bourei-p04`, where the
@@ -73,15 +93,23 @@ Four bubbles flip from clean to harmed between 1.0 and 1.1, and two more between
 
 This is the harm #139 built the probe to catch, and it is present at the candidate value.
 
-**The pre-registered "zero harm hits" bar is not reachable, even at 1.0.** The control arm — no
-penalty at all — already scores 8 hits. Those are not penalty damage: they are the model declining
-to reproduce a long scream at all (`あああああ` → one `a`), which is a translation-quality fact about
-Qwen2.5-1.5B, not a sampler fact. So the absolute bar, written before any number existed, measures
-the model rather than the parameter. **The paired delta is the usable form of clause 2**, and it
-points the wrong way at both candidate values. The conclusion is unchanged either way: 1.1 fails an
-absolute bar of zero and fails a paired bar of "no worse than the control".
+**1.1 fails clause 2 as written: 12 hits against a pre-registered bar of zero.** That is the
+verdict, and nothing below softens it.
 
-**Two probe rows at 1.0 are runaway loops, not preserved repetition.** ids 14 and 15 score runs of
+**Separately — and this is a defect in the criterion, not a reading of the result — the bar of zero
+was never reachable.** The control arm, no penalty at all, already scores 8 hits. Those are not
+penalty damage: they are the model declining to reproduce a long scream at all (`あああああ` → one
+`a`), which is a fact about Qwen2.5-1.5B rather than about the sampler. An absolute bar written
+before any number existed turns out to measure the model. The right repair is a **paired** clause 2
+— "no more harm hits than the control" — but that repair is proposed here, not applied: rewriting a
+pre-registered bar after seeing the measurement is exactly what pre-registration exists to prevent,
+and it would be worth nothing on a run that could be argued to have benefited from it. It happens to
+change no outcome here (8 → 12 fails a paired bar too), which is the only reason it is safe to state
+at all. Logged against #152's criterion for the next measurement that uses it, alongside the loop
+asymmetry below.
+
+**Two probe rows at 1.0 are runaway loops, not preserved repetition** — the probe's second criterion
+defect. ids 14 and 15 score runs of
 504 and 255 against references of 3 and 20 — the model looped to the token cap (`Oh no no no no…`).
 The harm scorer only asks whether the output run is *shorter* than the reference's, so a loop reads
 as "ok" and the penalty that kills the loop reads as harm on the same bubble. That is a real limit
