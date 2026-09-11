@@ -114,6 +114,14 @@ if ! command -v python3 >/dev/null 2>&1; then
   printf 'python3 is not available in PATH. Install Python 3 and retry.\n' >&2
   exit 1
 fi
+# Prefer the eval virtualenv. It is where sacrebleu lives, and a bare python3 silently reports
+# mean_chrf as null -- a registered contract metric quietly reading nothing.
+PYTHON="python3"
+if [ -x "$SCRIPT_DIR/.venv/bin/python" ]; then
+  PYTHON="$SCRIPT_DIR/.venv/bin/python"
+else
+  printf 'No eval/.venv; chrF will be null. See eval/README.md to create it.\n' >&2
+fi
 device_state="$(adb get-state 2>/dev/null || true)"
 if [ "$device_state" != "device" ]; then
   printf 'No ready Android device detected by adb. Connect/unlock a device or start an emulator, then retry.\n' >&2
@@ -356,7 +364,7 @@ APK_ARGS=()
 [ -f "$APP_APK" ] && APK_ARGS+=(--app-apk "$APP_APK")
 [ -f "$TEST_APK" ] && APK_ARGS+=(--test-apk "$TEST_APK")
 
-python3 "$SCRIPT_DIR/run_records.py" manifest \
+"$PYTHON" "$SCRIPT_DIR/run_records.py" manifest \
   --run-id "$RUN_ID" \
   --started-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
   --out "$RUN_DIR/manifest.json" \
@@ -419,7 +427,7 @@ if ! adb exec-out "run-as $APP_ID tar c -C files yomu-benchmark/$RUN_ID" \
 fi
 # COMPLETE pins the record count and the records SHA-256, so a truncated extraction or a file
 # appended to afterwards is rejected rather than scored.
-python3 "$SCRIPT_DIR/run_records.py" complete --run-dir "$RUN_DIR"
+"$PYTHON" "$SCRIPT_DIR/run_records.py" complete --run-dir "$RUN_DIR"
 printf 'Run records: %s\n' "$RUN_DIR/records.jsonl"
 printf 'Logcat (diagnostic only): %s\n' "$LOGCAT_FILE"
 step_done 6 'extract run records' "$STEP_TS"
@@ -431,7 +439,7 @@ if [ "$SKIP_EVAL" -eq 0 ]; then
   # Scores the run directory in place. No outputs are copied into eval/**/actual* -- that sharing is
   # what let a skipped engine be scored against a prior run (#58).
   set +e
-  python3 "$SCRIPT_DIR/run-eval.py" --run-dir "$RUN_DIR" | tee "$eval_stdout_file"
+  "$PYTHON" "$SCRIPT_DIR/run-eval.py" --run-dir "$RUN_DIR" | tee "$eval_stdout_file"
   EVAL_STATUS=${PIPESTATUS[0]}
   set -e
   EVAL_RESULT_PATH=''
@@ -448,7 +456,7 @@ if [ "$SKIP_EVAL" -eq 0 ]; then
   # verdict that feeds #33. No-op when only the incumbent was scored.
   if grep -q '"arm_id": "bubble_s"' "$RUN_DIR/manifest.json" 2>/dev/null; then
     detector_cmp_file="$RUN_DIR/detector-comparison.txt"
-    python3 "$SCRIPT_DIR/score-detector-comparison.py" --run-dir "$RUN_DIR" | tee "$detector_cmp_file" || true
+    "$PYTHON" "$SCRIPT_DIR/score-detector-comparison.py" --run-dir "$RUN_DIR" | tee "$detector_cmp_file" || true
   fi
   step_done 7 'score results' "$STEP_TS"
 else
