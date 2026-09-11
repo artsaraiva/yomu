@@ -14,6 +14,14 @@ _Avoid_: bundled model, official model, default model
 A GGUF the user supplies from their own storage for the translation slot, alongside its curated default. Permitted but explicitly unsupported, and labelled as such wherever its output appears.
 _Avoid_: sideloaded model, user model, BYO model, third-party model
 
+**Deliverable**:
+One model at one quantization — the unit the curated catalog lists, gates on device fit, and downloads. Two quantizations of the same model are two deliverables, each with its own size, checksum and licence.
+_Avoid_: model variant, build, quant entry, artefact
+
+**Fit budget**:
+The RAM a deliverable must fit inside to be offered on a given device — its file size plus a fixed resident-overhead estimate, against a fraction of the device's total memory. Estimated from measurement, never from parsing a file Yomu has not downloaded.
+_Avoid_: RAM gate, memory limit, device tier
+
 **Floor engine**:
 A translation engine that can only be asked one bubble at a time and so cannot run the page-level context architecture — OPUS-MT and ML Kit. This is a prompt-shape floor, unrelated to the low-storage model option or a device's hardware floor.
 _Avoid_: fallback engine, legacy engine, secondary model
@@ -21,6 +29,10 @@ _Avoid_: fallback engine, legacy engine, secondary model
 **Gate engine**:
 A translation engine that takes the page-level call and so runs the page-level context architecture — the LLM. The counterpart of a floor engine; the eval scores it against the gate and reports the floors separately (ADR-0004).
 _Avoid_: primary engine, main model, context engine
+
+**Model family**:
+The set of deliverables that are the same model at different quantizations. Grouped only so device fit can offer the largest one that fits; a family is never itself selectable.
+_Avoid_: quant matrix, model group, variant set
 
 **Translation slot**:
 The selected component that accepts one geometry-free page and owns every model-specific translation decision. Exactly one floor engine or LLM adapter fills it at a time.
