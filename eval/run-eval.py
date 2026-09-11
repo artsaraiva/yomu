@@ -116,7 +116,7 @@ def print_summary(bubble: dict, translation: dict, probe: dict) -> None:
     for engine, s in sorted(probe.get("engines", {}).items()):
         print(f"  Engine: {engine}")
         print(f"    Harm (output run shorter than a reference run of >= {PROBE_MIN_RUN}): "
-              f"{s['harm']}/{s['scored']} scored bubbles")
+              f"{s['harm']}/{s['scored_bubbles']} scored bubbles")
         for b in s["bubbles"]:
             if not b["scored"]:
                 continue

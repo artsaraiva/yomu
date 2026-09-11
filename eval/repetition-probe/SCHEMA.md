@@ -22,19 +22,25 @@ repo root.
 { "bubbles": [ { "book_title": …, "page_index": …, "bubble_index": …, "source": …, "reference": … } ] }
 ```
 
-Bubble id `n` is index `n` in the array. Selection rule, from the script: a bubble carrying a run of
-3 or more of the same unit — the same character (`あああ`), the same substring
-(`もったいないもったいないもったいない`), or the same word in the English reference (`ha ha ha`) —
-where that run spans more than 40% of the bubble's non-punctuation characters. The dominance clause
-separates a bubble whose content *is* the repetition from a sentence that merely contains `あああっ`
-before real dialogue; only the former is evidence about a repetition penalty. Over the 214 vendored
-pages this selects **18 bubbles across 15 pages**, none of them among the 17 gate pages.
+Bubble id `n` is index `n` in the array. Selection rule, from the script: a bubble whose longest
+repeated-unit run is 3 or more — in the Japanese source or in the English reference — where that run
+spans more than 40% of the bubble's non-punctuation characters. The dominance clause separates a
+bubble whose content *is* the repetition from a sentence that merely contains `あああっ` before real
+dialogue; only the former is evidence about a repetition penalty. It is this project's addition, not
+the issue's.
+
+The selector calls the scorer's own `longest_repeat_run`, so a bubble can never be selected on a run
+the harm scorer cannot see. Over the 214 vendored pages the rule selects **22 bubbles across 17
+pages**, none among the 17 gate pages; **17** carry a reference run the scorer can score. #152's
+hand scan counted 18 bubbles across 16 pages, 11 of them keeping the repetition in the reference —
+this rule is the broader of the two, and since the probe is never gated a wider set costs run time
+and nothing else.
 
 ## Bubble granularity, not pages
 
 The shipped path is per-line — one call per bubble with the KV cache cleared between — so page
-context is a variable only on the batch path, which is not shipped. 18 calls at ~385 ms/bubble is a
-~7 second run, against ~51 seconds for the same 16 pages. Full pages join if the architecture ticket
+context is a variable only on the batch path, which is not shipped. 22 calls at ~385 ms/bubble is a
+~8 second run, against ~54 seconds for the same 17 pages. Full pages join if the architecture ticket
 picks batch.
 
 ## `actual/<engine>.json`
@@ -48,8 +54,10 @@ dense array indexed by bubble id — same shape as `translation-quality`'s.
 | --- | --- |
 | Harm — output's longest repeated-unit run is shorter than the reference's, on a bubble whose reference run is 3 or more | **reported, never gated** |
 
-A run is the longest immediately-repeated unit, counted over words where the text has them
-(`ha ha ha` = 3) and characters otherwise (`aaaaaa` = 6, `ははは` = 3); repeated punctuation does
-not count. Bubbles whose reference run is below 3 are not scored — there is nothing for a penalty to
+A run is the longest immediately-repeated unit, counted over both the bubble's words
+(`ha ha ha` = 3) and its characters (`aaaaaa` = 6, `ははは` = 3), taking whichever is longer. A unit
+can be a phrase, so `what a waste, what a waste, what a waste` = 3 and `hehehe` = 3. Punctuation
+splits a run rather than being deleted from it: `え、ええと` is 2, not the 3 that removing the comma
+would splice together. Bubbles whose reference run is below 3 are not scored — there is nothing for a penalty to
 eat, so a short output run there is not evidence. `run-eval.py` prints the harm count and the
 per-bubble runs, so a hit is inspectable rather than just a number.

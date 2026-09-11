@@ -18,7 +18,6 @@ PROBE_BUBBLES = ROOT / "repetition-probe" / "bubbles.json"
 
 BUBBLE_ACTUAL = "actual.json"
 TRANS_ACTUAL_DIR = "actual"
-PROBE_ACTUAL_DIR = "actual"
 
 
 # ADR-0003: detections are padded before scoring, mirroring the crop the pipeline hands OCR.
@@ -264,18 +263,61 @@ def score_translation(source: list[str], reference: list[str], output: list[str]
 # attached. The probe reports harm; it never carries a pass bar of its own.
 PROBE_MIN_RUN = 3
 
-# Same rationale as generate-repetition-probe.py's SKIP: repeated punctuation is not repetition.
-REPEAT_SKIP = "…。、.,!?！？ー－〜～・_-*'\"ｰっッ \u3000\n\r"
+# Repeated punctuation is not repetition: a run of "." is an ellipsis, not a verbal tic. Kana stay
+# in, the sokuon っ included — it trails はははっ without breaking the run, and skipping it would
+# split もったいない mid-word. generate-repetition-probe.py selects on the same primitives it imports
+# from here, so a bubble can never be selected on a run the scorer cannot see.
+REPEAT_SKIP = "…。、.,!?！？ー－〜～・_-*'\"ｰ \u3000\n\r"
+
+
+def longest_unit_run(units: list[str]) -> tuple[int, int]:
+    """Longest run of one immediately-repeated unit in `units`: (repeat count, unit length).
+
+    A unit is any contiguous slice, so this counts a repeated single element (ああ, ha ha) and a
+    repeated phrase (もったいない×3, "what a waste"×3) with one pass.
+    """
+    # ponytail: O(n^3) over a bubble's worth of text (tens of units). Index the slices if this ever
+    # runs over anything longer than a speech bubble.
+    best, best_length = (1, 1) if units else (0, 0)
+    for length in range(1, len(units) // 2 + 1):
+        for start in range(len(units) - 2 * length + 1):
+            unit = units[start : start + length]
+            count = 1
+            while units[start + count * length : start + (count + 1) * length] == unit:
+                count += 1
+            if count > best:
+                best, best_length = count, length
+    return best, best_length
+
+
+def char_segments(text: str) -> list[list[str]]:
+    """A bubble's characters, split at punctuation rather than with it removed.
+
+    Splitting matters: deleting the comma from え、ええと would splice えええ into a run of three
+    that the bubble does not contain.
+    """
+    return [list(segment) for segment in re.split(f"[{re.escape(REPEAT_SKIP)}]+", text or "") if segment]
 
 
 def longest_repeat_run(text: str) -> int:
-    """Longest run of one immediately-repeated unit: character (aaaa, ああ) or word (ha ha ha)."""
-    chars = max(
-        (len(list(g)) for c, g in itertools.groupby(text or "") if c not in REPEAT_SKIP),
-        default=0,
-    )
-    tokens = max((len(list(g)) for _, g in itertools.groupby(words((text or "").lower()))), default=0)
-    return max(chars, tokens)
+    """Longest repeated-unit run over either sequence: `ha ha ha` = 3, `aaaaaa` = 6, `ははは` = 3."""
+    runs = [longest_unit_run(segment)[0] for segment in char_segments(text)]
+    runs.append(longest_unit_run(words((text or "").lower()))[0])
+    return max(runs, default=0)
+
+
+def repeat_dominance(text: str) -> float:
+    """Fraction of a bubble's non-punctuation characters spanned by its longest repeated run.
+
+    This is what separates a bubble whose content *is* the repetition from a sentence that happens
+    to contain あああっ before real dialogue; only the former is evidence about a penalty.
+    """
+    segments = char_segments(text)
+    length = sum(len(segment) for segment in segments)
+    if not length:
+        return 0.0
+    spans = (count * unit for count, unit in (longest_unit_run(s) for s in segments))
+    return max(spans, default=0) / length
 
 
 def score_repetition_probe(reference: list[str], output: list[str]) -> dict:
@@ -301,7 +343,7 @@ def score_repetition_probe(reference: list[str], output: list[str]) -> dict:
     return {
         "bubbles": bubbles,
         "entries": len(bubbles),
-        "scored": sum(1 for b in bubbles if b["scored"]),
+        "scored_bubbles": sum(1 for b in bubbles if b["scored"]),
         "harm": sum(1 for b in bubbles if b["harm"]),
     }
 
@@ -462,13 +504,12 @@ def run_repetition_probe(stub: bool) -> dict[str, Any]:
     reference = [b["reference"] for b in bubbles]
 
     engines: dict[str, Any] = {}
-    actual_dir = PROBE_BUBBLES.parent / PROBE_ACTUAL_DIR
+    actual_dir = PROBE_BUBBLES.parent / TRANS_ACTUAL_DIR
     outputs = sorted(actual_dir.glob("*.json")) if actual_dir.exists() else []
     if outputs:
         for out_path in outputs:
-            score = score_repetition_probe(reference, load_json(out_path).get("translations", []))
-            score["translations"] = load_json(out_path).get("translations", [])
-            engines[out_path.stem] = score
+            translations = load_json(out_path).get("translations", [])
+            engines[out_path.stem] = score_repetition_probe(reference, translations)
     elif stub:
         engines["stub"] = score_repetition_probe(reference, translation_stub(reference))
 
