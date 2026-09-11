@@ -43,14 +43,6 @@ import java.io.File
 import javax.inject.Inject
 import kotlin.coroutines.resume
 
-// Carried context lives for one session only: a changed session id (idle rollover, or a future
-// manga switch once sourceApp stops being hardcoded) drops it so one story never bleeds into the next.
-internal fun carryOverContext(
-    context: List<Pair<String, String>>,
-    contextSessionId: Long,
-    sessionId: Long
-): List<Pair<String, String>> = if (sessionId == contextSessionId) context else emptyList()
-
 @AndroidEntryPoint
 class OverlayService : Service() {
 
@@ -76,15 +68,6 @@ class OverlayService : Service() {
 
     @Volatile
     private var isTranslating = false
-
-    // Previous page's source/translation pairs (~one page, 6-12), carried into the next page's
-    // call as session context so names/pronouns/register stay consistent across a reading session
-    // (ADR-0002). Cleared on session teardown; the LLM keeps its own memory alive across pages
-    // because release() no longer runs per page.
-    @Volatile
-    private var sessionContext: List<Pair<String, String>> = emptyList()
-
-    private var contextSessionId: Long = -1L
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mainScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -201,8 +184,6 @@ class OverlayService : Service() {
         translationRenderOverlay.remove()
         statusOverlay.remove()
         screenCaptureManager.stopProjection()
-        // Session teardown: drop model-side memory and carried context once, not once per page.
-        sessionContext = emptyList()
         translationPipeline.release()
         translationPipeline.close()
         scope.cancel()
@@ -355,20 +336,14 @@ class OverlayService : Service() {
                 }
             }
 
-            // A rollover (idle timeout / manga switch) starts this page fresh instead of
-            // inheriting another story's context.
             val session = sessionManager.getOrCreateSession("manual")
-            sessionContext = carryOverContext(sessionContext, contextSessionId, session.id)
-            contextSessionId = session.id
 
             val result = translationPipeline.processPage(
                 bitmap,
-                sessionContext = sessionContext,
                 callback = callback,
                 onOcrComplete = onOcrComplete
             )
             if (result != null && result.typesetBubbles.isNotEmpty()) {
-                sessionContext = result.translationResult.translations.map { it.originalText to it.translatedText }
                 saveSessionResult(session, result)
             }
             mainScope.launch {

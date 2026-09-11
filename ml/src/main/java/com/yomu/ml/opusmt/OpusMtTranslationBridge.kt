@@ -45,10 +45,7 @@ class OpusMtTranslationBridge(
         ready
     }
 
-    override suspend fun translatePage(
-        page: TranslatablePage,
-        sessionContext: List<Pair<String, String>>
-    ): PageTranslation {
+    override suspend fun translatePage(page: TranslatablePage): PageTranslation {
         if (status !is TranslationStatus.Ready && !ensureReady()) {
             return PageTranslation.notLoaded(status)
         }

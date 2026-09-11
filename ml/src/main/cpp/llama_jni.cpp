@@ -1,3 +1,4 @@
+#include "grammar_sampler.h"
 #include "prompt_budget.h"
 #include <jni.h>
 #include <string>
@@ -19,7 +20,18 @@ static llama_model *g_model = nullptr;
 static llama_context *g_ctx = nullptr;
 static const llama_vocab *g_vocab = nullptr;
 static llama_sampler *g_sampler = nullptr;
+static GrammarSampler g_grammar;
 static std::atomic<int64_t> g_abort_deadline_ms{0};
+
+// Why an empty reply was empty, read back by nativeLastStatus. The JNI used to collapse a refused
+// prompt, an aborted decode and a genuinely empty completion into "", which the batch path cannot
+// tell apart: it must fall back to per-line on an overflow and only on an overflow (#149).
+enum GenerationStatus {
+    GENERATION_OK = 0,
+    GENERATION_OVERFLOW = 1,
+    GENERATION_TIMEOUT = 2
+};
+static std::atomic<int> g_last_status{GENERATION_OK};
 
 static const int64_t DEFAULT_TIMEOUT_MS = 1000;
 
@@ -153,7 +165,11 @@ Java_com_yomu_ml_LlamaBridge_nativeLoadModel(
 
     llama_context_params ctx_params = llama_context_default_params();
     ctx_params.n_ctx = (uint32_t)n_ctx;
-    ctx_params.n_batch = 512;
+    // Equal to N_CTX today: prompt_fits carries two ceilings (tokens <= batch and
+    // tokens <= context - output - 8) and 512 made the first four times tighter than the second,
+    // which is the self-refusal #136 measured. 512 was Yomu's line, not upstream's default. Kept a
+    // literal rather than derived from n_ctx because the #149 peak-PSS gate may halve it alone.
+    ctx_params.n_batch = 2048;
     ctx_params.n_threads = threads;
     ctx_params.n_threads_batch = threads;
     ctx_params.abort_callback = abort_if_timed_out;
@@ -182,9 +198,11 @@ Java_com_yomu_ml_LlamaBridge_nativeGenerate(
     jint max_tokens,
     jint timeout_ms,
     jfloatArray sampler_params,
-    jint seed) {
+    jint seed,
+    jstring grammar) {
 
     const int64_t started_ms = now_ms();
+    g_last_status.store(GENERATION_OK, std::memory_order_relaxed);
 
     if (!g_ctx || !g_model || !g_vocab) {
         LOGE("Model not loaded");
@@ -217,6 +235,20 @@ Java_com_yomu_ml_LlamaBridge_nativeGenerate(
         return env->NewStringUTF("");
     }
 
+    bool grammar_ok;
+    if (grammar) {
+        const char *grammar_str = env->GetStringUTFChars(grammar, nullptr);
+        grammar_ok = g_grammar.rebuild(g_vocab, grammar_str);
+        env->ReleaseStringUTFChars(grammar, grammar_str);
+    } else {
+        g_grammar.reset();
+        grammar_ok = true;
+    }
+    if (!grammar_ok) {
+        g_abort_deadline_ms.store(0, std::memory_order_relaxed);
+        return env->NewStringUTF("");
+    }
+
     const char *prompt_str = env->GetStringUTFChars(prompt, nullptr);
     std::string formatted = apply_chat_template(prompt_str);
     env->ReleaseStringUTFChars(prompt, prompt_str);
@@ -233,6 +265,7 @@ Java_com_yomu_ml_LlamaBridge_nativeGenerate(
     if (n_tokens == 0) {
         LOGE("Failed to tokenize prompt");
         g_abort_deadline_ms.store(0, std::memory_order_relaxed);
+        g_grammar.reset();
         return env->NewStringUTF("");
     }
 
@@ -241,13 +274,16 @@ Java_com_yomu_ml_LlamaBridge_nativeGenerate(
     if (written < 0) {
         LOGE("Failed to write prompt tokens");
         g_abort_deadline_ms.store(0, std::memory_order_relaxed);
+        g_grammar.reset();
         return env->NewStringUTF("");
     }
     tokens.resize(written);
 
     if (!prompt_fits((int)tokens.size(), (int)llama_n_batch(g_ctx), (int)llama_n_ctx(g_ctx), max_tokens)) {
         LOGE("Prompt exceeds decode budget: %d tokens; refusing to truncate instructions", (int)tokens.size());
+        g_last_status.store(GENERATION_OVERFLOW, std::memory_order_relaxed);
         g_abort_deadline_ms.store(0, std::memory_order_relaxed);
+        g_grammar.reset();
         return env->NewStringUTF("");
     }
 
@@ -257,10 +293,12 @@ Java_com_yomu_ml_LlamaBridge_nativeGenerate(
         const int64_t elapsed_ms = now_ms() - started_ms;
         if (is_past_deadline()) {
             LOGW("Decode prompt aborted deadline elapsedMs=%lld", (long long)elapsed_ms);
+            g_last_status.store(GENERATION_TIMEOUT, std::memory_order_relaxed);
         } else {
             LOGE("Failed to decode prompt elapsedMs=%lld", (long long)elapsed_ms);
         }
         g_abort_deadline_ms.store(0, std::memory_order_relaxed);
+        g_grammar.reset();
         return env->NewStringUTF("");
     }
 
@@ -269,9 +307,11 @@ Java_com_yomu_ml_LlamaBridge_nativeGenerate(
     int n_len = 0;
     llama_token new_token_id;
     llama_token eos = llama_vocab_eos(g_vocab);
+    const int n_vocab = llama_vocab_n_tokens(g_vocab);
+    std::vector<llama_token_data> cur;
 
     while (n_len < max_tokens) {
-        new_token_id = llama_sampler_sample(g_sampler, g_ctx, -1);
+        new_token_id = g_grammar.sample(g_ctx, g_sampler, cur, n_vocab);
 
         if (new_token_id == eos) break;
 
@@ -289,6 +329,7 @@ Java_com_yomu_ml_LlamaBridge_nativeGenerate(
             const int64_t elapsed_ms = now_ms() - started_ms;
             if (is_past_deadline()) {
                 LOGW("Decode token aborted deadline generatedTokens=%d elapsedMs=%lld", n_len, (long long)elapsed_ms);
+                g_last_status.store(GENERATION_TIMEOUT, std::memory_order_relaxed);
             } else {
                 LOGE("Failed to decode generated token at=%d elapsedMs=%lld", n_len, (long long)elapsed_ms);
             }
@@ -299,9 +340,16 @@ Java_com_yomu_ml_LlamaBridge_nativeGenerate(
     }
 
     const int64_t elapsed_ms = now_ms() - started_ms;
-    LOGI("Generation complete tokens=%d resultLength=%zu durationMs=%lld", n_len, result.size(), (long long)elapsed_ms);
+    LOGI("Generation complete tokens=%d resultLength=%zu durationMs=%lld grammarRejections=%d grammar=%d",
+         n_len, result.size(), (long long)elapsed_ms, g_grammar.rejections(), g_grammar.active() ? 1 : 0);
+    g_grammar.reset();
     g_abort_deadline_ms.store(0, std::memory_order_relaxed);
     return env->NewStringUTF(result.c_str());
+}
+
+extern "C" JNIEXPORT jint JNICALL
+Java_com_yomu_ml_LlamaBridge_nativeLastStatus(JNIEnv *, jobject /* this */) {
+    return (jint)g_last_status.load(std::memory_order_relaxed);
 }
 
 extern "C" JNIEXPORT void JNICALL
@@ -315,6 +363,8 @@ Java_com_yomu_ml_LlamaBridge_nativeClearMemory(JNIEnv *, jobject /* this */) {
 extern "C" JNIEXPORT void JNICALL
 Java_com_yomu_ml_LlamaBridge_nativeRelease(JNIEnv *env, jobject /* this */) {
     LOGI("Releasing model resources");
+
+    g_grammar.reset();
 
     if (g_sampler) {
         llama_sampler_free(g_sampler);

@@ -93,8 +93,11 @@ fun SettingsScreen(
         Spacer(modifier = Modifier.height(20.dp))
 
         val selectedLlm = state.llmModels.firstOrNull { it.id == state.selectedLlmModelId }
+        // promptMode is read only on the per-line path, so a batch model would render a switch that
+        // does nothing (ADR-0013). The batch call subsumes it anyway: it carries the whole page.
         if (state.selectedEngine == TranslationEngineType.LLM &&
-            selectedLlm?.promptMode == TranslationPromptMode.TRANSLATION_ONLY) {
+            selectedLlm?.promptMode == TranslationPromptMode.TRANSLATION_ONLY &&
+            !selectedLlm.idKeyedBatch) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Use surrounding dialogue (experimental)", modifier = Modifier.weight(1f))
                 PaperSwitch(checked = state.captureContext, onCheckedChange = viewModel::setCaptureContext)
