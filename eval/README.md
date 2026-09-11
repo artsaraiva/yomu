@@ -277,6 +277,43 @@ Citation: Hinami et al., "Towards Fully Automated Manga Translation", AAAI 2021.
 
 Prefer regenerating cases from `vendor/` rather than committing large image files.
 
+## Repetition-penalty sweep (#153)
+
+`EngineBenchmarkTest#measureRepeatPenalty` measures `penalty_repeat` against the gate #139
+pre-registered. It runs the #152 probe at 1.0 / 1.1 / 1.2 and the 17-page gate corpus at 1.0 and
+1.1, off one model load, with the seed pinned so the arms differ by the penalty alone.
+
+The 1.0 arm is run rather than taken from #137's published `qwen_perline` row: that row was
+measured on the reference phone, and a paired delta against another device's numbers measures the
+device. Run both arms on whatever device you have, and difference them against each other.
+
+```bash
+./eval/run-benchmark.sh --skip-eval   # once, to stage cases + probe assets and push the model
+./gradlew :app:connectedDebugAndroidTest \
+  -Pandroid.testInstrumentationRunnerArguments.class=com.yomu.app.EngineBenchmarkTest#measureRepeatPenalty
+```
+
+Outputs are pulled from the app's own files directory, **not** from logcat. A looping arm emits
+multi-kilobyte lines and logcat's chatty filter silently drops them — the first run of this sweep
+lost 12 of 22 probe bubbles that way, and a dropped bubble scores as an empty output, which reads
+as harm:
+
+```bash
+adb exec-out run-as com.yomu.app tar c -C files yomu-penalty | tar x -C /tmp
+for arm in /tmp/yomu-penalty/repetition-probe/*.json; do
+  mkdir -p eval/repetition-probe/actual && cp "$arm" eval/repetition-probe/actual/
+done
+for case_dir in /tmp/yomu-penalty/*/; do
+  case_id="$(basename "$case_dir")"
+  [ "$case_id" = "repetition-probe" ] && continue
+  mkdir -p "eval/translation-quality/cases/$case_id/actual"
+  cp "$case_dir"/*.json "eval/translation-quality/cases/$case_id/actual/"
+done
+eval/.venv/bin/python eval/run-eval.py --no-bubble
+```
+
+Results: [the repeat-penalty measurement](repeat-penalty-153.md).
+
 ## Qwen prompt comparison
 
 Install `eval/requirements.txt` into a Python virtual environment. With one arm64 Android

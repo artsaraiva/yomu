@@ -220,35 +220,47 @@ def score_translation(source: list[str], reference: list[str], output: list[str]
     source lines carry no text and leave every denominator.
     """
     n = len(source)
-    entries: list[tuple[str, str]] = []  # (reference, output) for ids that carry source text
+    # (source, reference, output) for ids that carry source text. The source is kept because
+    # coverage cannot fail on this path — TranslationEngine substitutes bubble.sourceText when the
+    # slot returns nothing, so a page the model never answered still reports 100% covered (#137).
+    # An id whose output is its own source is that substitution, and it is counted separately.
+    entries: list[tuple[str, str, str]] = []
     for i in range(n):
         if not source[i].strip():
             continue
         ref = reference[i] if i < len(reference) else ""
         out = output[i] if i < len(output) else ""
-        entries.append((ref, out))
+        entries.append((source[i], ref, out))
 
     total = len(entries)
-    covered = sum(1 for _, o in entries if o.strip())
-    non_translation = sum(1 for _, o in entries if is_non_translation(o))
+    covered = sum(1 for _, _, o in entries if o.strip())
+    # Only a source line carrying Japanese counts: the corpus has punctuation-only bubbles ("...",
+    # "?") whose correct output is the same string, and charging those would put a permanent floor
+    # under a cross-check whose whole job is to read 0 when nothing was substituted.
+    source_echo = sum(1 for s, _, o in entries if has_cjk(s) and o.strip() == s.strip())
+    non_translation = sum(1 for _, _, o in entries if is_non_translation(o))
     # Reference-adjudicated: CJK in the output is residue only where the reference has none, so a
     # legitimately-kept onomatopoeia is not charged against the engine.
-    residue = sum(1 for r, o in entries if has_cjk(o) and not has_cjk(r))
+    residue = sum(1 for _, r, o in entries if has_cjk(o) and not has_cjk(r))
 
-    chrf_sum = sum(CHRF().sentence_score(o, [r]).score for r, o in entries) if CHRF else None
-    ref_words = sum(len(words(r)) for r, _ in entries)
-    out_words = sum(len(words(o)) for _, o in entries)
+    chrf_sum = sum(CHRF().sentence_score(o, [r]).score for _, r, o in entries) if CHRF else None
+    ref_words = sum(len(words(r)) for _, r, _ in entries)
+    out_words = sum(len(words(o)) for _, _, o in entries)
 
     return {
         "entries": total,
         "chrf_sum": chrf_sum,
         "mean_chrf": chrf_sum / total if chrf_sum is not None and total else None,
         "covered": covered,
+        "source_echo": source_echo,
         "non_translation": non_translation,
         "residue": residue,
         "ref_words": ref_words,
         "out_words": out_words,
         "bubble_coverage": covered / total if total else 1.0,
+        # Reported beside coverage, never gated on its own: an echo is the engine's fallback, not
+        # proof of failure (a bubble whose reference is the same string scores here too).
+        "source_echo_rate": source_echo / total if total else 0.0,
         "non_translation_rate": non_translation / total if total else 0.0,
         "japanese_residue_rate": residue / total if total else 0.0,
         # Diagnostic only, never gated (#52): flags a verbose translation or an echoed prompt without
@@ -474,6 +486,7 @@ def run_translation_quality(stub: bool) -> dict[str, Any]:
         # not weigh as much as a 17-bubble one, and a single residue anywhere fails the gate.
         entries = sum(s["entries"] for s in valid)
         covered = sum(s["covered"] for s in valid)
+        source_echo = sum(s["source_echo"] for s in valid)
         non_translation = sum(s["non_translation"] for s in valid)
         residue = sum(s["residue"] for s in valid)
         ref_words = sum(s["ref_words"] for s in valid)
@@ -483,6 +496,10 @@ def run_translation_quality(stub: bool) -> dict[str, Any]:
             "role": "floor" if engine in FLOOR_ENGINES else "gate",
             "entries": entries,
             "bubble_coverage": covered / entries if entries else 1.0,
+            # Coverage cannot fail here (#137), so it is never reported alone: an echoed source line
+            # is a bubble the model did not answer, counted where coverage would have hidden it.
+            "source_echo": source_echo,
+            "source_echo_rate": source_echo / entries if entries else 0.0,
             "non_translation_rate": non_translation / entries if entries else 0.0,
             "japanese_residue_rate": residue / entries if entries else 0.0,
             "readability_ratio": out_words / ref_words if ref_words > 0 else 0.0,

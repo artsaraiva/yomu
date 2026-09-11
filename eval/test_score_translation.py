@@ -122,3 +122,18 @@ if __name__ == "__main__":
             fn()
             print(f"ok {name}")
     print("all passed")
+
+
+def test_source_echo_is_counted_where_coverage_cannot_fail():
+    # TranslationEngine substitutes bubble.sourceText when the slot returns nothing, so this page
+    # reports 100% coverage while the model answered one bubble of two (#137).
+    s = score_translation(["こんにちは", "バカ"], ["Hello", "Idiot"], ["Hello", "バカ"])
+    assert s["bubble_coverage"] == 1.0
+    assert s["source_echo"] == 1
+    assert s["source_echo_rate"] == 0.5
+
+
+def test_punctuation_only_bubble_is_not_a_source_echo():
+    # "..." is correctly passed through, not substituted; charging it would floor the cross-check.
+    s = score_translation(["..."], ["..."], ["..."])
+    assert s["source_echo"] == 0

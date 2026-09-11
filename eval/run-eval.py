@@ -97,6 +97,9 @@ def print_summary(bubble: dict, translation: dict, probe: dict) -> None:
             print(f"    Japanese-residue rate (gate 0): {s['japanese_residue_rate']:.3f}")
             print(f"    Bubble coverage (gate 100%):    {s['bubble_coverage']:.1%} "
                   f"({s['entries']} ids)")
+            # Coverage cannot fail on this path, so it is never printed alone (#137, #153).
+            print(f"    Source echoes (coverage cross-check, never gated): "
+                  f"{s['source_echo']} ({s['source_echo_rate']:.3f})")
             print(f"    Pages completed: {s['completed_cases']}/{s['expected_cases']}")
             print(f"    Mean bubble chrF2 (lexical similarity, not meaning): {s['mean_chrf']}")
             print(f"    Readability ratio (diagnostic): {s['readability_ratio']:.3f}")
