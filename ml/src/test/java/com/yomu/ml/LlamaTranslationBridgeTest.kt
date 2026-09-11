@@ -160,6 +160,7 @@ class LlamaTranslationBridgeTest {
 
         assertEquals(mapOf(1 to "Hello", 2 to "Goodbye"), result.byId)
         assertEquals(TranslationOutcome.SUCCESS, result.outcome)
+        assertEquals(LlamaTranslationBridge.BATCH_OVERFLOW_FALLBACK, result.errorCode)
         assertEquals(3, native.prompts.size)
         model.delete()
     }
