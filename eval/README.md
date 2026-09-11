@@ -30,7 +30,8 @@ eval/
 │   └── cases/<case-id>/     # page.jpg + source.txt + reference.txt
 └── repetition-probe/        # Targeted probe, reported beside the gate, never gated (#152)
     ├── SCHEMA.md
-    └── bubbles.json         # Generated, gitignored
+    ├── bubbles.json         # Generated, gitignored
+    └── actual/<engine>.json # On-device output, gitignored
 ```
 
 ## Populating the dataset
@@ -235,6 +236,14 @@ per-class breakdown. Do not read meaning into those labels or reintroduce per-cl
   dropped negations pass all of them, so semantic accuracy is reviewed by hand and
   recorded separately in `eval/semantic-review-120.md` — a PASS says the output is
   shaped like a translation, not that it says what the source said.
+
+- **Repetition probe**: **harm** — the output's longest repeated-unit run is shorter than the
+  reference's, on a bubble whose reference run is 3 or more. It answers one question the gate
+  cannot: did a repetition penalty eat a laugh, a scream or a verbal tic the human translator kept?
+  Read it as a **pointer, never a bar** — the set is targeted at that failure by construction, so a
+  pass bar on it would reward avoiding these particular bubbles rather than fixing the penalty. The
+  per-bubble runs are printed beside the count so every hit can be read against its source.
+  See `repetition-probe/SCHEMA.md`.
 
 Results are written to `eval/results/<timestamp>.json`.
 
