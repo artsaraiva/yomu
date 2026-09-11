@@ -79,10 +79,7 @@ class TranslationEngine(
         private const val FALLBACK_CONFIDENCE = 0.1f
     }
 
-    suspend fun translate(
-        blocks: List<ConversationBlock>,
-        sessionContext: List<Pair<String, String>> = emptyList()
-    ): TranslationResult {
+    suspend fun translate(blocks: List<ConversationBlock>): TranslationResult {
         val page = project(blocks)
         val bubbles = page.panels.flatten()
         if (bubbles.isEmpty()) return TranslationResult(emptyList(), "", 0L)
@@ -93,7 +90,7 @@ class TranslationEngine(
         val output = if (translatable.panels.isEmpty()) {
             PageTranslation(emptyMap(), "", 0L)
         } else {
-            slotProvider().translatePage(translatable, sessionContext)
+            slotProvider().translatePage(translatable)
         }
         val translations = bubbles.map { bubble ->
             val translated = if (bubble.carriesText()) {

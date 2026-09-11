@@ -67,10 +67,7 @@ class MlKitTranslationBridge @Inject constructor() : TranslationSlot {
         }
     }
 
-    override suspend fun translatePage(
-        page: TranslatablePage,
-        sessionContext: List<Pair<String, String>>
-    ): PageTranslation {
+    override suspend fun translatePage(page: TranslatablePage): PageTranslation {
         val bubbles = page.panels.flatten()
         if (bubbles.isEmpty()) return PageTranslation(emptyMap(), "", 0L)
         if (status !is TranslationStatus.Ready && !ensureReady()) {

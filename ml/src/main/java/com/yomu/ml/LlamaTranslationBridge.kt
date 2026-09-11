@@ -45,8 +45,25 @@ class LlamaTranslationBridge(
         private const val N_CTX = 2048
         private const val N_GPU_LAYERS = 0
         private val N_THREADS = Runtime.getRuntime().availableProcessors().coerceAtMost(4)
-        private const val BATCH_TOKEN_RESERVE = 96
-        private const val BATCH_MIN_TOKENS = 256
+        /**
+         * The whole token budget a page's reply may use, fixed rather than derived from what the
+         * prompt leaves over. The old "all of N_CTX the prompt does not use" arithmetic was handed
+         * to the native `prompt_fits` as `output` and therefore *shrank* the prompt allowance,
+         * which is the self-refusal #136 measured. Deliberately separate from
+         * `profile.generation.maxTokens`: a page's completion is roughly 8x a bubble's, and one
+         * shared field would force every catalog entry to pick a compromise.
+         */
+        private const val MAX_BATCH_OUTPUT = 768
+
+        /**
+         * Longest line the batch grammar will let the model write. An unbounded `line` rule is not
+         * neutral: with no repetition penalty in the sampler the model finishes the last id and
+         * keeps writing inside that same line, which ran to the token cap on 5 of 17 pages (#137).
+         * 160 is ~2x the longest human reference line in the eval corpus (max 75, median 22), so it
+         * cannot clip a plausible translation. A knob co-owned with the sampler (ADR-0013), not a
+         * pinned constant.
+         */
+        private const val MAX_LINE_CHARS = 160
         private const val TIMEOUT_MS = 15_000
         private const val BATCH_TIMEOUT_MS = 120_000
         private const val NEIGHBOUR_CHARS = 80
@@ -77,15 +94,12 @@ class LlamaTranslationBridge(
         loaded
     }
 
-    override suspend fun translatePage(
-        page: TranslatablePage,
-        sessionContext: List<Pair<String, String>>
-    ): PageTranslation {
+    override suspend fun translatePage(page: TranslatablePage): PageTranslation {
         if (page.panels.flatten().isEmpty()) return PageTranslation(emptyMap(), "", 0L)
         if (status !is TranslationStatus.Ready && !ensureReady()) {
             return PageTranslation.notLoaded(status)
         }
-        return if (profile.idKeyedBatch) translateBatch(page, sessionContext) else translatePerLine(page)
+        return if (profile.idKeyedBatch) translateBatch(page) else translatePerLine(page)
     }
 
     private suspend fun translatePerLine(page: TranslatablePage): PageTranslation {
@@ -120,16 +134,23 @@ class LlamaTranslationBridge(
         )
     }
 
-    private suspend fun translateBatch(
-        page: TranslatablePage,
-        sessionContext: List<Pair<String, String>>
-    ): PageTranslation {
-        val prompt = buildBatchPrompt(page, sessionContext)
-        // ponytail: chars/2 avoids tokenizer overhead; use exact tokenization if dense pages overflow N_CTX.
-        val promptTokenEstimate = prompt.length / 2
-        val budget = (N_CTX - promptTokenEstimate - BATCH_TOKEN_RESERVE)
-            .coerceIn(BATCH_MIN_TOKENS, N_CTX)
-        val output = generate(prompt, budget, BATCH_TIMEOUT_MS)
+    private suspend fun translateBatch(page: TranslatablePage): PageTranslation {
+        val output = generate(
+            buildBatchPrompt(page),
+            MAX_BATCH_OUTPUT,
+            BATCH_TIMEOUT_MS,
+            buildBatchGrammar(page)
+        )
+        if (output.outcome == TranslationOutcome.OVERFLOW) {
+            // The page is louder than the failure it replaces: the old behaviour was an empty
+            // PageTranslation and a silently untranslated page (ADR-0013).
+            Log.w(
+                TAG,
+                "translateBatch overflow bubbles=${page.panels.flatten().size} " +
+                    "falling back to per-line"
+            )
+            return translatePerLine(page)
+        }
         return PageTranslation(
             byId = parseIdKeyedTranslations(output.text),
             rawResponse = output.text,
@@ -153,15 +174,7 @@ class LlamaTranslationBridge(
         append(target)
     }
 
-    private fun buildBatchPrompt(
-        page: TranslatablePage,
-        sessionContext: List<Pair<String, String>>
-    ): String = buildString {
-        if (sessionContext.isNotEmpty()) {
-            appendLine("Previous page (for context):")
-            sessionContext.forEach { (source, target) -> appendLine("$source => $target") }
-            appendLine()
-        }
+    private fun buildBatchPrompt(page: TranslatablePage): String = buildString {
         appendLine(
             "Translate each Japanese line to English. Keep the [id] tag before each line. " +
                 "Panels are separated by ---."
@@ -170,6 +183,20 @@ class LlamaTranslationBridge(
             if (index > 0) appendLine("---")
             panel.forEach { bubble -> appendLine("[${bubble.bubbleId}] ${bubble.sourceText}") }
         }
+    }
+
+    /**
+     * GBNF pinning the reply to exactly one `[id] text` line per bubble, in prompt order, with the
+     * ids as literals. Two rules regardless of bubble count. Preamble, refusal, a dropped id, a
+     * merged pair and a re-ordered reply are all structurally unreachable — which is what
+     * [parseIdKeyedTranslations] and the post-hoc guards were catching after the fact.
+     *
+     * Structural only: nothing here forbids Japanese characters or constrains content, so the
+     * residue and meaning metrics still measure the model rather than the grammar.
+     */
+    private fun buildBatchGrammar(page: TranslatablePage): String {
+        val root = page.panels.flatten().joinToString(" ") { "\"[${it.bubbleId}] \" line \"\\n\"" }
+        return "root ::= $root\nline ::= [^\\r\\n]{1,$MAX_LINE_CHARS}\n"
     }
 
     private fun parseIdKeyedTranslations(response: String): Map<Int, String> {
@@ -185,16 +212,16 @@ class LlamaTranslationBridge(
      * Generate once, carrying the typed terminal cause out with the text.
      *
      * The `when` is exhaustive on purpose: the outcome the eval records must be mapped from the
-     * result type, never recovered from a log line (#142). When #149 adds `Timeout` / `Overflow` to
-     * [GenerationResult] this stops compiling until they are mapped, which is the point.
+     * result type, never recovered from a log line (#142).
      */
     private suspend fun generate(
         prompt: String,
         maxTokens: Int,
-        timeoutMs: Int
+        timeoutMs: Int,
+        grammar: String = ""
     ): GeneratedText = readinessMutex.withLock {
         return@withLock when (
-            val result = llamaBridge.generate(prompt, profile.generation, maxTokens, timeoutMs)
+            val result = llamaBridge.generate(prompt, profile.generation, maxTokens, timeoutMs, grammar)
         ) {
             is GenerationResult.Success -> {
                 val text = result.text.trim()
@@ -213,6 +240,10 @@ class LlamaTranslationBridge(
             }
             is GenerationResult.Blank ->
                 GeneratedText("", result.durationMs, TranslationOutcome.BLANK)
+            is GenerationResult.Overflow ->
+                GeneratedText("", result.durationMs, TranslationOutcome.OVERFLOW, "prompt_overflow")
+            is GenerationResult.Timeout ->
+                GeneratedText("", result.durationMs, TranslationOutcome.TIMEOUT, "deadline")
             is GenerationResult.Error ->
                 GeneratedText("", result.durationMs, TranslationOutcome.ERROR, result.reason)
             is GenerationResult.NotLoaded ->
