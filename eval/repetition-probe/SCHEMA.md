@@ -43,10 +43,17 @@ context is a variable only on the batch path, which is not shipped. 22 calls at 
 ~8 second run, against ~54 seconds for the same 17 pages. Full pages join if the architecture ticket
 picks batch.
 
-## `actual/<engine>.json`
+## Output
 
-Optional, gitignored, written by the on-device run: `{ "engine": …, "translations": [...] }`, a
-dense array indexed by bubble id — same shape as `translation-quality`'s.
+The probe rides the same transport as the gate: one `translation` record per arm, with `case_id`
+`repetition-probe` and `{bubble_id, text}` results indexed by bubble id. See
+[`../SCHEMA.md`](../SCHEMA.md). It has no case of its own because it is bubble-granular, not
+page-granular.
+
+There is no `actual/<engine>.json` any more. The records file is the transport precisely because
+logcat's chatty filter drops the multi-kilobyte lines a looping arm emits — that silently lost 12 of
+22 probe bubbles the first time this sweep ran, and a dropped bubble scores as an empty output,
+which reads as harm.
 
 ## Metric
 

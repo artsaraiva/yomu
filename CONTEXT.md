@@ -88,6 +88,24 @@ _Avoid_: verbosity score, length penalty
 The score of an engine that can only be asked one bubble at a time. Reported beside the gate and never ranked against it, because the gate scores a whole page in a single call.
 _Avoid_: baseline, fallback score
 
+### Eval instrument
+
+**Arm**:
+One configuration measured over the whole case set — a detector, an engine, or an engine at one parameter value. The unit the eval declares in advance, reports on, and invalidates: arms are scored independently, so one broken arm never suppresses another's numbers.
+_Avoid_: engine, candidate, variant, run
+
+**Run record**:
+One terminal JSON line describing a single arm/case/stage invocation on device, written to the run's own directory. The eval's only input about what happened: it is never reconstructed from logcat, and never shared between runs.
+_Avoid_: log line, trace, telemetry, event
+
+**Invalid arm**:
+An arm whose records contradict the run manifest — a missing or duplicated stage, an unknown outcome, observed model metadata that differs from what was declared, or a model that never loaded. No aggregate is printed for it and the command exits nonzero, because a harness that prints a mean for something it did not measure is the failure this instrument exists to prevent.
+_Avoid_: failed run, skipped engine, error
+
+**Measured outcome**:
+An engine answering badly — blank, timed out, overflowed, errored, or zero boxes detected. A result, not a fault: the arm stays valid and every expected bubble id stays in the denominator.
+_Avoid_: failure, error case, miss
+
 ### Coherence quality
 
 **Contrastive minimal pair**:

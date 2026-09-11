@@ -3,6 +3,7 @@ package com.yomu.pipeline.translation
 import com.yomu.core.PageTranslation
 import com.yomu.core.TranslatableBubble
 import com.yomu.core.TranslatablePage
+import com.yomu.core.TranslationOutcome
 import com.yomu.core.TranslationSlot
 import com.yomu.pipeline.context.ConversationBlock
 
@@ -48,7 +49,18 @@ data class TranslatedBubble(
 data class TranslationResult(
     val translations: List<TranslatedBubble>,
     val rawResponse: String,
-    val translationTimeMs: Long
+    val translationTimeMs: Long,
+    /**
+     * What the slot was asked for and what it gave back, **before** the source-text fallback below
+     * rewrites a missing id into its own Japanese.
+     *
+     * The eval records these (#142/#165): scoring the post-fallback list is how #137 shipped a page
+     * reporting 100% coverage that the model never answered. Nothing in the app reads them.
+     */
+    val requestedIds: List<Int> = emptyList(),
+    val rawById: Map<Int, String> = emptyMap(),
+    val outcome: TranslationOutcome = TranslationOutcome.SUCCESS,
+    val errorCode: String? = null
 )
 
 class TranslationEngine(
@@ -96,7 +108,15 @@ class TranslationEngine(
                 confidence = if (translated == null) FALLBACK_CONFIDENCE else TRANSLATED_CONFIDENCE
             )
         }
-        return TranslationResult(translations, output.rawResponse, output.durationMs)
+        return TranslationResult(
+            translations = translations,
+            rawResponse = output.rawResponse,
+            translationTimeMs = output.durationMs,
+            requestedIds = translatable.panels.flatten().map { it.bubbleId },
+            rawById = output.byId,
+            outcome = output.outcome,
+            errorCode = output.errorCode
+        )
     }
 
     private fun project(blocks: List<ConversationBlock>): TranslatablePage = TranslatablePage(
