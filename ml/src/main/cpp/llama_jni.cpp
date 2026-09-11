@@ -217,12 +217,6 @@ Java_com_yomu_ml_LlamaBridge_nativeGenerate(
         return env->NewStringUTF("");
     }
 
-    if (!g_sampler) {
-        LOGE("Sampler unavailable");
-        g_abort_deadline_ms.store(0, std::memory_order_relaxed);
-        return env->NewStringUTF("");
-    }
-
     const char *prompt_str = env->GetStringUTFChars(prompt, nullptr);
     std::string formatted = apply_chat_template(prompt_str);
     env->ReleaseStringUTFChars(prompt, prompt_str);

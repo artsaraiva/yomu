@@ -47,7 +47,7 @@ class SelectedTranslationEngineTest {
             var prompt = ""
             var tokens = 0
             var timeout = 0
-            Mockito.`when`(native.generate(Mockito.anyString(), Mockito.any() ?: GenerationParams(), Mockito.anyInt(), Mockito.anyInt()))
+            Mockito.`when`(native.generate(Mockito.anyString(), anyParams(), Mockito.anyInt(), Mockito.anyInt()))
                 .thenAnswer { call ->
                     prompt = call.getArgument(0)
                     tokens = call.getArgument(2)
@@ -80,4 +80,9 @@ class SelectedTranslationEngineTest {
             assertEquals(TranslationStatus.NotReady, llm.status)
         }
     }
+
+    // Mockito.any() returns null, which a non-null Kotlin parameter rejects. The matcher is
+    // registered by the time the elvis runs, so the substituted value is never actually matched.
+    private fun anyParams(): GenerationParams =
+        Mockito.any(GenerationParams::class.java) ?: GenerationParams()
 }
