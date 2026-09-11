@@ -35,6 +35,8 @@ import java.io.File
 import java.util.Locale
 import javax.inject.Inject
 
+// ponytail: four unrelated measurements sharing one staging/timing harness, past the 300-line
+// limit. Splitting means extracting the harness first, which is #160, not a measurement ticket's job.
 @HiltAndroidTest
 @RunWith(AndroidJUnit4::class)
 class EngineBenchmarkTest {
