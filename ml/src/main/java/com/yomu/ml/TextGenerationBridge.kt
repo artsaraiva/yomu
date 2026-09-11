@@ -1,5 +1,7 @@
 package com.yomu.ml
 
+import com.yomu.core.GenerationParams
+
 sealed class GenerationResult {
     abstract val durationMs: Long
 
@@ -23,10 +25,19 @@ sealed class GenerationResult {
 }
 
 interface TextGenerationBridge {
+    companion object {
+        const val DEFAULT_TIMEOUT_MS = 60_000
+    }
+
     val isNativeAvailable: Boolean
     val isModelLoaded: Boolean
 
     fun loadModel(modelPath: String, nCtx: Int = 2048, nGpuLayers: Int = 0): Boolean
-    fun generate(prompt: String, maxTokens: Int = 512, temperature: Float = 0.7f): GenerationResult
+    fun generate(
+        prompt: String,
+        params: GenerationParams = GenerationParams(),
+        maxTokens: Int = params.maxTokens,
+        timeoutMs: Int = DEFAULT_TIMEOUT_MS
+    ): GenerationResult
     fun release()
 }

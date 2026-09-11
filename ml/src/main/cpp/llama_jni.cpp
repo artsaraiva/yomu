@@ -39,7 +39,21 @@ static bool is_past_deadline() {
     return deadline_ms > 0 && now_ms() > deadline_ms;
 }
 
-static bool rebuild_sampler(float temperature) {
+// Index order of the sampler parameter array handed over the JNI. Mirrors
+// GenerationParams.SAMPLER_INDEX in core/src/main/java/com/yomu/core/TranslationSlot.kt — the two
+// lists must be edited together. Every value lives in Kotlin; nothing here is a constant.
+enum SamplerIndex {
+    SAMPLER_TEMPERATURE = 0,
+    SAMPLER_TOP_K,
+    SAMPLER_TOP_P,
+    SAMPLER_PENALTY_LAST_N,
+    SAMPLER_PENALTY_REPEAT,
+    SAMPLER_PENALTY_FREQ,
+    SAMPLER_PENALTY_PRESENT,
+    SAMPLER_PARAM_COUNT
+};
+
+static bool rebuild_sampler(const float *params, uint32_t seed) {
     if (g_sampler) {
         llama_sampler_free(g_sampler);
         g_sampler = nullptr;
@@ -51,10 +65,15 @@ static bool rebuild_sampler(float temperature) {
         return false;
     }
 
-    llama_sampler_chain_add(g_sampler, llama_sampler_init_top_k(40));
-    llama_sampler_chain_add(g_sampler, llama_sampler_init_top_p(0.9f, 1));
-    llama_sampler_chain_add(g_sampler, llama_sampler_init_temp(temperature));
-    llama_sampler_chain_add(g_sampler, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
+    llama_sampler_chain_add(g_sampler, llama_sampler_init_penalties(
+        (int32_t)params[SAMPLER_PENALTY_LAST_N],
+        params[SAMPLER_PENALTY_REPEAT],
+        params[SAMPLER_PENALTY_FREQ],
+        params[SAMPLER_PENALTY_PRESENT]));
+    llama_sampler_chain_add(g_sampler, llama_sampler_init_top_k((int32_t)params[SAMPLER_TOP_K]));
+    llama_sampler_chain_add(g_sampler, llama_sampler_init_top_p(params[SAMPLER_TOP_P], 1));
+    llama_sampler_chain_add(g_sampler, llama_sampler_init_temp(params[SAMPLER_TEMPERATURE]));
+    llama_sampler_chain_add(g_sampler, llama_sampler_init_dist(seed));
     return true;
 }
 
@@ -150,16 +169,6 @@ Java_com_yomu_ml_LlamaBridge_nativeLoadModel(
 
     g_vocab = llama_model_get_vocab(g_model);
 
-    if (!rebuild_sampler(0.8f)) {
-        LOGE("Failed to create sampler");
-        llama_free(g_ctx);
-        g_ctx = nullptr;
-        llama_model_free(g_model);
-        g_model = nullptr;
-        g_vocab = nullptr;
-        return JNI_FALSE;
-    }
-
     LOGI("Model loaded: n_ctx=%d n_threads=%d n_gpu_layers=%d", n_ctx, threads, n_gpu_layers);
     LOGI("Model loaded successfully");
     return JNI_TRUE;
@@ -171,8 +180,9 @@ Java_com_yomu_ml_LlamaBridge_nativeGenerate(
     jobject /* this */,
     jstring prompt,
     jint max_tokens,
-    jfloat temperature,
-    jint timeout_ms) {
+    jint timeout_ms,
+    jfloatArray sampler_params,
+    jint seed) {
 
     const int64_t started_ms = now_ms();
 
@@ -190,14 +200,19 @@ Java_com_yomu_ml_LlamaBridge_nativeGenerate(
     g_abort_deadline_ms.store(now_ms() + effective_timeout, std::memory_order_relaxed);
     llama_set_abort_callback(g_ctx, abort_if_timed_out, nullptr);
 
-    if (!rebuild_sampler(temperature)) {
-        LOGE("Failed to rebuild sampler");
+    if (env->GetArrayLength(sampler_params) < SAMPLER_PARAM_COUNT) {
+        LOGE("Sampler parameter array too short: %d", (int)env->GetArrayLength(sampler_params));
         g_abort_deadline_ms.store(0, std::memory_order_relaxed);
         return env->NewStringUTF("");
     }
 
-    if (!g_sampler) {
-        LOGE("Sampler unavailable");
+    jfloat *params = env->GetFloatArrayElements(sampler_params, nullptr);
+    const bool sampler_ok = params && rebuild_sampler(params, (uint32_t)seed);
+    if (params) {
+        env->ReleaseFloatArrayElements(sampler_params, params, JNI_ABORT);
+    }
+    if (!sampler_ok) {
+        LOGE("Failed to rebuild sampler");
         g_abort_deadline_ms.store(0, std::memory_order_relaxed);
         return env->NewStringUTF("");
     }
@@ -257,7 +272,6 @@ Java_com_yomu_ml_LlamaBridge_nativeGenerate(
 
     while (n_len < max_tokens) {
         new_token_id = llama_sampler_sample(g_sampler, g_ctx, -1);
-        llama_sampler_accept(g_sampler, new_token_id);
 
         if (new_token_id == eos) break;
 
