@@ -661,8 +661,14 @@ class EngineBenchmarkTest {
         )
 
         // Staged one at a time by benchmarkChallengers, so stageModelFixtures must not bulk-copy
-        // them upfront (ENOSPC). The 0.8b shares the llm/ subdir but is not here, so it still stages.
-        private val CHALLENGER_FILE_NAMES = LLM_CANDIDATES.map { it.fileName }.toSet()
+        // them upfront (ENOSPC).
+        //
+        // The catalog default is deliberately exempt even though it is also a challenger: the `llm`
+        // enum arm loads exactly that file from filesDir, so skipping it leaves that arm permanently
+        // not-ready. It used to fail silently as a skipped engine; declaring the arm in the manifest
+        // turned it into a reported invalid arm, which is how it was finally noticed.
+        private val CHALLENGER_FILE_NAMES =
+            LLM_CANDIDATES.map { it.fileName }.toSet() - LlmModelCatalog.DEFAULT.ggufFileName
 
         // The whole test must land inside the harness's ~20-min connected-test ceiling. The enum
         // baseline runs unbounded (~5 min); the challenger phase stops starting/continuing work past

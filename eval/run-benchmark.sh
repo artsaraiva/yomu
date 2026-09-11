@@ -386,8 +386,12 @@ TAIL_PID=$!
 # PIPESTATUS[0] is gradle's own status, so a grep that matches nothing cannot be mistaken for a
 # test failure, and pipefail cannot mask one.
 set +e
+# leaveApksInstalledAfterRun is load-bearing, not a convenience: AGP uninstalls both APKs when the
+# task finishes, and uninstalling takes the app's files directory -- and the run records inside it --
+# with it. Without this the extraction below always finds nothing, however well the run went.
 ./gradlew :app:connectedAndroidTest \
   "-Pandroid.testInstrumentationRunnerArguments.runId=$RUN_ID" \
+  -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true \
   ${GRADLE_EXTRA_ARGS[@]+"${GRADLE_EXTRA_ARGS[@]}"} 2>&1 | grep -E "Starting|completed\.|BUILD"
 TEST_STATUS=${PIPESTATUS[0]}
 set -e
@@ -402,9 +406,16 @@ step_start 6 'extract run records'
 # The device wrote records under its own files dir, which is not world-readable; run-as is the only
 # way in without root. Nothing is scraped from logcat any more (#142) -- its chatty filter silently
 # dropped 12 of 22 probe bubbles the one time this run relied on it (#152).
+# A failed extraction is its own diagnosis and must say so. Scoring on regardless would report every
+# arm as "no records" -- true, but it buries the one fact that explains all of them.
 if ! adb exec-out "run-as $APP_ID tar c -C files yomu-benchmark/$RUN_ID" \
      | tar x -C "$RUN_DIR" --strip-components=2; then
   printf 'Could not extract files/yomu-benchmark/%s from the device.\n' "$RUN_ID" >&2
+  if ! adb shell "pm list packages" | grep -q "^package:$APP_ID$"; then
+    printf '%s is not installed. The run records live in its files directory, so an uninstall\n' "$APP_ID" >&2
+    printf 'between the test and this step destroys them.\n' >&2
+  fi
+  exit 1
 fi
 # COMPLETE pins the record count and the records SHA-256, so a truncated extraction or a file
 # appended to afterwards is rejected rather than scored.
