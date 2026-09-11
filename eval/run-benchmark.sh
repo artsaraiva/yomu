@@ -114,13 +114,24 @@ if ! command -v python3 >/dev/null 2>&1; then
   printf 'python3 is not available in PATH. Install Python 3 and retry.\n' >&2
   exit 1
 fi
-# Prefer the eval virtualenv. It is where sacrebleu lives, and a bare python3 silently reports
-# mean_chrf as null -- a registered contract metric quietly reading nothing.
-PYTHON="python3"
-if [ -x "$SCRIPT_DIR/.venv/bin/python" ]; then
+# Score through an interpreter that has eval/requirements.txt, and stop if it does not (#156).
+# A bare python3 falls through run_eval_lib's `except ImportError` to CHRF = None and every run
+# reports mean_chrf: null -- which reads identically to "no bubbles scored". chrF is a registered
+# metric in eval-contract.json, so a silent null is the contract reading nothing at all.
+# PYTHON_BIN overrides, matching run-prompt-benchmark.sh; otherwise the eval virtualenv, if present.
+if [ -n "${PYTHON_BIN:-}" ]; then
+  PYTHON="$PYTHON_BIN"
+elif [ -x "$SCRIPT_DIR/.venv/bin/python" ]; then
   PYTHON="$SCRIPT_DIR/.venv/bin/python"
 else
-  printf 'No eval/.venv; chrF will be null. See eval/README.md to create it.\n' >&2
+  PYTHON="python3"
+fi
+if ! "$PYTHON" -c 'import sacrebleu' >/dev/null 2>&1; then
+  printf 'Scoring interpreter %s has no sacrebleu, so mean_chrf would be recorded as null.\n' "$PYTHON" >&2
+  printf 'Create the eval virtualenv once:\n' >&2
+  printf '  python3 -m venv eval/.venv && eval/.venv/bin/pip install -r eval/requirements.txt\n' >&2
+  printf 'Or point PYTHON_BIN at an interpreter that already has it.\n' >&2
+  exit 1
 fi
 device_state="$(adb get-state 2>/dev/null || true)"
 if [ "$device_state" != "device" ]; then

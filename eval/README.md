@@ -99,10 +99,21 @@ artifact pull, and scoring):
 
 - Android device/emulator connected and visible to `adb`
 - `adb` in `PATH` (Android platform-tools)
-- `python3` in `PATH`
 - Executable Gradle wrapper at `./gradlew`
+- A Python interpreter with `eval/requirements.txt` installed
 
 If any prerequisite is missing, the script fails early with an actionable error.
+
+### Which interpreter scores the run
+
+`run-benchmark.sh` scores with `$PYTHON_BIN` if set, otherwise `eval/.venv/bin/python`, otherwise
+`python3`. It then checks that interpreter can import `sacrebleu` and **stops** if it cannot.
+
+That check is not pedantry. Without sacrebleu, `run_eval_lib.py` falls through its `except
+ImportError` to `CHRF = None` and every run records `mean_chrf: null` — which reads identically to
+"no bubbles were scored". chrF is a registered metric in `eval-contract.json`, so a silent null is
+the contract measuring nothing (#156). Every `mean_chrf` recorded before this check was null for
+that reason, not low; the other gate metrics never depended on sacrebleu and are unaffected.
 
 ### What the script does
 
