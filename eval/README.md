@@ -217,6 +217,12 @@ suit these particular pages". The seeded rule exists so growth cannot be accused
 field; `generate-cases.py:label_for()` guesses from substrings. The harness deliberately reports no
 per-class breakdown. Do not read meaning into those labels or reintroduce per-class scoring.
 
+**Every arm of a comparison is measured on the same device.** A pre-registered gate names the
+device its control was measured on, and a paired delta against a row measured elsewhere puts the
+device inside the delta. When the candidate cannot run where the control was measured, re-measure
+the control on the device you have and difference the two arms against each other, rather than
+subtracting across devices. The repetition-penalty sweep below is the worked instance.
+
 ## Interpreting results
 
 - **Bubble detection**: **containment recall** is the gate — the fraction of ground-truth boxes
