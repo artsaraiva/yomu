@@ -37,11 +37,28 @@ data class GenerationParams(
     val topK: Int = 40,
     /** Was a literal in `rebuild_sampler`. */
     val topP: Float = 0.9f,
-    /** 1.0 disables the repeat penalty. The value, or the null result, is #137's to record. */
+    /**
+     * 1.0 disables the repeat penalty. **Measured, not assumed** (#153, against the gate #139
+     * pre-registered): `1.1` cleared neither bar and is not shipped.
+     *
+     * On the 17-page gate corpus, 1.1 against a 1.0 control on the same device: non-translation
+     * 0.000 both, Japanese residue 0.007 both (the same bubble, a name the model half-romanises —
+     * nothing repetitive in it), coverage 100% with 0 source echoes both, readability 1.034 →
+     * 1.027. No gated metric moves. On the #152 repetition probe, harm rises monotonically with the
+     * penalty: 8 → 12 → 14 hits of 17 scored bubbles at 1.0 / 1.1 / 1.2, with `ふふっ` and `キヒヒッ`
+     * flipping clean-to-harmed at 1.1. The only improvement is latency (probe wall time 11.5 s →
+     * 5.7 s, from runaway loops stopping early), which #139 excluded in advance.
+     *
+     * Full write-up, including why the probe's absolute "zero harm" bar is unreachable even at 1.0:
+     * `eval/repeat-penalty-153.md`. Re-open only with a new job for it — the page-level batch path,
+     * where #137 measured the loops, would be one.
+     */
     val penaltyRepeat: Float = 1.0f,
     /**
      * Deliberately shorter than the prompt: a longer window would penalise tokens the model is
-     * meant to echo back (the `[id]` tags, names repeated across bubbles).
+     * meant to echo back (the `[id]` tags, names repeated across bubbles). Inert while
+     * [penaltyRepeat] is 1.0; kept because it is the window the next candidate would be measured
+     * with (#153).
      */
     val penaltyLastN: Int = 64,
     /** No proposed job. Present so a run can try it without another JNI change. */
