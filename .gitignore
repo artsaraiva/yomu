@@ -54,3 +54,7 @@ __pycache__/
 
 # Local agent scratch worktrees
 .claude/worktrees/
+
+# Repetition probe (#152): derived CC BY-NC content, regenerate from vendor/
+eval/repetition-probe/bubbles.json
+eval/repetition-probe/actual/

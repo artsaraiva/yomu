@@ -20,13 +20,17 @@ eval/
 ├── README.md
 ├── run-eval.py              # Phase 1 eval harness CLI
 ├── run_eval_lib.py          # Scoring and case-loading logic
-├── generate-cases.py        # Build cases from vendor/OpenMantra
+├── generate-cases.py        # Build gate cases from vendor/OpenMantra
+├── generate-repetition-probe.py  # Build the repetition probe from vendor/OpenMantra
 ├── bubble-detection/
 │   ├── SCHEMA.md
 │   └── cases/<case-id>/     # page.jpg + expected.json
-└── translation-quality/
+├── translation-quality/
+│   ├── SCHEMA.md
+│   └── cases/<case-id>/     # page.jpg + source.txt + reference.txt
+└── repetition-probe/        # Targeted probe, reported beside the gate, never gated (#152)
     ├── SCHEMA.md
-    └── cases/<case-id>/     # page.jpg + source.txt + reference.txt
+    └── bubbles.json         # Generated, gitignored
 ```
 
 ## Populating the dataset
@@ -37,6 +41,7 @@ The OpenMantra dataset is vendored, not committed:
 git clone https://github.com/mantra-inc/open-mantra-dataset.git \
   vendor/open-mantra-dataset
 python3 eval/generate-cases.py
+python3 eval/generate-repetition-probe.py
 ```
 
 `vendor/` and the copied `page.jpg` files are gitignored. Cases are regenerated

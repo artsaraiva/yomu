@@ -1,5 +1,6 @@
 """Scoring and runner utilities for the Yomu Phase 1 eval harness."""
 
+import itertools
 import json
 import re
 from pathlib import Path
@@ -13,9 +14,11 @@ except ImportError:
 ROOT = Path(__file__).resolve().parent
 BUBBLE_CASES = ROOT / "bubble-detection" / "cases"
 TRANS_CASES = ROOT / "translation-quality" / "cases"
+PROBE_BUBBLES = ROOT / "repetition-probe" / "bubbles.json"
 
 BUBBLE_ACTUAL = "actual.json"
 TRANS_ACTUAL_DIR = "actual"
+PROBE_ACTUAL_DIR = "actual"
 
 
 # ADR-0003: detections are padded before scoring, mirroring the crop the pipeline hands OCR.
@@ -255,6 +258,54 @@ def score_translation(source: list[str], reference: list[str], output: list[str]
     }
 
 
+# Repetition probe (#152). Nothing else in the harness can see a repetition penalty eating
+# legitimate repetition: residue is CJK-based and these references are English, non-translation
+# will not fire, and the readability ratio over "ha ha ha ha ha" against "ha ha" is 0.4 with no bar
+# attached. The probe reports harm; it never carries a pass bar of its own.
+PROBE_MIN_RUN = 3
+
+# Same rationale as generate-repetition-probe.py's SKIP: repeated punctuation is not repetition.
+REPEAT_SKIP = "…。、.,!?！？ー－〜～・_-*'\"ｰっッ \u3000\n\r"
+
+
+def longest_repeat_run(text: str) -> int:
+    """Longest run of one immediately-repeated unit: character (aaaa, ああ) or word (ha ha ha)."""
+    chars = max(
+        (len(list(g)) for c, g in itertools.groupby(text or "") if c not in REPEAT_SKIP),
+        default=0,
+    )
+    tokens = max((len(list(g)) for _, g in itertools.groupby(words((text or "").lower()))), default=0)
+    return max(chars, tokens)
+
+
+def score_repetition_probe(reference: list[str], output: list[str]) -> dict:
+    """Harm = the engine shortened a run the human reference kept (#152).
+
+    Scored only where the reference run is PROBE_MIN_RUN or more: below that there is nothing for a
+    penalty to eat, so a short output run is not evidence. Per-bubble runs are returned so a hit is
+    inspectable rather than just a number.
+    """
+    bubbles = []
+    for i, ref in enumerate(reference):
+        ref_run = longest_repeat_run(ref)
+        out_run = longest_repeat_run(output[i] if i < len(output) else "")
+        bubbles.append(
+            {
+                "id": i,
+                "reference_run": ref_run,
+                "output_run": out_run,
+                "scored": ref_run >= PROBE_MIN_RUN,
+                "harm": ref_run >= PROBE_MIN_RUN and out_run < ref_run,
+            }
+        )
+    return {
+        "bubbles": bubbles,
+        "entries": len(bubbles),
+        "scored": sum(1 for b in bubbles if b["scored"]),
+        "harm": sum(1 for b in bubbles if b["harm"]),
+    }
+
+
 def bubble_stub(expected: list[dict]) -> list[dict]:
     return [{"x": b["x"], "y": b["y"], "w": b["w"], "h": b["h"]} for b in expected]
 
@@ -400,3 +451,25 @@ def run_translation_quality(stub: bool) -> dict[str, Any]:
         }
 
     return {"cases": results, "summary": summary}
+
+
+def run_repetition_probe(stub: bool) -> dict[str, Any]:
+    """Score the repetition probe. Reported alongside the gate, never gated (#152)."""
+    if not PROBE_BUBBLES.exists():
+        return {"bubbles": [], "engines": {}}
+
+    bubbles = load_json(PROBE_BUBBLES)["bubbles"]
+    reference = [b["reference"] for b in bubbles]
+
+    engines: dict[str, Any] = {}
+    actual_dir = PROBE_BUBBLES.parent / PROBE_ACTUAL_DIR
+    outputs = sorted(actual_dir.glob("*.json")) if actual_dir.exists() else []
+    if outputs:
+        for out_path in outputs:
+            score = score_repetition_probe(reference, load_json(out_path).get("translations", []))
+            score["translations"] = load_json(out_path).get("translations", [])
+            engines[out_path.stem] = score
+    elif stub:
+        engines["stub"] = score_repetition_probe(reference, translation_stub(reference))
+
+    return {"bubbles": bubbles, "engines": engines}
