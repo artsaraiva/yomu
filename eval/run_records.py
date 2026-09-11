@@ -84,6 +84,30 @@ class RunError(Exception):
     """The run directory is not scoreable at all: no aggregate may be printed for any arm."""
 
 
+def load_contract() -> dict:
+    return json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
+
+
+def assert_registered(stage: str, metric_names: Iterable[str]) -> None:
+    """Refuse to report a dimension the metric contract does not register (#44).
+
+    The contract is what stops a number nobody agreed to measure from appearing beside the gate —
+    `label`, the substring guess `generate-cases.py` invents, was scored as if it were annotation.
+    A metric added to the scorer without a contract entry fails here rather than silently shipping.
+    """
+    contract = load_contract()
+    unknown = [
+        name
+        for name in metric_names
+        if name not in contract["metrics"]
+        or contract["metrics"][name]["stage"] not in (stage, "*")
+    ]
+    if unknown:
+        raise RunError(
+            f"{stage}: metrics not registered in eval-contract.json: {', '.join(sorted(unknown))}"
+        )
+
+
 def sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -273,6 +297,11 @@ class ValidatedRun:
     run_dir: Path
     manifest: dict
     arms: dict[str, ArmResult]
+    # Arm ids that wrote records without being requested. Reported, never scored: the same device
+    # run carries measurements the host did not plan (the prompt-mode comparison and the #153
+    # penalty sweep are @Test methods of the same class), and those must not make the planned arms
+    # unscoreable. The #36 protection is the opposite direction — a *declared* arm with no records.
+    unrequested_arms: list[str] = field(default_factory=list)
 
     @property
     def valid_arms(self) -> dict[str, ArmResult]:
@@ -409,11 +438,20 @@ def _validate_translation_case(arm: ArmResult, case_id: str, records: list[dict]
                     f"{case_id}: observed {key}={observed.get(key)!r} != "
                     f"declared {arm.meta.get(key)!r}"
                 )
-        # Index 0 must be the declared shape. A later record is the declared fallback, guarded above.
-        if index == 0 and observed.get("call_shape") != arm.meta.get("call_shape"):
+        declared_shape = arm.meta.get("call_shape")
+        observed_shape = observed.get("call_shape")
+        if index == 0:
+            if observed_shape != declared_shape:
+                arm.errors.append(
+                    f"{case_id}: observed call_shape={observed_shape!r} != "
+                    f"declared {declared_shape!r}"
+                )
+        elif observed_shape == declared_shape:
+            # A record after an `overflow` is the declared *fallback*, so it must be a different
+            # call shape. Re-issuing the same shape is a retry, not a fallback, and the arm would
+            # otherwise report a page measured twice under one name.
             arm.errors.append(
-                f"{case_id}: observed call_shape={observed.get('call_shape')!r} != "
-                f"declared {arm.meta.get('call_shape')!r}"
+                f"{case_id}: fallback record repeats the declared call_shape {declared_shape!r}"
             )
         mismatch = _generation_mismatch(arm.meta.get("generation", {}), observed.get("generation"))
         if mismatch:
@@ -443,12 +481,12 @@ def validate_run(run_dir: Path) -> ValidatedRun:
     if not arms:
         raise RunError("manifest declares no arms")
 
-    unknown: list[str] = []
+    unrequested: set[str] = set()
     for index, record in enumerate(records):
         arm_id = record.get("arm_id")
         arm = arms.get(arm_id)
         if arm is None:
-            unknown.append(f"line {index + 1}: arm_id {arm_id!r} is not in the manifest")
+            unrequested.add(str(arm_id))
             continue
         stage = record.get("stage")
         if stage not in STAGES:
@@ -465,9 +503,6 @@ def validate_run(run_dir: Path) -> ValidatedRun:
             arm.errors.append(f"line {index + 1}: duration_ms is not a number")
         arm.by_case.setdefault(case_id, []).append(record)
 
-    if unknown:
-        raise RunError("records reference arms the manifest never declared: " + "; ".join(unknown))
-
     for arm in arms.values():
         expected_cases = arm.meta.get("cases", sorted(cases))
         for case_id in expected_cases:
@@ -483,7 +518,12 @@ def validate_run(run_dir: Path) -> ValidatedRun:
             else:
                 _validate_single(arm, case_id, stage_records)
 
-    return ValidatedRun(run_dir=run_dir, manifest=manifest, arms=arms)
+    return ValidatedRun(
+        run_dir=run_dir,
+        manifest=manifest,
+        arms=arms,
+        unrequested_arms=sorted(unrequested),
+    )
 
 
 def _validate_single(arm: ArmResult, case_id: str, records: list[dict]) -> None:

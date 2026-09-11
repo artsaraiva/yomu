@@ -189,6 +189,13 @@ def main() -> int:
     invalid = sorted(run.invalid_arms) if run else []
     if invalid:
         print(f"\n{len(invalid)} requested arm(s) invalid: {', '.join(invalid)}", file=sys.stderr)
+    # Not an error: the same device run also carries measurements the host did not plan (the
+    # prompt-mode comparison, the #153 penalty sweep). They are named rather than scored.
+    if run and run.unrequested_arms:
+        print(
+            f"\nRecords present for {len(run.unrequested_arms)} arm(s) this run did not request, "
+            f"not scored: {', '.join(run.unrequested_arms)}"
+        )
 
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")

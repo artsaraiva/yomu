@@ -126,7 +126,7 @@ class EngineBenchmarkTest {
                 val measured = TranslationEngine { slot }
                 runEngineOverCases(
                     measured,
-                    llmArm("qwen_" + mode.name.lowercase(), slot),
+                    ArmMeta.from("qwen_" + mode.name.lowercase(), slot.activeProfile),
                     cases,
                     records,
                     rows
@@ -138,30 +138,6 @@ class EngineBenchmarkTest {
         } finally {
             native.release()
         }
-    }
-
-    /**
-     * An LLM arm's identity, read off the slot's live [LlamaTranslationBridge.activeProfile].
-     *
-     * Reading it here rather than restating what the test configured is the whole point of the
-     * observed/expected split: the host declares the same fields in `manifest.json` from the fixture
-     * on disk, and the scorer rejects the arm when they disagree.
-     */
-    private fun llmArm(armId: String, slot: LlamaTranslationBridge): ArmMeta {
-        val profile = slot.activeProfile
-        val fileName = File(profile.modelPath).name
-        return ArmMeta(
-            armId = armId,
-            provider = LLM_PROVIDER,
-            modelId = fileName,
-            quantization = ArmMeta.quantizationOf(fileName),
-            callShape = if (profile.idKeyedBatch) {
-                ArmMeta.CALL_SHAPE_BATCH
-            } else {
-                ArmMeta.CALL_SHAPE_PER_LINE
-            },
-            generation = profile.generation
-        )
     }
 
     /**
@@ -211,7 +187,7 @@ class EngineBenchmarkTest {
                     )
                 )
                 check(slot.ensureReady()) { "Qwen model unavailable: ${slot.status}" }
-                val armMeta = llmArm(arm, slot)
+                val armMeta = ArmMeta.from(arm, slot.activeProfile)
                 Log.i(TAG, "Penalty arm=$arm probe bubbles=${probe.size} cases=${cases.size}")
                 runProbe(slot, armMeta, probe, records)
                 // The gate corpus only carries the candidate and its control. 1.2 is a probe-only
@@ -334,7 +310,7 @@ class EngineBenchmarkTest {
                 }
 
                 val arm = when (slot) {
-                    is LlamaTranslationBridge -> llmArm(engineName, slot)
+                    is LlamaTranslationBridge -> ArmMeta.from(engineName, slot.activeProfile)
                     else -> FLOOR_ARMS.getValue(engineName)
                 }
                 runEngineOverCases(engine, arm, cases, records, timingRows)
@@ -371,17 +347,17 @@ class EngineBenchmarkTest {
         timingRows: MutableList<TimingRow>,
         deadlineMs: Long = Long.MAX_VALUE
     ) {
-        val engineName = arm.armId
+        val armId = arm.armId
         for ((index, case) in cases.withIndex()) {
             if (System.currentTimeMillis() >= deadlineMs) {
                 // Recorded, not merely logged: `skipped_budget` invalidates the arm in the scorer,
                 // which is the correct outcome for pages that were never measured (#142).
-                Log.w(TAG, "Budget exhausted for engine=$engineName; ${cases.size - index} of ${cases.size} cases unrun")
+                Log.w(TAG, "Budget exhausted for engine=$armId; ${cases.size - index} of ${cases.size} cases unrun")
                 for (unrun in cases.drop(index)) {
                     records.append(
                         JSONObject()
                             .put("run_id", records.runId)
-                            .put("arm_id", engineName)
+                            .put("arm_id", armId)
                             .put("case_id", unrun.caseId)
                             .put("stage", RunRecords.STAGE_TRANSLATION)
                             .put("outcome", "skipped_budget")
@@ -412,7 +388,7 @@ class EngineBenchmarkTest {
             val assembleNs = System.nanoTime()
             val assembled = runCatching { assembler.assemble(bubbles, ocrResults, case.width, case.height) }
             records.contextAssembly(
-                armId = engineName,
+                arm = arm,
                 caseId = case.caseId,
                 outcome = if (assembled.isSuccess) TranslationOutcome.SUCCESS else TranslationOutcome.ERROR,
                 durationMs = (System.nanoTime() - assembleNs) / 1_000_000L,
@@ -443,14 +419,14 @@ class EngineBenchmarkTest {
             timingRows.add(
                 TimingRow(
                     caseId = case.caseId,
-                    engine = engineName,
+                    engine = armId,
                     bubbleCount = ocrResults.size,
                     durationMs = result?.translationTimeMs ?: 0L,
                     pssKb = pssKb,
                     success = result != null
                 )
             )
-            Log.i(TAG, "Result engine=$engineName case=${case.caseId} bubbles=${ocrResults.size} durationMs=${result?.translationTimeMs ?: 0} pssKb=$pssKb covered=${result?.rawById?.size ?: 0}")
+            Log.i(TAG, "Result engine=$armId case=${case.caseId} bubbles=${ocrResults.size} durationMs=${result?.translationTimeMs ?: 0} pssKb=$pssKb covered=${result?.rawById?.size ?: 0}")
         }
     }
 
@@ -513,7 +489,7 @@ class EngineBenchmarkTest {
                 val challengerEngine = TranslationEngine { bridge }
                 runEngineOverCases(
                     challengerEngine,
-                    llmArm(candidate.engineName, bridge),
+                    ArmMeta.from(candidate.engineName, bridge.activeProfile),
                     cases,
                     records,
                     timingRows,
@@ -643,7 +619,6 @@ class EngineBenchmarkTest {
     companion object {
         private const val TAG = "EngineBenchmarkTest"
         private const val FIXTURE_DIR = "/data/local/tmp/yomu-fixtures"
-        private const val LLM_PROVIDER = "llama.cpp"
         private val ENGINES = listOf(
             TranslationEngineType.ML_KIT,
             TranslationEngineType.OPUS_MT,

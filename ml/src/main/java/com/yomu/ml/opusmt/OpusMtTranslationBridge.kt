@@ -50,13 +50,7 @@ class OpusMtTranslationBridge(
         sessionContext: List<Pair<String, String>>
     ): PageTranslation {
         if (status !is TranslationStatus.Ready && !ensureReady()) {
-            return PageTranslation(
-                emptyMap(),
-                "",
-                0L,
-                TranslationOutcome.NOT_LOADED,
-                (status as? TranslationStatus.Error)?.reason ?: "not_ready"
-            )
+            return PageTranslation.notLoaded(status)
         }
         val bubbles = page.panels.flatten()
         val outputs = bubbles.mapNotNull { bubble ->
