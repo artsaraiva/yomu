@@ -1,6 +1,7 @@
 package com.yomu.app.translation
 
 import com.yomu.core.Constants
+import com.yomu.core.GenerationParams
 import com.yomu.core.ModelProfile
 import com.yomu.core.TranslationPromptMode
 import java.io.File
@@ -121,7 +122,10 @@ object LlmModelCatalog {
         idKeyedBatch = option.idKeyedBatch,
         promptMode = if (
             captureContext && option.promptMode == TranslationPromptMode.TRANSLATION_ONLY
-        ) TranslationPromptMode.CAPTURE_CONTEXT else option.promptMode
+        ) TranslationPromptMode.CAPTURE_CONTEXT else option.promptMode,
+        // Every option gets the same block. A per-model override is added when a measurement
+        // forces two models apart, not before.
+        generation = GenerationParams()
     )
 
     /**
