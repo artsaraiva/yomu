@@ -45,3 +45,61 @@ Before this, the harness looped `TranslationEngineSelector.translate(line)` over
 ## Amendment (#52): the set catches failures, and the pass bars are set
 
 The question the consequence above left open is now resolved by #52 — and the "no pass bar is set for translation" clause is superseded. The answer needed no variance run: this contract encodes **no continuous quality metric**, only two rare-event failure detectors plus a diagnostic, so there is nothing to significance-test and #44's paired-sign-test method does not apply. **The set catches failure modes and gates regressions; it does not rank translation engines on quality, and it has no separation rule.** Pass bars: **non-translation rate 0** (hard gate), **Japanese-residue rate 0** (gate, hits adjudicated against the reference), **bubble coverage 100% of ids returned** (gate), **readability ratio diagnostic, no bar**. #35 selects among gate-passing engines on #26's non-quality axes; adequacy/fluency ranking stays deferred to #30's contrastive set and a possible future COMET-or-judge metric. The corpus stays at 17 cases / 152 lines — OpenMantra's line ceiling is moot with nothing to power. The scorer this requires is built under #58.
+
+## Amendment (#176): a continuous adequacy metric, staged as a per-arm no-regression gate
+
+The amendment above says this contract "encodes **no continuous quality metric**, only two rare-event failure detectors plus a diagnostic". That clause is superseded. The contract gains one: **doc-level-context COMET over the committed page outputs, via Apache-2.0 [`Unbabel/wmt22-comet-da`](https://huggingface.co/Unbabel/wmt22-comet-da)**, costed at ~1 dev-day with no blockers by [#141](https://github.com/artsaraiva/yomu/issues/141) (Route B) and argued for on its own merits by [#145](https://github.com/artsaraiva/yomu/issues/145).
+
+The reason is not that the old clause was wrong when written. It is that every ticket touching translation quality since #84 has had to argue about *meaning* from residue and chrF2: #119's prompt modes, #137's grammar arms, #153's `repeat_penalty`, #145's model comparison. #145's answer came from one reviewer hand-marking 42 bubbles on four pages — which answered that question and cannot track it, because it must be redone by hand for every prompt change, sampler knob and model swap. The metric exists to be re-runnable, not to be more sensitive than a reviewer.
+
+### The job: a per-arm no-regression gate, armed from a measured baseline
+
+A metric ships with a job or does not ship (#144, #139). `mean_chrf` is already an explicitly ungated diagnostic, so a second permanently-ungated number is a number nobody acts on; but a pass bar picked before the first baseline run is the ADR-0008 undocumented-constant failure. So it stages:
+
+1. It lands **`gated: false`, with the arming issue named in its `eval-contract.json` `comment`** — the ungated state carries an expiry rather than becoming permanent.
+2. The build records baselines and the run-to-run spread. **The threshold is derived, not chosen**: three reruns of one arm, `N = ceil(max observed spread)`, with the three numbers written into this ADR when the gate is armed. If the reruns come back bit-identical, `N` falls back to a stated floor rather than to zero.
+3. The gate is then armed as a **no-regression delta against the arm's own recorded baseline**, never an absolute quality bar. COMET compresses strong systems into a narrow top band (JP-TL-Bench's finding, recorded in #141), so an absolute bar on this scale cannot be justified from anything measured here. A delta is also what every downstream ticket actually asks: *did this prompt / sampler / model change make meaning worse.*
+
+**A baseline is keyed by arm identity**, not by corpus alone: model plus pinned revision, call shape (`idKeyedBatch`), grammar on or off, corpus hash, `contract_sha256`, and the COMET checkpoint revision. An arm is only ever compared against itself, so a new arm records its own first baseline unarmed. Two consequences: the build does **not** wait on [#149](https://github.com/artsaraiva/yomu/issues/149), and **no cross-arm COMET comparison is ever a gate** — cross-arm deltas are diagnostics, which is the shape a #145-class question needs anyway.
+
+The per-arm keying is also what keeps this from repeating the mislabelling this ADR already warns about above: a single global adequacy number would be invalidated the moment the architecture moves, and would be read as a quality claim about an architecture it never measured.
+
+### What is scored, and how
+
+**Per bubble, with preceding-bubble context prepended to source, hypothesis and reference** — the Vernikos et al. (WMT 2022) concatenation trick surveyed for #30 (`docs/research/coherence-eval-methodology.md`, branch `research/coherence-eval-methodology`, not on `main`), ~30 lines over the sentence-level call, no retraining. Preceding-only, up to a character budget starting at 250: manga bubbles resolve referents backwards in reading order, and a *following* bubble is information the engine did not have when it translated, so scoring against it would credit or charge a context the model never saw. The budget is a documented knob, not a pinned constant.
+
+The arm's number is the mean over bubbles. The per-bubble array is **evidence carried in the run record, not a registered metric** — it is the drill-down that tells a reviewer which bubble moved, which is the part of hand review a scalar cannot replace.
+
+**Echoed, non-translated and empty bubbles.** The denominator is every bubble with a non-blank source line — identical to `score_translation`'s `entries`, so the adequacy mean and the existing gates count the same population. Within it:
+
+- A **source echo** or a **non-translation** is scored exactly as returned, with no special case. A Japanese echo against an English reference simply scores low, and both classes are already caught precisely by gates of their own (`japanese_residue_rate` and `non_translation_rate`, both gated at 0).
+- An **empty** output is floored to 0.0. COMET over an empty hypothesis is not a meaningful number, and leaving it out would be the excluding-by-stealth this rule exists to forbid.
+
+Excluding the echo class from the denominator was considered and rejected, and it is the trap here. #145 measured CAT-Translate-1.4b at 54% clean *among the 35 bubbles it translated* against 38% over all 42: a mean computed over survivors **pays an engine for declining to answer**, and the engine most likely to trip it is the one whose failure the grammar cannot reach (ADR-0013: the grammar constrains shape, not content). One ungated diagnostic, `mean_comet_translated`, reports the survivors-only mean for drill-down; it is never the gate number.
+
+### Where it runs
+
+**A standalone re-scorer over an existing run record**, with the benchmark's `--comet` flag calling into it. #165's records exist so a run can be re-scored without re-inference, and #145's whole method was that the outputs are already on disk; a COMET path reachable only during a fresh device benchmark could not score anything already measured. The re-scorer refuses a record whose `contract_sha256` no longer matches `eval-contract.json`, on the same rule that already rejects an aggregate computed under a different contract.
+
+It is host-side and scoring-time: CPU, minutes for 147 segments, never on-device.
+
+**The dependency is opt-in and pinned.** `unbabel-comet` and its torch and ~2.3 GB XLM-R checkpoint go in `eval/requirements-comet.txt`, not `eval/requirements.txt`. `sacrebleu` hard-fails the whole run when missing (#156) and that is right for a 3 MB pure-Python dependency; applying the same rule to COMET would mean no benchmark runs anywhere without a 2.3 GB download. So COMET scoring hard-fails **when asked for and unavailable**, and is absent otherwise. It never degrades to a silent null — that is the failure the interpreter check exists to prevent.
+
+The **checkpoint revision is recorded in the manifest beside `contract_sha256`**. An unpinned checkpoint makes two runs incomparable in exactly the way the contract hash already refuses, and ADR-0014 already made revision pinning the rule for every downloaded artefact.
+
+### Contract entries
+
+Registered in `eval-contract.json`, since the scorer refuses any dimension the contract does not carry:
+
+- `mean_comet` — `stage: translation`, `gated: false` with the arming issue named in its `comment`, inputs `record:results[].text`, `reference.txt`, `source.txt`.
+- `mean_comet_translated` — ungated diagnostic, same inputs.
+
+`wmt22-comet-da` is source-aware, so **`source.txt` becomes a declared scoring input for the first time**. Every other translation metric either reads the reference or reads the source as a cross-check; this one reads all three, and the contract says so rather than leaving it to the scorer.
+
+### The floor line is scored, and nothing retires
+
+The per-line floor arms are scored and reported on the floor line, never gated and never ranked against the gate arm — the rule this ADR already sets for every other metric. (OPUS-MT stays off the roster while #14 is open.)
+
+**The hand review stays the adjudicator of record.** COMET returns a number, not an error class: it cannot say *polarity flipped* or *wrong surname*, which is the output #145 actually acted on. It is invoked per decision, not per run, and the continuous metric is what tells a decision it is needed.
+
+**ADR-0006's contrastive set (Route A) stays deferred, not retired.** It measures referent resolution directionally, which a reference-based scalar cannot, and it remains blocked for the reason #141 found: with session context reaching no model, the directional gate scores zero delta by construction.
