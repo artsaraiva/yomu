@@ -11,7 +11,7 @@ class MlKitTranslationBridgeTest {
     fun translatePage_emptyPageDoesNotLoadTheModel() = runTest {
         val slot = MlKitTranslationBridge()
 
-        val result = slot.translatePage(TranslatablePage(emptyList()), emptyList())
+        val result = slot.translatePage(TranslatablePage(emptyList()))
 
         assertEquals(emptyMap<Int, String>(), result.byId)
         assertEquals(0L, result.durationMs)

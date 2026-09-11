@@ -12,6 +12,10 @@ open class LlamaBridge(private val context: Context?) : TextGenerationBridge {
         private val DEFAULT_N_THREADS = Runtime.getRuntime().availableProcessors().coerceAtMost(4)
         private var nativeLoaded = false
 
+        // Mirrors GenerationStatus in llama_jni.cpp; the two must be edited together.
+        private const val STATUS_OVERFLOW = 1
+        private const val STATUS_TIMEOUT = 2
+
         init {
             try {
                 System.loadLibrary("llama_jni")
@@ -68,7 +72,8 @@ open class LlamaBridge(private val context: Context?) : TextGenerationBridge {
         prompt: String,
         params: GenerationParams,
         maxTokens: Int,
-        timeoutMs: Int
+        timeoutMs: Int,
+        grammar: String
     ): GenerationResult {
         if (!isLoaded) {
             Log.w(TAG, "generate skipped model_not_loaded")
@@ -76,12 +81,24 @@ open class LlamaBridge(private val context: Context?) : TextGenerationBridge {
         }
         val startMs = System.currentTimeMillis()
         try {
-            val result = nativeGenerate(prompt, maxTokens, timeoutMs, params.samplerArray(), params.seed)
+            val result = nativeGenerate(
+                prompt,
+                maxTokens,
+                timeoutMs,
+                params.samplerArray(),
+                params.seed,
+                grammar
+            )
             val durationMs = System.currentTimeMillis() - startMs
             val text = result.orEmpty()
             if (text.isBlank()) {
-                Log.w(TAG, "generate completed status=blank durationMs=$durationMs responseLength=${text.length}")
-                return GenerationResult.Blank(durationMs = durationMs)
+                val status = nativeLastStatus()
+                Log.w(TAG, "generate completed status=empty native=$status durationMs=$durationMs")
+                return when (status) {
+                    STATUS_OVERFLOW -> GenerationResult.Overflow(durationMs = durationMs)
+                    STATUS_TIMEOUT -> GenerationResult.Timeout(durationMs = durationMs)
+                    else -> GenerationResult.Blank(durationMs = durationMs)
+                }
             }
             Log.i(TAG, "generate completed status=success durationMs=$durationMs responseLength=${text.length}")
             return GenerationResult.Success(text = text, durationMs = durationMs)
@@ -109,8 +126,10 @@ open class LlamaBridge(private val context: Context?) : TextGenerationBridge {
         maxTokens: Int,
         timeoutMs: Int,
         samplerParams: FloatArray,
-        seed: Int
+        seed: Int,
+        grammar: String
     ): String?
+    private external fun nativeLastStatus(): Int
     private external fun nativeClearMemory()
     private external fun nativeRelease()
 }

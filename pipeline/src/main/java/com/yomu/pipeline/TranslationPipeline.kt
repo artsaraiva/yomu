@@ -80,7 +80,6 @@ class TranslationPipeline(
 
     suspend fun processPage(
         bitmap: Bitmap,
-        sessionContext: List<Pair<String, String>> = emptyList(),
         callback: PipelineCallback? = null,
         onOcrComplete: ((bubbleId: Int, ocrText: String, bounds: RectF) -> Unit)? = null
     ): PipelineResult? {
@@ -163,7 +162,7 @@ class TranslationPipeline(
 
             currentStage = Stage.TRANSLATION
             callback?.onStageProgress(Stage.TRANSLATION, 0.6f)
-            val translationResult = translationEngine.translate(pageContext.blocks, sessionContext)
+            val translationResult = translationEngine.translate(pageContext.blocks)
             callback?.onStageProgress(Stage.TRANSLATION, 0.8f)
 
             currentStage = Stage.TYPESETTING

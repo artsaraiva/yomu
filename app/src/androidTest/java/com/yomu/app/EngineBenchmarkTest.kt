@@ -227,7 +227,7 @@ class EngineBenchmarkTest {
         var errorCode: String? = null
         probe.forEachIndexed { id, source ->
             val page = TranslatablePage(listOf(listOf(TranslatableBubble(id, source))))
-            val result = runCatching { slot.translatePage(page, emptyList()) }.getOrNull()
+            val result = runCatching { slot.translatePage(page) }.getOrNull()
             durationMs += result?.durationMs ?: 0L
             val text = result?.byId?.get(id)
             if (text != null) results[id] = text

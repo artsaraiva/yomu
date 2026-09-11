@@ -17,6 +17,6 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../../llama.cpp llama.cpp)
 
 find_library(log-lib log)
 
-add_library(llama_jni SHARED llama_jni.cpp)
+add_library(llama_jni SHARED llama_jni.cpp grammar_sampler.cpp)
 target_include_directories(llama_jni PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../../../llama.cpp/include)
 target_link_libraries(llama_jni PUBLIC llama ${log-lib})
