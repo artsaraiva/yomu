@@ -51,9 +51,23 @@ small derived metadata.
 
 ## Running the harness
 
+`run_eval_lib.py` scores chrF2 through sacrebleu, so the harness needs the dependencies in
+`eval/requirements.txt`. Create the virtualenv once (it is gitignored):
+
 ```bash
-./eval/run-eval.py --stub
+python3 -m venv eval/.venv
+eval/.venv/bin/pip install -r eval/requirements.txt
 ```
+
+Then run the harness and the scorer tests:
+
+```bash
+eval/.venv/bin/python eval/run-eval.py --stub
+eval/.venv/bin/python -m pytest eval -q
+```
+
+Without sacrebleu the harness still runs and every gate metric is still scored, but `mean_chrf` is
+null and the chrF test fails — that is a missing dependency, not a regression.
 
 `--stub` runs the scoring logic with synthetic perfect outputs. For real engine
 comparison, collect on-device outputs and place them in the format below, then

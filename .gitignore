@@ -58,3 +58,6 @@ __pycache__/
 # Repetition probe (#152): derived CC BY-NC content, regenerate from vendor/
 eval/repetition-probe/bubbles.json
 eval/repetition-probe/actual/
+
+# Eval harness virtualenv
+eval/.venv/
