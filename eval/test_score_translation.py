@@ -85,10 +85,12 @@ def test_punctuation_source_kept_verbatim_is_clean():
 
 
 def test_unrun_pages_cannot_pass():
-    import json
+    # A page the arm produced no record for is an unrun page, not an absent one: it stays in
+    # expected_cases and the gate cannot pass (#36/#58).
     import tempfile
     from pathlib import Path
     import run_eval_lib as lib
+    import run_records
     with tempfile.TemporaryDirectory() as tmp:
         previous = lib.TRANS_CASES
         lib.TRANS_CASES = Path(tmp)
@@ -98,10 +100,25 @@ def test_unrun_pages_cannot_pass():
                 case.mkdir()
                 (case / "source.txt").write_text("ありがとう\n")
                 (case / "reference.txt").write_text("Thank you.\n")
-            actual = Path(tmp) / "one" / "actual"
-            actual.mkdir()
-            (actual / "qwen.json").write_text(json.dumps({"translations": ["Thank you."]}))
-            summary = lib.run_translation_quality(False)["summary"]["engines"]["qwen"]
+            arm = run_records.ArmResult(
+                arm_id="qwen",
+                stage=run_records.TRANSLATION,
+                meta={"arm_id": "qwen", "stage": run_records.TRANSLATION, "cases": ["one", "two"]},
+                by_case={
+                    "one": [{
+                        "stage": run_records.TRANSLATION,
+                        "outcome": "success",
+                        "requested_ids": [0],
+                        "results": [{"bubble_id": 0, "text": "Thank you."}],
+                    }]
+                },
+            )
+            run = run_records.ValidatedRun(
+                run_dir=Path(tmp),
+                manifest={"cases": {"one": {"requested_ids": [0]}, "two": {"requested_ids": [0]}}},
+                arms={"qwen": arm},
+            )
+            summary = lib.run_translation_quality(run)["summary"]["engines"]["qwen"]
             assert not summary["gate_pass"]
             assert summary["completed_cases"] == 1
             assert summary["expected_cases"] == 2

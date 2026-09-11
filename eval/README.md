@@ -18,10 +18,14 @@ changes. Do not tune thresholds or swap engines without checking against them.
 ```
 eval/
 ├── README.md
+├── SCHEMA.md                # Run record contract: manifest, records.jsonl, COMPLETE, validation
+├── eval-contract.json       # Machine-readable metric registry, hashed into every run manifest
 ├── run-eval.py              # Phase 1 eval harness CLI
-├── run_eval_lib.py          # Scoring and case-loading logic
+├── run_eval_lib.py          # Scoring logic
+├── run_records.py           # Manifest writer + run-record validator
 ├── generate-cases.py        # Build gate cases from vendor/OpenMantra
 ├── generate-repetition-probe.py  # Build the repetition probe from vendor/OpenMantra
+├── benchmark-results/<run-id>/   # One run: manifest.json + records.jsonl + COMPLETE (gitignored)
 ├── bubble-detection/
 │   ├── SCHEMA.md
 │   └── cases/<case-id>/     # page.jpg + expected.json
@@ -30,9 +34,13 @@ eval/
 │   └── cases/<case-id>/     # page.jpg + source.txt + reference.txt
 └── repetition-probe/        # Targeted probe, reported beside the gate, never gated (#152)
     ├── SCHEMA.md
-    ├── bubbles.json         # Generated, gitignored
-    └── actual/<engine>.json # On-device output, gitignored
+    └── bubbles.json         # Generated, gitignored
 ```
+
+**Engine output is never written into the case directories.** Every run's outputs stay in the
+timestamped run directory they were produced in and are scored there. That is what makes #58 — a
+skipped engine scored against a prior run's leftovers — structurally impossible rather than merely
+unlikely. See [SCHEMA.md](SCHEMA.md).
 
 ## Populating the dataset
 
@@ -69,9 +77,14 @@ eval/.venv/bin/python -m pytest eval -q
 Without sacrebleu the harness still runs and every gate metric is still scored, but `mean_chrf` is
 null and the chrF test fails — that is a missing dependency, not a regression.
 
-`--stub` runs the scoring logic with synthetic perfect outputs. For real engine
-comparison, collect on-device outputs and place them in the format below, then
-run without `--stub`.
+`--stub` runs the scoring logic with synthetic perfect outputs and needs no device. For real engine
+numbers, score a run directory produced by `run-benchmark.sh`:
+
+```bash
+eval/.venv/bin/python eval/run-eval.py --run-dir eval/benchmark-results/<run-id>
+```
+
+It exits nonzero when any requested arm is invalid, after reporting every valid arm.
 
 ## One-command benchmark runner
 
@@ -86,21 +99,34 @@ artifact pull, and scoring):
 
 - Android device/emulator connected and visible to `adb`
 - `adb` in `PATH` (Android platform-tools)
-- `python3` in `PATH`
 - Executable Gradle wrapper at `./gradlew`
+- A Python interpreter with `eval/requirements.txt` installed
 
 If any prerequisite is missing, the script fails early with an actionable error.
+
+### Which interpreter scores the run
+
+`run-benchmark.sh` scores with `$PYTHON_BIN` if set, otherwise `eval/.venv/bin/python`, otherwise
+`python3`. It then checks that interpreter can import `sacrebleu` and **stops** if it cannot.
+
+That check is not pedantry. Without sacrebleu, `run_eval_lib.py` falls through its `except
+ImportError` to `CHRF = None` and every run records `mean_chrf: null` — which reads identically to
+"no bubbles were scored". chrF is a registered metric in `eval-contract.json`, so a silent null is
+the contract measuring nothing (#156). Every `mean_chrf` recorded before this check was null for
+that reason, not low; the other gate metrics never depended on sacrebleu and are unaffected.
 
 ### What the script does
 
 `run-benchmark.sh` executes numbered progress steps with elapsed time:
 
 1. prerequisites
-2. build/install
-3. device test
-4. pull artifacts
-5. score results
-6. summary
+2. build
+3. install
+4. plan the run (write `manifest.json`)
+5. device test
+6. extract run records (`adb exec-out run-as … tar`, then write `COMPLETE`)
+7. score results
+8. summary
 
 It streams instrumentation/eval output to the terminal and writes a persistent
 log for the run.
@@ -110,16 +136,20 @@ log for the run.
 Each run creates a unique timestamped directory (never overwrites prior runs):
 
 ```text
-eval/benchmark-results/<timestamp>/
+eval/benchmark-results/<run-id>/
+├── manifest.json          # what this run was planned to produce, written before the device ran
+├── records.jsonl          # what the device actually did, one record per arm/case/stage
+├── COMPLETE               # record count + records SHA-256 + terminal arm statuses
 ├── benchmark.log          # full combined run log
-├── raw-artifacts/         # pulled device files from yomu-benchmark/
+├── logcat.log             # diagnostic only; the scorer never reads it
 ├── run-eval-output.log    # eval script stdout
 └── scored-results.json    # copied score JSON from run-eval.py
 ```
 
-Artifacts are pulled from the app-specific path on device:
-
-`/sdcard/Android/data/com.yomu.app/files/yomu-benchmark/`
+Records are extracted from the app's own files directory with
+`adb exec-out run-as com.yomu.app tar c -C files yomu-benchmark/<run-id>`. The full contract,
+including every validation rule and the failure it exists to catch, is in
+[SCHEMA.md](SCHEMA.md).
 
 ### Flags
 
@@ -135,28 +165,19 @@ Examples:
 
 ### Engine availability note
 
-If an on-device model is unavailable (for example OPUS-MT model files are not
-present), that engine may be skipped or reported with an error in results while
-other engines continue to be scored.
+If an on-device model is unavailable (for example OPUS-MT model files are not present), that engine
+writes no records. Because the host declared it in the manifest, the scorer reports that arm as
+**invalid** — no aggregate, and a nonzero exit — while every other arm is still scored. A skipped
+engine that quietly scores as if it ran is #58.
 
-### Bubble detection output format
+### Bubble detection output
 
 `run-benchmark.sh` produces this automatically: `BubbleDetectionBenchmarkTest` runs the real
-`BubbleDetector` on device over every case page and logs the boxes, which the script writes to
-`actual.json` per case. Both the case pages and the detector weights ride into the test APK as
-gitignored assets that the script stages before the build, so the run does not depend on what the
-device happens to have downloaded.
-
-Per case, the file written is `eval/bubble-detection/cases/<case-id>/actual.json`:
-
-```json
-{
-  "boxes": [
-    {"x": 120, "y": 340, "w": 260, "h": 180},
-    {"x": 720, "y": 1980, "w": 150, "h": 120}
-  ]
-}
-```
+`BubbleDetector` on device over every case page and writes a `detection` record per arm/case into
+the run directory (boxes with `conf`, NMS counts, monotonic duration, and the detector it observed).
+Both the case pages and the detector weights ride into the test APK as gitignored assets that the
+script stages before the build, so the run does not depend on what the device happens to have
+downloaded.
 
 The harness scores these by **containment**, per
 [ADR-0003](../docs/adr/0003-detection-hit-criterion.md): each detection is padded by 4% of page
@@ -164,25 +185,16 @@ width per side (mirroring the crop the pipeline hands OCR), a ground-truth box i
 padded detection covers ≥95% of its area under one-to-one matching, and a detection covering two
 or more ground-truth centres is a hit for none of them. IoU is no longer used.
 
-### Translation output format
+### Translation output
 
-Per case and per engine, write
-`eval/translation-quality/cases/<case-id>/actual/<engine>.json`:
+Per arm and case, the device writes a `context_assembly` record and a `translation` record. The
+translation record carries the ids the model was asked for and its **raw** `{bubble_id, text}`
+results, before `TranslationEngine` substitutes source text for an id it never answered.
 
-```json
-{
-  "engine": "mlkit",
-  "translations": [
-    "english line 1",
-    "english line 2"
-  ]
-}
-```
-
-Lines must align with `source.txt` by bubble id. The harness gates non-translation
-rate (0), Japanese-residue rate (0, reference-adjudicated) and bubble coverage (100%),
-and reports a readability word-count ratio as a diagnostic. See
-`translation-quality/SCHEMA.md`.
+The harness gates non-translation rate (0), Japanese-residue rate (0, reference-adjudicated), bubble
+coverage (100%) and output shape (no missing, extra or duplicate returned id), and reports a
+readability word-count ratio and chrF2 as ungated diagnostics. See
+`translation-quality/SCHEMA.md` and [SCHEMA.md](SCHEMA.md).
 
 ## What this case set can and cannot decide
 
@@ -295,30 +307,29 @@ The 1.0 arm is run rather than taken from #137's published `qwen_perline` row: t
 measured on the reference phone, and a paired delta against another device's numbers measures the
 device. Run both arms on whatever device you have, and difference them against each other.
 
+The sweep's arms (`repeat_1.0` / `repeat_1.1` / `repeat_1.2`) write into the same run directory as
+any other run, so it goes through `run-benchmark.sh` rather than a hand-rolled copy loop. Records are
+written to the app's own files directory, **not** logcat: a looping arm emits multi-kilobyte lines
+and logcat's chatty filter silently drops them — the first run of this sweep lost 12 of 22 probe
+bubbles that way, and a dropped bubble scores as an empty output, which reads as harm.
+
 ```bash
 ./eval/run-benchmark.sh --skip-eval   # once, to stage cases + probe assets and push the model
+
+RUN_ID="$(date +%Y%m%d-%H%M%S)"
 ./gradlew :app:connectedDebugAndroidTest \
+  "-Pandroid.testInstrumentationRunnerArguments.runId=$RUN_ID" \
   -Pandroid.testInstrumentationRunnerArguments.class=com.yomu.app.EngineBenchmarkTest#measureRepeatPenalty
+
+mkdir -p "eval/benchmark-results/$RUN_ID"
+adb exec-out "run-as com.yomu.app tar c -C files yomu-benchmark/$RUN_ID" \
+  | tar x -C "eval/benchmark-results/$RUN_ID" --strip-components=2
 ```
 
-Outputs are pulled from the app's own files directory, **not** from logcat. A looping arm emits
-multi-kilobyte lines and logcat's chatty filter silently drops them — the first run of this sweep
-lost 12 of 22 probe bubbles that way, and a dropped bubble scores as an empty output, which reads
-as harm:
-
-```bash
-adb exec-out run-as com.yomu.app tar c -C files yomu-penalty | tar x -C /tmp
-for arm in /tmp/yomu-penalty/repetition-probe/*.json; do
-  mkdir -p eval/repetition-probe/actual && cp "$arm" eval/repetition-probe/actual/
-done
-for case_dir in /tmp/yomu-penalty/*/; do
-  case_id="$(basename "$case_dir")"
-  [ "$case_id" = "repetition-probe" ] && continue
-  mkdir -p "eval/translation-quality/cases/$case_id/actual"
-  cp "$case_dir"/*.json "eval/translation-quality/cases/$case_id/actual/"
-done
-eval/.venv/bin/python eval/run-eval.py --no-bubble
-```
+Write a manifest for those arms (`eval/run_records.py manifest --arm …`, one `--arm` per penalty
+value with `gen.penalty_repeat` and `gen.seed=0` pinned), then
+`eval/run_records.py complete --run-dir …` and
+`eval/.venv/bin/python eval/run-eval.py --run-dir "eval/benchmark-results/$RUN_ID" --no-bubble`.
 
 Results: [the repeat-penalty measurement](repeat-penalty-153.md).
 

@@ -28,20 +28,25 @@ Ground-truth text-box bounding boxes in captured-image pixel coordinates.
   `story`.
 - `x`, `y`: top-left corner in pixels.
 - `w`, `h`: width/height in pixels.
-- `label`: one of `speech`, `narration`, `sfx`. **Not annotation** — OpenMantra has no class field
-  and `generate-cases.py:label_for()` guesses from substrings. Nothing gates on it, the harness
-  reports no per-class breakdown, and it exists only to keep the schema stable. Do not read
-  meaning into it.
+- `label`: one of `speech`, `narration`, `sfx`. **Not annotation, and forbidden as a scoring
+  input** — OpenMantra has no class field and `generate-cases.py:label_for()` guesses from
+  substrings. It is listed under `forbidden_inputs` in
+  [`../eval-contract.json`](../eval-contract.json), so a metric that read it would fail the contract
+  check rather than merely be discouraged (#44). It exists only to keep the schema stable.
 
-## Generated files (gitignored, written by `run-benchmark.sh`)
+## Generated output
 
-### `actual.json` / `actual_s.json`
-On-device detector output. `actual.json` is the incumbent yolo26n; `actual_s.json` is the yolo26s
-candidate (#57), written only when its weights asset was staged. Each box adds `conf` (post-NMS
-confidence), and the object carries `detect_ms` (per-page wall-clock) and `nms_thresholded` /
-`nms_kept` (pre- vs post-NMS box counts). `score-detector-comparison.py` reads both files to rank
-the detectors under the #33 rule; `run-eval.py` scores `actual.json` alone and ignores the extra
-keys.
+There are no generated files in this directory. On-device detector output lives in the run
+directory's `records.jsonl` as `detection` records, one per arm/case — see
+[`../SCHEMA.md`](../SCHEMA.md). The incumbent yolo26n is arm `bubble`; the yolo26s candidate (#57) is
+arm `bubble_s`, present only when its weights asset was staged.
+
+A detection record carries the boxes (each with `conf`, the post-NMS confidence), `nms_thresholded` /
+`nms_kept`, and the monotonic `duration_ms`. `run-eval.py --run-dir` scores each detection arm;
+`score-detector-comparison.py --run-dir` reads both to rank them under the #33 rule.
+
+The old shared `actual.json` / `actual_s.json` files are gone. They were how #58 shipped: a skipped
+engine kept a prior run's outputs and was scored as if it had just run.
 
 ## Optional files
 

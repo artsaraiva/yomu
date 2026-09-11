@@ -5,6 +5,7 @@ import com.yomu.core.ModelProfile
 import com.yomu.core.PageTranslation
 import com.yomu.core.TranslatableBubble
 import com.yomu.core.TranslatablePage
+import com.yomu.core.TranslationOutcome
 import com.yomu.core.TranslationPromptMode
 import com.yomu.core.TranslationSlot
 import com.yomu.core.TranslationStatus
@@ -19,6 +20,15 @@ class LlamaTranslationBridge(
 
     @Volatile
     private var profile: ModelProfile = profile
+
+    /**
+     * The profile this slot is actually running, read at the execution boundary.
+     *
+     * The eval records the call shape and generation settings from here rather than from whatever
+     * the harness believes it configured: manifest-only call-shape metadata is the provenance
+     * mistake ADR-0010 corrected, and #142 requires expected and observed to be independent.
+     */
+    val activeProfile: ModelProfile get() = profile
 
     suspend fun selectModel(newProfile: ModelProfile) = readinessMutex.withLock {
         if (newProfile == profile) return@withLock
@@ -73,14 +83,14 @@ class LlamaTranslationBridge(
     ): PageTranslation {
         if (page.panels.flatten().isEmpty()) return PageTranslation(emptyMap(), "", 0L)
         if (status !is TranslationStatus.Ready && !ensureReady()) {
-            return PageTranslation(emptyMap(), "", 0L)
+            return PageTranslation.notLoaded(status)
         }
         return if (profile.idKeyedBatch) translateBatch(page, sessionContext) else translatePerLine(page)
     }
 
     private suspend fun translatePerLine(page: TranslatablePage): PageTranslation {
         val bubbles = page.panels.flatten()
-        val outputs = bubbles.mapIndexedNotNull { index, bubble ->
+        val generated = bubbles.mapIndexed { index, bubble ->
             val prompt = when (profile.promptMode) {
                 TranslationPromptMode.MODEL_CARD -> modelCardPrompt(bubble.sourceText)
                 TranslationPromptMode.TRANSLATION_ONLY -> translationOnlyPrompt(bubble.sourceText, "")
@@ -90,14 +100,23 @@ class LlamaTranslationBridge(
                         .joinToString("\n") { it.sourceText.take(NEIGHBOUR_CHARS) }
                 )
             }
-            generate(prompt, profile.generation.maxTokens, TIMEOUT_MS)?.let { bubble to it }
+            bubble to generate(prompt, profile.generation.maxTokens, TIMEOUT_MS)
         }
+        val outputs = generated.filter { it.second.outcome == TranslationOutcome.SUCCESS }
+        // The page's outcome is the first bubble-level failure, or SUCCESS when none failed. A
+        // per-line page that answered some bubbles and dropped others is still a measured partial:
+        // coverage is what reports it, and the outcome names why (#142).
+        val failure = generated.firstOrNull { it.second.outcome != TranslationOutcome.SUCCESS }?.second
         return PageTranslation(
             byId = outputs.associate { (bubble, output) -> bubble.bubbleId to output.text },
             rawResponse = outputs.joinToString("\n") { (bubble, output) ->
                 "[${bubble.bubbleId}] ${output.text}"
             },
-            durationMs = outputs.sumOf { it.second.durationMs }
+            // Successes only, unchanged: #137 and #153 published latency rows on this definition,
+            // and widening it to include failed generations would break comparability with them.
+            durationMs = outputs.sumOf { it.second.durationMs },
+            outcome = failure?.outcome ?: TranslationOutcome.SUCCESS,
+            errorCode = failure?.errorCode
         )
     }
 
@@ -111,11 +130,12 @@ class LlamaTranslationBridge(
         val budget = (N_CTX - promptTokenEstimate - BATCH_TOKEN_RESERVE)
             .coerceIn(BATCH_MIN_TOKENS, N_CTX)
         val output = generate(prompt, budget, BATCH_TIMEOUT_MS)
-            ?: return PageTranslation(emptyMap(), "", 0L)
         return PageTranslation(
             byId = parseIdKeyedTranslations(output.text),
             rawResponse = output.text,
-            durationMs = output.durationMs
+            durationMs = output.durationMs,
+            outcome = output.outcome,
+            errorCode = output.errorCode
         )
     }
 
@@ -161,11 +181,18 @@ class LlamaTranslationBridge(
         }.toMap()
     }
 
+    /**
+     * Generate once, carrying the typed terminal cause out with the text.
+     *
+     * The `when` is exhaustive on purpose: the outcome the eval records must be mapped from the
+     * result type, never recovered from a log line (#142). When #149 adds `Timeout` / `Overflow` to
+     * [GenerationResult] this stops compiling until they are mapped, which is the point.
+     */
     private suspend fun generate(
         prompt: String,
         maxTokens: Int,
         timeoutMs: Int
-    ): GeneratedText? = readinessMutex.withLock {
+    ): GeneratedText = readinessMutex.withLock {
         return@withLock when (
             val result = llamaBridge.generate(prompt, profile.generation, maxTokens, timeoutMs)
         ) {
@@ -173,7 +200,7 @@ class LlamaTranslationBridge(
                 val text = result.text.trim()
                 if (text.isBlank()) {
                     Log.w(TAG, "generate blank promptLength=${prompt.length}")
-                    null
+                    GeneratedText("", result.durationMs, TranslationOutcome.BLANK)
                 } else {
                     Log.i(
                         TAG,
@@ -181,12 +208,15 @@ class LlamaTranslationBridge(
                             "maxTokens=$maxTokens durationMs=${result.durationMs}"
                     )
                     Log.i(TAG, "generate raw=${text.replace("\n", "\\n")}")
-                    GeneratedText(text, result.durationMs)
+                    GeneratedText(text, result.durationMs, TranslationOutcome.SUCCESS)
                 }
             }
-            is GenerationResult.Blank,
-            is GenerationResult.Error,
-            is GenerationResult.NotLoaded -> null
+            is GenerationResult.Blank ->
+                GeneratedText("", result.durationMs, TranslationOutcome.BLANK)
+            is GenerationResult.Error ->
+                GeneratedText("", result.durationMs, TranslationOutcome.ERROR, result.reason)
+            is GenerationResult.NotLoaded ->
+                GeneratedText("", result.durationMs, TranslationOutcome.NOT_LOADED, "model_not_loaded")
         }
     }
 
@@ -200,5 +230,10 @@ class LlamaTranslationBridge(
         Log.i(TAG, "close completed")
     }
 
-    private data class GeneratedText(val text: String, val durationMs: Long)
+    private data class GeneratedText(
+        val text: String,
+        val durationMs: Long,
+        val outcome: TranslationOutcome,
+        val errorCode: String? = null
+    )
 }

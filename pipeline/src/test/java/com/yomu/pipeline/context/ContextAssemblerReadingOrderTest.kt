@@ -106,6 +106,46 @@ class ContextAssemblerReadingOrderTest {
     }
 
     @Test
+    fun everyBubbleAppearsInExactlyOnePanel() {
+        // Panels are grown along X, so a wide panel and a lower narrow one overlap horizontally.
+        // Assigning by X containment then put both bubbles in both panels, and the page-level prompt
+        // carried duplicate [id] lines for the same bubble (found by the #165 run records).
+        val wide = bubble(1, left = 0f, top = 0f, right = 300f, bottom = 50f)
+        val lowerNarrow = bubble(2, left = 100f, top = 500f, right = 150f, bottom = 550f)
+
+        val result = assembler.assemble(
+            bubbles = listOf(wide, lowerNarrow),
+            ocrResults = emptyMap(),
+            pageWidth = 1000,
+            pageHeight = 1000
+        )
+
+        val ids = result.orderedBubbleIds()
+        assertEquals(listOf(1, 2), ids.sorted())
+        assertEquals(ids.distinct(), ids)
+        assertEquals(result.blocks.flatMap { it.readingOrder }.distinct(), result.blocks.flatMap { it.readingOrder })
+    }
+
+    @Test
+    fun aBubbleStaysWithThePanelRunItWasGroupedInto() {
+        // The two bubbles above are separate panels, not one merged block: the vertical gap is what
+        // split them, and the fix must not collapse that distinction to dodge the duplication.
+        val wide = bubble(1, left = 0f, top = 0f, right = 300f, bottom = 50f)
+        val lowerNarrow = bubble(2, left = 100f, top = 500f, right = 150f, bottom = 550f)
+
+        val result = assembler.assemble(
+            bubbles = listOf(wide, lowerNarrow),
+            ocrResults = emptyMap(),
+            pageWidth = 1000,
+            pageHeight = 1000
+        )
+
+        assertEquals(2, result.blocks.size)
+        assertEquals(listOf(2), result.blocks[0].bubbles.map { it.id })
+        assertEquals(listOf(1), result.blocks[1].bubbles.map { it.id })
+    }
+
+    @Test
     fun textByBubbleIdPreservesOcrMappingWhenReadingOrderDiffersFromId() {
         // Same panel, right half read before left: reading order [2, 1] differs from id order.
         val leftHalf = bubble(1, left = 0f, top = 0f, right = 40f, bottom = 40f)

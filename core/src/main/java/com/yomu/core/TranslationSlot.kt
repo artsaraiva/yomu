@@ -109,11 +109,38 @@ data class ModelProfile(
     val generation: GenerationParams = GenerationParams()
 )
 
+/**
+ * How a page-level call ended, typed at the boundary that knows the cause.
+ *
+ * The eval's run records carry this verbatim (#142/#165). It exists so the harness never has to
+ * classify a run by matching log or exception text: [TIMEOUT] and [OVERFLOW] in particular must be
+ * reported by the layer that actually hit the deadline or the decode budget, not inferred later.
+ *
+ * [TIMEOUT] and [OVERFLOW] are not yet distinguishable below the JNI, which collapses both to an
+ * empty string and therefore to [BLANK]. #149 types them at `llama_jni.cpp`; this enum is where
+ * they surface when it does.
+ */
+enum class TranslationOutcome { SUCCESS, BLANK, TIMEOUT, OVERFLOW, ERROR, NOT_LOADED }
+
 data class PageTranslation(
     val byId: Map<Int, String>,
     val rawResponse: String,
-    val durationMs: Long
-)
+    val durationMs: Long,
+    val outcome: TranslationOutcome = TranslationOutcome.SUCCESS,
+    /** Machine-readable cause, never prose: `load_failed`, `model_missing`, an exception class. */
+    val errorCode: String? = null
+) {
+    companion object {
+        /** The empty page every slot returns when it could not be made ready, with its reason. */
+        fun notLoaded(status: TranslationStatus): PageTranslation = PageTranslation(
+            emptyMap(),
+            "",
+            0L,
+            TranslationOutcome.NOT_LOADED,
+            (status as? TranslationStatus.Error)?.reason ?: "not_ready"
+        )
+    }
+}
 
 interface TranslationSlot {
     val status: TranslationStatus

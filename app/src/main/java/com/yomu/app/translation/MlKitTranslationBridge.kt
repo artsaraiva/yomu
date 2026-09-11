@@ -8,6 +8,7 @@ import com.google.mlkit.nl.translate.Translator
 import com.google.mlkit.nl.translate.TranslatorOptions
 import com.yomu.core.PageTranslation
 import com.yomu.core.TranslatablePage
+import com.yomu.core.TranslationOutcome
 import com.yomu.core.TranslationSlot
 import com.yomu.core.TranslationStatus
 import kotlinx.coroutines.withTimeoutOrNull
@@ -73,7 +74,7 @@ class MlKitTranslationBridge @Inject constructor() : TranslationSlot {
         val bubbles = page.panels.flatten()
         if (bubbles.isEmpty()) return PageTranslation(emptyMap(), "", 0L)
         if (status !is TranslationStatus.Ready && !ensureReady()) {
-            return PageTranslation(emptyMap(), "", 0L)
+            return PageTranslation.notLoaded(status)
         }
         val outputs = bubbles.mapNotNull { bubble ->
             translate(bubble.sourceText)?.let { output -> bubble.bubbleId to output }
@@ -81,7 +82,9 @@ class MlKitTranslationBridge @Inject constructor() : TranslationSlot {
         return PageTranslation(
             byId = outputs.associate { (id, output) -> id to output.text },
             rawResponse = outputs.joinToString("\n") { (id, output) -> "[$id] ${output.text}" },
-            durationMs = outputs.sumOf { it.second.durationMs }
+            durationMs = outputs.sumOf { it.second.durationMs },
+            // ML Kit reports no per-call cause, so the only honest distinction is answered vs not.
+            outcome = if (outputs.isEmpty()) TranslationOutcome.BLANK else TranslationOutcome.SUCCESS
         )
     }
 
