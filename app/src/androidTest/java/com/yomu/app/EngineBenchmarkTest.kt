@@ -9,7 +9,10 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.yomu.app.translation.EngineSelection
 import com.yomu.app.translation.TranslationEngineType
 import com.yomu.core.Constants
+import com.yomu.core.GenerationParams
 import com.yomu.core.ModelProfile
+import com.yomu.core.TranslatableBubble
+import com.yomu.core.TranslatablePage
 import com.yomu.core.TranslationPromptMode
 import com.yomu.core.TranslationStatus
 import com.yomu.app.translation.LlmModelCatalog
@@ -29,6 +32,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
+import java.util.Locale
 import javax.inject.Inject
 
 @HiltAndroidTest
@@ -130,6 +134,117 @@ class EngineBenchmarkTest {
             native.release()
         }
     }
+
+    /**
+     * #153: measure `penalty_repeat` against the gate #139 pre-registered before any number existed.
+     *
+     * Two things are measured per arm and they need different granularity, so both run here off one
+     * model load: the 17-page gate corpus (the benefit clause) and the #152 repetition probe (the
+     * no-harm clause, 22 targeted bubbles the gate corpus provably cannot see).
+     *
+     * [PENALTY_ARMS] carries 1.0 as well as the candidate, even though 1.0 is today's shipped
+     * default and #137 already published a `qwen_perline` row for it: that row was measured on the
+     * reference phone, and a delta taken against a different device's numbers measures the device.
+     * The paired control is the 1.0 arm from this same run.
+     *
+     * The seed is pinned for the same reason. Shipped default is LLAMA_DEFAULT_SEED — a fresh random
+     * draw per generate — so two arms would differ by sampling noise as well as by the penalty.
+     */
+    @Test
+    fun measureRepeatPenalty() = runBlocking {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val assets = InstrumentationRegistry.getInstrumentation().context
+        val cases = loadCases(assets)
+        val probe = loadProbeBubbles(assets)
+        check(cases.isNotEmpty()) { "No benchmark cases staged" }
+        val outputDir = File(context.filesDir, "yomu-penalty").apply {
+            deleteRecursively()
+            mkdirs()
+        }
+        val rows = mutableListOf<TimingRow>()
+        val native = LlamaBridge(context)
+        val option = LlmModelCatalog.DEFAULT
+        // The default model is also a #84 challenger, so stageModelFixtures deliberately skips it
+        // (bulk-copying every challenger ENOSPCs filesDir) and it is staged one at a time instead.
+        val modelPath = checkNotNull(stageChallengerFixture(option.ggufFileName)) {
+            "${option.ggufFileName} is not in $FIXTURE_DIR; run eval/run-benchmark.sh to push it"
+        }.absolutePath
+        try {
+            for (penalty in PENALTY_ARMS) {
+                val arm = armName(penalty)
+                val slot = LlamaTranslationBridge(
+                    native,
+                    ModelProfile(
+                        modelPath = modelPath,
+                        idKeyedBatch = option.idKeyedBatch,
+                        promptMode = option.promptMode,
+                        generation = GenerationParams(
+                            penaltyRepeat = penalty,
+                            seed = MEASUREMENT_SEED
+                        )
+                    )
+                )
+                check(slot.ensureReady()) { "Qwen model unavailable: ${slot.status}" }
+                Log.i(TAG, "Penalty arm=$arm probe bubbles=${probe.size} cases=${cases.size}")
+                runProbe(slot, arm, probe, outputDir)
+                // The gate corpus only carries the candidate and its control. 1.2 is a probe-only
+                // arm: it exists to locate the harm threshold, and #139 pre-registered one gate arm.
+                if (penalty in GATE_ARMS) {
+                    val measured = TranslationEngine { slot }
+                    runEngineOverCases(measured, arm, cases, outputDir, rows)
+                    measured.endSession()
+                }
+                slot.close()
+                writeTimingCsv(outputDir, rows)
+            }
+            check(rows.size == cases.size * GATE_ARMS.size)
+        } finally {
+            writeTimingCsv(outputDir, rows)
+            logTimingCsv(rows)
+            native.release()
+        }
+    }
+
+    /**
+     * Run the #152 probe bubbles one per call, which is what the shipped per-line path does anyway.
+     *
+     * This goes through the slot rather than [TranslationEngine] on purpose: the engine substitutes
+     * `bubble.sourceText` when a slot returns nothing, and on this set that substitution would hand
+     * the scorer the Japanese source — whose repeated run is intact by construction — and hide
+     * exactly the harm the probe exists to catch. A dropped bubble must reach the scorer as "".
+     */
+    private suspend fun runProbe(
+        slot: LlamaTranslationBridge,
+        arm: String,
+        probe: List<String>,
+        outputDir: File
+    ) {
+        val translations = probe.mapIndexed { id, source ->
+            val page = TranslatablePage(listOf(listOf(TranslatableBubble(id, source))))
+            val result = runCatching { slot.translatePage(page, emptyList()) }.getOrNull()
+            val text = result?.byId?.get(id).orEmpty()
+            Log.i(TAG, "Probe arm=$arm bubble=$id durationMs=${result?.durationMs ?: 0} out=$text")
+            text
+        }
+        slot.endSession()
+        // Written as well as logged: a looping arm emits multi-kilobyte lines and logcat's chatty
+        // filter drops them, so the log alone is not a reliable transport for this set.
+        writeEngineResult(outputDir, PROBE_CASE_ID, arm, translations)
+        logEngineResult(PROBE_CASE_ID, arm, translations)
+    }
+
+    /** The probe's source lines, in bubble-id order. Staged into assets by run-benchmark.sh. */
+    private fun loadProbeBubbles(context: Context): List<String> {
+        val text = context.assets.open("$PROBE_ASSET_DIR/bubbles.json").use {
+            it.bufferedReader().readText()
+        }
+        val bubbles = JSONObject(text).getJSONArray("bubbles")
+        return (0 until bubbles.length()).map { bubbles.getJSONObject(it).getString("source") }
+    }
+
+    /** Arm name, also the `actual/<engine>.json` stem: `repeat_1.1`, not `repeat_1.1000000238`.
+     *  Locale.ROOT because a device in a comma-decimal locale would otherwise name it `repeat_1,1`. */
+    private fun armName(penalty: Float): String = String.format(Locale.ROOT, "repeat_%.1f", penalty)
 
     @Test
     fun benchmarkAllEngines() {
@@ -494,6 +609,23 @@ class EngineBenchmarkTest {
         // the total budget, and each challenger gets a bounded slice so one slow model can't eat it
         // all. Four heavy LLMs won't all fit one window — use the `challengers` arg to split runs, or
         // raise these (and the harness timeout) for a single full pass.
+        // #153's sweep. 1.0 is the paired control, not a formality: #137's published control row was
+        // measured on the reference phone, so it cannot be differenced against a run on any other
+        // device. 1.2 is koharu's value — the probe carries it to find where harm starts, so the
+        // threshold that blocks a value is measured rather than asserted.
+        private val PENALTY_ARMS = listOf(1.0f, 1.1f, 1.2f)
+        private val GATE_ARMS = setOf(1.0f, 1.1f)
+
+        // Pinned so the arms differ by the penalty alone. The shipped default seed is
+        // LLAMA_DEFAULT_SEED (a fresh draw per call), which would put sampling noise in the delta.
+        private const val MEASUREMENT_SEED = 0
+
+        private const val PROBE_ASSET_DIR = "eval-probe"
+
+        // The probe is bubble-granular, not page-granular, so it has no case id of its own; this is
+        // the key its RESULT_JSON line carries so the extractor can route it to repetition-probe/.
+        private const val PROBE_CASE_ID = "repetition-probe"
+
         private const val TOTAL_BENCHMARK_BUDGET_MS = 17L * 60_000L
         private const val PER_CHALLENGER_BUDGET_MS = 6L * 60_000L
     }
