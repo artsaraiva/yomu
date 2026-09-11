@@ -166,6 +166,19 @@ for case_dir in "$SCRIPT_DIR"/bubble-detection/cases/*/; do
   cp "$expected_json" "$TEST_ASSETS_DIR/$case_id/expected.json"
 done
 
+# The #152 repetition probe rides in as its own asset dir. Same reason as the cases above: it is
+# derived CC BY-NC content, gitignored, so it is copied in before the build packages the test APK.
+# Absent probe = the #153 penalty sweep cannot run; every other test is unaffected, so this is a
+# warning rather than an abort.
+PROBE_ASSET_DIR="$REPO_ROOT/app/src/androidTest/assets/eval-probe"
+rm -rf "$PROBE_ASSET_DIR"
+if [ -f "$SCRIPT_DIR/repetition-probe/bubbles.json" ]; then
+  mkdir -p "$PROBE_ASSET_DIR"
+  cp "$SCRIPT_DIR/repetition-probe/bubbles.json" "$PROBE_ASSET_DIR/bubbles.json"
+else
+  printf 'No eval/repetition-probe/bubbles.json; run eval/generate-repetition-probe.py to enable the probe\n' >&2
+fi
+
 # Translation models are staged as fixtures rather than downloaded through the app's Settings UI,
 # which is what the old interactive prompt here was waiting for. An upgrade install keeps filesDir,
 # but a signature change or uninstall/reinstall clears it, and that is exactly when a human used to

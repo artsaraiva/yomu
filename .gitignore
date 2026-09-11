@@ -61,3 +61,6 @@ eval/repetition-probe/actual/
 
 # Eval harness virtualenv
 eval/.venv/
+
+# Repetition probe staged into test assets by eval/run-benchmark.sh
+app/src/androidTest/assets/eval-probe/
