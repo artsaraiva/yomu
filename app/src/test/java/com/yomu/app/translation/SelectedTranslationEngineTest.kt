@@ -7,6 +7,7 @@ import com.yomu.core.ModelProfile
 import com.yomu.core.TranslationPromptMode
 import com.yomu.core.TranslationStatus
 import com.yomu.ml.GenerationResult
+import com.yomu.core.GenerationParams
 import com.yomu.ml.LlamaBridge
 import com.yomu.ml.LlamaTranslationBridge
 import com.yomu.ml.opusmt.OpusMtTranslationBridge
@@ -46,10 +47,10 @@ class SelectedTranslationEngineTest {
             var prompt = ""
             var tokens = 0
             var timeout = 0
-            Mockito.`when`(native.generate(Mockito.anyString(), Mockito.anyInt(), Mockito.anyFloat(), Mockito.anyInt()))
+            Mockito.`when`(native.generate(Mockito.anyString(), anyParams(), Mockito.anyInt(), Mockito.anyInt()))
                 .thenAnswer { call ->
                     prompt = call.getArgument(0)
-                    tokens = call.getArgument(1)
+                    tokens = call.getArgument(2)
                     timeout = call.getArgument(3)
                     GenerationResult.Success("[1] Hello\n[2] Goodbye", 1L)
                 }
@@ -79,4 +80,9 @@ class SelectedTranslationEngineTest {
             assertEquals(TranslationStatus.NotReady, llm.status)
         }
     }
+
+    // Mockito.any() returns null, which a non-null Kotlin parameter rejects. The matcher is
+    // registered by the time the elvis runs, so the substituted value is never actually matched.
+    private fun anyParams(): GenerationParams =
+        Mockito.any(GenerationParams::class.java) ?: GenerationParams()
 }

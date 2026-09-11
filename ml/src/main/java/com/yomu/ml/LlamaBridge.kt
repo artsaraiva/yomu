@@ -2,13 +2,13 @@ package com.yomu.ml
 
 import android.content.Context
 import android.util.Log
+import com.yomu.core.GenerationParams
 import java.io.File
 
 open class LlamaBridge(private val context: Context?) : TextGenerationBridge {
 
     companion object {
         private const val TAG = "LlamaBridge"
-        private const val DEFAULT_TIMEOUT_MS = 60_000
         private val DEFAULT_N_THREADS = Runtime.getRuntime().availableProcessors().coerceAtMost(4)
         private var nativeLoaded = false
 
@@ -64,22 +64,10 @@ open class LlamaBridge(private val context: Context?) : TextGenerationBridge {
         }
     }
 
-    fun generate(prompt: String): GenerationResult {
-        return generate(prompt, maxTokens = 512, temperature = 0.7f)
-    }
-
     override fun generate(
         prompt: String,
+        params: GenerationParams,
         maxTokens: Int,
-        temperature: Float
-    ): GenerationResult {
-        return generate(prompt, maxTokens, temperature, DEFAULT_TIMEOUT_MS)
-    }
-
-    open fun generate(
-        prompt: String,
-        maxTokens: Int,
-        temperature: Float,
         timeoutMs: Int
     ): GenerationResult {
         if (!isLoaded) {
@@ -88,7 +76,7 @@ open class LlamaBridge(private val context: Context?) : TextGenerationBridge {
         }
         val startMs = System.currentTimeMillis()
         try {
-            val result = nativeGenerate(prompt, maxTokens, temperature, timeoutMs)
+            val result = nativeGenerate(prompt, maxTokens, timeoutMs, params.samplerArray(), params.seed)
             val durationMs = System.currentTimeMillis() - startMs
             val text = result.orEmpty()
             if (text.isBlank()) {
@@ -114,7 +102,15 @@ open class LlamaBridge(private val context: Context?) : TextGenerationBridge {
     }
 
     private external fun nativeLoadModel(path: String, nCtx: Int, nGpuLayers: Int, nThreads: Int): Boolean
-    private external fun nativeGenerate(prompt: String, maxTokens: Int, temperature: Float, timeoutMs: Int): String?
+    // samplerParams carries the sampler knobs in GenerationParams.SAMPLER_INDEX order; seed is a
+    // separate Int because 0xFFFFFFFF (LLAMA_DEFAULT_SEED) has no exact Float representation.
+    private external fun nativeGenerate(
+        prompt: String,
+        maxTokens: Int,
+        timeoutMs: Int,
+        samplerParams: FloatArray,
+        seed: Int
+    ): String?
     private external fun nativeClearMemory()
     private external fun nativeRelease()
 }

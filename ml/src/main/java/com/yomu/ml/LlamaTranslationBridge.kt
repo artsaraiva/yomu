@@ -35,10 +35,8 @@ class LlamaTranslationBridge(
         private const val N_CTX = 2048
         private const val N_GPU_LAYERS = 0
         private val N_THREADS = Runtime.getRuntime().availableProcessors().coerceAtMost(4)
-        private const val MAX_TOKENS = 256
         private const val BATCH_TOKEN_RESERVE = 96
         private const val BATCH_MIN_TOKENS = 256
-        private const val TEMPERATURE = 0.2f
         private const val TIMEOUT_MS = 15_000
         private const val BATCH_TIMEOUT_MS = 120_000
         private const val NEIGHBOUR_CHARS = 80
@@ -92,7 +90,7 @@ class LlamaTranslationBridge(
                         .joinToString("\n") { it.sourceText.take(NEIGHBOUR_CHARS) }
                 )
             }
-            generate(prompt, MAX_TOKENS, TIMEOUT_MS)?.let { bubble to it }
+            generate(prompt, profile.generation.maxTokens, TIMEOUT_MS)?.let { bubble to it }
         }
         return PageTranslation(
             byId = outputs.associate { (bubble, output) -> bubble.bubbleId to output.text },
@@ -169,7 +167,7 @@ class LlamaTranslationBridge(
         timeoutMs: Int
     ): GeneratedText? = readinessMutex.withLock {
         return@withLock when (
-            val result = llamaBridge.generate(prompt, maxTokens, TEMPERATURE, timeoutMs)
+            val result = llamaBridge.generate(prompt, profile.generation, maxTokens, timeoutMs)
         ) {
             is GenerationResult.Success -> {
                 val text = result.text.trim()

@@ -1,5 +1,6 @@
 package com.yomu.ml
 
+import com.yomu.core.GenerationParams
 import com.yomu.core.ModelProfile
 import com.yomu.core.TranslatableBubble
 import com.yomu.core.TranslatablePage
@@ -200,13 +201,10 @@ class LlamaTranslationBridgeTest {
         override val isModelLoaded: Boolean get() = true
         override fun loadModel(modelPath: String, nCtx: Int, nGpuLayers: Int): Boolean = true
         override fun loadModel(modelPath: String, nCtx: Int, nGpuLayers: Int, nThreads: Int): Boolean = true
-        override fun generate(prompt: String, maxTokens: Int, temperature: Float): GenerationResult =
-            resultForPrompt(prompt)
-
         override fun generate(
             prompt: String,
+            params: GenerationParams,
             maxTokens: Int,
-            temperature: Float,
             timeoutMs: Int
         ): GenerationResult {
             prompts += prompt
