@@ -117,7 +117,7 @@ The fraction of minimal pairs where the model assigns higher probability to the 
 _Avoid_: pair accuracy, coherence score, referent accuracy
 
 **Coherence gate**:
-The directional check that contrastive accuracy with session context beats accuracy with it blanked, on the same pairs. Passing means session context provably helps referent resolution; it is a direction, not an absolute bar, because the corpus is too small to power one.
+The directional check that contrastive accuracy with the rest of the page in the prompt beats accuracy with it blanked, on the same pairs. Passing means page context provably helps referent resolution; it is a direction, not an absolute bar, because the corpus is too small to power one. ADR-0013 withdrew cross-page session context, so the gate measures intra-page coherence only.
 _Avoid_: coherence bar, context gate, pronoun gate
 
 ### Translation context

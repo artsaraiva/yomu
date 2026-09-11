@@ -56,14 +56,16 @@ class LlamaTranslationBridge(
         private const val MAX_BATCH_OUTPUT = 768
 
         /**
-         * Longest line the batch grammar will let the model write. An unbounded `line` rule is not
-         * neutral: with no repetition penalty in the sampler the model finishes the last id and
-         * keeps writing inside that same line, which ran to the token cap on 5 of 17 pages (#137).
-         * 160 is ~2x the longest human reference line in the eval corpus (max 75, median 22), so it
-         * cannot clip a plausible translation. A knob co-owned with the sampler (ADR-0013), not a
-         * pinned constant.
+         * Longest line the batch grammar will let the model write. Unbounded, the model finishes
+         * the last id and keeps writing inside that same line — the token cap on 5 of 17 pages
+         * (#137), because the sampler carries no repetition penalty. 160 is ~2x the corpus's
+         * longest human reference line. A knob co-owned with the sampler (ADR-0013), not a pinned
+         * constant.
          */
         private const val MAX_LINE_CHARS = 160
+
+        /** Marks a page whose batch prompt overflowed and was answered per-line instead. */
+        const val BATCH_OVERFLOW_FALLBACK = "batch_overflow_fallback"
         private const val TIMEOUT_MS = 15_000
         private const val BATCH_TIMEOUT_MS = 120_000
         private const val NEIGHBOUR_CHARS = 80
@@ -142,14 +144,17 @@ class LlamaTranslationBridge(
             buildBatchGrammar(page)
         )
         if (output.outcome == TranslationOutcome.OVERFLOW) {
-            // The page is louder than the failure it replaces: the old behaviour was an empty
-            // PageTranslation and a silently untranslated page (ADR-0013).
+            // Loud, and typed: the old behaviour was an empty PageTranslation and a silently
+            // untranslated page (ADR-0013). The page still renders, but it renders through the
+            // other call shape, so the degraded run stays readable from the result rather than
+            // from a log line (#142/#165) — hence the errorCode surviving the fallback.
             Log.w(
                 TAG,
                 "translateBatch overflow bubbles=${page.panels.flatten().size} " +
                     "falling back to per-line"
             )
-            return translatePerLine(page)
+            val fallback = translatePerLine(page)
+            return fallback.copy(errorCode = fallback.errorCode ?: BATCH_OVERFLOW_FALLBACK)
         }
         return PageTranslation(
             byId = parseIdKeyedTranslations(output.text),
