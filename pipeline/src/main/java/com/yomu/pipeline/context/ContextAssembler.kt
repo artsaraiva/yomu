@@ -27,6 +27,18 @@ class ContextAssembler {
 
     internal val panels = mutableListOf<RectF>()
 
+    /**
+     * The bubbles each panel was grown from, parallel to [panels].
+     *
+     * [detectPanels] already partitions the page: it walks bubbles left to right and starts a new
+     * panel whenever one does not join the current run, so every bubble belongs to exactly one run.
+     * Re-deriving membership from the panel rectangles afterwards does not reproduce that partition
+     * — panels grow along X and a wide panel's span can contain a lower, narrower panel's bubbles —
+     * so a bubble landed in several panels, and the page-level prompt carried duplicate `[id]` lines
+     * for it. Keeping the partition is the fix; the rectangles stay for ordering and mid-line splits.
+     */
+    private val panelBubbles = mutableListOf<List<Bubble>>()
+
     fun assemble(
         bubbles: List<Bubble>,
         ocrResults: Map<Int, OcrResult>,
@@ -34,10 +46,11 @@ class ContextAssembler {
         pageHeight: Int
     ): PageContext {
         panels.clear()
+        panelBubbles.clear()
 
         detectPanels(bubbles, pageWidth, pageHeight)
 
-        val panelGroups = groupBubblesByPanel(bubbles)
+        val panelGroups = groupBubblesByPanel()
 
         val blocks = panelGroups.mapIndexed { index, group ->
             createBlock(index + 1, group, ocrResults)
@@ -58,6 +71,7 @@ class ContextAssembler {
 
         val sortedByX = bubbles.sortedBy { it.boundingBox.left }
         var currentPanel = RectF(sortedByX.first().boundingBox)
+        var currentBubbles = mutableListOf(sortedByX.first())
 
         for (bubble in sortedByX.drop(1)) {
             val gap = bubble.boundingBox.left - currentPanel.right
@@ -70,12 +84,16 @@ class ContextAssembler {
                     maxOf(currentPanel.right, bubble.boundingBox.right),
                     maxOf(currentPanel.bottom, bubble.boundingBox.bottom)
                 )
+                currentBubbles.add(bubble)
             } else {
                 panels.add(currentPanel)
+                panelBubbles.add(currentBubbles)
                 currentPanel = RectF(bubble.boundingBox)
+                currentBubbles = mutableListOf(bubble)
             }
         }
         panels.add(currentPanel)
+        panelBubbles.add(currentBubbles)
     }
 
     /**
@@ -83,13 +101,10 @@ class ContextAssembler {
      * top-to-bottom with the right half read before the left. One group per non-empty panel; the
      * engine renders panel boundaries as prompt markers (ADR-0002), never as call boundaries.
      */
-    internal fun groupBubblesByPanel(bubbles: List<Bubble>): List<List<Bubble>> {
-        val rightToLeftPanels = panels.sortedByDescending { it.left }
-
-        return rightToLeftPanels.mapNotNull { panel ->
-            val bubblesInPanel = bubbles
-                .filter { it.boundingBox.centerX() >= panel.left && it.boundingBox.centerX() <= panel.right }
-                .sortedBy { it.boundingBox.top }
+    internal fun groupBubblesByPanel(): List<List<Bubble>> =
+        panels.indices.sortedByDescending { panels[it].left }.mapNotNull { index ->
+            val panel = panels[index]
+            val bubblesInPanel = panelBubbles[index].sortedBy { it.boundingBox.top }
 
             val midX = panel.centerX()
             val rightBubbles = bubblesInPanel.filter { it.boundingBox.centerX() >= midX }
@@ -97,7 +112,6 @@ class ContextAssembler {
 
             (rightBubbles + leftBubbles).takeIf { it.isNotEmpty() }
         }
-    }
 
     private fun createBlock(
         blockId: Int,
@@ -122,5 +136,6 @@ class ContextAssembler {
 
     fun reset() {
         panels.clear()
+        panelBubbles.clear()
     }
 }
