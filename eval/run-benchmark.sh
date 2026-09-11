@@ -342,7 +342,12 @@ if [ "$SKIP_BASELINE" -eq 0 ]; then
   # since Play services fetches its model on demand; its package version stands in for the hash.
   MLKIT_VERSION="$(sed -n 's/.*com\.google\.mlkit:translate:\([^"]*\)".*/\1/p' "$REPO_ROOT/app/build.gradle.kts" | head -1)"
   add_arm "arm_id=mlkit,stage=translation,provider=mlkit,provider_version=${MLKIT_VERSION:-unknown},model_id=mlkit-nl-translate-ja-en,quantization=n/a,call_shape=per_bubble"
-  add_arm "arm_id=opusmt,stage=translation,provider=opusmt,provider_version=onnx-local,model_id=opus-mt-ja-en,quantization=n/a,call_shape=per_bubble"
+  # OPUS-MT is deliberately NOT declared. It is the preferred self-contained floor (ADR-0008, which
+  # rejected deleting it) and its weights are staged, but DJL ships no arm64-v8a
+  # libdjl_tokenizer.so, so it cannot load on any target device until #14 lands. Declaring it would
+  # mark every run invalid for a reason no run can fix, and a permanent red is a signal everyone
+  # learns to ignore — which is how #36 and #58 survived. When #14 lands, restore:
+  #   add_arm "arm_id=opusmt,stage=translation,provider=opusmt,provider_version=onnx-local,model_id=opus-mt-ja-en,quantization=n/a,call_shape=per_bubble"
   # The `llm` arm is whatever LlmModelCatalog.DEFAULT names, on its per-line call shape.
   add_arm "arm_id=llm,stage=translation,provider=llama.cpp,model_id=$(basename "$LLM_FIXTURE"),call_shape=per_line,model_file=$LLM_FIXTURE"
 fi
