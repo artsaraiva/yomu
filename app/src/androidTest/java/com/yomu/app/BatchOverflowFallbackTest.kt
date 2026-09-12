@@ -88,12 +88,22 @@ class BatchOverflowFallbackTest {
      * A page whose batch prompt cannot fit, built from distinct long lines.
      *
      * Distinct rather than one line repeated: the sampler carries no repetition penalty
-     * (`penaltyRepeat = 1.0`), and a page of identical sources would invite the loop #139 owns into
-     * a test that is measuring the fallback, not the sampler. Eight bubbles keeps the per-line
-     * fallback — one generate call each — inside the harness's connected-test window.
+     * (`penaltyRepeat = 1.0`), and a bubble built of repeated text would invite the loop #139 owns
+     * into a test that is measuring the fallback, not the sampler. Eight bubbles keeps the per-line
+     * fallback — one generate call each — inside the harness's connected-test window, so the length
+     * is bought by making each bubble longer rather than by adding more of them.
+     *
+     * Each bubble is three consecutive paragraphs, which is what sets the margin. The first version
+     * of this test used one paragraph each — 1648 characters of prompt — and *fit*, because Qwen2.5
+     * tokenizes Japanese well under one token per character. Three brings it to ~4900 characters:
+     * over the 1272-token ceiling by enough that the ratio would have to fall below 0.26 tokens per
+     * character before this silently stopped testing anything.
      */
     private fun overflowingPage(): TranslatablePage {
-        val bubbles = OVERFLOW_SOURCES.mapIndexed { index, source ->
+        val bubbles = OVERFLOW_SOURCES.indices.map { index ->
+            val source = (0 until PARAGRAPHS_PER_BUBBLE).joinToString("") { offset ->
+                OVERFLOW_SOURCES[(index + offset) % OVERFLOW_SOURCES.size]
+            }
             TranslatableBubble(index, source)
         }
         return TranslatablePage(listOf(bubbles))
@@ -103,10 +113,10 @@ class BatchOverflowFallbackTest {
         private const val TAG = "BatchOverflowFallbackTest"
         private const val FIXTURE_DIR = "/data/local/tmp/yomu-fixtures"
 
-        // ~300 Japanese characters each, eight of them. Qwen2.5 tokenizes Japanese at roughly one
-        // token per character, so the assembled prompt lands far above the 1272-token ceiling
-        // rather than near it — a margin, because the exact ratio is the tokenizer's business and
-        // a test that sat on the boundary would flake on a model swap.
+        private const val PARAGRAPHS_PER_BUBBLE = 3
+
+        // ~200 Japanese characters each, eight of them, combined three to a bubble by
+        // overflowingPage.
         private val OVERFLOW_SOURCES = listOf(
             "この街に来てからもう三年が経つが、いまだに駅前の景色には慣れないままでいる。朝の通勤の人波に押されながら歩いていると、自分がどこへ向かっているのかふと分からなくなる瞬間がある。そんなとき、決まって思い出すのは故郷の海辺の道と、そこで別れた友人の後ろ姿だった。あの日の言葉をもう一度聞けたなら、今の自分は少しは違っていたのだろうか。答えの出ない問いを抱えたまま、今日もまた改札を抜けていく。",
             "研究室の窓から見える空は、季節が変わるたびに違う色をしていた。締め切りに追われる夜が続くと、その変化にすら気づかない日もある。それでも先輩がふいに差し入れてくれた缶コーヒーの温かさだけは、不思議とはっきり覚えている。人は大きな出来事ではなく、こうした些細な瞬間の積み重ねで誰かを信じるようになるのかもしれない。実験が失敗しても、また明日やり直せばいいと思えたのは、たぶんそのおかげだった。",
