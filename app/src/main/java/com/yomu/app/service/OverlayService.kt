@@ -59,8 +59,14 @@ class OverlayService : Service() {
     private var floatingButton: FloatingButtonView? = null
     private lateinit var statusOverlay: TranslationStatusOverlay
     private var quickSettingsPopup: QuickSettingsPopup? = null
-    private val themeListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-        if (key == Constants.PREF_THEME) updateOverlayAppearance()
+    private val preferenceListener = SharedPreferences.OnSharedPreferenceChangeListener { preferences, key ->
+        when (key) {
+            Constants.PREF_THEME -> updateOverlayAppearance()
+            Constants.PREF_FONT_SIZE_SCALE -> translationPipeline.fontSizeScale = preferences.getFloat(
+                key,
+                Constants.DEFAULT_FONT_SIZE_SCALE
+            )
+        }
     }
 
     private var buttonPositionX: Int = 0
@@ -104,7 +110,7 @@ class OverlayService : Service() {
         floatingButtonOverlay = FloatingButtonOverlay(this, windowManager, closeZoneOverlay)
         translationRenderOverlay = TranslationRenderOverlay(this, windowManager)
         statusOverlay = TranslationStatusOverlay(this, windowManager)
-        sharedPreferences.registerOnSharedPreferenceChangeListener(themeListener)
+        sharedPreferences.registerOnSharedPreferenceChangeListener(preferenceListener)
         createNotificationChannel()
         translationPipeline.modelPaths = ModelPaths(
             bubbleDetectionPath = File(filesDir, "${Constants.MODELS_DIR}/${Constants.VISION_MODELS_DIR}/${Constants.BUBBLE_DETECTION_MODEL}").absolutePath,
@@ -177,7 +183,7 @@ class OverlayService : Service() {
     }
 
     override fun onDestroy() {
-        sharedPreferences.unregisterOnSharedPreferenceChangeListener(themeListener)
+        sharedPreferences.unregisterOnSharedPreferenceChangeListener(preferenceListener)
         removeQuickSettingsPopup()
         removeFloatingButton()
         closeZoneOverlay.remove()
@@ -255,7 +261,6 @@ class OverlayService : Service() {
             },
             onFontSizeChanged = { scale ->
                 sharedPreferences.edit().putFloat(Constants.PREF_FONT_SIZE_SCALE, scale).apply()
-                translationPipeline.fontSizeScale = scale
             },
             onStopRequested = { stopSelf() }
         )
