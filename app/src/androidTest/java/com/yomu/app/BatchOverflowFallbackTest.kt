@@ -57,6 +57,7 @@ class BatchOverflowFallbackTest {
             check(slot.ensureReady()) { "Qwen model unavailable: ${slot.status}" }
             val page = overflowingPage()
             val ids = page.panels.flatten().map { it.bubbleId }
+            val warningsBefore = bridgeOverflowWarnings()
 
             val result = slot.translatePage(page)
 
@@ -67,6 +68,14 @@ class BatchOverflowFallbackTest {
                     "durationMs=${result.durationMs}"
             )
 
+            // The gate asks for the overflow "in logcat" as well as on the result, and it means the
+            // bridge's line, not this test's: the errorCode alone would still be satisfied by a
+            // fallback that fired silently, and on a phone the log is the only place a degraded
+            // page announces itself to whoever is holding it.
+            assertTrue(
+                "No new overflow warning from LlamaTranslationBridge in logcat",
+                bridgeOverflowWarnings() > warningsBefore
+            )
             // The fallback fired. Without this the rest would pass on a page that simply fit, which
             // is the way this gate would silently stop measuring anything.
             assertEquals(LlamaTranslationBridge.BATCH_OVERFLOW_FALLBACK, result.errorCode)
@@ -85,6 +94,21 @@ class BatchOverflowFallbackTest {
     }
 
     /**
+     * How many overflow warnings the bridge has written so far.
+     *
+     * Counted before and after rather than matched once, so a warning left in the buffer by an
+     * earlier run cannot pass the gate for this one. `logcat -c` would be the obvious alternative
+     * and is not reliably permitted from an instrumentation process; a process may always read back
+     * its own lines, and the bridge runs in this one.
+     */
+    private fun bridgeOverflowWarnings(): Int {
+        val process = Runtime.getRuntime().exec(arrayOf("logcat", "-d", "-s", "$BRIDGE_TAG:W"))
+        return process.inputStream.bufferedReader().useLines { lines ->
+            lines.count { it.contains(OVERFLOW_WARNING) }
+        }
+    }
+
+    /**
      * A page whose batch prompt cannot fit, built from distinct long lines.
      *
      * Distinct rather than one line repeated: the sampler carries no repetition penalty
@@ -93,11 +117,8 @@ class BatchOverflowFallbackTest {
      * fallback — one generate call each — inside the harness's connected-test window, so the length
      * is bought by making each bubble longer rather than by adding more of them.
      *
-     * Each bubble is three consecutive paragraphs, which is what sets the margin. The first version
-     * of this test used one paragraph each — 1648 characters of prompt — and *fit*, because Qwen2.5
-     * tokenizes Japanese well under one token per character. Three brings it to ~4900 characters:
-     * over the 1272-token ceiling by enough that the ratio would have to fall below 0.26 tokens per
-     * character before this silently stopped testing anything.
+     * Three paragraphs per bubble is the margin: ~4900 characters, which clears the 1272-token
+     * ceiling unless Qwen2.5 drops below 0.26 tokens per Japanese character. One paragraph each fit.
      */
     private fun overflowingPage(): TranslatablePage {
         val bubbles = OVERFLOW_SOURCES.indices.map { index ->
@@ -112,6 +133,12 @@ class BatchOverflowFallbackTest {
     companion object {
         private const val TAG = "BatchOverflowFallbackTest"
         private const val FIXTURE_DIR = "/data/local/tmp/yomu-fixtures"
+
+        // The bridge's own tag and warning text (LlamaTranslationBridge.translateBatch). Matched as
+        // strings because both are private to it, and the gate is about what a person tailing
+        // logcat would see rather than about a symbol.
+        private const val BRIDGE_TAG = "LlamaTranslationBridge"
+        private const val OVERFLOW_WARNING = "translateBatch overflow"
 
         private const val PARAGRAPHS_PER_BUBBLE = 3
 
