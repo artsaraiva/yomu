@@ -16,6 +16,7 @@ SKIP_BUILD=0
 SKIP_INSTALL=0
 SKIP_EVAL=0
 CALL_SHAPES=0
+PENALTY_SWEEP=0
 
 usage() {
   printf 'Usage: %s [--skip-build] [--skip-install] [--skip-eval] [--call-shapes] [-P<gradle-arg>...]\n' "$0"
@@ -27,6 +28,8 @@ usage() {
   printf '  --call-shapes   ADR-0013 falsification run (#198): grammar_batch vs per_line on the\n'
   printf '                  catalog default, and nothing else. Declares those two arms only,\n'
   printf '                  fetches no challengers, and prunes nothing off the device.\n'
+  printf '  --penalty-sweep #153/#198 repeat_penalty sweep on the batch path, against the 1.0\n'
+  printf '                  batch control from the same run. Needs eval/repetition-probe.\n'
   printf '  -P<arg>         Passed straight to the connectedAndroidTest gradle call, e.g.\n'
   printf '                  -Pandroid.testInstrumentationRunnerArguments.challengers=hunyuan_mt_7b\n'
 }
@@ -50,6 +53,12 @@ for arg in "$@"; do
       CALL_SHAPES=1
       GRADLE_EXTRA_ARGS+=(
         "-Pandroid.testInstrumentationRunnerArguments.class=com.yomu.app.EngineBenchmarkTest#compareCallShapes"
+      )
+      ;;
+    --penalty-sweep)
+      PENALTY_SWEEP=1
+      GRADLE_EXTRA_ARGS+=(
+        "-Pandroid.testInstrumentationRunnerArguments.class=com.yomu.app.EngineBenchmarkTest#measureRepeatPenalty"
       )
       ;;
     -h|--help)
@@ -268,7 +277,7 @@ requested() { # engine name -> 0 if it should run this pass (no filter = all)
 # Everything else is pruned from the device below so a targeted run does not carry old multi-GB
 # weights it will not use.
 ALLOWED_LLM=$'\n'"$(basename "$LLM_FIXTURE")"$'\n'
-if [ "$CALL_SHAPES" -eq 0 ]; then
+if [ "$CALL_SHAPES" -eq 0 ] && [ "$PENALTY_SWEEP" -eq 0 ]; then
 for entry in "${CHALLENGER_FIXTURES[@]}"; do
   name="${entry%%|*}"; rest="${entry#*|}"; path="${rest%%|*}"; url="${rest##*|}"
   requested "$name" || continue
@@ -291,10 +300,10 @@ for dev_file in $(adb shell "ls '$DEVICE_FIXTURE_DIR/llm' 2>/dev/null" | tr -d '
   esac
 done
 else
-  # A call-shapes pass runs one model and pushes nothing new, so it has no claim on the multi-GB
+  # A targeted pass runs one model and pushes nothing new, so it has no claim on the multi-GB
   # challenger weights already sitting on the device. Pruning them here would cost a re-fetch to
   # get back and buy this run nothing.
-  printf 'Call-shapes run: leaving device fixtures untouched\n'
+  printf 'Targeted run: leaving device fixtures untouched\n'
 fi
 
 for model_dir in "$FIXTURE_DIR"/*/; do
@@ -365,6 +374,17 @@ if [ "$CALL_SHAPES" -eq 1 ]; then
   # in call shape alone -- the scorer checks that against what the device observed.
   add_arm "arm_id=grammar_batch,stage=translation,provider=llama.cpp,model_id=$(basename "$LLM_FIXTURE"),call_shape=id_keyed_batch,model_file=$LLM_FIXTURE"
   add_arm "arm_id=per_line,stage=translation,provider=llama.cpp,model_id=$(basename "$LLM_FIXTURE"),call_shape=per_line,model_file=$LLM_FIXTURE"
+elif [ "$PENALTY_SWEEP" -eq 1 ]; then
+  # #153's arms re-measured on the batch path (#198). All three run the probe; only the two gate
+  # arms run the corpus, so 1.2 declares no cases or it is invalidated for the 17 it never ran.
+  #
+  # Only the control declares its expected penalty. 1.0f widens to exactly 1.0, so the check holds;
+  # 1.1f and 1.2f widen to 1.100000023841858 and 1.2000000476837158, and declaring the decimal a
+  # reader expects would fail the very arm it describes. The arm id names the value and the device
+  # records what it actually sampled with, which is the half that has to be true.
+  add_arm "arm_id=repeat_1.0,stage=translation,provider=llama.cpp,model_id=$(basename "$LLM_FIXTURE"),call_shape=id_keyed_batch,model_file=$LLM_FIXTURE,gen.penalty_repeat=1.0"
+  add_arm "arm_id=repeat_1.1,stage=translation,provider=llama.cpp,model_id=$(basename "$LLM_FIXTURE"),call_shape=id_keyed_batch,model_file=$LLM_FIXTURE"
+  add_arm "arm_id=repeat_1.2,stage=translation,provider=llama.cpp,model_id=$(basename "$LLM_FIXTURE"),call_shape=id_keyed_batch,model_file=$LLM_FIXTURE,cases=none"
 else
 
 # Detection arms. Weights ride into the test APK as assets, so an arm exists exactly when its asset
