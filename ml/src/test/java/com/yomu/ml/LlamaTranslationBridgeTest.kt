@@ -163,6 +163,19 @@ class LlamaTranslationBridgeTest {
     }
 
     @Test
+    fun generate_outOfBoundsSamplerValuesReachNativeAsDefaults() = runTest {
+        val model = File.createTempFile("model", ".gguf")
+        val native = FakeLlamaBridge { GenerationResult.Success("Hello", 1L) }
+        val unsafe = GenerationParams(temperature = Float.NaN, topK = 0, topP = 0.5f, penaltyRepeat = 1.1f)
+        val slot = LlamaTranslationBridge(native, profile(model).copy(generation = unsafe))
+
+        slot.translatePage(page(1 to "こんにちは"))
+
+        assertEquals(listOf(GenerationParams(topP = 0.5f, penaltyRepeat = 1.1f)), native.params)
+        model.delete()
+    }
+
+    @Test
     fun selectModel_switchesTheWholeProfileAndDropsReadiness() = runTest {
         val model = File.createTempFile("model", ".gguf")
         val native = FakeLlamaBridge { GenerationResult.Success("x", 1L) }
@@ -219,6 +232,7 @@ class LlamaTranslationBridgeTest {
         val prompts = mutableListOf<String>()
         val grammars = mutableListOf<String>()
         val maxTokens = mutableListOf<Int>()
+        val params = mutableListOf<GenerationParams>()
         var releaseCalls = 0
         var clearMemoryCalls = 0
 
@@ -236,6 +250,7 @@ class LlamaTranslationBridgeTest {
             prompts += prompt
             grammars += grammar
             this.maxTokens += maxTokens
+            this.params += params
             return resultForPrompt(prompt)
         }
 
