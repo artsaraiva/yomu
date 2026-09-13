@@ -1,5 +1,6 @@
 package com.yomu.app.translation
 
+import android.content.SharedPreferences
 import com.yomu.core.Constants
 import com.yomu.core.GenerationParams
 import com.yomu.core.ModelProfile
@@ -48,6 +49,10 @@ data class LlmModelOption(
     val idKeyedBatch: Boolean,
     val promptMode: TranslationPromptMode
 )
+
+/** The persisted model id, or null when absent or stored as another type (which would otherwise throw). */
+internal fun SharedPreferences.storedLlmModelId(): String? =
+    runCatching { getString(Constants.PREF_LLM_MODEL, null) }.getOrNull()
 
 object LlmModelCatalog {
 
@@ -114,14 +119,15 @@ object LlmModelCatalog {
     /** The selected option, or the default when nothing (or an unknown id) is persisted. */
     fun selectedOrDefault(id: String?): LlmModelOption = fromId(id) ?: DEFAULT
 
-    fun profileFor(option: LlmModelOption, modelsDir: File): ModelProfile = ModelProfile(
-        modelPath = File(modelsDir, option.ggufFileName).absolutePath,
-        idKeyedBatch = option.idKeyedBatch,
-        promptMode = option.promptMode,
-        // Every option gets the same block. A per-model override is added when a measurement
-        // forces two models apart, not before.
-        generation = GenerationParams()
-    )
+    fun profileFor(option: LlmModelOption, modelsDir: File, generation: GenerationParams): ModelProfile =
+        ModelProfile(
+            modelPath = File(modelsDir, option.ggufFileName).absolutePath,
+            idKeyedBatch = option.idKeyedBatch,
+            promptMode = option.promptMode,
+            // The reader's global profile, identical for every option (#192). A per-model override
+            // is added when a measurement forces two models apart, not before (#139).
+            generation = generation
+        )
 
     /**
      * Whether [option] can run on a device reporting [totalMemBytes] of RAM (part D). The default is

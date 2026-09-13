@@ -9,6 +9,7 @@ import com.yomu.core.TranslationOutcome
 import com.yomu.core.TranslationPromptMode
 import com.yomu.core.TranslationSlot
 import com.yomu.core.TranslationStatus
+import com.yomu.core.withinBounds
 import java.io.File
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -216,7 +217,15 @@ class LlamaTranslationBridge(
         grammar: String = ""
     ): GeneratedText = readinessMutex.withLock {
         return@withLock when (
-            val result = llamaBridge.generate(prompt, profile.generation, maxTokens, timeoutMs, grammar)
+            // Re-checked here, not trusted from Settings: a caller that bypasses the store must not
+            // push an unsafe value into the sampler (#192).
+            val result = llamaBridge.generate(
+                prompt,
+                profile.generation.withinBounds(),
+                maxTokens,
+                timeoutMs,
+                grammar
+            )
         ) {
             is GenerationResult.Success -> {
                 val text = result.text.trim()
