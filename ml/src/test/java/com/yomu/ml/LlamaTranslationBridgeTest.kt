@@ -49,21 +49,6 @@ class LlamaTranslationBridgeTest {
     }
 
     @Test
-    fun translatePage_captureContextUsesOnlyBoundedCurrentPageNeighbours() = runTest {
-        val model = File.createTempFile("model", ".gguf")
-        val native = FakeLlamaBridge { GenerationResult.Success("English", 1L) }
-        val slot = LlamaTranslationBridge(native, profile(model, TranslationPromptMode.CAPTURE_CONTEXT))
-
-        slot.translatePage(page(1 to "前".repeat(300), 2 to "対象", 3 to "後".repeat(300)))
-
-        val targetPrompt = native.prompts[1]
-        assertTrue(targetPrompt.contains("Nearby dialogue"))
-        assertTrue(targetPrompt.endsWith("対象"))
-        assertTrue(targetPrompt.length < 600)
-        model.delete()
-    }
-
-    @Test
     fun translatePage_idKeyedBatchBuildsOnePagePromptAndParsesById() = runTest {
         val model = File.createTempFile("model", ".gguf")
         val native = FakeLlamaBridge {
@@ -184,7 +169,7 @@ class LlamaTranslationBridgeTest {
         val slot = LlamaTranslationBridge(native, profile(model))
         assertTrue(slot.ensureReady())
 
-        slot.selectModel(ModelProfile("/other.gguf", true, TranslationPromptMode.CAPTURE_CONTEXT))
+        slot.selectModel(ModelProfile("/other.gguf", true, TranslationPromptMode.TRANSLATION_ONLY))
 
         assertEquals(TranslationStatus.NotReady, slot.status)
         assertEquals(1, native.releaseCalls)

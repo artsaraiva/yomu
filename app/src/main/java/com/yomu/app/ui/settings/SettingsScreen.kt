@@ -21,7 +21,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.yomu.app.db.entities.ModelType
 import com.yomu.app.translation.TranslationEngineType
 import com.yomu.app.ui.theme.*
-import com.yomu.core.TranslationPromptMode
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -92,24 +91,6 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        val selectedLlm = state.llmModels.firstOrNull { it.id == state.selectedLlmModelId }
-        // promptMode is read only on the per-line path, so a batch model would render a switch that
-        // does nothing (ADR-0013). The batch call subsumes it anyway: it carries the whole page.
-        if (state.selectedEngine == TranslationEngineType.LLM &&
-            selectedLlm?.promptMode == TranslationPromptMode.TRANSLATION_ONLY &&
-            !selectedLlm.idKeyedBatch) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Use surrounding dialogue (experimental)", modifier = Modifier.weight(1f))
-                PaperSwitch(checked = state.captureContext, onCheckedChange = viewModel::setCaptureContext)
-            }
-            Text(
-                "Uses nearby text in the current capture. Does not remember previous pages. " +
-                    "May take longer; experimental processing could cause the app to close unexpectedly.",
-                style = MaterialTheme.typography.bodySmall
-            )
-            Spacer(Modifier.height(20.dp))
-        }
-
         TranslationEngineType.entries.forEach { engine ->
             EngineModelCard(
                 engine = engine,
@@ -155,25 +136,6 @@ fun SettingsScreen(
             }
             Spacer(modifier = Modifier.height(8.dp))
         }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("Auto-detect manga pages", fontWeight = FontWeight.Medium, fontSize = 14.sp, modifier = Modifier.weight(1f))
-            PaperSwitch(
-                checked = state.autoDetect,
-                onCheckedChange = { viewModel.setAutoDetect(it) }
-            )
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = "When enabled, the floating button will pulse when manga is detected on screen.",
-            fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
 
         Spacer(modifier = Modifier.height(20.dp))
 

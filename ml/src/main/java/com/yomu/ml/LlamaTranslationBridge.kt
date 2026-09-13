@@ -68,7 +68,6 @@ class LlamaTranslationBridge(
         const val BATCH_OVERFLOW_FALLBACK = "batch_overflow_fallback"
         private const val TIMEOUT_MS = 15_000
         private const val BATCH_TIMEOUT_MS = 120_000
-        private const val NEIGHBOUR_CHARS = 80
     }
 
     private val readinessMutex = Mutex()
@@ -106,15 +105,10 @@ class LlamaTranslationBridge(
 
     private suspend fun translatePerLine(page: TranslatablePage): PageTranslation {
         val bubbles = page.panels.flatten()
-        val generated = bubbles.mapIndexed { index, bubble ->
+        val generated = bubbles.map { bubble ->
             val prompt = when (profile.promptMode) {
                 TranslationPromptMode.MODEL_CARD -> modelCardPrompt(bubble.sourceText)
-                TranslationPromptMode.TRANSLATION_ONLY -> translationOnlyPrompt(bubble.sourceText, "")
-                TranslationPromptMode.CAPTURE_CONTEXT -> translationOnlyPrompt(
-                    bubble.sourceText,
-                    listOfNotNull(bubbles.getOrNull(index - 1), bubbles.getOrNull(index + 1))
-                        .joinToString("\n") { it.sourceText.take(NEIGHBOUR_CHARS) }
-                )
+                TranslationPromptMode.TRANSLATION_ONLY -> translationOnlyPrompt(bubble.sourceText)
             }
             bubble to generate(prompt, profile.generation.maxTokens, TIMEOUT_MS)
         }
@@ -168,13 +162,9 @@ class LlamaTranslationBridge(
     private fun modelCardPrompt(target: String): String =
         "Translate the following Japanese text into English.\n\n$target"
 
-    private fun translationOnlyPrompt(target: String, surrounding: String): String = buildString {
+    private fun translationOnlyPrompt(target: String): String = buildString {
         appendLine("Translate the target Japanese manga text into natural English. Return only the translation.")
         appendLine("No introductions, explanations, labels, or added quotes. Preserve meaning and tone.")
-        if (surrounding.isNotBlank()) {
-            appendLine("Nearby dialogue (context only; do not translate):")
-            appendLine(surrounding)
-        }
         appendLine("Target text (translate this only):")
         append(target)
     }

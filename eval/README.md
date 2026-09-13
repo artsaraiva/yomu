@@ -344,8 +344,8 @@ PYTHON_BIN=/path/to/venv/bin/python ./eval/run-prompt-benchmark.sh
 
 Use `--skip-build` only when the app and test APKs already match the current source.
 The runner installs with `adb install -r -t`, preserving app data, and compares the old
-model-card prompt, translation-only instructions, and bounded current-capture dialogue.
-It restores the selected engine, model, and context setting after normal completion.
+model-card prompt and translation-only instructions.
+It restores the selected engine and model after normal completion.
 An interrupted process may leave benchmark settings selected; check Settings afterward.
 
 Each run has an isolated directory under `eval/results/prompt-<timestamp>/`, containing

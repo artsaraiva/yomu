@@ -4,6 +4,8 @@ Decision: retain translation-only prompting as the default. Keep current-capture
 experimental and off by default. This is a formatting improvement, not proof that translation
 quality is adequate or that fine-tuning is unnecessary.
 
+> **Superseded in part by [#193](https://github.com/artsaraiva/yomu/issues/193) (2026-09-13), deciding [#144](https://github.com/artsaraiva/yomu/issues/144).** "Keep current-capture context experimental" no longer holds: this comparison measured it worse and slower than translation-only, and the page-level batch call ([ADR-0013](../docs/adr/0013-grammar-constrained-page-level-batch.md)) made it redundant, so the mode and its Settings switch are deleted. The prompt benchmark now runs two arms. The translation-only decision and the measurements below stand.
+
 ## Reproduction
 
 User-run artifact: `eval/results/prompt-20260909-092531/` (local, generated).
