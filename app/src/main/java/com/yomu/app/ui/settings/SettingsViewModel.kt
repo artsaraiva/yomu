@@ -2,7 +2,6 @@ package com.yomu.app.ui.settings
 
 import android.app.ActivityManager
 import android.content.Context
-import android.content.Intent
 import android.content.SharedPreferences
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -12,8 +11,6 @@ import com.yomu.app.translation.LlmModelCatalog
 import com.yomu.app.translation.LlmModelOption
 import com.yomu.app.translation.EngineSelection
 import com.yomu.app.translation.TranslationEngineType
-import com.yomu.app.translation.hf.HfAuthManager
-import com.yomu.app.translation.hf.HfDownloadResult
 import com.yomu.core.Constants
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -32,10 +29,6 @@ data class SettingsUiState(
     val llmModels: List<LlmModelOption> = LlmModelCatalog.ALL,
     // Total device RAM, for the per-model capability gate (part D). 0 until read.
     val deviceTotalMemBytes: Long = 0L,
-    val hfSignedIn: Boolean = false,
-    // Non-null when a gated download needs the user to accept the model's terms on HF; carries the
-    // model's HF page URL to open.
-    val gatedTermsUrl: String? = null,
     val fontSizeScale: Float = Constants.DEFAULT_FONT_SIZE_SCALE,
     val theme: String = "system",
     val models: List<ModelEntity> = emptyList(),
@@ -52,8 +45,7 @@ class SettingsViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val sharedPreferences: SharedPreferences,
     private val engineSelection: EngineSelection,
-    private val modelManager: ModelManager,
-    private val hfAuthManager: HfAuthManager
+    private val modelManager: ModelManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -71,7 +63,6 @@ class SettingsViewModel @Inject constructor(
             sourceLanguage = sharedPreferences.getString(Constants.PREF_SOURCE_LANGUAGE, "ja") ?: "ja",
             selectedEngine = engine,
             selectedLlmModelId = engineSelection.currentLlmModel().id,
-            hfSignedIn = hfAuthManager.isSignedIn(),
             deviceTotalMemBytes = deviceTotalMemBytes(),
             fontSizeScale = sharedPreferences.getFloat(Constants.PREF_FONT_SIZE_SCALE, Constants.DEFAULT_FONT_SIZE_SCALE),
             theme = sharedPreferences.getString(Constants.PREF_THEME, "system") ?: "system"
@@ -116,47 +107,6 @@ class SettingsViewModel @Inject constructor(
             )
         }
     }
-
-    /** Intent the Settings screen launches for result to start HuggingFace sign-in (#90 part C). */
-    fun hfAuthorizeIntent(): Intent = hfAuthManager.authorizeIntent()
-
-    /** Finish sign-in from the redirect the Activity received. */
-    fun completeHfSignIn(data: Intent?) {
-        if (data == null) return
-        viewModelScope.launch {
-            hfAuthManager.completeAuthorization(data)
-            _uiState.value = _uiState.value.copy(hfSignedIn = hfAuthManager.isSignedIn())
-        }
-    }
-
-    fun signOutHf() {
-        hfAuthManager.signOut()
-        _uiState.value = _uiState.value.copy(hfSignedIn = false)
-    }
-
-    /** Download an HF-auth model under the user's token; a gate surfaces the terms-acceptance prompt. */
-    fun downloadHfModel(option: LlmModelOption) {
-        val token = hfAuthManager.accessToken() ?: return
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(downloadingId = option.id, downloadProgress = 0)
-            val result = modelManager.downloadHfModel(option.id, token) { progress ->
-                _uiState.value = _uiState.value.copy(downloadProgress = progress.percentage)
-            }
-            _uiState.value = _uiState.value.copy(
-                downloadingId = null,
-                downloadProgress = 0,
-                gatedTermsUrl = if (result == HfDownloadResult.GATED) hfModelPageUrl(option.id) else null
-            )
-        }
-    }
-
-    fun dismissGatedPrompt() {
-        _uiState.value = _uiState.value.copy(gatedTermsUrl = null)
-    }
-
-    // HF download URL -> model page: .../<repo>/resolve/<rev>/<file> drops to .../<repo>.
-    private suspend fun hfModelPageUrl(modelId: String): String? =
-        modelManager.getModel(modelId)?.downloadUrl?.substringBefore("/resolve/")
 
     private fun deviceTotalMemBytes(): Long {
         val am = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager ?: return 0L

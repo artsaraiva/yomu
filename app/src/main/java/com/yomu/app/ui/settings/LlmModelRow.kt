@@ -9,7 +9,6 @@ import androidx.compose.ui.unit.sp
 import com.yomu.app.db.entities.ModelEntity
 import com.yomu.app.db.entities.ModelStatus
 import com.yomu.app.translation.LlmModelOption
-import com.yomu.app.translation.LlmModelTier
 import com.yomu.app.ui.theme.*
 import com.yomu.core.toFileSizeString
 
@@ -18,7 +17,6 @@ internal fun LlmModelRow(
     option: LlmModelOption,
     selected: Boolean,
     canRun: Boolean,
-    hfSignedIn: Boolean,
     model: ModelEntity?,
     isDownloading: Boolean,
     progress: Int,
@@ -26,18 +24,14 @@ internal fun LlmModelRow(
     onDownload: () -> Unit,
     onDelete: () -> Unit
 ) {
-    val hosted = option.tier == LlmModelTier.HOSTED
-    val downloaded = model?.status == ModelStatus.READY
-    // HF-auth entries need the user signed in before they can be fetched or run; hosted entries are
-    // always actionable. Either way the model must fit the device and (to select) be downloaded.
-    val actionable = hosted || hfSignedIn
-    val selectable = actionable && canRun && downloaded
+    // The model must fit the device and, to select, be downloaded.
+    val selectable = canRun && model?.status == ModelStatus.READY
     val subtitle = buildString {
         append(option.sizeBytes.toFileSizeString())
         append(" · ")
         append(option.licence)
-        append(if (hosted) " · Hosted" else if (hfSignedIn) " · HuggingFace" else " · HuggingFace sign-in required")
-        if (actionable && !canRun) append(" · Won't fit this device")
+        append(" · Hosted")
+        if (!canRun) append(" · Won't fit this device")
     }
     Column {
         Row(
@@ -62,7 +56,7 @@ internal fun LlmModelRow(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            if (actionable && canRun && model != null) {
+            if (canRun && model != null) {
                 when {
                     isDownloading -> Text("$progress%", fontSize = 11.sp)
                     model.status == ModelStatus.READY -> PaperAction(onClick = onDelete) {
@@ -76,27 +70,6 @@ internal fun LlmModelRow(
                     }
                 }
             }
-        }
-    }
-}
-
-@Composable
-internal fun HfSignInRow(signedIn: Boolean, onSignIn: () -> Unit, onSignOut: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = if (signedIn) "Signed in to HuggingFace" else "Sign in to HuggingFace for gated models",
-            fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.weight(1f)
-        )
-        if (signedIn) {
-            PaperAction(onClick = onSignOut) { Text("Sign out", fontSize = 12.sp) }
-        } else {
-            PaperAction(onClick = onSignIn) { Text("Sign in", fontSize = 12.sp) }
         }
     }
 }
