@@ -1,7 +1,9 @@
 package com.yomu.app.translation
 
 import com.yomu.core.Constants
+import com.yomu.core.GenerationParams
 import com.yomu.core.TranslationPromptMode
+import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -29,6 +31,15 @@ class LlmModelCatalogTest {
         val floor = LlmModelCatalog.selectedOrDefault(Constants.CAT_TRANSLATION_MODEL_ID)
         assertEquals(Constants.CAT_TRANSLATION_MODEL_ID, floor.id)
         assertEquals(TranslationPromptMode.MODEL_CARD, floor.promptMode)
+    }
+
+    @Test
+    fun `profileFor carries the supplied generation profile unchanged onto every entry`() {
+        val generation = GenerationParams(temperature = 0.7f, topK = 12, topP = 0.5f)
+
+        LlmModelCatalog.ALL.forEach { option ->
+            assertEquals(option.displayName, generation, LlmModelCatalog.profileFor(option, File("m"), generation).generation)
+        }
     }
 
     @Test

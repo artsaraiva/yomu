@@ -12,6 +12,8 @@ import com.yomu.app.translation.LlmModelOption
 import com.yomu.app.translation.EngineSelection
 import com.yomu.app.translation.TranslationEngineType
 import com.yomu.core.Constants
+import com.yomu.core.GenerationBound
+import com.yomu.core.GenerationParams
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,8 +35,15 @@ data class SettingsUiState(
     val theme: String = "system",
     val models: List<ModelEntity> = emptyList(),
     val downloadingId: String? = null,
-    val downloadProgress: Int = 0
+    val downloadProgress: Int = 0,
+    /** The reader's global sampler profile (#192). */
+    val generation: GenerationParams = GenerationParams(),
+    /** One message naming every stored value that was recovered to its default, or null. */
+    val recoveryWarning: String? = null
 ) {
+    val generationOverridden: Boolean
+        get() = GenerationBound.entries.any { it.read(generation) != it.default }
+
     /** Whether the device can run [option] (part D); the default is never gated out. */
     fun canRun(option: LlmModelOption): Boolean =
         deviceTotalMemBytes <= 0L || LlmModelCatalog.canRunOnDevice(option, deviceTotalMemBytes)
@@ -66,7 +75,9 @@ class SettingsViewModel @Inject constructor(
             deviceTotalMemBytes = deviceTotalMemBytes(),
             fontSizeScale = sharedPreferences.getFloat(Constants.PREF_FONT_SIZE_SCALE, Constants.DEFAULT_FONT_SIZE_SCALE),
             theme = sharedPreferences.getString(Constants.PREF_THEME, "system") ?: "system"
-        )
+        ).withGenerationProfile()
+        // The warning is now on screen; forget the bad values so it does not return on every visit.
+        if (_uiState.value.recoveryWarning != null) engineSelection.clearRecovered()
 
         viewModelScope.launch {
             modelManager.refreshModelList()
@@ -106,6 +117,32 @@ class SettingsViewModel @Inject constructor(
                 selectedLlmModelId = engineSelection.currentLlmModel().id
             )
         }
+    }
+
+    /** Values the bounds refuse are dropped by the store; the panel just re-reads what stuck. */
+    fun setGeneration(bound: GenerationBound, value: Float) {
+        viewModelScope.launch {
+            engineSelection.saveGeneration(bound, value)
+            _uiState.value = _uiState.value.withGenerationProfile()
+        }
+    }
+
+    fun resetGeneration() {
+        viewModelScope.launch {
+            engineSelection.resetGeneration()
+            _uiState.value = _uiState.value.withGenerationProfile()
+        }
+    }
+
+    private fun SettingsUiState.withGenerationProfile(): SettingsUiState {
+        val loaded = engineSelection.generationProfile()
+        val recovered = loaded.recovered.map { it.label } +
+            if (engineSelection.storedLlmModelRecovered()) listOf("Model") else emptyList()
+        return copy(
+            generation = loaded.params,
+            recoveryWarning = recovered.takeIf { it.isNotEmpty() }
+                ?.let { "Some saved settings were invalid and are using their defaults: ${it.joinToString()}." }
+        )
     }
 
     private fun deviceTotalMemBytes(): Long {
