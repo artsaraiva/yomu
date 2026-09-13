@@ -72,6 +72,17 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(8.dp))
         }
 
+        state.recoveryWarning?.let {
+            RecoveryWarning(it)
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+        AdvancedGenerationPanel(
+            generation = state.generation,
+            overridden = state.generationOverridden,
+            onChange = viewModel::setGeneration,
+            onReset = viewModel::resetGeneration
+        )
+
         Spacer(modifier = Modifier.height(20.dp))
 
         Text("Reading", style = MaterialTheme.typography.titleLarge)
