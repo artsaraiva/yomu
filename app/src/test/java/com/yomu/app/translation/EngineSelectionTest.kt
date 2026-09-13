@@ -2,6 +2,8 @@ package com.yomu.app.translation
 
 import android.content.SharedPreferences
 import com.yomu.core.Constants
+import com.yomu.core.GenerationBound
+import com.yomu.core.GenerationParams
 import com.yomu.core.ModelProfile
 import com.yomu.core.TranslationPromptMode
 import com.yomu.core.TranslationSlot
@@ -12,6 +14,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.mockito.ArgumentMatchers.anyString
 import org.mockito.Mockito
@@ -85,6 +88,61 @@ class EngineSelectionTest {
         assertEquals(option.idKeyedBatch, profile.idKeyedBatch)
         assertEquals(TranslationPromptMode.MODEL_CARD, profile.promptMode)
     }
+
+    @Test
+    fun `selectLlmModel carries the stored profile and leaves it stored`() = runTest {
+        val prefs = MapSharedPreferences()
+        val llama = Mockito.mock(LlamaTranslationBridge::class.java)
+        val selection = EngineSelection(mlKit(), opus(), llama, prefs, File("models"))
+        selection.saveGeneration(GenerationBound.TOP_K, 12f)
+        Mockito.clearInvocations(llama)
+
+        selection.selectLlmModel(LlmModelCatalog.fromId(Constants.CAT_TRANSLATION_MODEL_ID)!!)
+        selection.selectLlmModel(LlmModelCatalog.DEFAULT)
+
+        val applied = Mockito.mockingDetails(llama).invocations.map { (it.arguments[0] as ModelProfile).generation }
+        assertEquals(listOf(GenerationParams(topK = 12), GenerationParams(topK = 12)), applied)
+        assertEquals(GenerationParams(topK = 12), selection.generationProfile().params)
+    }
+
+    @Test
+    fun `saveGeneration applies an accepted value to the slot and refuses a bad one`() = runTest {
+        val llama = Mockito.mock(LlamaTranslationBridge::class.java)
+        val selection = EngineSelection(mlKit(), opus(), llama, MapSharedPreferences(), File("models"))
+
+        assertTrue(selection.saveGeneration(GenerationBound.TEMPERATURE, 0.5f))
+        assertFalse(selection.saveGeneration(GenerationBound.TEMPERATURE, 2f))
+
+        val profile = Mockito.mockingDetails(llama).invocations.single().arguments[0] as ModelProfile
+        assertEquals(GenerationParams(temperature = 0.5f), profile.generation)
+        assertEquals(LlmModelCatalog.DEFAULT.ggufFileName, File(profile.modelPath).name)
+    }
+
+    @Test
+    fun `resetGeneration restores and applies the shipped profile`() = runTest {
+        val llama = Mockito.mock(LlamaTranslationBridge::class.java)
+        val selection = EngineSelection(mlKit(), opus(), llama, MapSharedPreferences(), File("models"))
+        selection.saveGeneration(GenerationBound.TOP_P, 0.5f)
+
+        selection.resetGeneration()
+
+        val last = Mockito.mockingDetails(llama).invocations.last().arguments[0] as ModelProfile
+        assertEquals(GenerationParams(), last.generation)
+        assertEquals(GenerationParams(), selection.generationProfile().params)
+    }
+
+    @Test
+    fun `an unknown stored model id recovers to the default and is reported`() {
+        val prefs = MapSharedPreferences().apply { values[Constants.PREF_LLM_MODEL] = "retired-model" }
+        val selection = EngineSelection(mlKit(), opus(), Mockito.mock(LlamaTranslationBridge::class.java), prefs)
+
+        assertSame(LlmModelCatalog.DEFAULT, selection.currentLlmModel())
+        assertTrue(selection.storedLlmModelRecovered())
+        assertFalse(EngineSelection(mlKit(), opus(), Mockito.mock(LlamaTranslationBridge::class.java), MapSharedPreferences()).storedLlmModelRecovered())
+    }
+
+    private fun mlKit() = Mockito.mock(MlKitTranslationBridge::class.java)
+    private fun opus() = Mockito.mock(OpusMtTranslationBridge::class.java)
 
     @Test
     fun `close closes all slots`() {

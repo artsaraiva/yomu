@@ -114,14 +114,15 @@ object LlmModelCatalog {
     /** The selected option, or the default when nothing (or an unknown id) is persisted. */
     fun selectedOrDefault(id: String?): LlmModelOption = fromId(id) ?: DEFAULT
 
-    fun profileFor(option: LlmModelOption, modelsDir: File): ModelProfile = ModelProfile(
-        modelPath = File(modelsDir, option.ggufFileName).absolutePath,
-        idKeyedBatch = option.idKeyedBatch,
-        promptMode = option.promptMode,
-        // Every option gets the same block. A per-model override is added when a measurement
-        // forces two models apart, not before.
-        generation = GenerationParams()
-    )
+    fun profileFor(option: LlmModelOption, modelsDir: File, generation: GenerationParams): ModelProfile =
+        ModelProfile(
+            modelPath = File(modelsDir, option.ggufFileName).absolutePath,
+            idKeyedBatch = option.idKeyedBatch,
+            promptMode = option.promptMode,
+            // The reader's global profile, identical for every option (#192). A per-model override
+            // is added when a measurement forces two models apart, not before (#139).
+            generation = generation
+        )
 
     /**
      * Whether [option] can run on a device reporting [totalMemBytes] of RAM (part D). The default is

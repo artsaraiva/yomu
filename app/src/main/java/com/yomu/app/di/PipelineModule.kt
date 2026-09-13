@@ -21,6 +21,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import java.io.File
+import com.yomu.app.translation.GenerationProfileStore
 import com.yomu.app.translation.LlmModelCatalog
 import javax.inject.Singleton
 
@@ -72,7 +73,8 @@ object PipelineModule {
         val selected = LlmModelCatalog.selectedOrDefault(
             sharedPreferences.getString(Constants.PREF_LLM_MODEL, null)
         )
-        return LlamaTranslationBridge(llamaBridge, LlmModelCatalog.profileFor(selected, llmModelsDir(context)))
+        val generation = GenerationProfileStore(sharedPreferences).load().params
+        return LlamaTranslationBridge(llamaBridge, LlmModelCatalog.profileFor(selected, llmModelsDir(context), generation))
     }
 
     @Provides
