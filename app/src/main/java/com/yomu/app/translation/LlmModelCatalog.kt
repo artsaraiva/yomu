@@ -15,9 +15,8 @@ enum class LlmModelTier {
     HOSTED,
 
     /**
-     * Yomu-tested but not redistributable (e.g. Gemma Terms). Pulled through the HF API under the
-     * user's own credentials after they accept the model's gate. The download path is built
-     * ([com.yomu.app.translation.hf]); no catalog entry uses this tier today (see [LlmModelCatalog.ALL]).
+     * Retired (#187, ADR-0014): the HuggingFace-authenticated download path was deleted. No entry
+     * uses this tier and nothing can fetch it; collapsing the tier concept is the follow-up.
      */
     HF_AUTH
 }
@@ -82,9 +81,9 @@ object LlmModelCatalog {
      * licence-clean gated GGUF for them: the official gated repo ships only a 10.5 GB f32 file, and
      * the small Q4_K_M quants live only on *ungated* public re-hosts, where the gate — hence the
      * whole "user accepts the licence under their own account" premise — cannot apply. So they are
-     * dropped rather than offered through a gate that does not exist. The HF-auth mechanism
-     * ([com.yomu.app.translation.hf]) stays wired and ready; add a member here the moment a model
-     * ships a small gated GGUF. The open "Custom — unsupported" slot (ADR-0001) is a separate hatch.
+     * dropped rather than offered through a gate that does not exist, and the HF-auth mechanism was
+     * deleted (#187; ADR-0014 names the commit to revive it from). The open "Custom — unsupported"
+     * slot (ADR-0001) is a separate hatch.
      */
     val ALL: List<LlmModelOption> = listOf(
         DEFAULT,
