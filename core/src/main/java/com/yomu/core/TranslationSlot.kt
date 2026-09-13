@@ -102,6 +102,36 @@ data class GenerationParams(
     }
 }
 
+/**
+ * The reader-facing subset of [GenerationParams] (#192, decided in #144): allowed range, slider
+ * step and shipped default for each field Settings exposes. The one place these are stated — the
+ * Settings panel renders from it, `GenerationProfileStore` validates against it, and the inference
+ * boundary re-checks through [withinBounds]. Every other field stays a constant; repeat-penalty in
+ * particular stays out of the reader's hands (#153).
+ *
+ * Values cross as Float so one persistence path serves all fields; [TOP_K] rounds on [write].
+ */
+enum class GenerationBound(
+    val min: Float,
+    val max: Float,
+    val step: Float,
+    val read: (GenerationParams) -> Float,
+    val write: (GenerationParams, Float) -> GenerationParams
+) {
+    TEMPERATURE(0f, 1f, 0.1f, { it.temperature }, { p, v -> p.copy(temperature = v) }),
+    TOP_K(1f, 100f, 1f, { it.topK.toFloat() }, { p, v -> p.copy(topK = Math.round(v)) }),
+    TOP_P(0f, 1f, 0.05f, { it.topP }, { p, v -> p.copy(topP = v) });
+
+    val default: Float get() = read(GenerationParams())
+
+    fun accepts(value: Float): Boolean = value.isFinite() && value in min..max
+}
+
+/** This profile with every reader-facing field outside its [GenerationBound] reset to the default. */
+fun GenerationParams.withinBounds(): GenerationParams = GenerationBound.entries.fold(this) { params, bound ->
+    if (bound.accepts(bound.read(params))) params else bound.write(params, bound.default)
+}
+
 data class ModelProfile(
     val modelPath: String,
     val idKeyedBatch: Boolean,
