@@ -42,7 +42,5 @@ class GenerationProfileStore(private val prefs: SharedPreferences) {
 
     companion object {
         fun key(bound: GenerationBound): String = "generation_${bound.name.lowercase()}"
-
-        fun isProfileKey(key: String?): Boolean = GenerationBound.entries.any { key(it) == key }
     }
 }

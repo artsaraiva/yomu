@@ -89,13 +89,6 @@ class GenerationProfileStoreTest {
 
         assertEquals(GenerationProfileStore.Loaded(GenerationParams(), emptyList()), store.load())
     }
-
-    @Test
-    fun `profile keys are recognised and others are not`() {
-        GenerationBound.entries.forEach { assertTrue(GenerationProfileStore.isProfileKey(GenerationProfileStore.key(it))) }
-        assertFalse(GenerationProfileStore.isProfileKey("font_size_scale"))
-        assertFalse(GenerationProfileStore.isProfileKey(null))
-    }
 }
 
 /** Map-backed [SharedPreferences]: getFloat throws on a wrongly typed value, as the platform does. */
