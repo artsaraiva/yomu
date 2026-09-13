@@ -33,13 +33,7 @@ class EngineSelection @Inject constructor(
 
     suspend fun selectLlmModel(option: LlmModelOption) {
         sharedPreferences.edit().putString(Constants.PREF_LLM_MODEL, option.id).apply()
-        llamaSlot.selectModel(
-            LlmModelCatalog.profileFor(
-                option,
-                llmModelsDir,
-                sharedPreferences.getBoolean(Constants.PREF_CAPTURE_CONTEXT, false)
-            )
-        )
+        llamaSlot.selectModel(LlmModelCatalog.profileFor(option, llmModelsDir))
     }
 
     fun selectEngine(type: TranslationEngineType) {

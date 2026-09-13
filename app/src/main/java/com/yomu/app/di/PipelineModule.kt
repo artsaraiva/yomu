@@ -72,14 +72,7 @@ object PipelineModule {
         val selected = LlmModelCatalog.selectedOrDefault(
             sharedPreferences.getString(Constants.PREF_LLM_MODEL, null)
         )
-        return LlamaTranslationBridge(
-            llamaBridge,
-            LlmModelCatalog.profileFor(
-                selected,
-                llmModelsDir(context),
-                sharedPreferences.getBoolean(Constants.PREF_CAPTURE_CONTEXT, false)
-            )
-        )
+        return LlamaTranslationBridge(llamaBridge, LlmModelCatalog.profileFor(selected, llmModelsDir(context)))
     }
 
     @Provides
