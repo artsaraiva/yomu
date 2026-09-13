@@ -1,10 +1,7 @@
 package com.yomu.app.ui.settings
 
-import android.net.Uri
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -12,7 +9,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -29,32 +25,6 @@ fun SettingsScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     var themeConfirmation by remember { mutableStateOf<String?>(null) }
-    val context = LocalContext.current
-    val hfSignInLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result -> viewModel.completeHfSignIn(result.data) }
-
-    state.gatedTermsUrl?.let { termsUrl ->
-        AlertDialog(
-            onDismissRequest = { viewModel.dismissGatedPrompt() },
-            title = { Text("Accept the model's terms") },
-            text = {
-                Text(
-                    "This model is gated. Open its HuggingFace page, accept the licence terms with " +
-                        "your account, then download again."
-                )
-            },
-            confirmButton = {
-                PaperAction(onClick = {
-                    context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse(termsUrl)))
-                    viewModel.dismissGatedPrompt()
-                }) { Text("Open page") }
-            },
-            dismissButton = {
-                PaperAction(onClick = { viewModel.dismissGatedPrompt() }) { Text("Dismiss") }
-            }
-        )
-    }
 
     Column(
         modifier = Modifier
@@ -96,11 +66,8 @@ fun SettingsScreen(
                 engine = engine,
                 state = state,
                 onDownload = { viewModel.downloadModel(it) },
-                onDownloadHf = { viewModel.downloadHfModel(it) },
                 onDelete = { viewModel.deleteModel(it) },
-                onSelectLlm = { viewModel.setLlmModel(it) },
-                onHfSignIn = { hfSignInLauncher.launch(viewModel.hfAuthorizeIntent()) },
-                onHfSignOut = { viewModel.signOutHf() }
+                onSelectLlm = { viewModel.setLlmModel(it) }
             )
             Spacer(modifier = Modifier.height(8.dp))
         }

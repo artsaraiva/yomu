@@ -10,7 +10,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yomu.app.R
 import com.yomu.app.translation.LlmModelOption
-import com.yomu.app.translation.LlmModelTier
 import com.yomu.app.translation.TranslationEngineType
 import com.yomu.app.ui.theme.*
 import com.yomu.core.Constants
@@ -20,11 +19,8 @@ internal fun EngineModelCard(
     engine: TranslationEngineType,
     state: SettingsUiState,
     onDownload: (String) -> Unit,
-    onDownloadHf: (LlmModelOption) -> Unit,
     onDelete: (String) -> Unit,
-    onSelectLlm: (LlmModelOption) -> Unit,
-    onHfSignIn: () -> Unit,
-    onHfSignOut: () -> Unit
+    onSelectLlm: (LlmModelOption) -> Unit
 ) {
     val models = state.models
     val downloadingId = state.downloadingId
@@ -87,24 +83,14 @@ internal fun EngineModelCard(
                             option = option,
                             selected = option.id == state.selectedLlmModelId,
                             canRun = state.canRun(option),
-                            hfSignedIn = state.hfSignedIn,
                             model = models.find { it.id == option.id },
                             isDownloading = downloadingId == option.id,
                             progress = downloadProgress,
                             onSelect = { onSelectLlm(option) },
-                            onDownload = {
-                                if (option.tier == LlmModelTier.HOSTED) onDownload(option.id)
-                                else onDownloadHf(option)
-                            },
+                            onDownload = { onDownload(option.id) },
                             onDelete = { onDelete(option.id) }
                         )
                         Spacer(modifier = Modifier.height(8.dp))
-                    }
-                    // Only worth showing when a gated model actually needs it — none in the catalog
-                    // today, so this stays hidden until an HF_AUTH entry is added.
-                    if (state.llmModels.any { it.tier == LlmModelTier.HF_AUTH }) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        HfSignInRow(signedIn = state.hfSignedIn, onSignIn = onHfSignIn, onSignOut = onHfSignOut)
                     }
                 }
             }
