@@ -15,14 +15,21 @@ LOGCAT_FILE="$RUN_DIR/logcat.log"
 SKIP_BUILD=0
 SKIP_INSTALL=0
 SKIP_EVAL=0
+CALL_SHAPES=0
+PENALTY_SWEEP=0
 
 usage() {
-  printf 'Usage: %s [--skip-build] [--skip-install] [--skip-eval] [-P<gradle-arg>...]\n' "$0"
+  printf 'Usage: %s [--skip-build] [--skip-install] [--skip-eval] [--call-shapes] [-P<gradle-arg>...]\n' "$0"
   printf '\n'
   printf 'Flags:\n'
   printf '  --skip-build    Skip build (use installed APKs as-is)\n'
   printf '  --skip-install  Skip install only, still build. Use if model already downloaded.\n'
   printf '  --skip-eval     Skip scoring step\n'
+  printf '  --call-shapes   ADR-0013 falsification run (#198): grammar_batch vs per_line on the\n'
+  printf '                  catalog default, and nothing else. Declares those two arms only,\n'
+  printf '                  fetches no challengers, and prunes nothing off the device.\n'
+  printf '  --penalty-sweep #153/#198 repeat_penalty sweep on the batch path, against the 1.0\n'
+  printf '                  batch control from the same run. Needs eval/repetition-probe.\n'
   printf '  -P<arg>         Passed straight to the connectedAndroidTest gradle call, e.g.\n'
   printf '                  -Pandroid.testInstrumentationRunnerArguments.challengers=hunyuan_mt_7b\n'
 }
@@ -41,6 +48,18 @@ for arg in "$@"; do
       ;;
     --skip-eval)
       SKIP_EVAL=1
+      ;;
+    --call-shapes)
+      CALL_SHAPES=1
+      GRADLE_EXTRA_ARGS+=(
+        "-Pandroid.testInstrumentationRunnerArguments.class=com.yomu.app.EngineBenchmarkTest#compareCallShapes"
+      )
+      ;;
+    --penalty-sweep)
+      PENALTY_SWEEP=1
+      GRADLE_EXTRA_ARGS+=(
+        "-Pandroid.testInstrumentationRunnerArguments.class=com.yomu.app.EngineBenchmarkTest#measureRepeatPenalty"
+      )
       ;;
     -h|--help)
       usage
@@ -258,6 +277,7 @@ requested() { # engine name -> 0 if it should run this pass (no filter = all)
 # Everything else is pruned from the device below so a targeted run does not carry old multi-GB
 # weights it will not use.
 ALLOWED_LLM=$'\n'"$(basename "$LLM_FIXTURE")"$'\n'
+if [ "$CALL_SHAPES" -eq 0 ] && [ "$PENALTY_SWEEP" -eq 0 ]; then
 for entry in "${CHALLENGER_FIXTURES[@]}"; do
   name="${entry%%|*}"; rest="${entry#*|}"; path="${rest%%|*}"; url="${rest##*|}"
   requested "$name" || continue
@@ -279,6 +299,12 @@ for dev_file in $(adb shell "ls '$DEVICE_FIXTURE_DIR/llm' 2>/dev/null" | tr -d '
        adb shell "rm -f '$DEVICE_FIXTURE_DIR/llm/$dev_file'" ;;
   esac
 done
+else
+  # A targeted pass runs one model and pushes nothing new, so it has no claim on the multi-GB
+  # challenger weights already sitting on the device. Pruning them here would cost a re-fetch to
+  # get back and buy this run nothing.
+  printf 'Targeted run: leaving device fixtures untouched\n'
+fi
 
 for model_dir in "$FIXTURE_DIR"/*/; do
   [ -d "$model_dir" ] || continue
@@ -341,6 +367,26 @@ done
 ARM_ARGS=()
 add_arm() { ARM_ARGS+=(--arm "$1"); }
 
+if [ "$CALL_SHAPES" -eq 1 ]; then
+  # ADR-0013's falsification run. Only compareCallShapes executes, so only its two arms may be
+  # declared: an arm with no records invalidates the whole run, which is exactly what declaring the
+  # detection or floor arms here would do. Both arms are the same file on the same load and differ
+  # in call shape alone -- the scorer checks that against what the device observed.
+  add_arm "arm_id=grammar_batch,stage=translation,provider=llama.cpp,model_id=$(basename "$LLM_FIXTURE"),call_shape=id_keyed_batch,model_file=$LLM_FIXTURE"
+  add_arm "arm_id=per_line,stage=translation,provider=llama.cpp,model_id=$(basename "$LLM_FIXTURE"),call_shape=per_line,model_file=$LLM_FIXTURE"
+elif [ "$PENALTY_SWEEP" -eq 1 ]; then
+  # #153's arms re-measured on the batch path (#198). All three run the probe; only the two gate
+  # arms run the corpus, so 1.2 declares no cases or it is invalidated for the 17 it never ran.
+  #
+  # Only the control declares its expected penalty. 1.0f widens to exactly 1.0, so the check holds;
+  # 1.1f and 1.2f widen to 1.100000023841858 and 1.2000000476837158, and declaring the decimal a
+  # reader expects would fail the very arm it describes. The arm id names the value and the device
+  # records what it actually sampled with, which is the half that has to be true.
+  add_arm "arm_id=repeat_1.0,stage=translation,provider=llama.cpp,model_id=$(basename "$LLM_FIXTURE"),call_shape=id_keyed_batch,model_file=$LLM_FIXTURE,gen.penalty_repeat=1.0"
+  add_arm "arm_id=repeat_1.1,stage=translation,provider=llama.cpp,model_id=$(basename "$LLM_FIXTURE"),call_shape=id_keyed_batch,model_file=$LLM_FIXTURE"
+  add_arm "arm_id=repeat_1.2,stage=translation,provider=llama.cpp,model_id=$(basename "$LLM_FIXTURE"),call_shape=id_keyed_batch,model_file=$LLM_FIXTURE,cases=none"
+else
+
 # Detection arms. Weights ride into the test APK as assets, so an arm exists exactly when its asset
 # was staged above.
 add_arm "arm_id=bubble,stage=detection,provider=onnxruntime,model_id=yolo26n,quantization=fp32,target_language=,call_shape=page_image,model_file=$BUBBLE_MODEL_FILE"
@@ -371,6 +417,8 @@ for entry in "${CHALLENGER_FIXTURES[@]}"; do
   [ -f "$path" ] || continue
   add_arm "arm_id=$name,stage=translation,provider=llama.cpp,model_id=$(basename "$path"),call_shape=id_keyed_batch,model_file=$path"
 done
+
+fi
 
 DEVICE_MODEL="$(adb shell getprop ro.product.model | tr -d '\r')"
 ANDROID_API="$(adb shell getprop ro.build.version.sdk | tr -d '\r')"

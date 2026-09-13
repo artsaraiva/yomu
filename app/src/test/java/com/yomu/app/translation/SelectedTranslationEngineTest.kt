@@ -47,11 +47,21 @@ class SelectedTranslationEngineTest {
             var prompt = ""
             var tokens = 0
             var timeout = 0
-            Mockito.`when`(native.generate(Mockito.anyString(), anyParams(), Mockito.anyInt(), Mockito.anyInt()))
+            var grammar = ""
+            Mockito.`when`(
+                native.generate(
+                    Mockito.anyString(),
+                    anyParams(),
+                    Mockito.anyInt(),
+                    Mockito.anyInt(),
+                    Mockito.anyString()
+                )
+            )
                 .thenAnswer { call ->
                     prompt = call.getArgument(0)
                     tokens = call.getArgument(2)
                     timeout = call.getArgument(3)
+                    grammar = call.getArgument(4)
                     GenerationResult.Success("[1] Hello\n[2] Goodbye", 1L)
                 }
             val texts = listOf("こんにちは", "さようなら").map {
@@ -62,9 +72,10 @@ class SelectedTranslationEngineTest {
             val result = engine.translate(listOf(page))
 
             assertEquals(listOf("Hello", "Goodbye"), result.translations.map { it.translatedText })
-            assertEquals((2048 - prompt.length / 2 - 96).coerceIn(256, 2048), tokens)
-            assertTrue(tokens > 256)
+            assertTrue(prompt, prompt.contains("[1] こんにちは"))
+            assertEquals(768, tokens)
             assertEquals(120_000, timeout)
+            assertTrue(grammar, grammar.startsWith("root ::= \"[1] \""))
         }
     }
 

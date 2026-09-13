@@ -55,8 +55,7 @@ class OpusMtTranslationBridgeTest {
         val bridge = createBridge()
 
         val result = bridge.translatePage(
-            TranslatablePage(listOf(listOf(TranslatableBubble(1, "こんにちは")))),
-            emptyList()
+            TranslatablePage(listOf(listOf(TranslatableBubble(1, "こんにちは"))))
         )
 
         assertTrue(result.byId.isEmpty())

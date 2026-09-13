@@ -117,7 +117,7 @@ The fraction of minimal pairs where the model assigns higher probability to the 
 _Avoid_: pair accuracy, coherence score, referent accuracy
 
 **Coherence gate**:
-The directional check that contrastive accuracy with session context beats accuracy with it blanked, on the same pairs. Passing means session context provably helps referent resolution; it is a direction, not an absolute bar, because the corpus is too small to power one.
+The directional check that contrastive accuracy with the rest of the page in the prompt beats accuracy with it blanked, on the same pairs. Passing means page context provably helps referent resolution; it is a direction, not an absolute bar, because the corpus is too small to power one. ADR-0013 withdrew cross-page session context, so the gate measures intra-page coherence only.
 _Avoid_: coherence bar, context gate, pronoun gate
 
 ### Translation context
@@ -126,8 +126,8 @@ _Avoid_: coherence bar, context gate, pronoun gate
 A group of bubbles inferred to belong to the same comic frame. Used to order bubbles and to mark grouping inside the page prompt — never to split a page into multiple model calls.
 _Avoid_: conversation block, chunk, frame
 
-**Session context**:
-The previous page's source/translation pairs, carried into the next page's prompt so pronouns, names, and register stay consistent across a reading session. Held by the caller, cleared when the session ends.
+**Session context** (withdrawn):
+The previous page's source/translation pairs, carried into the next page's prompt so pronouns, names, and register stay consistent across a reading session. ADR-0013 withdrew it on measurement — the production-shaped payload overflowed the prompt cap on 4 of 17 pages and no arm showed a quality gain — and the plumbing is deleted, not dormant. The term is kept here because the ADRs that decided and undid it still use it; nothing in the code does.
 _Avoid_: history, memory, conversation history
 
 ## Visual system
