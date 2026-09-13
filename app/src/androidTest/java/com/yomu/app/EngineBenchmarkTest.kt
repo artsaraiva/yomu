@@ -141,6 +141,69 @@ class EngineBenchmarkTest {
     }
 
     /**
+     * ADR-0013's falsification condition (#198): the shipped grammar-batch call against the per-line
+     * control it reverts to, on the same device in the same pass.
+     *
+     * The decision that shipped rests on #137, which ran on an emulator and said so — its own note
+     * is that the 36% latency ratio is paired and the absolute milliseconds are not phone numbers.
+     * So this is not a re-run for confirmation: under a 15% median gap the ADR reverts, and the
+     * comparison is against **grammar-batch**, the arm that actually ships, not the bare batch
+     * figure that was measured on a build without the grammar.
+     *
+     * Both arms are the same model on the same load, differing in [ModelProfile.idKeyedBatch] alone,
+     * so the delta is the call shape rather than the weights. The seed is pinned for the reason
+     * [measureRepeatPenalty] pins it: the shipped default draws a fresh seed per call, which would
+     * put sampling noise in a paired comparison. That makes this a measurement of the shipped
+     * configuration with one knob held still, which is what a paired gate needs and is worth stating
+     * next to the residue number it produces.
+     */
+    @Test
+    fun compareCallShapes() = runBlocking {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val cases = loadCases(InstrumentationRegistry.getInstrumentation().context)
+        check(cases.isNotEmpty()) { "No benchmark cases staged" }
+        val records = RunRecords.open()
+        val rows = mutableListOf<TimingRow>()
+        val native = LlamaBridge(context)
+        val option = LlmModelCatalog.DEFAULT
+        val modelPath = File(
+            context.filesDir,
+            "${Constants.MODELS_DIR}/${Constants.LLM_MODELS_DIR}/${option.ggufFileName}"
+        ).absolutePath
+        try {
+            for ((armId, idKeyedBatch) in CALL_SHAPE_ARMS) {
+                val slot = LlamaTranslationBridge(
+                    native,
+                    ModelProfile(
+                        modelPath = modelPath,
+                        idKeyedBatch = idKeyedBatch,
+                        promptMode = option.promptMode,
+                        generation = GenerationParams(seed = MEASUREMENT_SEED)
+                    )
+                )
+                check(slot.ensureReady()) { "Qwen model unavailable: ${slot.status}" }
+                Log.i(TAG, "Call-shape arm=$armId idKeyedBatch=$idKeyedBatch cases=${cases.size}")
+                val measured = TranslationEngine { slot }
+                runEngineOverCases(
+                    measured,
+                    ArmMeta.from(armId, slot.activeProfile),
+                    cases,
+                    records,
+                    rows
+                )
+                measured.endSession()
+                slot.close()
+            }
+            check(rows.size == cases.size * CALL_SHAPE_ARMS.size) {
+                "Expected ${cases.size * CALL_SHAPE_ARMS.size} rows, got ${rows.size}"
+            }
+        } finally {
+            native.release()
+        }
+        logTimingCsv(rows)
+    }
+
+    /**
      * #153: measure `penalty_repeat` against the gate #139 pre-registered before any number existed.
      *
      * Two things are measured per arm and they need different granularity, so both run here off one
@@ -679,6 +742,11 @@ class EngineBenchmarkTest {
         // measured on the reference phone, so it cannot be differenced against a run on any other
         // device. 1.2 is koharu's value — the probe carries it to find where harm starts, so the
         // threshold that blocks a value is measured rather than asserted.
+        // ADR-0013's two arms, in the order the ADR names them: the shipped call, then the control
+        // it reverts to. The ids are the manifest's arm ids and the scorer's engine keys; neither is
+        // mlkit/opusmt, so both score as gate LLMs and both get a residue number.
+        private val CALL_SHAPE_ARMS = listOf("grammar_batch" to true, "per_line" to false)
+
         private val PENALTY_ARMS = listOf(1.0f, 1.1f, 1.2f)
         private val GATE_ARMS = setOf(1.0f, 1.1f)
 

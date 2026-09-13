@@ -126,8 +126,8 @@ _Avoid_: coherence bar, context gate, pronoun gate
 A group of bubbles inferred to belong to the same comic frame. Used to order bubbles and to mark grouping inside the page prompt — never to split a page into multiple model calls.
 _Avoid_: conversation block, chunk, frame
 
-**Session context**:
-The previous page's source/translation pairs, carried into the next page's prompt so pronouns, names, and register stay consistent across a reading session. Held by the caller, cleared when the session ends.
+**Session context** (withdrawn):
+The previous page's source/translation pairs, carried into the next page's prompt so pronouns, names, and register stay consistent across a reading session. ADR-0013 withdrew it on measurement — the production-shaped payload overflowed the prompt cap on 4 of 17 pages and no arm showed a quality gain — and the plumbing is deleted, not dormant. The term is kept here because the ADRs that decided and undid it still use it; nothing in the code does.
 _Avoid_: history, memory, conversation history
 
 ## Visual system
