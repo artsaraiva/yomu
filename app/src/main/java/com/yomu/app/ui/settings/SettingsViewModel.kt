@@ -95,7 +95,7 @@ class SettingsViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(selectedEngine = type)
     }
 
-    /** Pick which curated LLM fills the translation slot (#90 part A). Gated entries are ignored. */
+    /** Pick which curated LLM fills the translation slot (#90 part A). Entries that won't fit the device are ignored. */
     fun setLlmModel(option: LlmModelOption) {
         if (!_uiState.value.canRun(option)) return
         // Off the main thread: selectLlmModel waits out any in-flight generation before swapping the

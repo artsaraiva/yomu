@@ -24,7 +24,6 @@ internal fun LlmModelRow(
     onDownload: () -> Unit,
     onDelete: () -> Unit
 ) {
-    // The model must fit the device and, to select, be downloaded.
     val selectable = canRun && model?.status == ModelStatus.READY
     val subtitle = buildString {
         append(option.sizeBytes.toFileSizeString())
