@@ -113,16 +113,10 @@ object LlmModelCatalog {
     /** The selected option, or the default when nothing (or an unknown id) is persisted. */
     fun selectedOrDefault(id: String?): LlmModelOption = fromId(id) ?: DEFAULT
 
-    fun profileFor(
-        option: LlmModelOption,
-        modelsDir: File,
-        captureContext: Boolean
-    ): ModelProfile = ModelProfile(
+    fun profileFor(option: LlmModelOption, modelsDir: File): ModelProfile = ModelProfile(
         modelPath = File(modelsDir, option.ggufFileName).absolutePath,
         idKeyedBatch = option.idKeyedBatch,
-        promptMode = if (
-            captureContext && option.promptMode == TranslationPromptMode.TRANSLATION_ONLY
-        ) TranslationPromptMode.CAPTURE_CONTEXT else option.promptMode,
+        promptMode = option.promptMode,
         // Every option gets the same block. A per-model override is added when a measurement
         // forces two models apart, not before.
         generation = GenerationParams()

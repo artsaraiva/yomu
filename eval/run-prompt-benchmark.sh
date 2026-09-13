@@ -63,7 +63,7 @@ result = lib.run_translation_quality(False)
 (run / 'corpus-sha256.json').write_text(json.dumps(manifest, indent=2))
 (run / 'scores.json').write_text(json.dumps(result, ensure_ascii=False, indent=2))
 print(json.dumps(result['summary'], indent=2))
-expected = {'qwen_model_card', 'qwen_translation_only', 'qwen_capture_context'}
+expected = {'qwen_model_card', 'qwen_translation_only'}
 engines = result['summary']['engines']
 if set(engines) != expected or any(s['completed_cases'] != s['expected_cases'] for s in engines.values()):
     raise SystemExit('Incomplete benchmark: inspect raw artifacts')
