@@ -35,10 +35,6 @@ class ModelManager @Inject constructor(
     private val okHttpClient: OkHttpClient,
     private val hfDownloader: HfModelDownloader
 ) {
-    companion object {
-        private const val ML_KIT_DOWNLOAD_TIMEOUT_MS = 120_000L
-    }
-
     data class DownloadProgress(
         val modelId: String,
         val bytesDownloaded: Long,
@@ -66,8 +62,11 @@ class ModelManager @Inject constructor(
 
     suspend fun getModelsByType(type: ModelType): List<ModelEntity> = modelDao.getModelsByType(type.name)
 
-    suspend fun refreshModelList() {
-        val models = listOf(
+    companion object {
+        private const val ML_KIT_DOWNLOAD_TIMEOUT_MS = 120_000L
+
+        /** Every model Yomu ships. [refreshModelList] upserts these rows; plain data so JVM tests can read it. */
+        internal val REGISTRY = listOf(
             ModelEntity(
                 id = Constants.BUBBLE_DETECTION_MODEL_ID,
                 name = "Bubble Detection (YOLO26 Nano Manga)",
@@ -241,8 +240,10 @@ class ModelManager @Inject constructor(
                 isRequired = false
             )
         )
+    }
 
-        for (model in models) {
+    suspend fun refreshModelList() {
+        for (model in REGISTRY) {
             val existing = modelDao.getModelById(model.id)
             if (existing == null) {
                 modelDao.insertModel(model)
