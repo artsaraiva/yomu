@@ -200,6 +200,7 @@ def parse_arm(spec: str) -> dict[str, Any]:
         "target_language",
         "call_shape",
         "permits_fallback",
+        "cases",
     }
     arm: dict[str, Any] = {"target_language": "en", "permits_fallback": False, "generation": {}}
     for part in spec.split(","):
@@ -214,6 +215,12 @@ def parse_arm(spec: str) -> dict[str, Any]:
             raise RunError(f"unknown arm key {key!r} in {spec!r}")
         if key == "permits_fallback":
             arm[key] = value.lower() in ("1", "true", "yes")
+        elif key == "cases":
+            # `cases=none` declares an arm that runs no corpus case. The repetition probe (#152) is
+            # the reason it exists: its harm-threshold arm is probe-only by design, and without this
+            # the arm inherits every corpus case, reports one "no translation record" error per
+            # case, and is invalidated -- discarding the probe numbers it was run to collect.
+            arm[key] = [] if value == "none" else [c for c in value.split("|") if c]
         else:
             # `target_language=` with nothing after it means "not applicable" (a detector has no
             # target language), which the device records as null -- not as an empty string.

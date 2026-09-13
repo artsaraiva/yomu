@@ -3,7 +3,6 @@ package com.yomu.app.db
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
-import com.yomu.app.db.entities.TranslationEntity
 import com.yomu.app.db.entities.TranslationSessionEntity
 
 @Dao
@@ -22,9 +21,6 @@ interface TranslationSessionDao {
 
     @Query("UPDATE translation_sessions SET isActive = 0 WHERE id = :id")
     suspend fun closeSession(id: Long)
-
-    @Query("SELECT * FROM translations WHERE sessionId = :sessionId ORDER BY createdAt DESC LIMIT :limit")
-    suspend fun getSessionHistory(sessionId: Long, limit: Int): List<TranslationEntity>
 
     @Query("UPDATE translation_sessions SET isActive = 0 WHERE isActive = 1 AND (strftime('%s', 'now') * 1000 - lastTranslatedAt) > :timeoutMs")
     suspend fun closeStaleSessions(timeoutMs: Long)

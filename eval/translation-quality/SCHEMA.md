@@ -66,6 +66,8 @@ The **LLM** page-level call is the gate. **ML Kit** and **OPUS-MT** cannot take 
 they translate per bubble inside the same call and are reported on a **floor**, never ranked against
 the gate. #35 selects among gate-passing engines on #26's axes (RAM / latency / size / licence).
 
-The first page-level numbers are a **pre-ADR-0002 baseline**: `sessionContext` is still unread and
-`translateBatch` still prompts a bare numbered list (#47), so the ranking survives but the absolute
-number is not ADR-0002's.
+Page-level numbers recorded before ADR-0013 shipped are a **pre-ADR-0002 baseline**: at the time
+`sessionContext` was unread and `translateBatch` prompted a bare numbered list (#47), so their
+ranking survives but their absolute number is not ADR-0002's. Both have since changed — the call
+ships id-keyed under a grammar, and session context is withdrawn — so the caveat is historical and
+does not apply to rows measured on the current harness.
