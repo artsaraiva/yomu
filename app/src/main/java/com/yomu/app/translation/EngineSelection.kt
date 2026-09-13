@@ -29,13 +29,18 @@ class EngineSelection @Inject constructor(
 
     fun currentEngine(): TranslationEngineType = selectedEngine
 
-    fun currentLlmModel(): LlmModelOption = LlmModelCatalog.selectedOrDefault(
-        sharedPreferences.getString(Constants.PREF_LLM_MODEL, null)
-    )
+    fun currentLlmModel(): LlmModelOption = LlmModelCatalog.selectedOrDefault(sharedPreferences.storedLlmModelId())
 
-    /** True when a model id is stored but no longer in the catalog, so [currentLlmModel] fell back. */
+    /** True when a model id is stored but unreadable or no longer in the catalog, so [currentLlmModel] fell back. */
     fun storedLlmModelRecovered(): Boolean =
-        sharedPreferences.getString(Constants.PREF_LLM_MODEL, null)?.let { LlmModelCatalog.fromId(it) == null } ?: false
+        sharedPreferences.contains(Constants.PREF_LLM_MODEL) &&
+            LlmModelCatalog.fromId(sharedPreferences.storedLlmModelId()) == null
+
+    /** Drop the stored values that loaded as defaults, so their warning is shown once, not every visit. */
+    fun clearRecovered() {
+        if (storedLlmModelRecovered()) sharedPreferences.edit().remove(Constants.PREF_LLM_MODEL).apply()
+        generationStore.forget(generationStore.load().recovered)
+    }
 
     suspend fun selectLlmModel(option: LlmModelOption) {
         sharedPreferences.edit().putString(Constants.PREF_LLM_MODEL, option.id).apply()

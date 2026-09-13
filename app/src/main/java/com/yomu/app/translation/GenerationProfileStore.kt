@@ -36,8 +36,10 @@ class GenerationProfileStore(private val prefs: SharedPreferences) {
         return true
     }
 
-    fun reset() {
-        prefs.edit().apply { GenerationBound.entries.forEach { remove(key(it)) } }.apply()
+    fun reset() = forget(GenerationBound.entries)
+
+    fun forget(bounds: List<GenerationBound>) {
+        prefs.edit().apply { bounds.forEach { remove(key(it)) } }.apply()
     }
 
     companion object {

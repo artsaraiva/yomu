@@ -141,6 +141,30 @@ class EngineSelectionTest {
         assertFalse(EngineSelection(mlKit(), opus(), Mockito.mock(LlamaTranslationBridge::class.java), MapSharedPreferences()).storedLlmModelRecovered())
     }
 
+    @Test
+    fun `a wrongly typed stored model id recovers to the default and is reported`() {
+        val prefs = MapSharedPreferences().apply { values[Constants.PREF_LLM_MODEL] = 42 }
+        val selection = EngineSelection(mlKit(), opus(), Mockito.mock(LlamaTranslationBridge::class.java), prefs)
+
+        assertSame(LlmModelCatalog.DEFAULT, selection.currentLlmModel())
+        assertTrue(selection.storedLlmModelRecovered())
+    }
+
+    @Test
+    fun `clearRecovered drops the bad stored values so the warning is raised once`() {
+        val prefs = MapSharedPreferences().apply {
+            values[Constants.PREF_LLM_MODEL] = "retired-model"
+            values[GenerationProfileStore.key(GenerationBound.TOP_K)] = 500f
+            values[GenerationProfileStore.key(GenerationBound.TOP_P)] = 0.5f
+        }
+        val selection = EngineSelection(mlKit(), opus(), Mockito.mock(LlamaTranslationBridge::class.java), prefs)
+
+        selection.clearRecovered()
+
+        assertFalse(selection.storedLlmModelRecovered())
+        assertEquals(GenerationProfileStore.Loaded(GenerationParams(topP = 0.5f), emptyList()), selection.generationProfile())
+    }
+
     private fun mlKit() = Mockito.mock(MlKitTranslationBridge::class.java)
     private fun opus() = Mockito.mock(OpusMtTranslationBridge::class.java)
 

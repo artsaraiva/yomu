@@ -176,6 +176,19 @@ class LlamaTranslationBridgeTest {
     }
 
     @Test
+    fun generate_inBoundsSamplerValuesReachNativeUnchanged() = runTest {
+        val model = File.createTempFile("model", ".gguf")
+        val native = FakeLlamaBridge { GenerationResult.Success("Hello", 1L) }
+        val tuned = GenerationParams(temperature = 1f, topK = 1, topP = 0f)
+        val slot = LlamaTranslationBridge(native, profile(model).copy(generation = tuned))
+
+        slot.translatePage(page(1 to "こんにちは"))
+
+        assertEquals(listOf(tuned), native.params)
+        model.delete()
+    }
+
+    @Test
     fun selectModel_switchesTheWholeProfileAndDropsReadiness() = runTest {
         val model = File.createTempFile("model", ".gguf")
         val native = FakeLlamaBridge { GenerationResult.Success("x", 1L) }

@@ -1,5 +1,6 @@
 package com.yomu.app.translation
 
+import android.content.SharedPreferences
 import com.yomu.core.Constants
 import com.yomu.core.GenerationParams
 import com.yomu.core.ModelProfile
@@ -48,6 +49,10 @@ data class LlmModelOption(
     val idKeyedBatch: Boolean,
     val promptMode: TranslationPromptMode
 )
+
+/** The persisted model id, or null when absent or stored as another type (which would otherwise throw). */
+internal fun SharedPreferences.storedLlmModelId(): String? =
+    runCatching { getString(Constants.PREF_LLM_MODEL, null) }.getOrNull()
 
 object LlmModelCatalog {
 

@@ -76,6 +76,8 @@ class SettingsViewModel @Inject constructor(
             fontSizeScale = sharedPreferences.getFloat(Constants.PREF_FONT_SIZE_SCALE, Constants.DEFAULT_FONT_SIZE_SCALE),
             theme = sharedPreferences.getString(Constants.PREF_THEME, "system") ?: "system"
         ).withGenerationProfile()
+        // The warning is now on screen; forget the bad values so it does not return on every visit.
+        if (_uiState.value.recoveryWarning != null) engineSelection.clearRecovered()
 
         viewModelScope.launch {
             modelManager.refreshModelList()
