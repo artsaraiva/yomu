@@ -1,5 +1,6 @@
-package com.yomu.app.service
+package com.yomu.app.translation
 
+import com.yomu.app.service.ModelManager
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
