@@ -87,19 +87,6 @@ class EngineSelectionTest {
     }
 
     @Test
-    fun `Qwen profile follows the capture context preference`() = runTest {
-        val prefs = prefsWithEngine("llm", editor())
-        Mockito.`when`(prefs.getBoolean(Constants.PREF_CAPTURE_CONTEXT, false)).thenReturn(true)
-        val llama = Mockito.mock(LlamaTranslationBridge::class.java)
-        val selection = selection("llm", llama = llama, prefs = prefs)
-
-        selection.selectLlmModel(LlmModelCatalog.DEFAULT)
-
-        val profile = Mockito.mockingDetails(llama).invocations.single().arguments[0] as ModelProfile
-        assertEquals(TranslationPromptMode.CAPTURE_CONTEXT, profile.promptMode)
-    }
-
-    @Test
     fun `close closes all slots`() {
         val mlKit = Mockito.mock(MlKitTranslationBridge::class.java)
         val opus = Mockito.mock(OpusMtTranslationBridge::class.java)

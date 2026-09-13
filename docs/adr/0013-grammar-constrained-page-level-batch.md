@@ -2,6 +2,8 @@
 
 **Status:** accepted, 2026-09-10. Decides [#138](https://github.com/artsaraiva/yomu/issues/138) on the [#137](https://github.com/artsaraiva/yomu/issues/137) spike's numbers. Amends [ADR-0002](0002-cross-panel-translation-context.md) and corrects [ADR-0010](0010-qwen-default-cat-demoted-to-floor.md).
 
+> **Revised by [#193](https://github.com/artsaraiva/yomu/issues/193) (2026-09-13), deciding [#144](https://github.com/artsaraiva/yomu/issues/144).** The "switch is gated on `!idKeyedBatch`" clause under *A user-visible switch would otherwise go inert* is superseded: the "Use surrounding dialogue (experimental)" switch, the `capture_context` preference and `TranslationPromptMode.CAPTURE_CONTEXT` are deleted outright. The subsumption argument there is why — the batch call already carries the whole page. The line references in that paragraph describe the code as it stood on 2026-09-10.
+
 Yomu translates a page in **one page-level, id-keyed call per capture**, with the output shape enforced **at sample time by a GBNF grammar** rather than checked after the fact. The curated default (Qwen2.5-1.5B-Instruct) carries `idKeyedBatch = true`. Per-line translation survives as a **slot strategy** — for the CAT-Translate-0.8b low-storage floor, which cannot produce id-keyed output, and as the fallback for a page whose prompt exceeds the native prompt cap — not as the default architecture.
 
 **Cross-page session context is withdrawn.** It is not deferred and not dormant: the plumbing is deleted.
