@@ -43,14 +43,6 @@ import java.io.File
 import javax.inject.Inject
 import kotlin.coroutines.resume
 
-// Carried context lives for one session only: a changed session id (idle rollover, or a future
-// manga switch once sourceApp stops being hardcoded) drops it so one story never bleeds into the next.
-internal fun carryOverContext(
-    context: List<Pair<String, String>>,
-    contextSessionId: Long,
-    sessionId: Long
-): List<Pair<String, String>> = if (sessionId == contextSessionId) context else emptyList()
-
 @AndroidEntryPoint
 class OverlayService : Service() {
 
@@ -67,8 +59,14 @@ class OverlayService : Service() {
     private var floatingButton: FloatingButtonView? = null
     private lateinit var statusOverlay: TranslationStatusOverlay
     private var quickSettingsPopup: QuickSettingsPopup? = null
-    private val themeListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-        if (key == Constants.PREF_THEME) updateOverlayAppearance()
+    private val preferenceListener = SharedPreferences.OnSharedPreferenceChangeListener { preferences, key ->
+        when (key) {
+            Constants.PREF_THEME -> updateOverlayAppearance()
+            Constants.PREF_FONT_SIZE_SCALE -> translationPipeline.fontSizeScale = preferences.getFloat(
+                key,
+                Constants.DEFAULT_FONT_SIZE_SCALE
+            )
+        }
     }
 
     private var buttonPositionX: Int = 0
@@ -76,15 +74,6 @@ class OverlayService : Service() {
 
     @Volatile
     private var isTranslating = false
-
-    // Previous page's source/translation pairs (~one page, 6-12), carried into the next page's
-    // call as session context so names/pronouns/register stay consistent across a reading session
-    // (ADR-0002). Cleared on session teardown; the LLM keeps its own memory alive across pages
-    // because release() no longer runs per page.
-    @Volatile
-    private var sessionContext: List<Pair<String, String>> = emptyList()
-
-    private var contextSessionId: Long = -1L
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mainScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -121,7 +110,7 @@ class OverlayService : Service() {
         floatingButtonOverlay = FloatingButtonOverlay(this, windowManager, closeZoneOverlay)
         translationRenderOverlay = TranslationRenderOverlay(this, windowManager)
         statusOverlay = TranslationStatusOverlay(this, windowManager)
-        sharedPreferences.registerOnSharedPreferenceChangeListener(themeListener)
+        sharedPreferences.registerOnSharedPreferenceChangeListener(preferenceListener)
         createNotificationChannel()
         translationPipeline.modelPaths = ModelPaths(
             bubbleDetectionPath = File(filesDir, "${Constants.MODELS_DIR}/${Constants.VISION_MODELS_DIR}/${Constants.BUBBLE_DETECTION_MODEL}").absolutePath,
@@ -194,15 +183,13 @@ class OverlayService : Service() {
     }
 
     override fun onDestroy() {
-        sharedPreferences.unregisterOnSharedPreferenceChangeListener(themeListener)
+        sharedPreferences.unregisterOnSharedPreferenceChangeListener(preferenceListener)
         removeQuickSettingsPopup()
         removeFloatingButton()
         closeZoneOverlay.remove()
         translationRenderOverlay.remove()
         statusOverlay.remove()
         screenCaptureManager.stopProjection()
-        // Session teardown: drop model-side memory and carried context once, not once per page.
-        sessionContext = emptyList()
         translationPipeline.release()
         translationPipeline.close()
         scope.cancel()
@@ -274,7 +261,6 @@ class OverlayService : Service() {
             },
             onFontSizeChanged = { scale ->
                 sharedPreferences.edit().putFloat(Constants.PREF_FONT_SIZE_SCALE, scale).apply()
-                translationPipeline.fontSizeScale = scale
             },
             onStopRequested = { stopSelf() }
         )
@@ -355,20 +341,14 @@ class OverlayService : Service() {
                 }
             }
 
-            // A rollover (idle timeout / manga switch) starts this page fresh instead of
-            // inheriting another story's context.
             val session = sessionManager.getOrCreateSession("manual")
-            sessionContext = carryOverContext(sessionContext, contextSessionId, session.id)
-            contextSessionId = session.id
 
             val result = translationPipeline.processPage(
                 bitmap,
-                sessionContext = sessionContext,
                 callback = callback,
                 onOcrComplete = onOcrComplete
             )
             if (result != null && result.typesetBubbles.isNotEmpty()) {
-                sessionContext = result.translationResult.translations.map { it.originalText to it.translatedText }
                 saveSessionResult(session, result)
             }
             mainScope.launch {

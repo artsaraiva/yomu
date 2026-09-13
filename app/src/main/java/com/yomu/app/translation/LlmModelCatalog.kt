@@ -42,8 +42,10 @@ data class LlmModelOption(
      * HF_AUTH. Also the "governed by its own licence" notice the ADR asks Yomu to surface.
      */
     val licence: String,
-    /** Per-model (#84): the 0.8b/Qwen default refuse page context and stay per-line (false); larger
-     *  siblings can emit one id-keyed reply for the whole page (true). */
+    /** Per-model (#84): a model that can emit one id-keyed reply for the whole page carries true and
+     *  routes to the grammar-constrained page-level batch call (ADR-0013); CAT-Translate 0.8b cannot
+     *  and stays per-line. Read by the slot, and by the settings screen, which hides the
+     *  per-line-only capture-context switch when it is true. */
     val idKeyedBatch: Boolean,
     val promptMode: TranslationPromptMode
 )
@@ -69,7 +71,7 @@ object LlmModelCatalog {
         sizeBytes = Constants.QWEN25_15B_SIZE,
         tier = LlmModelTier.HOSTED,
         licence = "Apache-2.0",
-        idKeyedBatch = false,
+        idKeyedBatch = true,
         promptMode = TranslationPromptMode.TRANSLATION_ONLY
     )
 

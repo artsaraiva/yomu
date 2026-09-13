@@ -4,6 +4,7 @@ import com.yomu.core.GenerationParams
 import com.yomu.core.ModelProfile
 import com.yomu.core.TranslatableBubble
 import com.yomu.core.TranslatablePage
+import com.yomu.core.TranslationOutcome
 import com.yomu.core.TranslationPromptMode
 import com.yomu.core.TranslationStatus
 import java.io.File
@@ -23,7 +24,7 @@ class LlamaTranslationBridgeTest {
         }
         val slot = LlamaTranslationBridge(native, profile(model, TranslationPromptMode.MODEL_CARD))
 
-        val result = slot.translatePage(page(1 to "こんにちは", 2 to "さようなら"), emptyList())
+        val result = slot.translatePage(page(1 to "こんにちは", 2 to "さようなら"))
 
         assertEquals(mapOf(1 to "Hello", 2 to "Goodbye"), result.byId)
         assertEquals(2, native.prompts.size)
@@ -39,7 +40,7 @@ class LlamaTranslationBridgeTest {
         val native = FakeLlamaBridge { GenerationResult.Success("Hello", 1L) }
         val slot = LlamaTranslationBridge(native, profile(model, TranslationPromptMode.TRANSLATION_ONLY))
 
-        slot.translatePage(page(1 to "こんにちは", 2 to "さようなら"), emptyList())
+        slot.translatePage(page(1 to "こんにちは", 2 to "さようなら"))
 
         assertTrue(native.prompts.first().contains("Return only"))
         assertTrue(native.prompts.first().endsWith("こんにちは"))
@@ -61,11 +62,10 @@ class LlamaTranslationBridgeTest {
             )
         )
 
-        val result = slot.translatePage(page, listOf("前の台詞" to "The previous line"))
+        val result = slot.translatePage(page)
 
         assertEquals(mapOf(2 to "Goodbye", 1 to "Hello"), result.byId)
         assertEquals(1, native.prompts.size)
-        assertTrue(native.prompts.single().contains("前の台詞 => The previous line"))
         assertTrue(native.prompts.single().contains("[1] こんにちは\n---\n[2] さようなら"))
         assertEquals(100L, result.durationMs)
         model.delete()
@@ -79,7 +79,7 @@ class LlamaTranslationBridgeTest {
             profile(model, idKeyedBatch = true)
         )
 
-        val result = slot.translatePage(page(1 to "こんにちは", 2 to "さようなら"), emptyList())
+        val result = slot.translatePage(page(1 to "こんにちは", 2 to "さようなら"))
 
         assertEquals(mapOf(1 to "Hello"), result.byId)
         model.delete()
@@ -97,25 +97,68 @@ class LlamaTranslationBridgeTest {
             profile(model)
         )
 
-        val result = slot.translatePage(page(1 to "一", 2 to "二"), emptyList())
+        val result = slot.translatePage(page(1 to "一", 2 to "二"))
 
         assertTrue(result.byId.isEmpty())
         model.delete()
     }
 
     @Test
-    fun translatePage_batchRequestsLargerBudgetThanPerLine() = runTest {
+    fun translatePage_batchPinsTheReplyShapeWithAGrammarPerId() = runTest {
         val model = File.createTempFile("model", ".gguf")
-        val native = FakeLlamaBridge { GenerationResult.Success("[1] Hello", 1L) }
+        val native = FakeLlamaBridge { GenerationResult.Success("[1] Hello\n[2] Bye", 1L) }
+        val slot = LlamaTranslationBridge(native, profile(model, idKeyedBatch = true))
+
+        slot.translatePage(page(1 to "こんにちは", 2 to "さようなら"))
+
+        val grammar = native.grammars.single()
+        assertTrue(grammar, grammar.startsWith("root ::= \"[1] \" line \"\\n\" \"[2] \" line \"\\n\""))
+        assertTrue(grammar, grammar.contains("line ::= [^\\r\\n]{1,160}"))
+        model.delete()
+    }
+
+    @Test
+    fun translatePage_perLineSamplesUnconstrained() = runTest {
+        val model = File.createTempFile("model", ".gguf")
+        val native = FakeLlamaBridge { GenerationResult.Success("Hello", 1L) }
         val slot = LlamaTranslationBridge(native, profile(model))
 
-        slot.translatePage(page(1 to "こんにちは"), emptyList())
-        val perLineTokens = native.maxTokens.single()
-        slot.selectModel(profile(model, idKeyedBatch = true))
-        slot.translatePage(page(1 to "こんにちは", 2 to "さようなら"), emptyList())
-        val batchTokens = native.maxTokens.last()
+        slot.translatePage(page(1 to "こんにちは"))
 
-        assertTrue("batch=$batchTokens perLine=$perLineTokens", batchTokens > perLineTokens)
+        assertEquals(listOf(""), native.grammars)
+        model.delete()
+    }
+
+    @Test
+    fun translatePage_batchOverflowFallsBackToPerLine() = runTest {
+        val model = File.createTempFile("model", ".gguf")
+        val native = FakeLlamaBridge { prompt ->
+            if (prompt.contains("Panels are separated")) {
+                GenerationResult.Overflow(5L)
+            } else {
+                GenerationResult.Success(if (prompt.endsWith("こんにちは")) "Hello" else "Goodbye", 10L)
+            }
+        }
+        val slot = LlamaTranslationBridge(native, profile(model, idKeyedBatch = true))
+
+        val result = slot.translatePage(page(1 to "こんにちは", 2 to "さようなら"))
+
+        assertEquals(mapOf(1 to "Hello", 2 to "Goodbye"), result.byId)
+        assertEquals(TranslationOutcome.SUCCESS, result.outcome)
+        assertEquals(LlamaTranslationBridge.BATCH_OVERFLOW_FALLBACK, result.errorCode)
+        assertEquals(3, native.prompts.size)
+        model.delete()
+    }
+
+    @Test
+    fun translatePage_batchBudgetIsTheFixedPageCap() = runTest {
+        val model = File.createTempFile("model", ".gguf")
+        val native = FakeLlamaBridge { GenerationResult.Success("[1] Hello", 1L) }
+        val slot = LlamaTranslationBridge(native, profile(model, idKeyedBatch = true))
+
+        slot.translatePage(page(1 to "こんにちは".repeat(50)))
+
+        assertEquals(listOf(768), native.maxTokens)
         model.delete()
     }
 
@@ -174,6 +217,7 @@ class LlamaTranslationBridgeTest {
         private val resultForPrompt: (String) -> GenerationResult
     ) : LlamaBridge(null) {
         val prompts = mutableListOf<String>()
+        val grammars = mutableListOf<String>()
         val maxTokens = mutableListOf<Int>()
         var releaseCalls = 0
         var clearMemoryCalls = 0
@@ -186,9 +230,11 @@ class LlamaTranslationBridgeTest {
             prompt: String,
             params: GenerationParams,
             maxTokens: Int,
-            timeoutMs: Int
+            timeoutMs: Int,
+            grammar: String
         ): GenerationResult {
             prompts += prompt
+            grammars += grammar
             this.maxTokens += maxTokens
             return resultForPrompt(prompt)
         }

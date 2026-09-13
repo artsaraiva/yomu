@@ -55,20 +55,4 @@ class SessionManager @Inject constructor(
         sessionDao.updateSessionTimestamp(sessionId, System.currentTimeMillis())
         sessionDao.incrementBubbleCount(sessionId, bubbleCount)
     }
-
-    suspend fun getSessionContext(sessionId: Long, maxBubbles: Int = 20): List<Pair<String, String>> {
-        val history = sessionDao.getSessionHistory(sessionId, 5)
-        return history.flatMap { entity ->
-            parseTranslationPairs(entity.translatedText)
-        }.takeLast(maxBubbles)
-    }
-
-    private fun parseTranslationPairs(translatedText: String): List<Pair<String, String>> {
-        val regex = Regex("""\[(\d+)\]\s*(.+)""")
-        return translatedText.lines().mapNotNull { line ->
-            val match = regex.find(line.trim()) ?: return@mapNotNull null
-            val parts = match.groupValues[2].split("→")
-            if (parts.size == 2) parts[0].trim() to parts[1].trim() else null
-        }
-    }
 }

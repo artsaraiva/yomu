@@ -116,9 +116,9 @@ data class ModelProfile(
  * classify a run by matching log or exception text: [TIMEOUT] and [OVERFLOW] in particular must be
  * reported by the layer that actually hit the deadline or the decode budget, not inferred later.
  *
- * [TIMEOUT] and [OVERFLOW] are not yet distinguishable below the JNI, which collapses both to an
- * empty string and therefore to [BLANK]. #149 types them at `llama_jni.cpp`; this enum is where
- * they surface when it does.
+ * [TIMEOUT] and [OVERFLOW] are typed at `llama_jni.cpp` (#149) and carried up through
+ * `GenerationResult`: an empty reply means the prompt was refused or the deadline hit, never a
+ * silent blank.
  */
 enum class TranslationOutcome { SUCCESS, BLANK, TIMEOUT, OVERFLOW, ERROR, NOT_LOADED }
 
@@ -146,10 +146,7 @@ interface TranslationSlot {
     val status: TranslationStatus
 
     suspend fun ensureReady(): Boolean
-    suspend fun translatePage(
-        page: TranslatablePage,
-        sessionContext: List<Pair<String, String>>
-    ): PageTranslation
+    suspend fun translatePage(page: TranslatablePage): PageTranslation
 
     fun endSession()
     fun close()

@@ -566,6 +566,11 @@ def run_translation_quality(
         else:
             requested_ids = run.manifest["cases"].get(case_id, {}).get("requested_ids", [])
             for arm_id, validated in arms.items():
+                # An arm that declared a narrower case list is not missing the rest of the corpus:
+                # the probe's harm-threshold arm (#152) runs no corpus case at all by design. Only
+                # an arm that was asked for this case and produced nothing is an error.
+                if case_id not in validated.meta.get("cases", run.manifest["cases"]):
+                    continue
                 engines[arm_id] = validated
                 records = [
                     r

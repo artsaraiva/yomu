@@ -89,9 +89,10 @@ def print_summary(bubble: dict, translation: dict, probe: dict) -> None:
     engines = translation["summary"]["engines"]
     if engines:
         # The gate is the LLM's page-level call; ML Kit / OPUS-MT are a floor, never ranked against
-        # it (ADR-0004). The first page-level numbers are a PRE-ADR-0002 BASELINE: sessionContext is
-        # still unread and translateBatch still prompts a bare numbered list, so the ranking survives
-        # but the absolute number is not ADR-0002's (#47).
+        # it (ADR-0004). Rows recorded before ADR-0013 shipped are a PRE-ADR-0002 BASELINE: back
+        # then sessionContext was unread and translateBatch prompted a bare numbered list, so their
+        # ranking survives but their absolute number is not ADR-0002's (#47). Both are since fixed —
+        # the page-level call ships id-keyed under a grammar, and session context is withdrawn.
         for engine, s in sorted(engines.items(), key=lambda kv: kv[1]["role"] != "gate"):
             if not s.get("valid", True):
                 print(f"  Engine: {engine}  INVALID - no aggregate is reported for this arm:")

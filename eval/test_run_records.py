@@ -469,3 +469,56 @@ def test_44_the_manifest_pins_the_live_contract_hash(tmp_path):
     run_dir = write_run(tmp_path, good_records())
     manifest = json.loads((run_dir / run_records.MANIFEST_NAME).read_text())
     assert manifest["contract_sha256"] == sha256_file(run_records.CONTRACT_PATH)
+
+
+def test_cases_none_declares_a_probe_only_arm():
+    arm = run_records.parse_arm(
+        "arm_id=repeat_1.2,stage=translation,provider=llama.cpp,"
+        "model_id=qwen.gguf,call_shape=id_keyed_batch,cases=none,provider_version=x"
+    )
+    assert arm["cases"] == []
+
+
+def test_cases_none_survives_manifest_defaulting(tmp_path):
+    probe_only = run_records.parse_arm(
+        "arm_id=repeat_1.2,stage=translation,provider=llama.cpp,"
+        "model_id=qwen.gguf,call_shape=id_keyed_batch,cases=none,provider_version=x"
+    )
+    corpus = run_records.parse_arm(
+        "arm_id=repeat_1.0,stage=translation,provider=llama.cpp,"
+        "model_id=qwen.gguf,call_shape=id_keyed_batch,provider_version=x"
+    )
+    manifest = run_records.build_manifest(
+        run_id="r", started_at="t", arms=[probe_only, corpus],
+        app_apk=None, test_apk=None, device_model="d", android_api="1",
+    )
+    by_id = {a["arm_id"]: a for a in manifest["arms"]}
+    assert by_id["repeat_1.2"]["cases"] == []
+    assert by_id["repeat_1.0"]["cases"] == sorted(manifest["cases"])
+
+
+def test_probe_only_arm_is_not_scored_as_missing_the_corpus(tmp_path):
+    """A `cases=none` arm runs no corpus case, so the scorer must not report one error per case.
+
+    validate_run already honours the narrowed list; run_eval_lib iterated every arm over every
+    case independently, which invalidated the whole run over an arm that was never asked (#198).
+    """
+    import run_eval_lib
+
+    probe_arm = dict(LLM_ARM, arm_id="repeat_1.2", cases=[])
+    records = [
+        detection_record(),
+        context_record(),
+        translation_record(),
+        translation_record(arm_id="repeat_1.2", case_id=run_records.PROBE_CASE_ID),
+    ]
+    run_dir = write_run(tmp_path, records, arms=[DETECTOR_ARM, LLM_ARM, probe_arm])
+    run = validate_run(run_dir)
+
+    assert not run.arms["repeat_1.2"].errors
+    scored = run_eval_lib.run_translation_quality(run)
+    reported = [
+        e for case in scored["cases"]
+        for e in case["engines"] if e.get("engine") == "repeat_1.2"
+    ]
+    assert reported == []
