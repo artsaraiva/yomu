@@ -158,7 +158,7 @@ class ModelManager @Inject constructor(
         )
     }
 
-    suspend fun refreshModelList() {
+    suspend fun refreshModelList() = withContext(Dispatchers.IO) {
         val registryIds = REGISTRY.map { it.id }.toSet()
         for (stale in modelDao.getAllModels().first().filterNot { it.id in registryIds }) {
             deleteFiles(modelFiles(stale))
