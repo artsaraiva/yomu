@@ -13,7 +13,10 @@ import com.yomu.app.db.entities.ModelStatus
 import com.yomu.app.db.entities.ModelType
 import com.yomu.core.Constants
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -47,7 +50,7 @@ class ModelManager @Inject constructor(
         val size: Long
     )
 
-    private data class DownloadTask(
+    internal data class DownloadTask(
         val file: File,
         val url: String,
         val checksum: String,
@@ -274,6 +277,14 @@ class ModelManager @Inject constructor(
             )
         }
 
+        downloadTasks(modelId, tasks, onProgress)
+    }
+
+    internal suspend fun downloadTasks(
+        modelId: String,
+        tasks: List<DownloadTask>,
+        onProgress: (DownloadProgress) -> Unit
+    ): Boolean = withContext(Dispatchers.IO) {
         try {
             val totalBytes = tasks.sumOf { it.size }
             var bytesDownloaded = 0L
@@ -313,6 +324,13 @@ class ModelManager @Inject constructor(
 
             modelDao.updateModelStatus(modelId, ModelStatus.READY)
             true
+        } catch (e: CancellationException) {
+            withContext(NonCancellable) {
+                deleteFiles(tasks.map { it.file })
+                modelDao.updateModelStatus(modelId, ModelStatus.AVAILABLE)
+                modelDao.updateDownloadProgress(modelId, 0)
+            }
+            throw e
         } catch (e: Exception) {
             modelDao.updateModelStatus(modelId, ModelStatus.ERROR)
             false
@@ -344,6 +362,9 @@ class ModelManager @Inject constructor(
                 modelDao.updateModelStatus(modelId, ModelStatus.ERROR)
                 false
             }
+        } catch (e: CancellationException) {
+            withContext(NonCancellable) { modelDao.updateModelStatus(modelId, ModelStatus.AVAILABLE) }
+            throw e
         } catch (_: Exception) {
             modelDao.updateModelStatus(modelId, ModelStatus.ERROR)
             false
@@ -373,6 +394,7 @@ class ModelManager @Inject constructor(
                 val buffer = ByteArray(8192)
                 var bytesRead: Int
                 while (input.read(buffer).also { bytesRead = it } != -1) {
+                    ensureActive()
                     output.write(buffer, 0, bytesRead)
                     onBytesRead(bytesRead.toLong())
                 }
