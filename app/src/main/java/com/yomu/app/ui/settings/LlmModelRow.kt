@@ -5,6 +5,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yomu.app.db.entities.ModelEntity
 import com.yomu.app.db.entities.ModelStatus
@@ -22,7 +23,8 @@ internal fun LlmModelRow(
     progress: Int,
     onSelect: () -> Unit,
     onDownload: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onCancel: () -> Unit
 ) {
     val selectable = canRun && model?.status == ModelStatus.READY
     val subtitle = buildString {
@@ -57,7 +59,13 @@ internal fun LlmModelRow(
             }
             if (canRun && model != null) {
                 when {
-                    isDownloading -> Text("$progress%", fontSize = 11.sp)
+                    isDownloading -> Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("$progress%", fontSize = 11.sp)
+                        Spacer(Modifier.width(8.dp))
+                        PaperAction(onClick = onCancel) {
+                            Text("Cancel", fontSize = 12.sp)
+                        }
+                    }
                     model.status == ModelStatus.READY -> PaperAction(onClick = onDelete) {
                         Text("Delete", fontSize = 12.sp)
                     }
