@@ -1,5 +1,6 @@
 package com.yomu.app.translation
 
+import com.yomu.app.db.entities.ModelType
 import com.yomu.app.service.ModelManager
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -21,6 +22,12 @@ class ModelRegistryTest {
         registry.filter { it.downloadUrl.startsWith("http") }.forEach {
             assertTrue("${it.id}: '${it.checksum}'", sha256.matches(it.checksum))
         }
+    }
+
+    @Test
+    fun `llm rows are exactly the catalog entries`() {
+        val llmRowIds = registry.filter { it.type == ModelType.LLM }.map { it.id }.toSet()
+        assertEquals(LlmModelCatalog.ALL.map { it.id }.toSet(), llmRowIds)
     }
 
     @Test
