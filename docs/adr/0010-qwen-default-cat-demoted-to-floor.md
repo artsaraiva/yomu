@@ -2,6 +2,8 @@
 
 **Status:** accepted, 2026-08-18. Exercises the promote trigger [ADR-0009](0009-selectable-translation-model-set.md) named ("a shortlist model proves clearly better *and* safe on the mid-range floor → promoting it to default is a separate decision"). This is that decision.
 
+> **Numbers are historical ([ADR-0015](0015-quality-belongs-to-the-model.md), 2026-09-15).** The decision stands. The bake-off figures below record why Qwen won; they are not a bar a future model must beat, and the eval that produced them is retired.
+
 The curated default in the translation slot moves from **CAT-Translate-0.8b** to **Qwen2.5-1.5B-Instruct**. CAT-Translate-0.8b stays in the catalog as the **low-storage floor** — the selectable option for devices that cannot spare the ~1.0 GB Qwen download or the RAM to run it — never the default, never the quality pick. OPUS-MT and ML Kit remain the no-LLM floors ([ADR-0008](0008-translation-model-selection.md)); the custom-GGUF slot ([ADR-0001](0001-custom-model-permissiveness.md)) and the curated selectable set ([ADR-0009](0009-selectable-translation-model-set.md)) both stand.
 
 This is decided on measured phone evidence, which is the condition ADR-0008 and ADR-0009 pre-registered for changing the default. It was never changeable on emulator quality alone.

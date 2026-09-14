@@ -37,5 +37,5 @@ This is decided as a policy on a pre-registered rule, not on a live measured ran
 1. **ADR-0002 batch build** — critical path. Token budget (`MAX_TOKENS`), structured id-keyed output, and a parse that does not silently substitute source. The default cannot pass its gates until this lands.
 2. **Pull OPUS-MT's Settings recommendation** — it cannot load today; recommending it is a live bug.
 3. **#14** — `arm64-v8a` tokenizer `.so`, to bring OPUS-MT up as the preferred floor.
-4. **Confirmatory page-level measurement** — run the built default through ADR-0004's page-level call and ADR-0006's contrastive gate; the result feeds the fine-tune trigger.
+4. **Confirmatory page-level measurement** *(retired by [ADR-0015](0015-quality-belongs-to-the-model.md))* — run the built default through ADR-0004's page-level call and ADR-0006's contrastive gate; the result feeds the fine-tune trigger.
 5. **`product-spec.md:475–510` rewrite** — the "Standard / Enhanced / Premium translation model" ladder is stale (overturned by #32); outside this map.

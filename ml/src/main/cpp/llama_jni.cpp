@@ -35,6 +35,16 @@ static std::atomic<int> g_last_status{GENERATION_OK};
 
 static const int64_t DEFAULT_TIMEOUT_MS = 1000;
 
+// Generated text leaves as raw bytes, decoded on the Kotlin side: token pieces can stop mid-character
+// or be invalid UTF-8, and NewStringUTF aborts the process on either (#235).
+static jbyteArray to_java_bytes(JNIEnv *env, const std::string &bytes) {
+    jbyteArray array = env->NewByteArray((jsize)bytes.size());
+    if (array != nullptr) {
+        env->SetByteArrayRegion(array, 0, (jsize)bytes.size(), (const jbyte *)bytes.data());
+    }
+    return array;
+}
+
 static int64_t now_ms() {
     return std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::steady_clock::now().time_since_epoch()
@@ -106,7 +116,7 @@ static std::string apply_chat_template(const char *user_prompt) {
     if (tmpl) {
         // CAT-Translate carries its instruction in the user turn and was trained with no system
         // prompt (model card). Injecting one made the 0.8b echo/refuse the instruction instead of
-        // translating (#68 probe: 48% non-translation with a system prompt).
+        // translating (#68).
         const llama_chat_message messages[] = {
             {"user", user_prompt},
         };
@@ -190,7 +200,7 @@ Java_com_yomu_ml_LlamaBridge_nativeLoadModel(
     return JNI_TRUE;
 }
 
-extern "C" JNIEXPORT jstring JNICALL
+extern "C" JNIEXPORT jbyteArray JNICALL
 Java_com_yomu_ml_LlamaBridge_nativeGenerate(
     JNIEnv *env,
     jobject /* this */,
@@ -206,7 +216,7 @@ Java_com_yomu_ml_LlamaBridge_nativeGenerate(
 
     if (!g_ctx || !g_model || !g_vocab) {
         LOGE("Model not loaded");
-        return env->NewStringUTF("");
+        return to_java_bytes(env, "");
     }
 
     auto *memory = llama_get_memory(g_ctx);
@@ -221,7 +231,7 @@ Java_com_yomu_ml_LlamaBridge_nativeGenerate(
     if (env->GetArrayLength(sampler_params) < SAMPLER_PARAM_COUNT) {
         LOGE("Sampler parameter array too short: %d", (int)env->GetArrayLength(sampler_params));
         g_abort_deadline_ms.store(0, std::memory_order_relaxed);
-        return env->NewStringUTF("");
+        return to_java_bytes(env, "");
     }
 
     jfloat *params = env->GetFloatArrayElements(sampler_params, nullptr);
@@ -232,7 +242,7 @@ Java_com_yomu_ml_LlamaBridge_nativeGenerate(
     if (!sampler_ok) {
         LOGE("Failed to rebuild sampler");
         g_abort_deadline_ms.store(0, std::memory_order_relaxed);
-        return env->NewStringUTF("");
+        return to_java_bytes(env, "");
     }
 
     bool grammar_ok;
@@ -246,7 +256,7 @@ Java_com_yomu_ml_LlamaBridge_nativeGenerate(
     }
     if (!grammar_ok) {
         g_abort_deadline_ms.store(0, std::memory_order_relaxed);
-        return env->NewStringUTF("");
+        return to_java_bytes(env, "");
     }
 
     const char *prompt_str = env->GetStringUTFChars(prompt, nullptr);
@@ -266,7 +276,7 @@ Java_com_yomu_ml_LlamaBridge_nativeGenerate(
         LOGE("Failed to tokenize prompt");
         g_abort_deadline_ms.store(0, std::memory_order_relaxed);
         g_grammar.reset();
-        return env->NewStringUTF("");
+        return to_java_bytes(env, "");
     }
 
     std::vector<llama_token> tokens(n_tokens);
@@ -275,7 +285,7 @@ Java_com_yomu_ml_LlamaBridge_nativeGenerate(
         LOGE("Failed to write prompt tokens");
         g_abort_deadline_ms.store(0, std::memory_order_relaxed);
         g_grammar.reset();
-        return env->NewStringUTF("");
+        return to_java_bytes(env, "");
     }
     tokens.resize(written);
 
@@ -284,7 +294,7 @@ Java_com_yomu_ml_LlamaBridge_nativeGenerate(
         g_last_status.store(GENERATION_OVERFLOW, std::memory_order_relaxed);
         g_abort_deadline_ms.store(0, std::memory_order_relaxed);
         g_grammar.reset();
-        return env->NewStringUTF("");
+        return to_java_bytes(env, "");
     }
 
     // Process prompt
@@ -299,7 +309,7 @@ Java_com_yomu_ml_LlamaBridge_nativeGenerate(
         }
         g_abort_deadline_ms.store(0, std::memory_order_relaxed);
         g_grammar.reset();
-        return env->NewStringUTF("");
+        return to_java_bytes(env, "");
     }
 
     // Generation loop
@@ -344,7 +354,7 @@ Java_com_yomu_ml_LlamaBridge_nativeGenerate(
          n_len, result.size(), (long long)elapsed_ms, g_grammar.rejections(), g_grammar.active() ? 1 : 0);
     g_grammar.reset();
     g_abort_deadline_ms.store(0, std::memory_order_relaxed);
-    return env->NewStringUTF(result.c_str());
+    return to_java_bytes(env, result);
 }
 
 extern "C" JNIEXPORT jint JNICALL

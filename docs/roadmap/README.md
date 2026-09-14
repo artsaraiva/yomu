@@ -19,7 +19,6 @@ The reset sequence is intentional: establish one functional path, measure it, th
 |---|---:|---|---|
 | [0 — Manual Overlay Correctness](phase-0-manual-overlay.md) | #1 | Closed | Historical manual end-to-end baseline |
 | [1 — Functional Translation Stack](phase-1-functional-translation-stack.md) | #11 | Current foundation | One usable Japanese-to-English vertical path |
-| [2 — Quality Evaluation & Benchmarking](phase-2-quality-evaluation.md) | #12 | Next | Evidence before model decisions |
 | [3 — Local Model Selection & Management](phase-3-local-models.md) | #13 | Planned | Model assets, selection, and lifecycle |
 | [4 — Training Pipelines](phase-4-training-pipelines.md) | #14 | Planned | Training owned by `yomu-training` |
 | [5 — Reliability, Observability & History](phase-5-reliability-history.md) | #15 | Planned | Durable operation and useful diagnostics |
@@ -30,12 +29,12 @@ The reset sequence is intentional: establish one functional path, measure it, th
 
 ## Current priorities
 
-Phase 1 is the active delivery target. Phase 2 must produce comparable quality and latency evidence before Phase 3 model choices or Phase 4 training work. Issues belong to the phase that owns the behavior; training issues belong in `yomu-training`, while app integration and release issues remain in Yomu.
+Phase 1 is the active delivery target. Model choices follow [ADR-0015](../adr/0015-quality-belongs-to-the-model.md). Issues belong to the phase that owns the behavior; training issues belong in `yomu-training`, while app integration and release issues remain in Yomu.
 
 ## Delivery evidence
 
 - Phase 0 baseline: `54b551e` and preceding foundational commits.
-- Existing translation bridges, cache, and benchmark work are evidence for Phase 1 and Phase 2; they do not by themselves close either reset phase.
+- Existing translation bridges, cache, and benchmark work are evidence for Phase 1; they do not by themselves close it.
 - Font scaling and quick overlay controls: `6d32c96`.
 - Current overlay stability and information-architecture work: [PR #8](https://github.com/artsaraiva/yomu/pull/8), commit `08a0de9`.
 - Earlier PRs and commits remain historical evidence, not broad completion claims.

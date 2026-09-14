@@ -20,7 +20,7 @@ This does not touch [ADR-0001](0001-custom-model-permissiveness.md): the open cu
 | CAT-Translate-1.4b | 0.32 | 0.83 | 0.9 GB | Best CAT sibling; now outclassed |
 | CAT-Translate-0.8b | 0.39 | 0.84 | 0.5 GB | Shipped default / baseline |
 
-No model passes the gate (residue is never exactly 0), so "pass the ADR-0004 gate" cannot be the promotion bar as #72 wrote it — the bar becomes **measured-best on the phone under a device-budget ceiling**, not a hard gate pass.
+*(Promotion is now decided per [ADR-0015](0015-quality-belongs-to-the-model.md): licence, size, speed and a manual look at fixture pages.)* No model passes the gate (residue is never exactly 0), so "pass the ADR-0004 gate" cannot be the promotion bar as #72 wrote it — the bar becomes **measured-best on the phone under a device-budget ceiling**, not a hard gate pass.
 
 ## Considered Options
 
