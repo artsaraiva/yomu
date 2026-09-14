@@ -13,9 +13,13 @@ import com.yomu.app.db.entities.ModelStatus
 import com.yomu.app.db.entities.ModelType
 import com.yomu.core.Constants
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.OkHttpClient
@@ -46,7 +50,7 @@ class ModelManager @Inject constructor(
         val size: Long
     )
 
-    private data class DownloadTask(
+    internal data class DownloadTask(
         val file: File,
         val url: String,
         val checksum: String,
@@ -128,11 +132,8 @@ class ModelManager @Inject constructor(
                 version = "1.0",
                 isRequired = false
             ),
-            // #84 bake-off challengers: larger context-capable siblings that can emit the id-keyed
-            // page batch the 0.8b refuses. Not shipped as default (ADR-0008); scored by
-            // EngineBenchmarkTest and offered via the ADR-0001 custom-model slot. URL, exact size,
-            // and SHA-256 are the pinned Q4_K_M revisions (checksum is the HuggingFace LFS oid,
-            // which is the sha256 of the file content — the same digest computeChecksum verifies).
+            // URL, exact size, and SHA-256 are the pinned Q4_K_M revisions (checksum is the HuggingFace
+            // LFS oid, which is the sha256 of the file content — the same digest computeChecksum verifies).
             ModelEntity(
                 id = Constants.CAT_TRANSLATION_14B_MODEL_ID,
                 name = "CAT-Translate 1.4B (Q4_K_M)",
@@ -146,47 +147,6 @@ class ModelManager @Inject constructor(
                 isRequired = false
             ),
             ModelEntity(
-                id = Constants.CAT_TRANSLATION_14B_I1_MODEL_ID,
-                name = "CAT-Translate 1.4B imatrix (i1-Q4_K_M)",
-                type = ModelType.LLM,
-                fileName = Constants.CAT_TRANSLATION_14B_I1_MODEL,
-                fileSize = 931_180_160L,
-                downloadUrl = "https://huggingface.co/mradermacher/CAT-Translate-1.4b-i1-GGUF/resolve/746c37136103d7c0410f6fd7b4513d2941805e09/CAT-Translate-1.4b.i1-Q4_K_M.gguf",
-                checksum = "686859f4df53980942ad0923c458d407c4c07d74c3ec3229e45af69dd6c2488a",
-                status = ModelStatus.AVAILABLE,
-                version = "1.0",
-                isRequired = false
-            ),
-            // 7B CAT sibling: 4.5GB Q4 exceeds the 8GB device's usable RAM (see Hunyuan-7B, #84);
-            // benchmarked on a high-RAM emulator to measure its quality where it can actually load.
-            ModelEntity(
-                id = Constants.CAT_TRANSLATION_7B_MODEL_ID,
-                name = "CAT-Translate 7B (Q4_K_M)",
-                type = ModelType.LLM,
-                fileName = Constants.CAT_TRANSLATION_7B_MODEL,
-                fileSize = 4_537_758_048L,
-                downloadUrl = "https://huggingface.co/mradermacher/CAT-Translate-7b-GGUF/resolve/cd7d970bc61657ad36b7f7f392c1bd9527dfe4ad/CAT-Translate-7b.Q4_K_M.gguf",
-                checksum = "8c9f8d4e76da5265faec766a05a77b00c719867ed6c8aca0051808a409c8e07a",
-                status = ModelStatus.AVAILABLE,
-                version = "1.0",
-                isRequired = false
-            ),
-            // #84 follow-up: same-range alternatives to CAT-1.4b. TranslateGemma is a translation
-            // specialist (Google); Qwen2.5-1.5B and gemma-2-2b are non-thinking general instruct
-            // models that translate JA->EN decently. Real sizes + SHA-256 (HuggingFace LFS oid).
-            ModelEntity(
-                id = Constants.TRANSLATEGEMMA_4B_MODEL_ID,
-                name = "TranslateGemma 4B (Q4_K_M)",
-                type = ModelType.LLM,
-                fileName = Constants.TRANSLATEGEMMA_4B_MODEL,
-                fileSize = Constants.TRANSLATEGEMMA_4B_SIZE,
-                downloadUrl = "https://huggingface.co/mradermacher/translategemma-4b-it-GGUF/resolve/35a7486e128b19642cdc72d7b91b21ba388aaf42/translategemma-4b-it.Q4_K_M.gguf",
-                checksum = "81200d03e843d2ec1ece6eeafe7d13cb6e5211e1fcd336ade55790b683a08330",
-                status = ModelStatus.AVAILABLE,
-                version = "1.0",
-                isRequired = false
-            ),
-            ModelEntity(
                 id = Constants.QWEN25_15B_MODEL_ID,
                 name = "Qwen2.5 1.5B Instruct (Q4_K_M)",
                 type = ModelType.LLM,
@@ -194,44 +154,6 @@ class ModelManager @Inject constructor(
                 fileSize = Constants.QWEN25_15B_SIZE,
                 downloadUrl = "https://huggingface.co/bartowski/Qwen2.5-1.5B-Instruct-GGUF/resolve/9eadc66189c7641e1ddd226b8267a9119b2ce2d4/Qwen2.5-1.5B-Instruct-Q4_K_M.gguf",
                 checksum = "1adf0b11065d8ad2e8123ea110d1ec956dab4ab038eab665614adba04b6c3370",
-                status = ModelStatus.AVAILABLE,
-                version = "1.0",
-                isRequired = false
-            ),
-            ModelEntity(
-                id = Constants.GEMMA2_2B_MODEL_ID,
-                name = "Gemma 2 2B Instruct (Q4_K_M)",
-                type = ModelType.LLM,
-                fileName = Constants.GEMMA2_2B_MODEL,
-                fileSize = Constants.GEMMA2_2B_SIZE,
-                downloadUrl = "https://huggingface.co/bartowski/gemma-2-2b-it-GGUF/resolve/855f67caed130e1befc571b52bd181be2e858883/gemma-2-2b-it-Q4_K_M.gguf",
-                checksum = "e0aee85060f168f0f2d8473d7ea41ce2f3230c1bc1374847505ea599288a7787",
-                status = ModelStatus.AVAILABLE,
-                version = "1.0",
-                isRequired = false
-            ),
-            ModelEntity(
-                id = Constants.QWEN3_MODEL_ID,
-                name = "Qwen3 4B (Q4_K_M)",
-                type = ModelType.LLM,
-                fileName = Constants.QWEN3_MODEL,
-                fileSize = 2_497_280_256L,
-                downloadUrl = "https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/bc640142c66e1fdd12af0bd68f40445458f3869b/Qwen3-4B-Q4_K_M.gguf",
-                checksum = "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
-                status = ModelStatus.AVAILABLE,
-                version = "1.0",
-                isRequired = false
-            ),
-            // Q3_K_M, not the Q4 tier of the others: the 7B Q4 (4.6GB) OOM-kills on load on the 8GB
-            // reference device (#84), so it is dropped a quant to fit rather than left unmeasurable.
-            ModelEntity(
-                id = Constants.HUNYUAN_MT_MODEL_ID,
-                name = "Hunyuan-MT 7B (Q3_K_M)",
-                type = ModelType.LLM,
-                fileName = Constants.HUNYUAN_MT_MODEL,
-                fileSize = 3_792_905_216L,
-                downloadUrl = "https://huggingface.co/mradermacher/Hunyuan-MT-7B-GGUF/resolve/6d6882aea2529efcfc898e54091ffa912744a3df/Hunyuan-MT-7B.Q3_K_M.gguf",
-                checksum = "b065cf1d0680d34d21a1bbd7048a0e257a1f4a298d599bb91b91984873b1e255",
                 status = ModelStatus.AVAILABLE,
                 version = "1.0",
                 isRequired = false
@@ -271,7 +193,12 @@ class ModelManager @Inject constructor(
         }
     }
 
-    suspend fun refreshModelList() {
+    suspend fun refreshModelList() = withContext(Dispatchers.IO) {
+        val registryIds = REGISTRY.map { it.id }.toSet()
+        for (stale in modelDao.getAllModels().first().filterNot { it.id in registryIds }) {
+            deleteFiles(modelFiles(stale))
+            modelDao.deleteModel(stale)
+        }
         for (model in REGISTRY) {
             val existing = modelDao.getModelById(model.id)
             if (existing == null) {
@@ -351,6 +278,14 @@ class ModelManager @Inject constructor(
             )
         }
 
+        downloadTasks(modelId, tasks, onProgress)
+    }
+
+    internal suspend fun downloadTasks(
+        modelId: String,
+        tasks: List<DownloadTask>,
+        onProgress: (DownloadProgress) -> Unit
+    ): Boolean = withContext(Dispatchers.IO) {
         try {
             val totalBytes = tasks.sumOf { it.size }
             var bytesDownloaded = 0L
@@ -390,6 +325,13 @@ class ModelManager @Inject constructor(
 
             modelDao.updateModelStatus(modelId, ModelStatus.READY)
             true
+        } catch (e: CancellationException) {
+            withContext(NonCancellable) {
+                deleteFiles(tasks.map { it.file })
+                modelDao.updateModelStatus(modelId, ModelStatus.AVAILABLE)
+                modelDao.updateDownloadProgress(modelId, 0)
+            }
+            throw e
         } catch (e: Exception) {
             modelDao.updateModelStatus(modelId, ModelStatus.ERROR)
             false
@@ -421,6 +363,9 @@ class ModelManager @Inject constructor(
                 modelDao.updateModelStatus(modelId, ModelStatus.ERROR)
                 false
             }
+        } catch (e: CancellationException) {
+            withContext(NonCancellable) { modelDao.updateModelStatus(modelId, ModelStatus.AVAILABLE) }
+            throw e
         } catch (_: Exception) {
             modelDao.updateModelStatus(modelId, ModelStatus.ERROR)
             false
@@ -450,6 +395,7 @@ class ModelManager @Inject constructor(
                 val buffer = ByteArray(8192)
                 var bytesRead: Int
                 while (input.read(buffer).also { bytesRead = it } != -1) {
+                    ensureActive()
                     output.write(buffer, 0, bytesRead)
                     onBytesRead(bytesRead.toLong())
                 }
@@ -488,19 +434,16 @@ class ModelManager @Inject constructor(
 
         val model = modelDao.getModelById(modelId) ?: return@withContext false
 
-        val modelDir = getModelDir(model.type)
-        val filesToDelete = listOf(File(modelDir, model.fileName)) + additionalFiles(model.id).map {
-            File(modelDir, it.fileName)
-        }
-        for (file in filesToDelete) {
-            if (file.exists()) {
-                file.delete()
-            }
-        }
+        deleteFiles(modelFiles(model))
 
         modelDao.updateModelStatus(modelId, ModelStatus.AVAILABLE)
         modelDao.updateDownloadProgress(modelId, 0)
         true
+    }
+
+    private fun modelFiles(model: ModelEntity): List<File> {
+        val modelDir = getModelDir(model.type)
+        return listOf(File(modelDir, model.fileName)) + additionalFiles(model.id).map { File(modelDir, it.fileName) }
     }
 
     fun getModelFile(model: ModelEntity): File? {
