@@ -4,7 +4,6 @@ import com.yomu.core.GenerationParams
 import com.yomu.core.ModelProfile
 import com.yomu.core.TranslatableBubble
 import com.yomu.core.TranslatablePage
-import com.yomu.core.TranslationOutcome
 import com.yomu.core.TranslationPromptMode
 import com.yomu.core.TranslationStatus
 import java.io.File
@@ -149,27 +148,6 @@ class LlamaTranslationBridgeTest {
     }
 
     @Test
-    fun translatePage_batchOverflowFallsBackToPerLine() = runTest {
-        val model = File.createTempFile("model", ".gguf")
-        val native = FakeLlamaBridge { prompt ->
-            if (prompt.contains("Panels are separated")) {
-                GenerationResult.Overflow(5L)
-            } else {
-                GenerationResult.Success(if (prompt.endsWith("こんにちは")) "Hello" else "Goodbye", 10L)
-            }
-        }
-        val slot = LlamaTranslationBridge(native, profile(model, idKeyedBatch = true))
-
-        val result = slot.translatePage(page(1 to "こんにちは", 2 to "さようなら"))
-
-        assertEquals(mapOf(1 to "Hello", 2 to "Goodbye"), result.byId)
-        assertEquals(TranslationOutcome.SUCCESS, result.outcome)
-        assertEquals(LlamaTranslationBridge.BATCH_OVERFLOW_FALLBACK, result.errorCode)
-        assertEquals(3, native.prompts.size)
-        model.delete()
-    }
-
-    @Test
     fun translatePage_batchBudgetIsTheFixedPageCap() = runTest {
         val model = File.createTempFile("model", ".gguf")
         val native = FakeLlamaBridge { GenerationResult.Success("[1] Hello", 1L) }
@@ -257,41 +235,4 @@ class LlamaTranslationBridgeTest {
 
     private fun page(vararg bubbles: Pair<Int, String>): TranslatablePage =
         TranslatablePage(listOf(bubbles.map { (id, source) -> TranslatableBubble(id, source) }))
-
-    private class FakeLlamaBridge(
-        private val resultForPrompt: (String) -> GenerationResult
-    ) : LlamaBridge(null) {
-        val prompts = mutableListOf<String>()
-        val grammars = mutableListOf<String>()
-        val maxTokens = mutableListOf<Int>()
-        val params = mutableListOf<GenerationParams>()
-        var releaseCalls = 0
-        var clearMemoryCalls = 0
-
-        override val isNativeAvailable: Boolean get() = true
-        override val isModelLoaded: Boolean get() = true
-        override fun loadModel(modelPath: String, nCtx: Int, nGpuLayers: Int): Boolean = true
-        override fun loadModel(modelPath: String, nCtx: Int, nGpuLayers: Int, nThreads: Int): Boolean = true
-        override fun generate(
-            prompt: String,
-            params: GenerationParams,
-            maxTokens: Int,
-            timeoutMs: Int,
-            grammar: String
-        ): GenerationResult {
-            prompts += prompt
-            grammars += grammar
-            this.maxTokens += maxTokens
-            this.params += params
-            return resultForPrompt(prompt)
-        }
-
-        override fun release() {
-            releaseCalls++
-        }
-
-        override fun clearMemory() {
-            clearMemoryCalls++
-        }
-    }
 }

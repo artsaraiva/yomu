@@ -69,7 +69,7 @@ class BatchOverflowFallbackTest {
             )
 
             // The gate asks for the overflow "in logcat" as well as on the result, and it means the
-            // bridge's line, not this test's: the errorCode alone would still be satisfied by a
+            // bridge's line, not this test's: the result's flag alone would still be satisfied by a
             // fallback that fired silently, and on a phone the log is the only place a degraded
             // page announces itself to whoever is holding it.
             assertTrue(
@@ -78,9 +78,9 @@ class BatchOverflowFallbackTest {
             )
             // The fallback fired. Without this the rest would pass on a page that simply fit, which
             // is the way this gate would silently stop measuring anything.
-            assertEquals(LlamaTranslationBridge.BATCH_OVERFLOW_FALLBACK, result.errorCode)
+            assertTrue("Batch overflow fallback did not fire", result.batchOverflowFallback)
             // ...and it rendered. ADR-0013 replaced an empty PageTranslation and a silently
-            // untranslated page; a fallback that returns nothing would satisfy the errorCode alone.
+            // untranslated page; a fallback that returns nothing would satisfy the flag alone.
             assertEquals(TranslationOutcome.SUCCESS, result.outcome)
             assertEquals(ids.toSet(), result.byId.keys)
             assertTrue(

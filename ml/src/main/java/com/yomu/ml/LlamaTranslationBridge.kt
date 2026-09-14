@@ -65,8 +65,6 @@ class LlamaTranslationBridge(
          */
         private const val MAX_LINE_CHARS = 160
 
-        /** Marks a page whose batch prompt overflowed and was answered per-line instead. */
-        const val BATCH_OVERFLOW_FALLBACK = "batch_overflow_fallback"
         private const val TIMEOUT_MS = 15_000
         private const val BATCH_TIMEOUT_MS = 120_000
     }
@@ -142,14 +140,13 @@ class LlamaTranslationBridge(
             // Loud, and typed: the old behaviour was an empty PageTranslation and a silently
             // untranslated page (ADR-0013). The page still renders, but it renders through the
             // other call shape, so the degraded run stays readable from the result rather than
-            // from a log line (#142/#165) — hence the errorCode surviving the fallback.
+            // from a log line (#142/#165) — hence the marker on the result.
             Log.w(
                 TAG,
                 "translateBatch overflow bubbles=${page.panels.flatten().size} " +
                     "falling back to per-line"
             )
-            val fallback = translatePerLine(page)
-            return fallback.copy(errorCode = fallback.errorCode ?: BATCH_OVERFLOW_FALLBACK)
+            return translatePerLine(page).copy(batchOverflowFallback = true)
         }
         return PageTranslation(
             byId = parseIdKeyedTranslations(output.text),

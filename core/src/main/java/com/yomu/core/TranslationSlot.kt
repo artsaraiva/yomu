@@ -171,7 +171,12 @@ data class PageTranslation(
     val durationMs: Long,
     val outcome: TranslationOutcome = TranslationOutcome.SUCCESS,
     /** Machine-readable cause, never prose: `load_failed`, `model_missing`, an exception class. */
-    val errorCode: String? = null
+    val errorCode: String? = null,
+    /**
+     * The batch prompt overflowed and the page was answered per-line instead. Kept apart from
+     * [errorCode] because which call shape ran and what went wrong are independent (#202).
+     */
+    val batchOverflowFallback: Boolean = false
 ) {
     companion object {
         /** The empty page every slot returns when it could not be made ready, with its reason. */
