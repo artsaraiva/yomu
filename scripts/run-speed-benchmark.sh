@@ -20,9 +20,10 @@ one with ANDROID_SERIAL=<serial> (see 'adb devices').
 
 Fixtures (gitignored, never committed):
   $FIXTURES/pages/*.jpg          Three manga pages. OpenMantra is CC BY-NC 4.0, so they stay local.
-                                 Seeded from eval/bubble-detection/cases when that directory exists.
   $FIXTURES/models/vision/       Bubble detector + MangaOCR, downloaded on first run.
   $FIXTURES/models/llm/          Catalog GGUFs, downloaded on first run.
+
+BatchOverflowFallbackTest reads the default GGUF from $DEVICE_DIR, so run this once before it.
 
   --skip-build   Reuse the installed APKs.
 EOF
@@ -53,12 +54,6 @@ fi
 echo "Device: $ANDROID_SERIAL ($(adb shell getprop ro.product.model | tr -d '\r'), $(adb shell getprop ro.product.cpu.abi | tr -d '\r'))"
 
 mkdir -p "$FIXTURES/pages"
-if ! ls "$FIXTURES"/pages/*.jpg >/dev/null 2>&1; then
-  for case_id in balloon-dense-dialogue bourei-p04 tojime-dense-action; do
-    src="$REPO_ROOT/eval/bubble-detection/cases/$case_id/page.jpg"
-    [ -f "$src" ] && cp "$src" "$FIXTURES/pages/$case_id.jpg"
-  done
-fi
 ls "$FIXTURES"/pages/*.jpg >/dev/null 2>&1 || { echo "No pages in $FIXTURES/pages; add three .jpg manga pages." >&2; exit 1; }
 
 # Same pinned revisions ModelManager downloads; keep the two in step when a model changes.

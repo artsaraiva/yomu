@@ -24,12 +24,9 @@ import java.io.File
  * `LlamaTranslationBridgeTest` already covers the branch against a fake that returns
  * [com.yomu.ml.GenerationResult.Overflow] on demand. That proves the wiring, not the criterion: the
  * criterion is that a page the *native* fit check rejects still reaches the user translated, and
- * only the real tokenizer decides what the fit check rejects. The ADR-0004 corpus cannot reach it —
- * its densest page is ~423 prompt tokens against `prompt_fits`' 2048 - 768 - 8 = 1272 — so the page
- * here is constructed to overflow instead of loaded.
- *
- * The assertions are behavioural and device-independent, so this is not bound by the same-device
- * rule the latency and memory gates carry (`eval/README.md`).
+ * only the real tokenizer decides what the fit check rejects. The densest page measured so far was
+ * ~423 prompt tokens against `prompt_fits`' 2048 - 768 - 8 = 1272, so the page here is constructed
+ * to overflow instead of loaded. Its model comes from the speed benchmark's fixture push.
  */
 @RunWith(AndroidJUnit4::class)
 class BatchOverflowFallbackTest {
@@ -39,9 +36,9 @@ class BatchOverflowFallbackTest {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         // Read straight from the pushed fixture rather than staging a copy into filesDir: this test
         // loads one model once and needs no DI graph, so a ~600MB copy would buy nothing.
-        val model = File(FIXTURE_DIR, "${Constants.LLM_MODELS_DIR}/${LlmModelCatalog.DEFAULT.ggufFileName}")
+        val model = File(FIXTURE_DIR, "models/${Constants.LLM_MODELS_DIR}/${LlmModelCatalog.DEFAULT.ggufFileName}")
         check(model.exists()) {
-            "${model.path} is missing; run eval/run-benchmark.sh to push fixtures"
+            "${model.path} is missing; run scripts/run-speed-benchmark.sh to push fixtures"
         }
 
         val native = LlamaBridge(context)
@@ -132,7 +129,7 @@ class BatchOverflowFallbackTest {
 
     companion object {
         private const val TAG = "BatchOverflowFallbackTest"
-        private const val FIXTURE_DIR = "/data/local/tmp/yomu-fixtures"
+        private const val FIXTURE_DIR = "/data/local/tmp/yomu-speed"
 
         // The bridge's own tag and warning text (LlamaTranslationBridge.translateBatch). Matched as
         // strings because both are private to it, and the gate is about what a person tailing
