@@ -39,7 +39,7 @@ class SpeedBenchmarkTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
 
     @Test
-    fun timeEveryCatalogModel() = runBlocking {
+    fun timeEveryCatalogModel(): Unit = runBlocking {
         val pages = File(FIXTURE_DIR, "pages").listFiles { f -> f.extension == "jpg" }.orEmpty().sortedBy { it.name }
         check(pages.isNotEmpty()) { "No pages under $FIXTURE_DIR/pages; run scripts/run-speed-benchmark.sh" }
         val vision = stage(Constants.VISION_MODELS_DIR, VISION_FILES)
