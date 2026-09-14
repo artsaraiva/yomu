@@ -71,7 +71,16 @@ data class GenerationParams(
      * `LLAMA_DEFAULT_SEED` (0xFFFFFFFF as a uint32), made explicit rather than implied by the
      * C++ default. Kept out of [samplerArray] because a Float cannot hold 0xFFFFFFFF exactly.
      */
-    val seed: Int = -1
+    val seed: Int = -1,
+    /**
+     * Excludes `[` from the batch grammar's `line` rule, making a fake `[id=2]` tag written inside
+     * one line unreachable (#214, the two #198 survivors at 1.1). Treated as structural under
+     * ADR-0013 because an id tag is structure, but it does bar a translation like `[laughs]`; none
+     * of the 17 ADR-0004 references contain `[`, so the corpus cost is zero. Off until the paired
+     * phone arm measures it. Not a sampler knob, so not in [samplerArray]; it lives here so the
+     * run record's `generation` block carries it and the scorer checks it per arm.
+     */
+    val lineExcludesIdBracket: Boolean = false
 ) {
     /**
      * The sampler knobs as a flat array, in [SAMPLER_INDEX] order. C++ reads the same order by
