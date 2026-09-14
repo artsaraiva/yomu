@@ -90,7 +90,7 @@ open class LlamaBridge(private val context: Context?) : TextGenerationBridge {
                 grammar
             )
             val durationMs = System.currentTimeMillis() - startMs
-            val text = result.orEmpty()
+            val text = decodeGenerated(result)
             if (text.isBlank()) {
                 val status = nativeLastStatus()
                 Log.w(TAG, "generate completed status=empty native=$status durationMs=$durationMs")
@@ -128,8 +128,11 @@ open class LlamaBridge(private val context: Context?) : TextGenerationBridge {
         samplerParams: FloatArray,
         seed: Int,
         grammar: String
-    ): String?
+    ): ByteArray?
     private external fun nativeLastStatus(): Int
     private external fun nativeClearMemory()
     private external fun nativeRelease()
 }
+
+// Malformed or truncated UTF-8 from the model decodes to U+FFFD instead of aborting (#235).
+internal fun decodeGenerated(bytes: ByteArray?): String = bytes?.toString(Charsets.UTF_8).orEmpty()
