@@ -158,7 +158,18 @@ class EngineBenchmarkTest {
      * next to the residue number it produces.
      */
     @Test
-    fun compareCallShapes() = runBlocking {
+    fun compareCallShapes() = runPairedCorpusArms(CALL_SHAPE_ARMS)
+
+    /**
+     * #214: the batch grammar with `[` excluded from `line`, against the shipped grammar-batch
+     * control in the same run, seed pinned as in [compareCallShapes]. A new arm with its own
+     * baseline, not a re-read of #198's numbers.
+     */
+    @Test
+    fun measureBracketExclusion() = runPairedCorpusArms(BRACKET_EXCLUSION_ARMS)
+
+    /** Runs each arm over the gate corpus on one native load, the default model, seed pinned. */
+    private fun runPairedCorpusArms(arms: List<LlmArm>) = runBlocking {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val cases = loadCases(InstrumentationRegistry.getInstrumentation().context)
         check(cases.isNotEmpty()) { "No benchmark cases staged" }
@@ -171,22 +182,25 @@ class EngineBenchmarkTest {
             "${Constants.MODELS_DIR}/${Constants.LLM_MODELS_DIR}/${option.ggufFileName}"
         ).absolutePath
         try {
-            for ((armId, idKeyedBatch) in CALL_SHAPE_ARMS) {
+            for (arm in arms) {
                 val slot = LlamaTranslationBridge(
                     native,
                     ModelProfile(
                         modelPath = modelPath,
-                        idKeyedBatch = idKeyedBatch,
+                        idKeyedBatch = arm.idKeyedBatch,
                         promptMode = option.promptMode,
-                        generation = GenerationParams(seed = MEASUREMENT_SEED)
+                        generation = GenerationParams(
+                            seed = MEASUREMENT_SEED,
+                            lineExcludesIdBracket = arm.lineExcludesIdBracket
+                        )
                     )
                 )
                 check(slot.ensureReady()) { "Qwen model unavailable: ${slot.status}" }
-                Log.i(TAG, "Call-shape arm=$armId idKeyedBatch=$idKeyedBatch cases=${cases.size}")
+                Log.i(TAG, "Paired arm=$arm cases=${cases.size}")
                 val measured = TranslationEngine { slot }
                 runEngineOverCases(
                     measured,
-                    ArmMeta.from(armId, slot.activeProfile),
+                    ArmMeta.from(arm.armId, slot.activeProfile),
                     cases,
                     records,
                     rows
@@ -194,14 +208,20 @@ class EngineBenchmarkTest {
                 measured.endSession()
                 slot.close()
             }
-            check(rows.size == cases.size * CALL_SHAPE_ARMS.size) {
-                "Expected ${cases.size * CALL_SHAPE_ARMS.size} rows, got ${rows.size}"
+            check(rows.size == cases.size * arms.size) {
+                "Expected ${cases.size * arms.size} rows, got ${rows.size}"
             }
         } finally {
             native.release()
         }
         logTimingCsv(rows)
     }
+
+    private data class LlmArm(
+        val armId: String,
+        val idKeyedBatch: Boolean,
+        val lineExcludesIdBracket: Boolean = false
+    )
 
     /**
      * #153: measure `penalty_repeat` against the gate #139 pre-registered before any number existed.
@@ -745,7 +765,16 @@ class EngineBenchmarkTest {
         // ADR-0013's two arms, in the order the ADR names them: the shipped call, then the control
         // it reverts to. The ids are the manifest's arm ids and the scorer's engine keys; neither is
         // mlkit/opusmt, so both score as gate LLMs and both get a residue number.
-        private val CALL_SHAPE_ARMS = listOf("grammar_batch" to true, "per_line" to false)
+        private val CALL_SHAPE_ARMS = listOf(
+            LlmArm("grammar_batch", idKeyedBatch = true),
+            LlmArm("per_line", idKeyedBatch = false)
+        )
+
+        // #214: the shipped grammar-batch control, then the arm that excludes `[`.
+        private val BRACKET_EXCLUSION_ARMS = listOf(
+            LlmArm("grammar_batch", idKeyedBatch = true),
+            LlmArm("grammar_no_bracket", idKeyedBatch = true, lineExcludesIdBracket = true)
+        )
 
         private val PENALTY_ARMS = listOf(1.0f, 1.1f, 1.2f)
         private val GATE_ARMS = setOf(1.0f, 1.1f)

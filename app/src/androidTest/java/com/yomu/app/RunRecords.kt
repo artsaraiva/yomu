@@ -198,6 +198,7 @@ data class ArmMeta(
             // token counts, and character lengths must not be called tokens (#142).
             put("max_output_tokens", params.maxTokens)
             put("seed", params.seed)
+            put("line_excludes_id_bracket", params.lineExcludesIdBracket)
         }
 
         /**

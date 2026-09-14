@@ -192,7 +192,8 @@ class LlamaTranslationBridge(
      */
     private fun buildBatchGrammar(page: TranslatablePage): String {
         val root = page.panels.flatten().joinToString(" ") { "\"[${it.bubbleId}] \" line \"\\n\"" }
-        return "root ::= $root\nline ::= [^\\r\\n]{1,$MAX_LINE_CHARS}\n"
+        val excluded = if (profile.generation.lineExcludesIdBracket) "\\r\\n\\[" else "\\r\\n"
+        return "root ::= $root\nline ::= [^$excluded]{1,$MAX_LINE_CHARS}\n"
     }
 
     private fun parseIdKeyedTranslations(response: String): Map<Int, String> {

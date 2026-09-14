@@ -118,6 +118,25 @@ class LlamaTranslationBridgeTest {
     }
 
     @Test
+    fun translatePage_batchLineCanExcludeIdBracket() = runTest {
+        val model = File.createTempFile("model", ".gguf")
+        val native = FakeLlamaBridge { GenerationResult.Success("[1] Hello", 1L) }
+        val slot = LlamaTranslationBridge(
+            native,
+            profile(model, idKeyedBatch = true).copy(
+                generation = GenerationParams(lineExcludesIdBracket = true)
+            )
+        )
+
+        slot.translatePage(page(1 to "こんにちは"))
+
+        val grammar = native.grammars.single()
+        assertTrue(grammar, grammar.startsWith("root ::= \"[1] \" line \"\\n\""))
+        assertTrue(grammar, grammar.contains("line ::= [^\\r\\n\\[]{1,160}"))
+        model.delete()
+    }
+
+    @Test
     fun translatePage_perLineSamplesUnconstrained() = runTest {
         val model = File.createTempFile("model", ".gguf")
         val native = FakeLlamaBridge { GenerationResult.Success("Hello", 1L) }

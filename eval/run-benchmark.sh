@@ -17,9 +17,10 @@ SKIP_INSTALL=0
 SKIP_EVAL=0
 CALL_SHAPES=0
 PENALTY_SWEEP=0
+BRACKET_EXCLUSION=0
 
 usage() {
-  printf 'Usage: %s [--skip-build] [--skip-install] [--skip-eval] [--call-shapes] [-P<gradle-arg>...]\n' "$0"
+  printf 'Usage: %s [--skip-build] [--skip-install] [--skip-eval] [--call-shapes] [--penalty-sweep] [--bracket-exclusion] [-P<gradle-arg>...]\n' "$0"
   printf '\n'
   printf 'Flags:\n'
   printf '  --skip-build    Skip build (use installed APKs as-is)\n'
@@ -30,6 +31,8 @@ usage() {
   printf '                  fetches no challengers, and prunes nothing off the device.\n'
   printf '  --penalty-sweep #153/#198 repeat_penalty sweep on the batch path, against the 1.0\n'
   printf '                  batch control from the same run. Needs eval/repetition-probe.\n'
+  printf '  --bracket-exclusion #214: grammar_no_bracket (`[` excluded from the batch line rule) vs\n'
+  printf '                  the shipped grammar_batch control, catalog default, seed pinned.\n'
   printf '  -P<arg>         Passed straight to the connectedAndroidTest gradle call, e.g.\n'
   printf '                  -Pandroid.testInstrumentationRunnerArguments.challengers=hunyuan_mt_7b\n'
 }
@@ -59,6 +62,12 @@ for arg in "$@"; do
       PENALTY_SWEEP=1
       GRADLE_EXTRA_ARGS+=(
         "-Pandroid.testInstrumentationRunnerArguments.class=com.yomu.app.EngineBenchmarkTest#measureRepeatPenalty"
+      )
+      ;;
+    --bracket-exclusion)
+      BRACKET_EXCLUSION=1
+      GRADLE_EXTRA_ARGS+=(
+        "-Pandroid.testInstrumentationRunnerArguments.class=com.yomu.app.EngineBenchmarkTest#measureBracketExclusion"
       )
       ;;
     -h|--help)
@@ -277,7 +286,7 @@ requested() { # engine name -> 0 if it should run this pass (no filter = all)
 # Everything else is pruned from the device below so a targeted run does not carry old multi-GB
 # weights it will not use.
 ALLOWED_LLM=$'\n'"$(basename "$LLM_FIXTURE")"$'\n'
-if [ "$CALL_SHAPES" -eq 0 ] && [ "$PENALTY_SWEEP" -eq 0 ]; then
+if [ "$CALL_SHAPES" -eq 0 ] && [ "$PENALTY_SWEEP" -eq 0 ] && [ "$BRACKET_EXCLUSION" -eq 0 ]; then
 for entry in "${CHALLENGER_FIXTURES[@]}"; do
   name="${entry%%|*}"; rest="${entry#*|}"; path="${rest%%|*}"; url="${rest##*|}"
   requested "$name" || continue
@@ -374,6 +383,11 @@ if [ "$CALL_SHAPES" -eq 1 ]; then
   # in call shape alone -- the scorer checks that against what the device observed.
   add_arm "arm_id=grammar_batch,stage=translation,provider=llama.cpp,model_id=$(basename "$LLM_FIXTURE"),call_shape=id_keyed_batch,model_file=$LLM_FIXTURE"
   add_arm "arm_id=per_line,stage=translation,provider=llama.cpp,model_id=$(basename "$LLM_FIXTURE"),call_shape=per_line,model_file=$LLM_FIXTURE"
+elif [ "$BRACKET_EXCLUSION" -eq 1 ]; then
+  # #214. Both arms declare the grammar knob, so the scorer rejects either one if the device ran
+  # the other grammar -- the arms are otherwise identical in every declared field.
+  add_arm "arm_id=grammar_batch,stage=translation,provider=llama.cpp,model_id=$(basename "$LLM_FIXTURE"),call_shape=id_keyed_batch,model_file=$LLM_FIXTURE,gen.line_excludes_id_bracket=false"
+  add_arm "arm_id=grammar_no_bracket,stage=translation,provider=llama.cpp,model_id=$(basename "$LLM_FIXTURE"),call_shape=id_keyed_batch,model_file=$LLM_FIXTURE,gen.line_excludes_id_bracket=true"
 elif [ "$PENALTY_SWEEP" -eq 1 ]; then
   # #153's arms re-measured on the batch path (#198). All three run the probe; only the two gate
   # arms run the corpus, so 1.2 declares no cases or it is invalidated for the 17 it never ran.
