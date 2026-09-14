@@ -23,6 +23,7 @@ import com.yomu.pipeline.bubble.Bubble
 import com.yomu.pipeline.context.ContextAssembler
 import com.yomu.pipeline.ocr.OcrResult
 import com.yomu.pipeline.translation.TranslationEngine
+import com.yomu.pipeline.translation.deadTranslationReason
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import kotlinx.coroutines.runBlocking
@@ -359,6 +360,7 @@ class EngineBenchmarkTest {
             Log.i(TAG, "Writing engine records for run=${records.runId}")
 
             val timingRows = mutableListOf<TimingRow>()
+            val deadEngines = mutableListOf<String>()
             // The whole instrumentation test must finish inside the harness's ~20-min ceiling or it
             // is killed and no results are written. The enum engines + 0.8b are the baseline and run
             // unbounded; the challenger phase is capped so a slow/thinking model (Qwen3 ran to the
@@ -396,16 +398,24 @@ class EngineBenchmarkTest {
                     is LlamaTranslationBridge -> ArmMeta.from(engineName, slot.activeProfile)
                     else -> FLOOR_ARMS.getValue(engineName)
                 }
-                runEngineOverCases(engine, arm, cases, records, timingRows)
+                try {
+                    runEngineOverCases(engine, arm, cases, records, timingRows)
+                } catch (e: DeadEngineError) {
+                    // No records for this arm, so the scorer reports it invalid, as for not-ready.
+                    Log.e(TAG, e.message.orEmpty())
+                    deadEngines += e.message.orEmpty()
+                    continue
+                }
 
                 engine.endSession()
             }
 
-            benchmarkChallengers(context, cases, records, timingRows, benchDeadlineMs)
+            benchmarkChallengers(context, cases, records, timingRows, benchDeadlineMs, deadEngines)
 
             logTimingCsv(timingRows)
             selector.close()
             Log.i(TAG, "Benchmark complete. Records: ${records.runId}")
+            check(deadEngines.isEmpty()) { deadEngines.joinToString("\n") }
         }
     }
 
@@ -431,6 +441,9 @@ class EngineBenchmarkTest {
         deadlineMs: Long = Long.MAX_VALUE
     ) {
         val armId = arm.armId
+        // Past the deadline the loop only records skipped_budget; a warm-up call could burn the
+        // bridge's full batch timeout first.
+        if (System.currentTimeMillis() < deadlineMs) assertTranslatesKnownBubble(engine, armId)
         for ((index, case) in cases.withIndex()) {
             if (System.currentTimeMillis() >= deadlineMs) {
                 // Recorded, not merely logged: `skipped_budget` invalidates the arm in the scorer,
@@ -514,6 +527,38 @@ class EngineBenchmarkTest {
     }
 
     /**
+     * #158: translate one known bubble before timing [engine], so a broken model load, prompt
+     * template or tokenizer fails loudly instead of producing a complete, confidently wrong run.
+     *
+     * The bar is the scorer's shape checks ([deadTranslationReason]), not an exact match: LLM output
+     * is not stable enough to assert on, and ADR-0004 rejected exact match. The raw output is
+     * checked, before [TranslationEngine] substitutes the Japanese source for a missing id.
+     */
+    private suspend fun assertTranslatesKnownBubble(engine: TranslationEngine, armId: String) {
+        val size = KNOWN_PAGE_SIZE.toFloat()
+        val page = assembler.assemble(
+            listOf(Bubble(id = 0, boundingBox = RectF(0f, 0f, size, size), confidence = 1f)),
+            mapOf(0 to OcrResult(KNOWN_BUBBLE, 1f, floatArrayOf(0f, 0f, size, size))),
+            KNOWN_PAGE_SIZE,
+            KNOWN_PAGE_SIZE
+        )
+        val attempt = try {
+            runCatching { engine.translate(page.blocks) }
+        } finally {
+            // The check must not leak session context into the first timed case.
+            engine.endSession()
+        }
+        val output = attempt.getOrNull()?.rawById?.get(0)
+        val reason = deadTranslationReason(output) ?: return
+        val returned = output?.let { "\"$it\"" }
+            ?: "nothing (${attempt.exceptionOrNull() ?: "outcome=${attempt.getOrNull()?.outcome}"})"
+        throw DeadEngineError("Engine $armId failed the known-bubble check ($reason): \"$KNOWN_BUBBLE\" returned $returned")
+    }
+
+    /** Thrown per engine, so the multi-engine pass skips a broken arm instead of aborting (#158). */
+    private class DeadEngineError(message: String) : AssertionError(message)
+
+    /**
      * Load each #84 challenger GGUF in turn and run it on the id-keyed batch path. The native side
      * holds one model at a time, so the injected 0.8b is released first and each challenger is
      * released before the next loads. A challenger whose fixture is absent (or whose weights fail to
@@ -524,7 +569,8 @@ class EngineBenchmarkTest {
         cases: List<BenchCase>,
         records: RunRecords,
         timingRows: MutableList<TimingRow>,
-        benchDeadlineMs: Long
+        benchDeadlineMs: Long,
+        deadEngines: MutableList<String>
     ) {
         // Free the incumbent's native model so the first challenger loads into a clear slot.
         runCatching { llamaBridge.close() }
@@ -570,14 +616,20 @@ class EngineBenchmarkTest {
                 )
                 Log.i(TAG, "Benchmarking challenger=${candidate.engineName}")
                 val challengerEngine = TranslationEngine { bridge }
-                runEngineOverCases(
-                    challengerEngine,
-                    ArmMeta.from(candidate.engineName, bridge.activeProfile),
-                    cases,
-                    records,
-                    timingRows,
-                    challengerDeadline
-                )
+                try {
+                    runEngineOverCases(
+                        challengerEngine,
+                        ArmMeta.from(candidate.engineName, bridge.activeProfile),
+                        cases,
+                        records,
+                        timingRows,
+                        challengerDeadline
+                    )
+                } catch (e: DeadEngineError) {
+                    Log.e(TAG, e.message.orEmpty())
+                    deadEngines += e.message.orEmpty()
+                    continue
+                }
                 challengerEngine.endSession()
             } finally {
                 // Free native weights before the next challenger's load; the shared benchLlama is
@@ -784,6 +836,11 @@ class EngineBenchmarkTest {
         private const val MEASUREMENT_SEED = 0
 
         private const val PROBE_ASSET_DIR = "eval-probe"
+
+        // #158's known-good bubble: a short, unambiguous greeting on a one-bubble square page so
+        // assembly is trivial.
+        private const val KNOWN_BUBBLE = "おはようございます！"
+        private const val KNOWN_PAGE_SIZE = 1000
 
         private const val TOTAL_BENCHMARK_BUDGET_MS = 17L * 60_000L
         private const val PER_CHALLENGER_BUDGET_MS = 6L * 60_000L

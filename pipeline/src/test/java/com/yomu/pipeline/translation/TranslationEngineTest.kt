@@ -163,6 +163,24 @@ class TranslationEngineTest {
     }
 
     @Test
+    fun deadTranslationReason_acceptsAPlainTranslation() {
+        assertEquals(null, deadTranslationReason("Good morning!"))
+    }
+
+    @Test
+    fun deadTranslationReason_namesEmptyNonTranslationAndResidue() {
+        assertEquals("empty", deadTranslationReason(null))
+        assertEquals("empty", deadTranslationReason("  "))
+        assertEquals("non-translation", deadTranslationReason("Translate the following Japanese text."))
+        // run_eval_lib.py's instruction-echo markers, so the device check matches the scorer.
+        assertEquals("non-translation", deadTranslationReason("Translate these Japanese lines:"))
+        assertEquals("non-translation", deadTranslationReason("Reply with the translation only."))
+        assertEquals("non-translation", deadTranslationReason("One per line, numbered."))
+        assertEquals("japanese residue", deadTranslationReason("おはよう, everyone"))
+        assertEquals("japanese residue", deadTranslationReason("ｶﾀｶﾅ"))
+    }
+
+    @Test
     fun looksLikeNonTranslation_keepsLegitDialogue() {
         assertFalse(looksLikeNonTranslation("I'm sorry!"))
         assertFalse(looksLikeNonTranslation("I'm sorry, I can't come with you today."))
