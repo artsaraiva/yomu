@@ -50,13 +50,15 @@ class SpeedBenchmarkTest {
             ocrVocabPath = File(vision, Constants.OCR_VOCAB_FILE).absolutePath
         )
         val sampler = PssSampler().also { it.start() }
+        // Shared across entries: its ORT environment is a process singleton, so one per model would leak.
+        val onnx = OnnxRuntime(context)
+        var rows = 0
         try {
             for (option in LlmModelCatalog.ALL) {
                 // One GGUF in filesDir at a time: staging all of them next to their /data/local/tmp
                 // copies can ENOSPC a small emulator partition.
                 val llmDir = stage(Constants.LLM_MODELS_DIR, listOf(option.ggufFileName))
                 val native = LlamaBridge(context)
-                val onnx = OnnxRuntime(context)
                 // Rebuilt per entry, on the call shape the catalog ships for it (batch or per-line).
                 val slot = LlamaTranslationBridge(native, LlmModelCatalog.profileFor(option, llmDir, GenerationParams()))
                 val pipeline = TranslationPipeline(
@@ -76,6 +78,7 @@ class SpeedBenchmarkTest {
                         timings.forEach { (stage, ms, pssKb) ->
                             Log.i(TAG, "TIMING model=${option.id} page=${index + 1} stage=${stage.name.lowercase()} ms=$ms peakPssKb=$pssKb")
                         }
+                        rows += timings.size
                     }
                 } finally {
                     pipeline.close()
@@ -83,7 +86,10 @@ class SpeedBenchmarkTest {
                     File(llmDir, option.ggufFileName).delete()
                 }
             }
+            // The script counts TIMING lines against this, so a line logcat dropped cannot pass unnoticed.
+            Log.i(TAG, "TIMING_ROWS n=$rows")
         } finally {
+            onnx.release()
             sampler.stop()
         }
     }
@@ -101,14 +107,14 @@ class SpeedBenchmarkTest {
         var current: Stage? = null
         var startNs = 0L
         var error: String? = null
-        fun close(nowNs: Long) {
+        fun endStage(nowNs: Long) {
             current?.let { timings += StageTiming(it, (nowNs - startNs) / 1_000_000L, sampler.takePeak()) }
         }
         val callback = object : TranslationPipeline.PipelineCallback {
             override fun onStageProgress(stage: Stage, progress: Float) {
                 if (stage == current) return
                 val now = System.nanoTime()
-                close(now)
+                endStage(now)
                 current = stage
                 startNs = now
             }
@@ -117,7 +123,7 @@ class SpeedBenchmarkTest {
                 error = "$stage: $message"
             }
 
-            override fun onComplete(result: PipelineResult) = close(System.nanoTime())
+            override fun onComplete(result: PipelineResult) = endStage(System.nanoTime())
         }
         sampler.takePeak()
         val result = try {
@@ -174,7 +180,8 @@ class SpeedBenchmarkTest {
     companion object {
         private const val TAG = "SpeedBenchmark"
         private const val FIXTURE_DIR = "/data/local/tmp/yomu-speed"
-        private const val SAMPLE_INTERVAL_MS = 100L
+        // getPss walks smaps, which is costly with a mapped GGUF; sampling faster steals CPU from llama's threads.
+        private const val SAMPLE_INTERVAL_MS = 500L
         private val VISION_FILES = listOf(
             Constants.BUBBLE_DETECTION_MODEL,
             Constants.OCR_ENCODER_MODEL,

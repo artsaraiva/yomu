@@ -102,11 +102,20 @@ if [ "$SKIP_BUILD" -eq 0 ]; then
 fi
 
 # am instrument directly rather than connectedAndroidTest: no gradle test timeout on a slow emulator.
+# Streamed to a file during the run, not read back with logcat -d afterwards: llama's native logging can
+# push early TIMING lines out of a small emulator ring buffer before the run ends.
 adb logcat -c
+log_file="$(mktemp)"
+trap 'rm -f "$log_file"' EXIT
+adb logcat -s "$TAG:I" > "$log_file" &
+logcat_pid=$!
 set +e
 instrument_out="$(adb shell am instrument -w -e class "$APP_ID.SpeedBenchmarkTest" "$APP_ID.test/$APP_ID.CustomTestRunner" | tr -d '\r')"
 set -e
-timing="$(adb logcat -d -s "$TAG:I" | grep -o 'TIMING .*' || true)"
+sleep 2
+kill "$logcat_pid" 2>/dev/null || true
+timing="$(grep -o 'TIMING model=.*' "$log_file" || true)"
+expected_rows="$(grep -o 'TIMING_ROWS n=[0-9]*' "$log_file" | cut -d= -f2 || true)"
 
 if [ -n "$timing" ]; then
   printf '\n| model | page | stage | ms | peak PSS (MB) |\n|---|---|---|---|---|\n'
@@ -120,5 +129,10 @@ fi
 if ! printf '%s' "$instrument_out" | grep -q '^OK ('; then
   printf '\n%s\n' "$instrument_out" >&2
   echo 'Speed benchmark failed.' >&2
+  exit 1
+fi
+actual_rows="$(printf '%s\n' "$timing" | grep -c . || true)"
+if [ "$actual_rows" != "$expected_rows" ]; then
+  printf 'Logged %s timing rows but captured %s; the table is incomplete.\n' "${expected_rows:-?}" "$actual_rows" >&2
   exit 1
 fi
