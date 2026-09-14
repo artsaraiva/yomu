@@ -25,6 +25,16 @@ class ModelRegistryTest {
     }
 
     @Test
+    fun `every http url is pinned to a revision sha`() {
+        val pinned = Regex("https://huggingface\\.co/[^/]+/[^/]+/resolve/[0-9a-f]{40}/.+")
+        val urls = registry.map { it.downloadUrl } +
+            registry.flatMap { ModelManager.additionalFiles(it.id) }.map { it.url }
+        urls.filter { it.startsWith("http") }.forEach {
+            assertTrue(it, pinned.matches(it))
+        }
+    }
+
+    @Test
     fun `llm rows are exactly the catalog entries`() {
         val llmRowIds = registry.filter { it.type == ModelType.LLM }.map { it.id }.toSet()
         assertEquals(LlmModelCatalog.ALL.map { it.id }.toSet(), llmRowIds)
