@@ -113,18 +113,18 @@ class LlamaTranslationBridgeTest {
 
         val grammar = native.grammars.single()
         assertTrue(grammar, grammar.startsWith("root ::= \"[1] \" line \"\\n\" \"[2] \" line \"\\n\""))
-        assertTrue(grammar, grammar.contains("line ::= [^\\r\\n]{1,160}"))
+        assertTrue(grammar, grammar.contains("line ::= [^\\r\\n\\[]{1,160}"))
         model.delete()
     }
 
     @Test
-    fun translatePage_batchLineCanExcludeIdBracket() = runTest {
+    fun translatePage_batchLineAdmitsIdBracketWhenOptedOut() = runTest {
         val model = File.createTempFile("model", ".gguf")
         val native = FakeLlamaBridge { GenerationResult.Success("[1] Hello", 1L) }
         val slot = LlamaTranslationBridge(
             native,
             profile(model, idKeyedBatch = true).copy(
-                generation = GenerationParams(lineExcludesIdBracket = true)
+                generation = GenerationParams(lineExcludesIdBracket = false)
             )
         )
 
@@ -132,7 +132,7 @@ class LlamaTranslationBridgeTest {
 
         val grammar = native.grammars.single()
         assertTrue(grammar, grammar.startsWith("root ::= \"[1] \" line \"\\n\""))
-        assertTrue(grammar, grammar.contains("line ::= [^\\r\\n\\[]{1,160}"))
+        assertTrue(grammar, grammar.contains("line ::= [^\\r\\n]{1,160}"))
         model.delete()
     }
 
