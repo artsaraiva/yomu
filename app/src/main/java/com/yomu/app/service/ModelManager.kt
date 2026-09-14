@@ -438,6 +438,9 @@ class ModelManager @Inject constructor(
                 modelDao.updateModelStatus(modelId, ModelStatus.ERROR)
                 false
             }
+        } catch (e: CancellationException) {
+            withContext(NonCancellable) { modelDao.updateModelStatus(modelId, ModelStatus.AVAILABLE) }
+            throw e
         } catch (_: Exception) {
             modelDao.updateModelStatus(modelId, ModelStatus.ERROR)
             false

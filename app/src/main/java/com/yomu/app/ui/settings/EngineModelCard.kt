@@ -20,11 +20,11 @@ internal fun EngineModelCard(
     state: SettingsUiState,
     onDownload: (String) -> Unit,
     onDelete: (String) -> Unit,
+    onCancel: (String) -> Unit,
     onSelectLlm: (LlmModelOption) -> Unit
 ) {
     val models = state.models
-    val downloadingId = state.downloadingId
-    val downloadProgress = state.downloadProgress
+    val downloads = state.downloads
     PaperSurface(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(stringResource(engine.labelRes), fontWeight = FontWeight.Medium)
@@ -42,10 +42,11 @@ internal fun EngineModelCard(
                     if (model != null) {
                         ModelStatusRow(
                             model = model,
-                            isDownloading = downloadingId == model.id,
-                            progress = downloadProgress,
+                            isDownloading = model.id in downloads,
+                            progress = downloads[model.id] ?: 0,
                             onDownload = { onDownload(model.id) },
-                            onDelete = { onDelete(model.id) }
+                            onDelete = { onDelete(model.id) },
+                            onCancel = { onCancel(model.id) }
                         )
                     } else {
                         PaperLoading("Checking model status…")
@@ -57,10 +58,11 @@ internal fun EngineModelCard(
                     if (model != null) {
                         ModelStatusRow(
                             model = model,
-                            isDownloading = downloadingId == model.id,
-                            progress = downloadProgress,
+                            isDownloading = model.id in downloads,
+                            progress = downloads[model.id] ?: 0,
                             onDownload = { onDownload(model.id) },
-                            onDelete = { onDelete(model.id) }
+                            onDelete = { onDelete(model.id) },
+                            onCancel = { onCancel(model.id) }
                         )
                     } else {
                         Text(
@@ -84,11 +86,12 @@ internal fun EngineModelCard(
                             selected = option.id == state.selectedLlmModelId,
                             canRun = state.canRun(option),
                             model = models.find { it.id == option.id },
-                            isDownloading = downloadingId == option.id,
-                            progress = downloadProgress,
+                            isDownloading = option.id in downloads,
+                            progress = downloads[option.id] ?: 0,
                             onSelect = { onSelectLlm(option) },
                             onDownload = { onDownload(option.id) },
-                            onDelete = { onDelete(option.id) }
+                            onDelete = { onDelete(option.id) },
+                            onCancel = { onCancel(option.id) }
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                     }

@@ -10,7 +10,6 @@ import androidx.compose.ui.unit.sp
 import com.yomu.app.db.entities.ModelEntity
 import com.yomu.app.db.entities.ModelStatus
 import com.yomu.app.ui.theme.*
-import androidx.compose.material.icons.filled.DateRange
 import com.yomu.core.Constants
 import com.yomu.core.toFileSizeString
 
@@ -20,7 +19,8 @@ internal fun ModelStatusRow(
     isDownloading: Boolean,
     progress: Int,
     onDownload: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onCancel: () -> Unit
 ) {
     Text(model.name, style = MaterialTheme.typography.titleSmall)
     Text(model.fileSize.toFileSizeString(), style = MaterialTheme.typography.bodySmall)
@@ -65,9 +65,8 @@ internal fun ModelStatusRow(
 
         when {
             isDownloading -> {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(androidx.compose.material.icons.Icons.Default.DateRange, contentDescription = "Downloading")
-                    Text("$progress%", fontSize = 11.sp)
+                PaperAction(onClick = onCancel) {
+                    Text("Cancel", fontSize = 12.sp)
                 }
             }
             model.status == ModelStatus.READY -> {
