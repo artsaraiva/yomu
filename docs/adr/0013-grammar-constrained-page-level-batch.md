@@ -6,6 +6,8 @@
 
 > **Revised by [#203](https://github.com/artsaraiva/yomu/issues/203) (2026-09-14), adjudicating [#198](https://github.com/artsaraiva/yomu/issues/198)'s gate 1.** Two clauses under *Consequences* are superseded. *The architecture decision ships behind #139* no longer holds: the build shipped ([#149](https://github.com/artsaraiva/yomu/issues/149)), measured 0.027 residue on the reference phone, and ships at that number, adjudicated under *Amendment (#203)* below rather than waiting on a 0.000 re-run. *The grammar bounds line length* is no longer co-owned with #139: `repeat_penalty` stays 1.0, the bound stays 160, and whether it can relax belongs to [#214](https://github.com/artsaraiva/yomu/issues/214).
 
+> **Revised by [#214](https://github.com/artsaraiva/yomu/issues/214) (2026-09-14).** Two claims in *Amendment (#203)* are corrected by quoted hit texts: that all four 0.027 hits are run-on, and that confabulated structure appeared only at `repeat_penalty = 1.1`. Three of the four are confabulated structure. The shipped grammar now excludes `[` from `line`, which makes that class unreachable. See *Amendment (#214)* below.
+
 Yomu translates a page in **one page-level, id-keyed call per capture**, with the output shape enforced **at sample time by a GBNF grammar** rather than checked after the fact. The curated default (Qwen2.5-1.5B-Instruct) carries `idKeyedBatch = true`. Per-line translation survives as a **slot strategy** — for the CAT-Translate-0.8b low-storage floor, which cannot produce id-keyed output, and as the fallback for a page whose prompt exceeds the native prompt cap — not as the default architecture.
 
 **Cross-page session context is withdrawn.** It is not deferred and not dormant: the plumbing is deleted.
@@ -116,3 +118,36 @@ tojime-sparse-title:  Sealed Eye of Sila (Sila is a name) [id=1] [1] 朽鷹み�
 **`repeat_penalty` stays 1.0.** 1.1 halves residue but costs 1.46 chrF2 (27.90 → 26.44) and moves readability 1.306 → 1.559, and a repetition penalty is the wrong instrument for the class it leaves behind. Recorded on [#139](https://github.com/artsaraiva/yomu/issues/139). [ADR-0014](0014-quantization-deliverables-and-revision-pinning.md) is unchanged: no generation parameter moves.
 
 **The 160-character bound stays.** Unbounded, the model ran to the token cap on 5 of 17 pages. Whether it can relax once `[` is excluded is #214's measurement, not this amendment's.
+
+## Amendment (#214): the 0.027 hits were mostly confabulated structure, and `line` now excludes `[`
+
+**The #203 amendment misclassified the shipped arm's hits.** #214 ran the pre-#214 grammar (`line ::= [^\r\n]{1,160}`) as a paired control on the reference phone (SM-S911B), at `repeat_penalty = 1.0` with the seed pinned. It reproduced #198's published numbers exactly: residue 0.027, chrF2 27.90, readability 1.306. This time the hit texts were retained. **Three of the four hits are confabulated structure. One is run-on.** Every hit is on the final id of its page:
+
+```
+balloon-dense-dialogue [15]  That's right... [1] ただ空気いれた風船をいくら集めても浮くわけねーだろ!! [2] こいつ絶対バカだし …
+bourei-sparse-single [0]     Funeral home [id] 1 [0] お前、何をしたんだ？ [id] 2 [0] お前、何をしたんだ？ …
+tojime-narration [2]         He blinded their eyes and sewed up their eyelids to force them out of the city.  [id=5] こいつだってのか...? …
+bourei-p30 [4]               It's obvious!  (This is a typo, it should be "当たる" which means "to hit" or "to be hit". …   ← run-on
+```
+
+The #203 adjudication rested on #198's description because the texts were not retained. That description was wrong. Confabulated structure is not specific to 1.1: at 1.0 it was the majority of the shipped arm's residue. Read as ADR-0004's #203 amendment now reads, the gate was **not met** at 0.027, because three hits fell in a class with no verdict.
+
+**The gate is met by making the class unreachable, not by adjudicating it.** #214 shipped `line ::= [^\r\n\[]{1,160}` (`GenerationParams.lineExcludesIdBracket = true`). On the same run:
+
+| | `[` admitted (pre-#214) | `[` excluded (shipped) |
+|---|---|---|
+| Japanese residue | 0.027 (3 confabulated structure, 1 run-on) | 0.014 (2 run-on) |
+| Output lines containing `[` | 5 | 0 |
+| Lines clipped at the 160 bound | 7 | 4 |
+| Mean chrF2 | 27.90 | 28.11 |
+| Readability ratio | 1.306 | 1.261 |
+| Coverage / shape | 100% / pass | 100% / pass |
+| Median page latency | 13.8 s | 11.7 s |
+
+Both remaining hits are run-on past the translation, the class adjudicated above: `bourei-p30 [4]` (the same text as the control's) and `bourei-p04 [1]` (`…good luck.  (Translation of "吉良いと" as "good luck")  (Note: …`). No unadjudicated class remains, so the shipped arm meets the gate at 0.014. None of the 17 ADR-0004 references contain `[`, so the exclusion costs the corpus nothing.
+
+**Confabulated structure stays unadjudicated.** It is unreachable under the shipped grammar and carries no verdict. If the exclusion is ever reverted, its hits fail the gate again.
+
+**The 160-character bound stays.** Excluding `[` removes only the tag-shaped form of writing past the translation. The model still runs on as parenthetical commentary or a punctuation loop, and 4 of 17 pages still reach the bound.
+
+**The comparison can be rerun.** `eval/run-benchmark.sh --bracket-exclusion` pairs `grammar_bracket` with `grammar_no_bracket`. Both arms declare `gen.line_excludes_id_bracket`, and the scorer checks it against what the device recorded.
