@@ -42,6 +42,20 @@ class TranslationEngineTest {
     }
 
     @Test
+    fun translate_idNotOnThePageNeverReachesABubble() = runTest {
+        val slot = FakeTranslationSlot(
+            PageTranslation(mapOf(1 to "Hello", 99 to "Invented", -1 to "Out of range"), "", 1L)
+        )
+
+        val result = TranslationEngine { slot }
+            .translate(listOf(block(1 to "こんにちは", 2 to "さようなら")))
+
+        assertEquals(listOf(1, 2), result.translations.map { it.bubbleId })
+        assertEquals(listOf("Hello", "さようなら"), result.translations.map { it.translatedText })
+        assertEquals(listOf(0.8f, 0.1f), result.translations.map { it.confidence })
+    }
+
+    @Test
     fun translate_rejectsNonTranslationWithoutDiscardingOtherIds() = runTest {
         val slot = FakeTranslationSlot(
             PageTranslation(

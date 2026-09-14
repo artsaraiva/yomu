@@ -85,6 +85,20 @@ class LlamaTranslationBridgeTest {
     }
 
     @Test
+    fun translatePage_idKeyedBatchDuplicateIdKeepsTheLastLine() = runTest {
+        val model = File.createTempFile("model", ".gguf")
+        val slot = LlamaTranslationBridge(
+            FakeLlamaBridge { GenerationResult.Success("[1] Hello\n[2] Goodbye\n[1] Hi there", 1L) },
+            profile(model, idKeyedBatch = true)
+        )
+
+        val result = slot.translatePage(page(1 to "こんにちは", 2 to "さようなら"))
+
+        assertEquals(mapOf(1 to "Hi there", 2 to "Goodbye"), result.byId)
+        model.delete()
+    }
+
+    @Test
     fun translatePage_blankOrFailedLinesAreOmitted() = runTest {
         val model = File.createTempFile("model", ".gguf")
         val results = ArrayDeque<GenerationResult>().apply {
