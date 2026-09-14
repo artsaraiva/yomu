@@ -48,8 +48,8 @@ class GenerationParamsTest {
         assertEquals(256, params.maxTokens)
         // LLAMA_DEFAULT_SEED is 0xFFFFFFFF; as a signed Int that is -1.
         assertEquals(-1, params.seed)
-        // #214: the shipped grammar admits `[` until the phone arm says otherwise.
-        assertEquals(false, params.lineExcludesIdBracket)
+        // #214: measured on the reference phone and shipped on.
+        assertEquals(true, params.lineExcludesIdBracket)
     }
 
     @Test

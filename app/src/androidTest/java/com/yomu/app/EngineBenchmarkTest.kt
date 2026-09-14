@@ -220,7 +220,7 @@ class EngineBenchmarkTest {
     private data class LlmArm(
         val armId: String,
         val idKeyedBatch: Boolean,
-        val lineExcludesIdBracket: Boolean = false
+        val lineExcludesIdBracket: Boolean = GenerationParams().lineExcludesIdBracket
     )
 
     /**
@@ -770,9 +770,9 @@ class EngineBenchmarkTest {
             LlmArm("per_line", idKeyedBatch = false)
         )
 
-        // #214: the shipped grammar-batch control, then the arm that excludes `[`.
+        // #214: the pre-#214 grammar that admits `[`, then the shipped one that excludes it.
         private val BRACKET_EXCLUSION_ARMS = listOf(
-            LlmArm("grammar_batch", idKeyedBatch = true),
+            LlmArm("grammar_bracket", idKeyedBatch = true, lineExcludesIdBracket = false),
             LlmArm("grammar_no_bracket", idKeyedBatch = true, lineExcludesIdBracket = true)
         )
 

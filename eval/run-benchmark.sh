@@ -31,8 +31,8 @@ usage() {
   printf '                  fetches no challengers, and prunes nothing off the device.\n'
   printf '  --penalty-sweep #153/#198 repeat_penalty sweep on the batch path, against the 1.0\n'
   printf '                  batch control from the same run. Needs eval/repetition-probe.\n'
-  printf '  --bracket-exclusion #214: grammar_no_bracket (`[` excluded from the batch line rule) vs\n'
-  printf '                  the shipped grammar_batch control, catalog default, seed pinned.\n'
+  printf '  --bracket-exclusion #214: grammar_no_bracket (shipped, `[` excluded from the batch line\n'
+  printf '                  rule) vs grammar_bracket (pre-#214), catalog default, seed pinned.\n'
   printf '  -P<arg>         Passed straight to the connectedAndroidTest gradle call, e.g.\n'
   printf '                  -Pandroid.testInstrumentationRunnerArguments.challengers=hunyuan_mt_7b\n'
 }
@@ -386,7 +386,7 @@ if [ "$CALL_SHAPES" -eq 1 ]; then
 elif [ "$BRACKET_EXCLUSION" -eq 1 ]; then
   # #214. Both arms declare the grammar knob, so the scorer rejects either one if the device ran
   # the other grammar -- the arms are otherwise identical in every declared field.
-  add_arm "arm_id=grammar_batch,stage=translation,provider=llama.cpp,model_id=$(basename "$LLM_FIXTURE"),call_shape=id_keyed_batch,model_file=$LLM_FIXTURE,gen.line_excludes_id_bracket=false"
+  add_arm "arm_id=grammar_bracket,stage=translation,provider=llama.cpp,model_id=$(basename "$LLM_FIXTURE"),call_shape=id_keyed_batch,model_file=$LLM_FIXTURE,gen.line_excludes_id_bracket=false"
   add_arm "arm_id=grammar_no_bracket,stage=translation,provider=llama.cpp,model_id=$(basename "$LLM_FIXTURE"),call_shape=id_keyed_batch,model_file=$LLM_FIXTURE,gen.line_excludes_id_bracket=true"
 elif [ "$PENALTY_SWEEP" -eq 1 ]; then
   # #153's arms re-measured on the batch path (#198). All three run the probe; only the two gate
