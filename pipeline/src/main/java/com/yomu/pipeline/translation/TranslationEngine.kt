@@ -11,7 +11,7 @@ import com.yomu.pipeline.context.ConversationBlock
 // non-translation, so a shape added on one side belongs on the other.
 private val NON_TRANSLATION_PATTERNS = listOf(
     Regex("""(?i)^\s*(?:sure[!,.]?\s*)?(?:here(?:['’]s| is| are)\s+(?:the |an? )?(?:english )?translations?\b|(?:english )?translation\s*:)"""),
-    Regex("""(?i)translate the following"""),
+    Regex("""(?i)translate the following|translate these japanese|reply with the translation|one per line, numbered"""),
     Regex("""(?i)\bas an ai\b"""),
     Regex("""(?i)\bi\s*['’]?m unable to\b"""),
     Regex("""(?i)\bi\s+(?:can['’]?t|cannot|can not|will not|won['’]?t)\s+(?:help|assist|translate|provide|comply|fulfill|do that|with that)"""),
@@ -30,6 +30,21 @@ internal fun looksLikeNonTranslation(text: String): Boolean {
     val tokens = trimmed.split(TOKEN_SPLIT).filter { it.isNotBlank() }
     if (tokens.size < MIN_LOOP_TOKENS) return false
     return tokens.map { it.lowercase() }.toSet().size * LOOP_UNIQUE_DIVISOR <= tokens.size
+}
+
+// Twin of CJK in eval/run_eval_lib.py: kana, CJK ideographs and half-width katakana.
+private val CJK = Regex("[぀-ヿ㐀-䶿一-鿿豈-﫿ｦ-ﾟ]")
+
+/**
+ * Why [text] cannot be a live translation, or null when it can: the scorer's non-empty,
+ * `is_non_translation` and `has_cjk` shape checks. The device benchmark asserts a known bubble
+ * against this before timing an engine (#158); it is not a quality bar.
+ */
+fun deadTranslationReason(text: String?): String? = when {
+    text.isNullOrBlank() -> "empty"
+    looksLikeNonTranslation(text) -> "non-translation"
+    CJK.containsMatchIn(text) -> "japanese residue"
+    else -> null
 }
 
 // Source text with no letter or digit — a lone "?", "...", "!?" — carries nothing to translate, and
