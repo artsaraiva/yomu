@@ -4,6 +4,8 @@
 
 > **Revised by [#193](https://github.com/artsaraiva/yomu/issues/193) (2026-09-13), deciding [#144](https://github.com/artsaraiva/yomu/issues/144).** The "switch is gated on `!idKeyedBatch`" clause under *A user-visible switch would otherwise go inert* is superseded: the "Use surrounding dialogue (experimental)" switch, the `capture_context` preference and `TranslationPromptMode.CAPTURE_CONTEXT` are deleted outright. The subsumption argument there is why — the batch call already carries the whole page. The line references in that paragraph describe the code as it stood on 2026-09-10.
 
+> **Revised by [#203](https://github.com/artsaraiva/yomu/issues/203) (2026-09-14), adjudicating [#198](https://github.com/artsaraiva/yomu/issues/198)'s gate 1.** Two clauses under *Consequences* are superseded. *The architecture decision ships behind #139* no longer holds: the build shipped ([#149](https://github.com/artsaraiva/yomu/issues/149)), measured 0.027 residue on the reference phone, and ships at that number, adjudicated under *Amendment (#203)* below rather than waiting on a 0.000 re-run. *The grammar bounds line length* is no longer co-owned with #139: `repeat_penalty` stays 1.0, the bound stays 160, and whether it can relax belongs to [#214](https://github.com/artsaraiva/yomu/issues/214).
+
 Yomu translates a page in **one page-level, id-keyed call per capture**, with the output shape enforced **at sample time by a GBNF grammar** rather than checked after the fact. The curated default (Qwen2.5-1.5B-Instruct) carries `idKeyedBatch = true`. Per-line translation survives as a **slot strategy** — for the CAT-Translate-0.8b low-storage floor, which cannot produce id-keyed output, and as the fallback for a page whose prompt exceeds the native prompt cap — not as the default architecture.
 
 **Cross-page session context is withdrawn.** It is not deferred and not dormant: the plumbing is deleted.
@@ -91,3 +93,26 @@ ADR-0010 states that Qwen's 0.102 residue "was scored through the ADR-0004 page-
 **The conclusion survives.** ADR-0010's comparison was arm-consistent — Qwen and the 0.8b were measured on the same page-level path — so the ranking that demoted the 0.8b holds, and #137 strengthens it (the same model measures 0.000 residue per-line and 0.014 batch on this corpus, both far below the 0.388 that demoted the floor).
 
 **One number is genuinely unknown:** CAT-Translate-0.8b has **never been scored per-line on the ADR-0004 corpus**. Its 0.03 per-line residue is #68's, on a different corpus. The floor's number on the shipped harness does not exist.
+
+## Amendment (#203): the shipped arm's residue is adjudicated, and the grammar's remaining lever is `line`
+
+**Grammar-batch ships at 0.027 Japanese residue.** [#198](https://github.com/artsaraiva/yomu/issues/198) measured it on the reference phone (SM-S911B) at `repeat_penalty = 1.0`, reproduced to the last digit across two runs. All four hits are one class, and it is the class this ADR already adjudicated at 0.014 above: **run-on past the translation.** The model finishes the real translation, keeps writing inside the same line, and the 160-character `line` bound clips it with Japanese in the tail. Under [ADR-0004](0004-translation-eval-contract.md)'s #203 amendment an adjudicated class passes, so the gate is met as it now reads, not waived.
+
+**The four hit texts were not retained.** #198's run records did not survive, so this adjudication rests on #198's description of the hits rather than on quoted text. The two emulator hits quoted above are the same class.
+
+**The grammar already pins the page's id count.** #203 proposed a grammar that fixes the number of ids per page, koharu's `minItems == maxItems == n` shape. That shipped with this ADR: `buildBatchGrammar` emits every real id as a literal, in prompt order, exactly once. Every residue hit is text **inside** `line ::= [^\r\n]{1,160}`, so the only lever the grammar has left is what `line` admits.
+
+**`line` may exclude structure characters, never content characters.** Excluding `[` — which only an id tag needs — stays inside the "structural only" rule above. Excluding Japanese characters does not: it scores residue 0 by construction and disables the gate (ADR-0004). [#214](https://github.com/artsaraiva/yomu/issues/214) builds and measures `[^\r\n\[]`.
+
+**Confabulated structure is not adjudicated.** The two hits that survived `repeat_penalty = 1.1` are a different class — single-bubble pages where the model writes fake id tags inside one line to keep talking:
+
+```
+bourei-sparse-single: Funeral home [id=1] お前、葬儀屋さんだな。 [id=2] That's a funeral home...
+tojime-sparse-title:  Sealed Eye of Sila (Sila is a name) [id=1] [1] 朽鷹みつき
+```
+
+1.1 does not ship, so this class carries no verdict. A hit in it on the shipped arm fails the gate until it is adjudicated or #214 makes it unreachable.
+
+**`repeat_penalty` stays 1.0.** 1.1 halves residue but costs 1.46 chrF2 (27.90 → 26.44) and moves readability 1.306 → 1.559, and a repetition penalty is the wrong instrument for the class it leaves behind. Recorded on [#139](https://github.com/artsaraiva/yomu/issues/139). [ADR-0014](0014-quantization-deliverables-and-revision-pinning.md) is unchanged: no generation parameter moves.
+
+**The 160-character bound stays.** Unbounded, the model ran to the token cap on 5 of 17 pages. Whether it can relax once `[` is excluded is #214's measurement, not this amendment's.

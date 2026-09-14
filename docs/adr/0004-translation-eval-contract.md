@@ -46,6 +46,18 @@ Before this, the harness looped `TranslationEngineSelector.translate(line)` over
 
 The question the consequence above left open is now resolved by #52 — and the "no pass bar is set for translation" clause is superseded. The answer needed no variance run: this contract encodes **no continuous quality metric**, only two rare-event failure detectors plus a diagnostic, so there is nothing to significance-test and #44's paired-sign-test method does not apply. **The set catches failure modes and gates regressions; it does not rank translation engines on quality, and it has no separation rule.** Pass bars: **non-translation rate 0** (hard gate), **Japanese-residue rate 0** (gate, hits adjudicated against the reference), **bubble coverage 100% of ids returned** (gate), **readability ratio diagnostic, no bar**. #35 selects among gate-passing engines on #26's non-quality axes; adequacy/fluency ranking stays deferred to #30's contrastive set and a possible future COMET-or-judge metric. The corpus stays at 17 cases / 152 lines — OpenMantra's line ceiling is moot with nothing to power. The scorer this requires is built under #58.
 
+## Amendment (#203): what "hits adjudicated against the reference" means
+
+The #52 amendment gates Japanese residue at 0 "hits adjudicated against the reference" and never says what adjudication is. The literal 0 has since been set aside case by case — by [ADR-0009](0009-selectable-translation-model-set.md) ("residue is never exactly 0") and by [ADR-0013](0013-grammar-constrained-page-level-batch.md) at 0.014 — and [#198](https://github.com/artsaraiva/yomu/issues/198) then measured the shipped arm at 0.027 on the reference phone, leaving a gate that read as failing in production. [#203](https://github.com/artsaraiva/yomu/issues/203) settles the reading rather than setting it aside a third time.
+
+**The residue gate is zero unadjudicated hits.** Every residue hit is assigned a **named failure class**, argued against the reference, in the ADR or ticket that ships the arm. An arm with any hit in a class that has not been adjudicated **fails**. A class, once adjudicated, is carried by name: later hits in that class do not re-argue it, and a new class never inherits a verdict from an old one. The classes adjudicated so far are recorded in ADR-0013.
+
+**Adjudication quotes the hit text when the run record survives.** When it does not, it may rest on the measuring ticket's description of the hits, and says so.
+
+**No threshold replaces the 0.** A rate bar turns a rare-event detector into a tolerance and stops it detecting; #145 already showed residue rejecting the more accurate translator on this axis, which a bar would entrench rather than fix. Nor is residue demoted to a diagnostic: a hit in an unadjudicated class still stops a ship. Non-translation stays a hard 0, with no adjudication.
+
+**A constraint that makes residue unreachable disables the gate; it does not pass it.** A grammar or post-filter that excludes Japanese characters from output scores 0 by construction and leaves this detector measuring nothing. ADR-0013's #203 amendment forbids it on the batch grammar.
+
 ## Amendment (#176): a continuous adequacy metric, staged as a per-arm no-regression gate
 
 The amendment above says this contract "encodes **no continuous quality metric**, only two rare-event failure detectors plus a diagnostic". That clause is superseded. The contract gains one: **doc-level-context COMET over the committed page outputs, via Apache-2.0 [`Unbabel/wmt22-comet-da`](https://huggingface.co/Unbabel/wmt22-comet-da)**, costed at ~1 dev-day with no blockers by [#141](https://github.com/artsaraiva/yomu/issues/141) (Route B) and argued for on its own merits by [#145](https://github.com/artsaraiva/yomu/issues/145).
