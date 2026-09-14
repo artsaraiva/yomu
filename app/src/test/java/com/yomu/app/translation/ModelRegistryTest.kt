@@ -24,6 +24,16 @@ class ModelRegistryTest {
     }
 
     @Test
+    fun `every http url is pinned to a revision sha`() {
+        val pinned = Regex("https://huggingface\\.co/[^/]+/[^/]+/resolve/[0-9a-f]{40}/.+")
+        val urls = registry.map { it.downloadUrl } +
+            registry.flatMap { ModelManager.additionalFiles(it.id) }.map { it.url }
+        urls.filter { it.startsWith("http") }.forEach {
+            assertTrue(it, pinned.matches(it))
+        }
+    }
+
+    @Test
     fun `the ML Kit sentinel is the only non-http download url`() {
         val nonHttp = registry.map { it.downloadUrl }.filterNot { it.startsWith("http") }
         assertEquals(listOf("google-mlkit-translate-ja-en"), nonHttp)
