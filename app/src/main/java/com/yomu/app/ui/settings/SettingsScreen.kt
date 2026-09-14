@@ -67,6 +67,7 @@ fun SettingsScreen(
                 state = state,
                 onDownload = { viewModel.downloadModel(it) },
                 onDelete = { viewModel.deleteModel(it) },
+                onCancel = { viewModel.cancelDownload(it) },
                 onSelectLlm = { viewModel.setLlmModel(it) }
             )
             Spacer(modifier = Modifier.height(8.dp))
@@ -101,10 +102,11 @@ fun SettingsScreen(
                     visionModels.forEach { model ->
                         ModelStatusRow(
                             model = model,
-                            isDownloading = state.downloadingId == model.id,
-                            progress = state.downloadProgress,
+                            isDownloading = model.id in state.downloads,
+                            progress = state.downloads[model.id] ?: 0,
                             onDownload = { viewModel.downloadModel(model.id) },
-                            onDelete = { viewModel.deleteModel(model.id) }
+                            onDelete = { viewModel.deleteModel(model.id) },
+                            onCancel = { viewModel.cancelDownload(model.id) }
                         )
                         if (model != visionModels.last()) {
                             Spacer(modifier = Modifier.height(8.dp))

@@ -16,9 +16,12 @@ import com.yomu.core.GenerationBound
 import com.yomu.core.GenerationParams
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -34,8 +37,8 @@ data class SettingsUiState(
     val fontSizeScale: Float = Constants.DEFAULT_FONT_SIZE_SCALE,
     val theme: String = "system",
     val models: List<ModelEntity> = emptyList(),
-    val downloadingId: String? = null,
-    val downloadProgress: Int = 0,
+    /** Percentage done of every download in progress, by model id. */
+    val downloads: Map<String, Int> = emptyMap(),
     /** The reader's global sampler profile (#192). */
     val generation: GenerationParams = GenerationParams(),
     /** One message naming every stored value that was recovered to its default, or null. */
@@ -155,14 +158,30 @@ class SettingsViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(fontSizeScale = scale)
     }
 
+    private val downloadJobs = mutableMapOf<String, Job>()
+
     fun downloadModel(modelId: String) {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(downloadingId = modelId, downloadProgress = 0)
-            modelManager.downloadModel(modelId) { progress ->
-                _uiState.value = _uiState.value.copy(downloadProgress = progress.percentage)
+        if (modelId in downloadJobs) return
+        // Lazy so the job is registered before it can finish and unregister itself.
+        val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
+            try {
+                setDownloadProgress(modelId, 0)
+                modelManager.downloadModel(modelId) { setDownloadProgress(modelId, it.percentage) }
+            } finally {
+                downloadJobs.remove(modelId)
+                _uiState.update { it.copy(downloads = it.downloads - modelId) }
             }
-            _uiState.value = _uiState.value.copy(downloadingId = null, downloadProgress = 0)
         }
+        downloadJobs[modelId] = job
+        job.start()
+    }
+
+    fun cancelDownload(modelId: String) {
+        downloadJobs[modelId]?.cancel()
+    }
+
+    private fun setDownloadProgress(modelId: String, percentage: Int) {
+        _uiState.update { it.copy(downloads = it.downloads + (modelId to percentage.coerceIn(0, 100))) }
     }
 
     fun deleteModel(modelId: String) {
