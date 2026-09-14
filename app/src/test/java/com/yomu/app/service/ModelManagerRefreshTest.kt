@@ -46,8 +46,8 @@ class ModelManagerRefreshTest {
         val stale = ModelManager.REGISTRY.first { it.type == ModelType.LLM }
             .copy(id = "hunyuan_mt_7b_v1", fileName = "hunyuan_mt_7b_q3_k_m.gguf", status = ModelStatus.READY)
         dao.insertModel(stale)
-        val staleFile = File(filesDir, "${Constants.MODELS_DIR}/${Constants.LLM_MODELS_DIR}/${stale.fileName}")
-            .apply { parentFile!!.mkdirs(); writeText("weights") }
+        val llmDir = File(filesDir, "${Constants.MODELS_DIR}/${Constants.LLM_MODELS_DIR}").apply { mkdirs() }
+        val staleFile = File(llmDir, stale.fileName).apply { writeText("weights") }
 
         ModelManager(context, dao, OkHttpClient()).refreshModelList()
 
