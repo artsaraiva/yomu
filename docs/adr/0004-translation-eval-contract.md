@@ -1,5 +1,7 @@
 # The translation eval scores one page-level call on annotation Japanese, keyed by bubble id
 
+**Status:** superseded, with all its amendments, by [ADR-0015](0015-quality-belongs-to-the-model.md).
+
 The translation half of the eval feeds engines OpenMantra's `text_ja` annotation — clean Japanese, not OCR output — assembles it into a page through the real `ContextAssembler`, and scores a single page-level call whose output is matched to the reference by bubble id. Engines that cannot take a page-level call are reported on a separate per-line floor line, never ranked against the gate. Failure is caught by two deterministic checks — Japanese residue and non-translation — rather than by the readability ratio, which is demoted to a diagnostic.
 
 Before this, the harness looped `TranslationEngineSelector.translate(line)` over lines of ground-truth Japanese while `translation-quality/SCHEMA.md` claimed the input was "actual OCR output, including noise". ADR-0002 had already made the page-level call the design target, so the harness measured an architecture the project had decided against, on an input its own schema disclaimed, with metrics that scored CAT-Translate 0.000 untranslated and 0.000 artifact on a run whose outputs included a verbatim echo of the system prompt and a line of untranslated Japanese.

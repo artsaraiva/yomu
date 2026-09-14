@@ -8,10 +8,10 @@
 Provide explicit, safe lifecycle management for local translation models.
 
 ## Scope
-Model metadata, download/import and storage validation, readiness, selection, compatibility, cleanup, and user-visible failure recovery. Use Phase 2 evidence to choose what to support; avoid speculative model catalogs.
+Model metadata, download/import and storage validation, readiness, selection, compatibility, cleanup, and user-visible failure recovery. Choose what to support per ADR-0015; avoid speculative model catalogs.
 
 ## Exit criteria
 A supported model can be installed, selected, loaded, used, replaced, and recovered from failure without corrupting user data.
 
 ## Dependencies and issue ownership
-Depends on Phase 2’s documented decision. App integration issues belong to Yomu; model production remains separate unless accepted by `yomu-training`.
+Depends on a model-choice ADR (ADR-0015). App integration issues belong to Yomu; model production remains separate unless accepted by `yomu-training`.

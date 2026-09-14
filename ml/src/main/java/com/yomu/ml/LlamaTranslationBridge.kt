@@ -58,10 +58,9 @@ class LlamaTranslationBridge(
 
         /**
          * Longest line the batch grammar will let the model write. Unbounded, the model finishes
-         * the last id and keeps writing inside that same line — the token cap on 5 of 17 pages
-         * (#137), because the sampler carries no repetition penalty. 160 is ~2x the corpus's
-         * longest human reference line. A knob co-owned with the sampler (ADR-0013), not a pinned
-         * constant.
+         * the last id and keeps writing inside that same line until the token cap (#137), because
+         * the sampler carries no repetition penalty. 160 is ~2x the longest human reference line on
+         * the fixture pages. A knob co-owned with the sampler (ADR-0013), not a pinned constant.
          */
         private const val MAX_LINE_CHARS = 160
 
@@ -184,8 +183,8 @@ class LlamaTranslationBridge(
      * merged pair and a re-ordered reply are all structurally unreachable — which is what
      * [parseIdKeyedTranslations] and the post-hoc guards were catching after the fact.
      *
-     * Structural only: nothing here forbids Japanese characters or constrains content, so the
-     * residue and meaning metrics still measure the model rather than the grammar.
+     * Structural only: nothing here forbids Japanese characters or constrains content, so a model
+     * that fails to translate still shows it rather than having the grammar hide it.
      */
     private fun buildBatchGrammar(page: TranslatablePage): String {
         val root = page.panels.flatten().joinToString(" ") { "\"[${it.bubbleId}] \" line \"\\n\"" }

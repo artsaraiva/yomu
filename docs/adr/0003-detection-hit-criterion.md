@@ -1,5 +1,7 @@
 # A detection counts as a hit when its crop contains the whole text, not when its box overlaps
 
+**Status:** superseded by [ADR-0015](0015-quality-belongs-to-the-model.md).
+
 The bubble-detection eval judges a detection by whether the region it hands to `OcrEngine` contains every glyph of the ground-truth text region. A ground-truth box is a hit when a single detection covers at least 95% of its area, and that detection covers no other ground-truth box's centre. Box overlap (IoU) is dropped as a gate: it penalises a detection for being generous, and a generous crop is harmless to this pipeline right up to the point where it swallows a neighbouring bubble — which is a separate check, made separately.
 
 Alongside the gate, the harness reports **localisation recall** — the fraction of ground-truth boxes whose centre falls inside some detection — which is not gated. Two numbers are needed because one cannot answer the question #33 asks. IoU@0.5 scored the incumbent at 35.9% while it was in fact locating 96.2% of the text, and "the detector is blind" and "the detector is badly framed" point in opposite directions: the first says replace it, the second says fix post-processing.

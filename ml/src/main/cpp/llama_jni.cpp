@@ -106,7 +106,7 @@ static std::string apply_chat_template(const char *user_prompt) {
     if (tmpl) {
         // CAT-Translate carries its instruction in the user turn and was trained with no system
         // prompt (model card). Injecting one made the 0.8b echo/refuse the instruction instead of
-        // translating (#68 probe: 48% non-translation with a system prompt).
+        // translating (#68).
         const llama_chat_message messages[] = {
             {"user", user_prompt},
         };

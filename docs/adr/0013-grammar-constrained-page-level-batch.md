@@ -2,9 +2,11 @@
 
 **Status:** accepted, 2026-09-10. Decides [#138](https://github.com/artsaraiva/yomu/issues/138) on the [#137](https://github.com/artsaraiva/yomu/issues/137) spike's numbers. Amends [ADR-0002](0002-cross-panel-translation-context.md) and corrects [ADR-0010](0010-qwen-default-cat-demoted-to-floor.md).
 
+> **Superseded in part by [ADR-0015](0015-quality-belongs-to-the-model.md) (2026-09-15).** The grammar-constrained page-level batch decision stands. Superseded: *The residue gap is adjudicated, not waived*, the *Falsification condition* under Consequences, and the adjudication in *Amendment (#203)* and *Amendment (#214)*. Each is marked where it appears. Quality is no longer gated, so none of these is a condition the shipped architecture must still meet.
+
 > **Revised by [#193](https://github.com/artsaraiva/yomu/issues/193) (2026-09-13), deciding [#144](https://github.com/artsaraiva/yomu/issues/144).** The "switch is gated on `!idKeyedBatch`" clause under *A user-visible switch would otherwise go inert* is superseded: the "Use surrounding dialogue (experimental)" switch, the `capture_context` preference and `TranslationPromptMode.CAPTURE_CONTEXT` are deleted outright. The subsumption argument there is why — the batch call already carries the whole page. The line references in that paragraph describe the code as it stood on 2026-09-10.
 
-> **Revised by [#203](https://github.com/artsaraiva/yomu/issues/203) (2026-09-14), adjudicating [#198](https://github.com/artsaraiva/yomu/issues/198)'s gate 1.** Two clauses under *Consequences* are superseded. *The architecture decision ships behind #139* no longer holds: the build shipped ([#149](https://github.com/artsaraiva/yomu/issues/149)), measured 0.027 residue on the reference phone, and ships at that number, adjudicated under *Amendment (#203)* below rather than waiting on a 0.000 re-run. *The grammar bounds line length* is no longer co-owned with #139: `repeat_penalty` stays 1.0, the bound stays 160, and whether it can relax belongs to [#214](https://github.com/artsaraiva/yomu/issues/214).
+> **Revised by [#203](https://github.com/artsaraiva/yomu/issues/203) (2026-09-14), adjudicating [#198](https://github.com/artsaraiva/yomu/issues/198)'s gate 1.** Two clauses under *Consequences* are superseded. *The architecture decision ships behind #139* no longer holds: the build shipped ([#149](https://github.com/artsaraiva/yomu/issues/149)), measured 0.027 residue on the reference phone, and ships at that number, adjudicated under *Amendment (#203)* below rather than waiting on a 0.000 re-run *(adjudication superseded by ADR-0015)*. *The grammar bounds line length* is no longer co-owned with #139: `repeat_penalty` stays 1.0, the bound stays 160, and whether it can relax belongs to [#214](https://github.com/artsaraiva/yomu/issues/214).
 
 > **Revised by [#214](https://github.com/artsaraiva/yomu/issues/214) (2026-09-14).** Two claims in *Amendment (#203)* are corrected by quoted hit texts: that all four 0.027 hits are run-on, and that confabulated structure appeared only at `repeat_penalty = 1.1`. Three of the four are confabulated structure. The shipped grammar now excludes `[` from `line`, which makes that class unreachable. See *Amendment (#214)* below.
 
@@ -41,6 +43,8 @@ Run on a Pixel_10_Pro emulator. The gate metrics are device-independent; the lat
 
 ## The residue gap is adjudicated, not waived
 
+> **Superseded by [ADR-0015](0015-quality-belongs-to-the-model.md).**
+
 ADR-0004 sets Japanese-residue rate 0 as a gate "hits adjudicated against the reference". Adjudicated here: both grammar-arm residue bubbles are the **final id of a page**, and both are the model continuing to write after the translation ends —
 
 ```
@@ -56,7 +60,7 @@ This is not the first time the gate's literal reading has been set aside on adju
 
 **The architecture decision ships behind #139, not with it.** This ADR decides; the build issue does not merge until #139 lands a repetition penalty and a re-run scores the batch arm at 0.000 residue. Deciding and shipping are separate acts, and this repository's recurring failure is a claim that ran ahead of its measurement.
 
-**Falsification condition.** The latency case rests on an emulator. The build's acceptance criterion is a reference-phone (SM-S911B) run of **grammar-batch against per-line**: if the median ms/page gap is under **15%**, this decision reverts to per-line. The comparison is against grammar-batch — the arm that actually ships — not against the bare 36% figure, which is for a build that does not include the grammar.
+**Falsification condition** *(superseded by [ADR-0015](0015-quality-belongs-to-the-model.md): speed benchmarks are report-only and revert nothing)*. The latency case rests on an emulator. The build's acceptance criterion is a reference-phone (SM-S911B) run of **grammar-batch against per-line**: if the median ms/page gap is under **15%**, this decision reverts to per-line. The comparison is against grammar-batch — the arm that actually ships — not against the bare 36% figure, which is for a build that does not include the grammar.
 
 **The grammar is mandatory on the batch path.** No flag, no fallback to unconstrained batch. Measured cost: **0.518 ms/token**, ~10× the base sampler chain but **3.2% of wall-clock** next to decode; 3.9% of tokens need the grammar-first re-sample.
 
@@ -82,7 +86,7 @@ This is not the first time the gate's literal reading has been set aside on adju
 
 **Bubble coverage cannot fail, and this decision rests on residue alone.** #137 measured coverage at 100% in all four arms *including* the one where 4 of 17 pages were never translated, because `TranslationEngine` substitutes `bubble.sourceText` for any id the slot does not return. Residue caught it only because the source happened to be Japanese; an ML Kit or OPUS-MT floor arm, or a change of source language, would not trip it. The coverage column in the table above is reported to say so. Owned by [#142](https://github.com/artsaraiva/yomu/issues/142).
 
-**What this re-arms elsewhere.** [ADR-0006](0006-coherence-gate-contract.md)'s contrastive gate was blocked — with `sessionContext` reaching no model, its directional test scores 0 delta by construction. It becomes runnable, but **narrowed**: the model now sees a whole page at once, so the gate can measure *intra-page* coherence only; *cross-page* coherence is withdrawn with session context and is not coming back. ADR-0006 is not redesigned here. [ADR-0008](0008-translation-model-selection.md)'s fine-tune trigger, re-anchored to Qwen by ADR-0010, stays **armed and unfired**: its antecedent is now evaluable rather than blocked, and [#145](https://github.com/artsaraiva/yomu/issues/145) is what evaluates it.
+**What this re-arms elsewhere** *(superseded by [ADR-0015](0015-quality-belongs-to-the-model.md): ADR-0006's gate is retired and nothing here is measured)*. [ADR-0006](0006-coherence-gate-contract.md)'s contrastive gate was blocked — with `sessionContext` reaching no model, its directional test scores 0 delta by construction. It becomes runnable, but **narrowed**: the model now sees a whole page at once, so the gate can measure *intra-page* coherence only; *cross-page* coherence is withdrawn with session context and is not coming back. ADR-0006 is not redesigned here. [ADR-0008](0008-translation-model-selection.md)'s fine-tune trigger, re-anchored to Qwen by ADR-0010, stays **armed and unfired**: its antecedent is now evaluable rather than blocked, and [#145](https://github.com/artsaraiva/yomu/issues/145) is what evaluates it.
 
 ## Amends ADR-0002
 
@@ -97,6 +101,8 @@ ADR-0010 states that Qwen's 0.102 residue "was scored through the ADR-0004 page-
 **One number is genuinely unknown:** CAT-Translate-0.8b has **never been scored per-line on the ADR-0004 corpus**. Its 0.03 per-line residue is #68's, on a different corpus. The floor's number on the shipped harness does not exist.
 
 ## Amendment (#203): the shipped arm's residue is adjudicated, and the grammar's remaining lever is `line`
+
+> **Adjudication superseded by [ADR-0015](0015-quality-belongs-to-the-model.md).** The shipped grammar and the 160-character bound stand.
 
 **Grammar-batch ships at 0.027 Japanese residue.** [#198](https://github.com/artsaraiva/yomu/issues/198) measured it on the reference phone (SM-S911B) at `repeat_penalty = 1.0`, reproduced to the last digit across two runs. All four hits are one class, and it is the class this ADR already adjudicated at 0.014 above: **run-on past the translation.** The model finishes the real translation, keeps writing inside the same line, and the 160-character `line` bound clips it with Japanese in the tail. Under [ADR-0004](0004-translation-eval-contract.md)'s #203 amendment an adjudicated class passes, so the gate is met as it now reads, not waived.
 
@@ -120,6 +126,8 @@ tojime-sparse-title:  Sealed Eye of Sila (Sila is a name) [id=1] [1] 朽鷹み�
 **The 160-character bound stays.** Unbounded, the model ran to the token cap on 5 of 17 pages. Whether it can relax once `[` is excluded is #214's measurement, not this amendment's.
 
 ## Amendment (#214): the 0.027 hits were mostly confabulated structure, and `line` now excludes `[`
+
+> **Adjudication superseded by [ADR-0015](0015-quality-belongs-to-the-model.md).** The `[` exclusion stands; the rerun command below names eval code being deleted.
 
 **The #203 amendment misclassified the shipped arm's hits.** #214 ran the pre-#214 grammar (`line ::= [^\r\n]{1,160}`) as a paired control on the reference phone (SM-S911B), at `repeat_penalty = 1.0` with the seed pinned. It reproduced #198's published numbers exactly: residue 0.027, chrF2 27.90, readability 1.306. This time the hit texts were retained. **Three of the four hits are confabulated structure. One is run-on.** Every hit is on the final id of its page:
 
