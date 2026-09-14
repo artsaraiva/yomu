@@ -68,3 +68,6 @@ eval/.venv/
 
 # Repetition probe staged into test assets by eval/run-benchmark.sh
 app/src/androidTest/assets/eval-probe/
+
+# Speed benchmark fixtures (#230): OpenMantra pages are CC BY-NC, weights are large; never commit
+scripts/speed-fixtures/

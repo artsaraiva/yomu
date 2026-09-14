@@ -93,6 +93,7 @@ When a physical device or emulator is connected, use the `android-mcp_*` tools t
 2. **Test the behavior, not the implementation.** Use meaningful test names that describe what should happen.
 3. **Every public function has a test.**
 4. **Run the test before implementation to confirm it fails.** Run it after to confirm it passes.
+5. **Speed benchmark on model changes.** A change to a model, the inference runtime (llama.cpp) or `LlmModelCatalog` runs `scripts/run-speed-benchmark.sh` on a phone or emulator and pastes the printed table in the PR, naming the device it ran on (emulator milliseconds are not phone numbers). The numbers are report-only; nothing gates on them.
 
 ### Yomu Project Context
 
