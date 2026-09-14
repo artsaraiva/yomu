@@ -31,7 +31,6 @@ internal fun LlmModelRow(
         append(option.sizeBytes.toFileSizeString())
         append(" · ")
         append(option.licence)
-        append(" · Hosted")
         if (!canRun) append(" · Won't fit this device")
     }
     Column {

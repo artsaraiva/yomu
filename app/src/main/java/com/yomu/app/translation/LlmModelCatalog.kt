@@ -8,21 +8,6 @@ import com.yomu.core.TranslationPromptMode
 import java.io.File
 
 /**
- * How a curated LLM reaches the device (ADR-0009 three-tier split). Licence sorts a model into a
- * tier; it does not exclude it.
- */
-enum class LlmModelTier {
-    /** Apache/redistributable — Yomu serves it through the existing pinned-URL [ModelManager] flow. */
-    HOSTED,
-
-    /**
-     * Retired (#187, ADR-0014): the HuggingFace-authenticated download path was deleted. No entry
-     * uses this tier and nothing can fetch it; collapsing the tier concept is the follow-up.
-     */
-    HF_AUTH
-}
-
-/**
  * One curated LLM the user may put in the translation slot under [TranslationEngineType.LLM]
  * (ADR-0009). The catalog is the single source of truth linking a persisted model id to the GGUF
  * that drives [com.yomu.ml.LlamaTranslationBridge] and to its per-model [idKeyedBatch] capability
@@ -33,13 +18,12 @@ data class LlmModelOption(
     val displayName: String,
     val ggufFileName: String,
     val sizeBytes: Long,
-    val tier: LlmModelTier,
     /**
-     * Confirmed licence (ADR-0009: licence sorts a model into a tier, and no entry ships HOSTED until
-     * its licence is confirmed to permit Yomu redistribution). Checked 2026-08-19:
+     * Confirmed licence — the evidence an entry may be redistributed, since Yomu hosts every curated
+     * model through the pinned-URL [ModelManager] flow (ADR-0014). Checked 2026-08-19:
      * Qwen2.5 = Apache-2.0; CAT-Translate 0.8b/1.4b = MIT (cyberagent, finetunes of sbintuitions
-     * sarashina2.2, both declared MIT) → HOSTED. Gemma = Gemma Terms (restricts redistribution) →
-     * HF_AUTH. Also the "governed by its own licence" notice the ADR asks Yomu to surface.
+     * sarashina2.2, both declared MIT). Also the "governed by its own licence" notice ADR-0009 asks
+     * Yomu to surface.
      */
     val licence: String,
     /** Per-model (#84): a model that can emit one id-keyed reply for the whole page carries true and
@@ -73,16 +57,15 @@ object LlmModelCatalog {
         displayName = "Qwen2.5 1.5B Instruct",
         ggufFileName = Constants.QWEN25_15B_MODEL,
         sizeBytes = Constants.QWEN25_15B_SIZE,
-        tier = LlmModelTier.HOSTED,
         licence = "Apache-2.0",
         idKeyedBatch = true,
         promptMode = TranslationPromptMode.TRANSLATION_ONLY
     )
 
     /**
-     * The curated selectable shortlist. All entries are HOSTED (redistribution-clean) today.
+     * The curated selectable shortlist. Every entry is redistributable and hosted.
      *
-     * Gemma / TranslateGemma were the intended HF_AUTH (tier-2) members, but there is no usable
+     * Gemma / TranslateGemma were the intended gated-download members, but there is no usable
      * licence-clean gated GGUF for them: the official gated repo ships only a 10.5 GB f32 file, and
      * the small Q4_K_M quants live only on *ungated* public re-hosts, where the gate — hence the
      * whole "user accepts the licence under their own account" premise — cannot apply. So they are
@@ -97,7 +80,6 @@ object LlmModelCatalog {
             displayName = "CAT-Translate 0.8B (low-storage option)",
             ggufFileName = Constants.TRANSLATION_MODEL_4BIT,
             sizeBytes = Constants.TRANSLATION_MODEL_4BIT_SIZE,
-            tier = LlmModelTier.HOSTED,
             licence = "MIT",
             idKeyedBatch = false,
             promptMode = TranslationPromptMode.MODEL_CARD
@@ -107,7 +89,6 @@ object LlmModelCatalog {
             displayName = "CAT-Translate 1.4B",
             ggufFileName = Constants.CAT_TRANSLATION_14B_MODEL,
             sizeBytes = Constants.CAT_TRANSLATION_14B_SIZE,
-            tier = LlmModelTier.HOSTED,
             licence = "MIT",
             idKeyedBatch = true,
             promptMode = TranslationPromptMode.MODEL_CARD

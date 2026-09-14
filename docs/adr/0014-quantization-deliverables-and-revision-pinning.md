@@ -38,7 +38,7 @@ Rejected: structured `repository` / `revision` / `filename` fields. Nothing but 
 
 ADR-0009's tier 2 — Yomu-tested models pulled under the user's own HuggingFace credentials — has no member, no identified candidate, and never worked. There is no licence-clean gated GGUF for Gemma or TranslateGemma at a usable size: the gated repo ships only a 10.5 GB f32 file, and the small quants live on *ungated* re-hosts where the gate, hence the entire "the user's own account accepted the terms" premise, cannot apply. And `yomu://auth/callback` has no `intent-filter` in the manifest, so the OAuth redirect could never reach the app: this is unfinished code, not working code kept warm.
 
-So `translation/hf/`, `ModelManager.downloadHfModel`, the settings tier-2 branch, and `LlmModelTier.HF_AUTH` are deleted. The registered OAuth client stays, and so revival is a lookup rather than an excavation: the path was deleted in `16011a3f3246c0b92b073370a3da72951ecc83fe` (#187, squash-merged as #208). Check out its parent for the auth manager, token store and downloader. `LlmModelTier.HF_AUTH` itself outlived that commit and goes with the tier collapse.
+So `translation/hf/`, `ModelManager.downloadHfModel`, the settings tier-2 branch, and `LlmModelTier.HF_AUTH` are deleted. The registered OAuth client stays, and so revival is a lookup rather than an excavation: the path was deleted in `16011a3f3246c0b92b073370a3da72951ecc83fe` (#187, squash-merged as #208). Check out its parent for the auth manager, token store and downloader. `LlmModelTier.HF_AUTH` itself outlived that commit and went with the tier collapse (#189).
 
 One tier remains: hosted and redistributable. **A deliverable Yomu cannot redistribute is not curated.**
 
