@@ -38,20 +38,10 @@ data class GenerationParams(
     /** Was a literal in `rebuild_sampler`. */
     val topP: Float = 0.9f,
     /**
-     * 1.0 disables the repeat penalty. **Measured, not assumed** (#153, against the gate #139
-     * pre-registered): `1.1` cleared neither bar and is not shipped.
-     *
-     * On the 17-page gate corpus, 1.1 against a 1.0 control on the same device: non-translation
-     * 0.000 both, Japanese residue 0.007 both (the same bubble, a name the model half-romanises —
-     * nothing repetitive in it), coverage 100% with 0 source echoes both, readability 1.034 →
-     * 1.027. No gated metric moves. On the #152 repetition probe, harm rises monotonically with the
-     * penalty: 8 → 12 → 14 hits of 17 scored bubbles at 1.0 / 1.1 / 1.2, with `ふふっ` and `キヒヒッ`
-     * flipping clean-to-harmed at 1.1. The only improvement is latency (probe wall time 11.5 s →
-     * 5.7 s, from runaway loops stopping early), which #139 excluded in advance.
-     *
-     * Full write-up, including why the probe's absolute "zero harm" bar is unreachable even at 1.0:
-     * `eval/repeat-penalty-153.md`. Re-open only with a new job for it — the page-level batch path,
-     * where #137 measured the loops, would be one.
+     * 1.0 disables the repeat penalty. `1.1` was tried and not shipped (#153): it did not make
+     * translations cleaner, and it harmed intentional repetition in manga dialogue — laughter and
+     * stammers like `ふふっ` and `キヒヒッ` — that a translation must keep. Its only gain was latency,
+     * from runaway loops stopping early. Re-open only with a new job for it.
      */
     val penaltyRepeat: Float = 1.0f,
     /**
@@ -74,13 +64,10 @@ data class GenerationParams(
     val seed: Int = -1,
     /**
      * Excludes `[` from the batch grammar's `line` rule, making a fake `[id=2]` tag written inside
-     * one line unreachable (#214, the two #198 survivors at 1.1). Treated as structural under
-     * ADR-0013 because an id tag is structure, but it does bar a translation like `[laughs]`; none
-     * of the 17 ADR-0004 references contain `[`, so the corpus cost is zero. **Measured, then
-     * shipped** (#214, SM-S911B, seed pinned, against `false` in the same run): residue 0.027 →
-     * 0.014, every tag-shaped hit gone, both survivors the already-adjudicated run-on past the
-     * last id; chrF2 27.9 → 28.1, readability 1.306 → 1.261, median page 13.8 s → 11.7 s. The
-     * run-on class survives, so the 160-char line bound stays. Not a sampler knob, so not in
+     * one line unreachable (#214). Without it the model sometimes invents further id tags inside
+     * the last line and keeps writing, often in Japanese. Treated as structural under ADR-0013
+     * because an id tag is structure, but it does bar a translation like `[laughs]`. Plain run-on
+     * past the last id survives it, so the 160-char line bound stays. Not a sampler knob, so not in
      * [samplerArray]; it lives here so the run record's `generation` block carries it and the
      * scorer checks it per arm.
      */

@@ -6,8 +6,8 @@ import com.yomu.app.R
 /**
  * Whether an engine can take the page-level call the context architecture needs.
  *
- * A [FLOOR] engine can only be asked one bubble at a time, so it never runs that architecture and
- * is never ranked against the [GATE] (CONTEXT.md, "Floor engine" / "Gate engine"; ADR-0004).
+ * A [GATE] engine takes the page-level call; a [FLOOR] engine can only be asked one bubble at a
+ * time, so it never runs that architecture (CONTEXT.md, "Floor engine").
  */
 enum class EngineRole { GATE, FLOOR }
 

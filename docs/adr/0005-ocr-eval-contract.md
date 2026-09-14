@@ -1,5 +1,7 @@
 # The OCR eval scores whole-box readings on padded ground-truth crops, and its first job is measuring the incumbent
 
+**Status:** superseded by [ADR-0015](0015-quality-belongs-to-the-model.md). Never implemented.
+
 The OCR half of the eval crops each OpenMantra text box out of the page — padded by 4% of page width, per ADR-0003 — hands it to `OcrEngine`, and asks whether the string that comes back equals the annotated `text_ja`. The gate is **box exact match**; character error rate is reported beside it as a diagnostic. The detector is not in the loop, and is not stubbed: ground-truth boxes stand in for detections, exactly as ADR-0004 has `text_ja` stand in for OCR output on the translation side.
 
 Before this there was no OCR half at all (#41): `eval/` had only `bubble-detection` and `translation-quality` case types, and `OcrEngine` was referenced nowhere under `eval/` or `app/src/androidTest/`. #34 has to choose between manga-ocr and manga-ocr-mobile and had no metric to choose on — and, per #28, no published accuracy figure exists for the manga-ocr the app already ships. The number this harness produces first is not a comparison; it is the first evidence that the shipping OCR reads manga at all.
