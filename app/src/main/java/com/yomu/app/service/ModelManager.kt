@@ -43,7 +43,7 @@ class ModelManager @Inject constructor(
         val percentage: Int
     )
 
-    private data class AdditionalFile(
+    internal data class AdditionalFile(
         val fileName: String,
         val url: String,
         val checksum: String,
@@ -74,7 +74,7 @@ class ModelManager @Inject constructor(
                 type = ModelType.VISION,
                 fileName = Constants.BUBBLE_DETECTION_MODEL,
                 fileSize = 6_070_000L,
-                downloadUrl = "https://huggingface.co/Kiuyha/Manga-Bubble-YOLO/resolve/main/onnx/yolo26n.onnx",
+                downloadUrl = "https://huggingface.co/Kiuyha/Manga-Bubble-YOLO/resolve/fb646500455e8a8a3a807fd27b855c8e4fc63766/onnx/yolo26n.onnx",
                 checksum = "b45c2e12cf0c3c1d2abfbbb9123c9f96f040f2ac36a0842382ecd9d859c851c7",
                 status = ModelStatus.AVAILABLE,
                 version = "1.0",
@@ -86,7 +86,7 @@ class ModelManager @Inject constructor(
                 type = ModelType.VISION,
                 fileName = Constants.OCR_ENCODER_MODEL,
                 fileSize = 140_410_339L,
-                downloadUrl = "https://huggingface.co/l0wgear/manga-ocr-2025-onnx/resolve/main/encoder_model.onnx",
+                downloadUrl = "https://huggingface.co/l0wgear/manga-ocr-2025-onnx/resolve/e8b27bbd3f424fe3877e0bda704d6a920e4f0a33/encoder_model.onnx",
                 checksum = "f87668ae0f62d6f032dac6b213e8c0fea84cd15895ac8cab624cc9a2f49d4a27",
                 status = ModelStatus.AVAILABLE,
                 version = "1.0",
@@ -107,14 +107,14 @@ class ModelManager @Inject constructor(
             // OPUS-MT had a bridge, a DI module, a selector branch and Settings copy recommending
             // it, but no entry here - so the weights had no route onto the device and the engine
             // could only ever report load_failed. Encoder is the primary file; decoder and
-            // tokenizer come through getAdditionalFiles, same shape as MangaOCR.
+            // tokenizer come through additionalFiles, same shape as MangaOCR.
             ModelEntity(
                 id = Constants.OPUS_MT_MODEL_ID,
                 name = "OPUS-MT Japanese → English (INT8)",
                 type = ModelType.TRANSLATION,
                 fileName = Constants.OPUS_MT_ENCODER_MODEL,
                 fileSize = 50_705_822L,
-                downloadUrl = "https://huggingface.co/Xenova/opus-mt-ja-en/resolve/main/onnx/encoder_model_quantized.onnx",
+                downloadUrl = "https://huggingface.co/Xenova/opus-mt-ja-en/resolve/1a906cfaaf7c8f4193f67f5885c082aa6dbd9d16/onnx/encoder_model_quantized.onnx",
                 checksum = "345262b16bcdda1468b0f3380c112b7ce79f731176b4b1d21f6edd5b2ae0d25c",
                 status = ModelStatus.AVAILABLE,
                 version = "1.0",
@@ -126,7 +126,7 @@ class ModelManager @Inject constructor(
                 type = ModelType.LLM,
                 fileName = Constants.TRANSLATION_MODEL_4BIT,
                 fileSize = Constants.TRANSLATION_MODEL_4BIT_SIZE,
-                downloadUrl = "https://huggingface.co/mradermacher/CAT-Translate-0.8b-GGUF/resolve/main/CAT-Translate-0.8b.Q4_K_M.gguf",
+                downloadUrl = "https://huggingface.co/mradermacher/CAT-Translate-0.8b-GGUF/resolve/834d0624185e964856a1b3c43eb5e114c9c41df5/CAT-Translate-0.8b.Q4_K_M.gguf",
                 checksum = "6de8e40b687eb2248727c8ad208c54af8c82ad52b415901859d5fcd7fd65bb4c",
                 status = ModelStatus.AVAILABLE,
                 version = "1.0",
@@ -140,7 +140,7 @@ class ModelManager @Inject constructor(
                 type = ModelType.LLM,
                 fileName = Constants.CAT_TRANSLATION_14B_MODEL,
                 fileSize = Constants.CAT_TRANSLATION_14B_SIZE,
-                downloadUrl = "https://huggingface.co/mradermacher/CAT-Translate-1.4b-GGUF/resolve/main/CAT-Translate-1.4b.Q4_K_M.gguf",
+                downloadUrl = "https://huggingface.co/mradermacher/CAT-Translate-1.4b-GGUF/resolve/2eb35647e57b5981c14611e67b9ad205329b498d/CAT-Translate-1.4b.Q4_K_M.gguf",
                 checksum = "332371e7aa764c6dde6df70956062e839aed69ad3db28e1af118aa99b6f63467",
                 status = ModelStatus.AVAILABLE,
                 version = "1.0",
@@ -152,13 +152,45 @@ class ModelManager @Inject constructor(
                 type = ModelType.LLM,
                 fileName = Constants.QWEN25_15B_MODEL,
                 fileSize = Constants.QWEN25_15B_SIZE,
-                downloadUrl = "https://huggingface.co/bartowski/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/Qwen2.5-1.5B-Instruct-Q4_K_M.gguf",
+                downloadUrl = "https://huggingface.co/bartowski/Qwen2.5-1.5B-Instruct-GGUF/resolve/9eadc66189c7641e1ddd226b8267a9119b2ce2d4/Qwen2.5-1.5B-Instruct-Q4_K_M.gguf",
                 checksum = "1adf0b11065d8ad2e8123ea110d1ec956dab4ab038eab665614adba04b6c3370",
                 status = ModelStatus.AVAILABLE,
                 version = "1.0",
                 isRequired = false
             )
         )
+
+        internal fun additionalFiles(modelId: String): List<AdditionalFile> = when (modelId) {
+            Constants.MANGA_OCR_MODEL_ID -> listOf(
+                AdditionalFile(
+                    fileName = Constants.OCR_DECODER_MODEL,
+                    url = "https://huggingface.co/l0wgear/manga-ocr-2025-onnx/resolve/e8b27bbd3f424fe3877e0bda704d6a920e4f0a33/decoder_model.onnx",
+                    checksum = "6b1fb216d542c4b2a4fa5b9d7ae3522081eb85fb959d2cecd28055af956a8a5e",
+                    size = 118_053_454L
+                ),
+                AdditionalFile(
+                    fileName = Constants.OCR_VOCAB_FILE,
+                    url = "https://huggingface.co/l0wgear/manga-ocr-2025-onnx/resolve/e8b27bbd3f424fe3877e0bda704d6a920e4f0a33/vocab.txt",
+                    checksum = "",
+                    size = 24_072L
+                )
+            )
+            Constants.OPUS_MT_MODEL_ID -> listOf(
+                AdditionalFile(
+                    fileName = Constants.OPUS_MT_DECODER_MODEL,
+                    url = "https://huggingface.co/Xenova/opus-mt-ja-en/resolve/1a906cfaaf7c8f4193f67f5885c082aa6dbd9d16/onnx/decoder_with_past_model_quantized.onnx",
+                    checksum = "f03825137d2888d654777c9011ff043fe8cd213539c62d054054ae8c7fcee70c",
+                    size = 54_359_578L
+                ),
+                AdditionalFile(
+                    fileName = Constants.OPUS_MT_TOKENIZER,
+                    url = "https://huggingface.co/Xenova/opus-mt-ja-en/resolve/1a906cfaaf7c8f4193f67f5885c082aa6dbd9d16/tokenizer.json",
+                    checksum = "770ff2855437cf44f1f110550c5a9dca773253a167aeac36076b2073d259aa3b",
+                    size = 5_991_485L
+                )
+            )
+            else -> emptyList()
+        }
     }
 
     suspend fun refreshModelList() = withContext(Dispatchers.IO) {
@@ -186,37 +218,6 @@ class ModelManager @Inject constructor(
                 )
             }
         }
-    }
-    private fun getAdditionalFiles(modelId: String): List<AdditionalFile> = when (modelId) {
-        Constants.MANGA_OCR_MODEL_ID -> listOf(
-            AdditionalFile(
-                fileName = Constants.OCR_DECODER_MODEL,
-                url = "https://huggingface.co/l0wgear/manga-ocr-2025-onnx/resolve/main/decoder_model.onnx",
-                checksum = "6b1fb216d542c4b2a4fa5b9d7ae3522081eb85fb959d2cecd28055af956a8a5e",
-                size = 118_053_454L
-            ),
-            AdditionalFile(
-                fileName = Constants.OCR_VOCAB_FILE,
-                url = "https://huggingface.co/l0wgear/manga-ocr-2025-onnx/resolve/main/vocab.txt",
-                checksum = "",
-                size = 24_072L
-            )
-        )
-        Constants.OPUS_MT_MODEL_ID -> listOf(
-            AdditionalFile(
-                fileName = Constants.OPUS_MT_DECODER_MODEL,
-                url = "https://huggingface.co/Xenova/opus-mt-ja-en/resolve/main/onnx/decoder_with_past_model_quantized.onnx",
-                checksum = "f03825137d2888d654777c9011ff043fe8cd213539c62d054054ae8c7fcee70c",
-                size = 54_359_578L
-            ),
-            AdditionalFile(
-                fileName = Constants.OPUS_MT_TOKENIZER,
-                url = "https://huggingface.co/Xenova/opus-mt-ja-en/resolve/main/tokenizer.json",
-                checksum = "770ff2855437cf44f1f110550c5a9dca773253a167aeac36076b2073d259aa3b",
-                size = 5_991_485L
-            )
-        )
-        else -> emptyList()
     }
     private fun getModelDir(type: ModelType): File = when (type) {
         ModelType.VISION -> File(context.filesDir, "${Constants.MODELS_DIR}/${Constants.VISION_MODELS_DIR}")
@@ -249,7 +250,7 @@ class ModelManager @Inject constructor(
         }
 
         val model = modelDao.getModelById(modelId) ?: return@withContext false
-        val additionalFiles = getAdditionalFiles(model.id)
+        val additionalFiles = additionalFiles(model.id)
         val totalRequiredBytes = model.fileSize + additionalFiles.sumOf { it.size }
 
         if (!hasEnoughSpace(totalRequiredBytes)) {
@@ -442,7 +443,7 @@ class ModelManager @Inject constructor(
 
     private fun modelFiles(model: ModelEntity): List<File> {
         val modelDir = getModelDir(model.type)
-        return listOf(File(modelDir, model.fileName)) + getAdditionalFiles(model.id).map { File(modelDir, it.fileName) }
+        return listOf(File(modelDir, model.fileName)) + additionalFiles(model.id).map { File(modelDir, it.fileName) }
     }
 
     fun getModelFile(model: ModelEntity): File? {
