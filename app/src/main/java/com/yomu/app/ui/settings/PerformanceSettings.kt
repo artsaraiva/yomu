@@ -39,15 +39,16 @@ private fun ResourceReadoutPanel(readout: ResourceReadout?) {
     PaperSurface(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Right now", style = MaterialTheme.typography.titleSmall)
+            // No early return here: leaving a composable lambda mid-group unbalances the Compose group stack on recompose.
             if (readout == null) {
                 Text("Measuring…", style = MaterialTheme.typography.bodySmall)
-                return@Column
+            } else {
+                ReadoutRow("App memory", "${bytes(readout.appPssBytes)} (PSS)")
+                ReadoutRow("Native heap", bytes(readout.nativeHeapBytes))
+                ReadoutRow("Phone memory free", "${bytes(readout.deviceAvailableBytes)} of ${bytes(readout.deviceTotalBytes)}")
+                ReadoutRow("CPU", readout.cpuPercent?.let { "$it% of all cores" } ?: "Measuring…")
+                ReadoutRow("Model time, last page", readout.lastPageMs?.let { "$it ms" } ?: "No page translated yet")
             }
-            ReadoutRow("App memory", "${bytes(readout.appPssBytes)} (PSS)")
-            ReadoutRow("Native heap", bytes(readout.nativeHeapBytes))
-            ReadoutRow("Phone memory free", "${bytes(readout.deviceAvailableBytes)} of ${bytes(readout.deviceTotalBytes)}")
-            ReadoutRow("CPU", readout.cpuPercent?.let { "$it% of all cores" } ?: "Measuring…")
-            ReadoutRow("Model time, last page", readout.lastPageMs?.let { "$it ms" } ?: "No page translated yet")
         }
     }
 }
