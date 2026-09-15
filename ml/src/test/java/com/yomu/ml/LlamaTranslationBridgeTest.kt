@@ -7,6 +7,8 @@ import com.yomu.core.TranslatablePage
 import com.yomu.core.TranslationPromptMode
 import com.yomu.core.TranslationStatus
 import java.io.File
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -239,6 +241,25 @@ class LlamaTranslationBridgeTest {
         assertEquals(1, native.clearMemoryCalls)
         assertEquals(1, native.releaseCalls)
         assertEquals(TranslationStatus.NotReady, slot.status)
+    }
+
+    @Test
+    fun translatePage_cancelMidGenerateAbortsNativeAndStopsThePage() = runTest {
+        val model = File.createTempFile("model", ".gguf")
+        lateinit var job: Job
+        val native = FakeLlamaBridge {
+            job.cancel()
+            GenerationResult.Blank(1L)
+        }
+        val slot = LlamaTranslationBridge(native, profile(model))
+
+        job = launch { slot.translatePage(page(1 to "こんにちは", 2 to "さようなら")) }
+        job.join()
+
+        assertTrue(job.isCancelled)
+        assertEquals(listOf(false, true), native.abortRequests)
+        assertEquals(1, native.prompts.size)
+        model.delete()
     }
 
     private fun profile(

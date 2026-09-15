@@ -34,12 +34,17 @@ import com.yomu.pipeline.TranslationPipeline
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
 import javax.inject.Inject
 import kotlin.coroutines.resume
@@ -78,8 +83,7 @@ class OverlayService : Service() {
     private var buttonPositionX: Int = 0
     private var buttonPositionY: Int = 0
 
-    @Volatile
-    private var isTranslating = false
+    private var translationJob: Job? = null
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mainScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -94,6 +98,7 @@ class OverlayService : Service() {
         const val EXTRA_FAILURE_REASON = "failure_reason"
         private const val CHANNEL_NAME = "Yomu Overlay"
         private const val CHANNEL_DESC = "Yomu translation overlay service"
+        private const val RELEASE_WAIT_MS = 2_000L
 
         fun start(context: Context) {
             val intent = Intent(context, OverlayService::class.java)
@@ -194,6 +199,11 @@ class OverlayService : Service() {
 
     override fun onDestroy() {
         sharedPreferences.unregisterOnSharedPreferenceChangeListener(preferenceListener)
+        translationJob?.let { job ->
+            // The models are freed below: let an in-flight native call take the abort first (#76).
+            job.cancel()
+            runBlocking { withTimeoutOrNull(RELEASE_WAIT_MS) { job.join() } }
+        }
         removeQuickSettingsPopup()
         removeFloatingButton()
         closeZoneOverlay.remove()
@@ -244,7 +254,13 @@ class OverlayService : Service() {
         floatingButton = floatingButtonOverlay.show(
             initialX = savedX,
             initialY = savedY,
-            onTap = { startTranslation() },
+            onTap = {
+                if (floatingButton?.currentState == FloatingButtonView.State.TRANSLATING) {
+                    cancelTranslation()
+                } else {
+                    startTranslation()
+                }
+            },
             onDragEnd = { x, y -> persistButtonPosition(x, y) },
             onLongPress = { showQuickSettings() },
             onClose = { stopSelf() }
@@ -282,22 +298,30 @@ class OverlayService : Service() {
         quickSettingsPopup = null
     }
 
+    private fun cancelTranslation() {
+        translationJob?.cancel()
+        translationRenderOverlay.remove()
+        statusOverlay.remove()
+        floatingButton?.setState(FloatingButtonView.State.IDLE)
+    }
+
     private fun startTranslation() {
-        if (isTranslating) return
-        isTranslating = true
+        // A cancelled job is no longer active; the new one queues behind it on the pipeline's lock.
+        if (translationJob?.isActive == true) return
         removeQuickSettingsPopup()
         floatingButton?.setState(FloatingButtonView.State.TRANSLATING)
 
-        scope.launch {
+        translationJob = scope.launch {
+            val job = coroutineContext.job
             val statuses = modelManager.getAllModels().first().associate { it.id to it.status }
             if (!slotSelection.ready(statuses) || !readingModelFiles.all { it.exists() }) {
-                failTranslation("Download a model in Settings")
+                failTranslation(job, "Download a model in Settings")
                 return@launch
             }
 
-            updateStatus("Capturing screen")
+            updateStatus(job, "Capturing screen")
             if (!screenCaptureManager.isProjectionActive) {
-                failTranslation("No active MediaProjection")
+                failTranslation(job, "No active MediaProjection")
                 return@launch
             }
 
@@ -305,24 +329,24 @@ class OverlayService : Service() {
             val bitmap = captureBitmap()
             Log.i(TAG, "Capture result isNull=${bitmap == null}")
             if (bitmap == null) {
-                failTranslation("Capture returned no frame")
+                failTranslation(job, "Capture returned no frame")
                 return@launch
             }
 
             val callback = object : TranslationPipeline.PipelineCallback {
                 override fun onStageProgress(stage: TranslationPipeline.Stage, progress: Float) {
                     Log.i(TAG, "Pipeline progress stage=$stage progress=$progress")
-                    updateStatus(statusOverlay.messageForStage(stage))
+                    updateStatus(job, statusOverlay.messageForStage(stage))
                 }
 
                 override fun onError(stage: TranslationPipeline.Stage, message: String) {
                     Log.e(TAG, "Pipeline error stage=$stage message=$message")
-                    updateStatus("Failed: $message")
+                    updateStatus(job, "Failed: $message")
                 }
 
                 override fun onComplete(result: PipelineResult) {
                     Log.i(TAG, "Pipeline complete bubbles=${result.typesetBubbles.size} timeMs=${result.totalTimeMs}")
-                    updateStatus("Drawing translation")
+                    updateStatus(job, "Drawing translation")
                 }
             }
 
@@ -336,7 +360,8 @@ class OverlayService : Service() {
                 )
                 ocrStates.add(state)
                 mainScope.launch {
-                    translationRenderOverlay.showOcrBubbles(ocrStates, bitmap.width, bitmap.height)
+                    // A cancel already cleared the screen; a late OCR hit must not redraw it.
+                    if (job.isActive) translationRenderOverlay.showOcrBubbles(ocrStates, bitmap.width, bitmap.height)
                 }
             }
 
@@ -350,7 +375,7 @@ class OverlayService : Service() {
             if (result != null && result.typesetBubbles.isNotEmpty()) {
                 saveSessionResult(session, result)
             }
-            mainScope.launch {
+            withContext(Dispatchers.Main) {
                 if (result != null) {
                     translationRenderOverlay.show(
                         result.typesetBubbles,
@@ -363,7 +388,6 @@ class OverlayService : Service() {
                     delay(1500)
                     statusOverlay.remove()
                 }
-                isTranslating = false
                 floatingButton?.setState(FloatingButtonView.State.IDLE)
             }
         }
@@ -393,14 +417,13 @@ class OverlayService : Service() {
         )
     }
 
-    private fun failTranslation(reason: String) {
+    private suspend fun failTranslation(job: Job, reason: String) {
         Log.e(TAG, reason)
-        updateStatus("Failed: $reason")
-        mainScope.launch {
+        updateStatus(job, "Failed: $reason")
+        withContext(Dispatchers.Main) {
             showTranslationFailedToast(reason)
             delay(1500)
             statusOverlay.remove()
-            isTranslating = false
             floatingButton?.setState(FloatingButtonView.State.IDLE)
         }
     }
@@ -418,9 +441,9 @@ class OverlayService : Service() {
             .apply()
     }
 
-    private fun updateStatus(message: String) {
+    private fun updateStatus(job: Job, message: String) {
         mainScope.launch {
-            statusOverlay.showOrUpdate(message)
+            if (job.isActive) statusOverlay.showOrUpdate(message)
         }
     }
 

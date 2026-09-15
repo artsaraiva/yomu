@@ -83,7 +83,10 @@ class TranslationRenderOverlay(
         }
 
         remove()
-        val params = createLayoutParams()
+        val params = createLayoutParams().apply {
+            // A live preview sits above the floating button: taking touches would swallow the cancel tap (#76).
+            flags = flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+        }
         overlayView = object : FrameLayout(context) {
             private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
             private val screenLocation = IntArray(2)
@@ -110,7 +113,6 @@ class TranslationRenderOverlay(
         }.apply {
             setWillNotDraw(false)
             setBackgroundColor(Color.TRANSPARENT)
-            setOnClickListener { remove() }
         }
 
         windowManager.addView(overlayView, params)

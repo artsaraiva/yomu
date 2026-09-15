@@ -11,6 +11,10 @@ import com.yomu.core.TranslationSlot
 import com.yomu.core.TranslationStatus
 import com.yomu.core.withinBounds
 import java.io.File
+import kotlin.coroutines.coroutineContext
+import kotlinx.coroutines.InternalCoroutinesApi
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.job
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -213,17 +217,28 @@ class LlamaTranslationBridge(
         timeoutMs: Int,
         grammar: String = ""
     ): GeneratedText = readinessMutex.withLock {
-        return@withLock when (
+        // Cancelling the page cannot interrupt the blocking JNI call, so it raises the native abort
+        // flag instead (#76). Cleared first: the handler runs at once if the job is already cancelling.
+        llamaBridge.setAbortRequested(false)
+        @OptIn(InternalCoroutinesApi::class)
+        val abortOnCancel = coroutineContext.job.invokeOnCompletion(onCancelling = true) {
+            llamaBridge.setAbortRequested(true)
+        }
+        val result = try {
             // Re-checked here, not trusted from Settings: a caller that bypasses the store must not
             // push an unsafe value into the sampler (#192).
-            val result = llamaBridge.generate(
+            llamaBridge.generate(
                 prompt,
                 profile.generation.withinBounds(),
                 maxTokens,
                 timeoutMs,
                 grammar
             )
-        ) {
+        } finally {
+            abortOnCancel.dispose()
+        }
+        coroutineContext.ensureActive()
+        return@withLock when (result) {
             is GenerationResult.Success -> {
                 val text = result.text.trim()
                 if (text.isBlank()) {

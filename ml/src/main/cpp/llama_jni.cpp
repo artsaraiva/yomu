@@ -22,6 +22,8 @@ static const llama_vocab *g_vocab = nullptr;
 static llama_sampler *g_sampler = nullptr;
 static GrammarSampler g_grammar;
 static std::atomic<int64_t> g_abort_deadline_ms{0};
+// Raised from another thread when the reader cancels the page (#76); only the Kotlin side clears it.
+static std::atomic<bool> g_abort_requested{false};
 
 // Why an empty reply was empty, read back by nativeLastStatus. The JNI used to collapse a refused
 // prompt, an aborted decode and a genuinely empty completion into "", which the batch path cannot
@@ -52,6 +54,7 @@ static int64_t now_ms() {
 }
 
 static bool abort_if_timed_out(void *) {
+    if (g_abort_requested.load(std::memory_order_relaxed)) return true;
     const int64_t deadline_ms = g_abort_deadline_ms.load(std::memory_order_relaxed);
     return deadline_ms > 0 && now_ms() > deadline_ms;
 }
@@ -321,6 +324,10 @@ Java_com_yomu_ml_LlamaBridge_nativeGenerate(
     std::vector<llama_token_data> cur;
 
     while (n_len < max_tokens) {
+        if (g_abort_requested.load(std::memory_order_relaxed)) {
+            LOGI("Generation cancelled generatedTokens=%d", n_len);
+            break;
+        }
         new_token_id = g_grammar.sample(g_ctx, g_sampler, cur, n_vocab);
 
         if (new_token_id == eos) break;
@@ -355,6 +362,11 @@ Java_com_yomu_ml_LlamaBridge_nativeGenerate(
     g_grammar.reset();
     g_abort_deadline_ms.store(0, std::memory_order_relaxed);
     return to_java_bytes(env, result);
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_yomu_ml_LlamaBridge_nativeSetAbortRequested(JNIEnv *, jobject /* this */, jboolean requested) {
+    g_abort_requested.store(requested == JNI_TRUE, std::memory_order_relaxed);
 }
 
 extern "C" JNIEXPORT jint JNICALL

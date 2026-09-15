@@ -58,11 +58,7 @@ class FloatingButtonOverlay(
         var downRawY = 0f
 
         val view = FloatingButtonView(context).apply {
-            setOnClickListener {
-                if (currentState == FloatingButtonView.State.IDLE) {
-                    onTap()
-                }
-            }
+            setOnClickListener { onTap() }
             setOnTouchListener { touchedView, event ->
                 when (event.actionMasked) {
                     MotionEvent.ACTION_DOWN -> {
