@@ -10,13 +10,9 @@ import com.yomu.app.db.entities.ModelType
 import com.yomu.app.ui.theme.*
 
 @Composable
-private fun SectionPage(section: SettingsSection, onBack: () -> Unit, content: @Composable ColumnScope.() -> Unit) =
-    SettingsPage(section.title, section.description, onBack, content)
-
-@Composable
 fun TranslationSettings(viewModel: SettingsViewModel, onBack: () -> Unit) {
     val state by viewModel.uiState.collectAsState()
-    SectionPage(SettingsSection.Translation, onBack) {
+    SettingsPage(SettingsSection.Translation.title, SettingsSection.Translation.description, onBack) {
         TranslationModelCard(
             state = state,
             onDownload = viewModel::downloadModel,
@@ -37,16 +33,17 @@ fun TranslationSettings(viewModel: SettingsViewModel, onBack: () -> Unit) {
 @Composable
 fun PipelineSettings(viewModel: SettingsViewModel, onBack: () -> Unit) {
     val state by viewModel.uiState.collectAsState()
-    SectionPage(SettingsSection.Pipeline, onBack) {
+    SettingsPage(SettingsSection.Pipeline.title, SettingsSection.Pipeline.description, onBack) {
         listOf(
             Triple(ModelType.DETECTION, "Detection", "Finds the speech bubbles on the page."),
             Triple(ModelType.OCR, "OCR", "Reads the Japanese inside each bubble.")
         ).forEach { (type, title, description) ->
-            PaperSurface(Modifier.fillMaxWidth()) {
+            val models = state.models.filter { it.type == type }
+            if (models.isNotEmpty()) PaperSurface(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(title, style = MaterialTheme.typography.titleMedium)
                     Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    state.models.filter { it.type == type }.forEach { model ->
+                    models.forEach { model ->
                         Column {
                             ModelStatusRow(
                                 model = model,
@@ -67,7 +64,7 @@ fun PipelineSettings(viewModel: SettingsViewModel, onBack: () -> Unit) {
 @Composable
 fun TypesettingSettings(viewModel: SettingsViewModel, onBack: () -> Unit) {
     val state by viewModel.uiState.collectAsState()
-    SectionPage(SettingsSection.Typesetting, onBack) {
+    SettingsPage(SettingsSection.Typesetting.title, SettingsSection.Typesetting.description, onBack) {
         PaperSurface(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp)) {
                 SettingRow("Font size", "${(state.fontSizeScale * 100).toInt()}% of the fitted size") {
@@ -89,7 +86,7 @@ fun TypesettingSettings(viewModel: SettingsViewModel, onBack: () -> Unit) {
 fun AppearanceSettings(viewModel: SettingsViewModel, onBack: () -> Unit) {
     val state by viewModel.uiState.collectAsState()
     var themeConfirmation by remember { mutableStateOf<String?>(null) }
-    SectionPage(SettingsSection.Appearance, onBack) {
+    SettingsPage(SettingsSection.Appearance.title, SettingsSection.Appearance.description, onBack) {
         PaperSurface(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp)) {
                 SettingRow("Theme", "Paper colours for the app and the overlay.") {

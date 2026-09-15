@@ -25,7 +25,7 @@ enum class SettingsSection(val route: String, val title: String, val description
 @Composable
 fun SettingsScreen(onOpen: (SettingsSection) -> Unit) {
     val context = LocalContext.current
-    val version = remember { context.packageManager.getPackageInfo(context.packageName, 0).versionName }
+    val version = remember { context.packageManager.getPackageInfo(context.packageName, 0).versionName.orEmpty() }
     SettingsPage("Settings") {
         PaperSurface(Modifier.fillMaxWidth()) {
             Column {
@@ -69,7 +69,6 @@ internal fun SettingsPage(title: String, description: String? = null, onBack: ((
     }
 }
 
-/** A labelled setting; below 600dp the control sits under the label so neither is squeezed. */
 @Composable
 internal fun SettingRow(label: String, description: String, control: @Composable () -> Unit) {
     BoxWithConstraints(Modifier.fillMaxWidth()) {
