@@ -19,7 +19,7 @@ Tap once over any manga page, in any app, and read it in English. Nothing leaves
 ## See it in action
 
 <p align="center">
-  <img src="docs/images/demo.gif" alt="Screen recording: tapping the Yomu floating button over a Japanese manga page; bubbles are detected and read, then covered with English text" width="320">
+  <img src="docs/images/demo.gif" alt="Screen recording: tapping the Yomu floating button over a Japanese manga page; bubbles are detected and read, then covered with English text" width="420">
 </p>
 
 <table>
