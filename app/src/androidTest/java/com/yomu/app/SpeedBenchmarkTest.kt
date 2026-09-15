@@ -60,6 +60,8 @@ class SpeedBenchmarkTest {
                 val llmDir = stage(Constants.LLM_MODELS_DIR, listOf(option.ggufFileName))
                 val native = LlamaBridge(context)
                 // Rebuilt per entry, on the call shape the catalog ships for it (batch or per-line).
+                // The pipeline's confidenceThreshold is never set here, so detection runs at the
+                // default, not the reader's stored value (#227).
                 val slot = LlamaTranslationBridge(native, LlmModelCatalog.profileFor(option, llmDir, GenerationParams()))
                 val pipeline = TranslationPipeline(
                     BubbleDetector(onnx),

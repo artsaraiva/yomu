@@ -62,6 +62,8 @@ class TranslationPipeline(
 
     var modelPaths: ModelPaths? = null
     var fontSizeScale: Float = 1.0f
+    /** Read at the start of every page, so a Settings change applies on the next capture (#227). */
+    @Volatile var confidenceThreshold: Float = BubbleDetector.DEFAULT_CONFIDENCE_THRESHOLD
 
     fun getCurrentStage(): Stage = currentStage
 
@@ -127,7 +129,7 @@ class TranslationPipeline(
 
             currentStage = Stage.BUBBLE_DETECTION
             callback?.onStageProgress(Stage.BUBBLE_DETECTION, 0.0f)
-            val bubbles = bubbleDetector.detect(bitmap)
+            val bubbles = bubbleDetector.detect(bitmap, confidenceThreshold)
             callback?.onStageProgress(Stage.BUBBLE_DETECTION, 0.2f)
 
             if (bubbles.isEmpty()) {

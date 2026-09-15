@@ -16,6 +16,7 @@ import android.util.Log
 import android.view.WindowManager
 import android.widget.Toast
 import com.yomu.app.capture.ScreenCaptureManager
+import com.yomu.app.detection.DetectionThresholdStore
 import com.yomu.app.overlay.CloseZoneOverlay
 import com.yomu.app.overlay.FloatingButtonView
 import com.yomu.app.overlay.FloatingButtonOverlay
@@ -70,6 +71,7 @@ class OverlayService : Service() {
                 key,
                 Constants.DEFAULT_FONT_SIZE_SCALE
             )
+            DetectionThresholdStore.KEY -> translationPipeline.confidenceThreshold = DetectionThresholdStore(preferences).load()
         }
     }
 
@@ -129,6 +131,7 @@ class OverlayService : Service() {
             Constants.PREF_FONT_SIZE_SCALE,
             Constants.DEFAULT_FONT_SIZE_SCALE
         )
+        translationPipeline.confidenceThreshold = DetectionThresholdStore(sharedPreferences).load()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {

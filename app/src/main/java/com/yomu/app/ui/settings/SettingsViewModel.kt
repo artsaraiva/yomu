@@ -3,6 +3,7 @@ package com.yomu.app.ui.settings
 import android.content.SharedPreferences
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.yomu.app.detection.DetectionThresholdStore
 import com.yomu.app.db.entities.ModelEntity
 import com.yomu.app.db.entities.ModelStatus
 import com.yomu.app.db.entities.ModelType
@@ -39,6 +40,8 @@ data class SettingsUiState(
     val downloads: Map<String, Int> = emptyMap(),
     /** The reader's global sampler profile (#192). */
     val generation: GenerationParams = GenerationParams(),
+    /** The reader's bubble confidence threshold (#227). */
+    val detectionThreshold: Float = DetectionThresholdStore.DEFAULT,
     /** One message naming every stored value that was recovered to its default, or null. */
     val recoveryWarning: String? = null
 ) {
@@ -56,6 +59,8 @@ class SettingsViewModel @Inject constructor(
     private val modelManager: ModelManager
 ) : ViewModel() {
 
+    private val detectionThresholdStore = DetectionThresholdStore(sharedPreferences)
+
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
@@ -70,7 +75,8 @@ class SettingsViewModel @Inject constructor(
             deliverables = ModelType.entries.associateWith(slotSelection::deliverables),
             deviceTotalMemBytes = modelManager.deviceTotalMemBytes(),
             fontSizeScale = sharedPreferences.getFloat(Constants.PREF_FONT_SIZE_SCALE, Constants.DEFAULT_FONT_SIZE_SCALE),
-            theme = sharedPreferences.getString(Constants.PREF_THEME, "system") ?: "system"
+            theme = sharedPreferences.getString(Constants.PREF_THEME, "system") ?: "system",
+            detectionThreshold = detectionThresholdStore.load()
         ).withGenerationProfile().withSlots()
         // The warning is now on screen; forget the bad values so it does not return on every visit.
         if (_uiState.value.recoveryWarning != null) modelSelection.clearRecovered()
@@ -122,6 +128,16 @@ class SettingsViewModel @Inject constructor(
             modelSelection.resetGeneration()
             _uiState.value = _uiState.value.withGenerationProfile()
         }
+    }
+
+    fun setDetectionThreshold(value: Float) {
+        detectionThresholdStore.save(value)
+        _uiState.update { it.copy(detectionThreshold = detectionThresholdStore.load()) }
+    }
+
+    fun resetDetectionThreshold() {
+        detectionThresholdStore.reset()
+        _uiState.update { it.copy(detectionThreshold = detectionThresholdStore.load()) }
     }
 
     private fun SettingsUiState.withGenerationProfile(): SettingsUiState {
