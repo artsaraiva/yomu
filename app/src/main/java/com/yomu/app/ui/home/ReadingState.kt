@@ -13,9 +13,14 @@ fun resolveReadingStatus(isReady: Boolean, isServiceRunning: Boolean): ReadingSt
     else -> ReadingStatus.Off
 }
 
-fun resolveReadiness(models: Map<String, ModelStatus>, hasOverlayPermission: Boolean): Readiness {
+fun resolveReadiness(
+    models: Map<String, ModelStatus>,
+    translationModelId: String,
+    hasOverlayPermission: Boolean
+): Readiness {
     val modelsReady = models[Constants.BUBBLE_DETECTION_MODEL_ID] == ModelStatus.READY &&
-        models[Constants.MANGA_OCR_MODEL_ID] == ModelStatus.READY
+        models[Constants.MANGA_OCR_MODEL_ID] == ModelStatus.READY &&
+        models[translationModelId] == ModelStatus.READY
     return when {
         modelsReady && hasOverlayPermission -> Readiness.Ready
         modelsReady -> Readiness.NeedsPermission

@@ -2,7 +2,6 @@ package com.yomu.app.translation
 
 import android.content.SharedPreferences
 import android.util.Log
-import com.yomu.core.Constants
 import com.yomu.core.ModelProfile
 import com.yomu.core.TranslationPromptMode
 import com.yomu.core.TranslationStatus
@@ -10,7 +9,6 @@ import com.yomu.ml.GenerationResult
 import com.yomu.core.GenerationParams
 import com.yomu.ml.LlamaBridge
 import com.yomu.ml.LlamaTranslationBridge
-import com.yomu.ml.opusmt.OpusMtTranslationBridge
 import com.yomu.pipeline.context.ConversationBlock
 import com.yomu.pipeline.ocr.OcrResult
 import com.yomu.pipeline.translation.TranslationEngine
@@ -28,15 +26,10 @@ class SelectedTranslationEngineTest {
     )
     private val prefs = Mockito.mock(SharedPreferences::class.java)
 
-    private fun engine(selected: String = "llm"): TranslationEngine {
-        Mockito.`when`(prefs.getString(Constants.PREF_TRANSLATION_ENGINE, null)).thenReturn(selected)
+    private fun engine(): TranslationEngine {
         Mockito.`when`(native.isNativeAvailable).thenReturn(true)
         Mockito.`when`(native.isModelLoaded).thenReturn(true)
-        val selection = EngineSelection(
-            Mockito.mock(MlKitTranslationBridge::class.java),
-            Mockito.mock(OpusMtTranslationBridge::class.java),
-            llm, prefs
-        )
+        val selection = TranslationModelSelection(llm, prefs)
         return TranslationEngine(selection::current, selection::close)
     }
 
@@ -80,9 +73,9 @@ class SelectedTranslationEngineTest {
     }
 
     @Test
-    fun `engine teardown releases native weights even when LLM is inactive`() = runTest {
+    fun `engine teardown releases native weights`() = runTest {
         Mockito.mockStatic(Log::class.java).use {
-            val engine = engine("ml_kit")
+            val engine = engine()
             assertTrue(llm.ensureReady())
 
             engine.close()

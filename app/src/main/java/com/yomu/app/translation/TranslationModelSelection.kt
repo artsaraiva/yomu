@@ -5,29 +5,20 @@ import com.yomu.core.Constants
 import com.yomu.core.GenerationBound
 import com.yomu.core.TranslationSlot
 import com.yomu.ml.LlamaTranslationBridge
-import com.yomu.ml.opusmt.OpusMtTranslationBridge
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/** Which curated LLM fills the translation slot, and the generation profile it runs with (ADR-0016). */
 @Singleton
-class EngineSelection @Inject constructor(
-    private val mlKitSlot: MlKitTranslationBridge,
-    private val opusMtSlot: OpusMtTranslationBridge,
+class TranslationModelSelection @Inject constructor(
     private val llamaSlot: LlamaTranslationBridge,
     private val sharedPreferences: SharedPreferences,
     private val llmModelsDir: File = File("")
 ) {
     private val generationStore = GenerationProfileStore(sharedPreferences)
-    private var selectedEngine: TranslationEngineType = loadEngine()
 
-    fun current(): TranslationSlot = when (selectedEngine) {
-        TranslationEngineType.ML_KIT -> mlKitSlot
-        TranslationEngineType.OPUS_MT -> opusMtSlot
-        TranslationEngineType.LLM -> llamaSlot
-    }
-
-    fun currentEngine(): TranslationEngineType = selectedEngine
+    fun current(): TranslationSlot = llamaSlot
 
     fun currentLlmModel(): LlmModelOption = LlmModelCatalog.selectedOrDefault(sharedPreferences.storedLlmModelId())
 
@@ -68,21 +59,7 @@ class EngineSelection @Inject constructor(
         llamaSlot.selectModel(LlmModelCatalog.profileFor(option, llmModelsDir, generationStore.load().params))
     }
 
-    fun selectEngine(type: TranslationEngineType) {
-        if (type == selectedEngine) return
-        current().endSession()
-        selectedEngine = type
-        sharedPreferences.edit().putString(Constants.PREF_TRANSLATION_ENGINE, type.id).apply()
-    }
-
     fun close() {
-        mlKitSlot.close()
-        opusMtSlot.close()
         llamaSlot.close()
-    }
-
-    private fun loadEngine(): TranslationEngineType {
-        val savedId = sharedPreferences.getString(Constants.PREF_TRANSLATION_ENGINE, null)
-        return savedId?.let { TranslationEngineType.fromId(it) } ?: TranslationEngineType.ML_KIT
     }
 }

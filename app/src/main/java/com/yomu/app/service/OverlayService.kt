@@ -24,8 +24,6 @@ import com.yomu.app.overlay.OverlayBubbleState
 import com.yomu.app.overlay.QuickSettingsPopup
 import com.yomu.app.overlay.TranslationRenderOverlay
 import com.yomu.app.overlay.TranslationStatusOverlay
-import com.yomu.app.translation.EngineSelection
-import com.yomu.app.translation.TranslationEngineType
 import com.yomu.app.db.entities.TranslationSessionEntity
 import com.yomu.core.Constants
 import com.yomu.pipeline.ModelPaths
@@ -50,7 +48,6 @@ class OverlayService : Service() {
     @Inject lateinit var translationPipeline: TranslationPipeline
     @Inject lateinit var sharedPreferences: SharedPreferences
     @Inject lateinit var sessionManager: SessionManager
-    @Inject lateinit var translationEngineSelector: EngineSelection
 
     private lateinit var windowManager: WindowManager
     private lateinit var closeZoneOverlay: CloseZoneOverlay
@@ -255,17 +252,12 @@ class OverlayService : Service() {
         val popup = QuickSettingsPopup(
             context = this,
             windowManager = windowManager,
-            onEngineSelected = { type ->
-                translationEngineSelector.selectEngine(type)
-                quickSettingsPopup?.updateEngineSelection(type)
-            },
             onFontSizeChanged = { scale ->
                 sharedPreferences.edit().putFloat(Constants.PREF_FONT_SIZE_SCALE, scale).apply()
             },
             onStopRequested = { stopSelf() }
         )
         quickSettingsPopup = popup
-        popup.updateEngineSelection(translationEngineSelector.currentEngine())
         popup.updateFontSizeScale(
             sharedPreferences.getFloat(Constants.PREF_FONT_SIZE_SCALE, Constants.DEFAULT_FONT_SIZE_SCALE)
         )

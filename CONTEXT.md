@@ -22,17 +22,13 @@ _Avoid_: model variant, build, quant entry, artefact
 The RAM a deliverable must fit inside to be offered on a given device — its file size plus a fixed resident-overhead estimate, against a fraction of the device's total memory. Estimated from measurement, never from parsing a file Yomu has not downloaded.
 _Avoid_: RAM gate, memory limit, device tier
 
-**Floor engine**:
-A translation engine that can only be asked one bubble at a time and so cannot run the page-level context architecture — OPUS-MT and ML Kit. This is a prompt-shape floor, unrelated to the low-storage model option or a device's hardware floor.
-_Avoid_: fallback engine, legacy engine, secondary model
-
 **Model family**:
 The set of deliverables that are the same model at different quantizations. Grouped only so device fit can offer the largest one that fits; a family is never itself selectable.
 _Avoid_: quant matrix, model group, variant set
 
 **Translation slot**:
-The selected component that accepts one geometry-free page and owns every model-specific translation decision. Exactly one floor engine or LLM adapter fills it at a time.
-_Avoid_: translation bridge, selected engine wrapper
+The selected component that accepts one geometry-free page and owns every model-specific translation decision. Exactly one LLM deliverable fills it at a time; there is no non-LLM translator (ADR-0016).
+_Avoid_: translation bridge, selected engine wrapper, translation engine
 
 ### Translation context
 

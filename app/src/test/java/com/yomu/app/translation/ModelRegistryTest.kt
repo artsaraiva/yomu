@@ -41,8 +41,8 @@ class ModelRegistryTest {
     }
 
     @Test
-    fun `the ML Kit sentinel is the only non-http download url`() {
+    fun `every row downloads over http`() {
         val nonHttp = registry.map { it.downloadUrl }.filterNot { it.startsWith("http") }
-        assertEquals(listOf("google-mlkit-translate-ja-en"), nonHttp)
+        assertTrue("non-http urls: $nonHttp", nonHttp.isEmpty())
     }
 }

@@ -8,8 +8,8 @@ import com.yomu.core.TranslationPromptMode
 import java.io.File
 
 /**
- * One curated LLM the user may put in the translation slot under [TranslationEngineType.LLM]
- * (ADR-0009). The catalog is the single source of truth linking a persisted model id to the GGUF
+ * One curated LLM the user may put in the translation slot (ADR-0009, ADR-0016). The catalog
+ * is the single source of truth linking a persisted model id to the GGUF
  * that drives [com.yomu.ml.LlamaTranslationBridge] and to its per-model [idKeyedBatch] capability
  * (#84) — killing the old hardcoded 0.8b path.
  */

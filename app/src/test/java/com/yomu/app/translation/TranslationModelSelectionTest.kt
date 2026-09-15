@@ -8,7 +8,6 @@ import com.yomu.core.ModelProfile
 import com.yomu.core.TranslationPromptMode
 import com.yomu.core.TranslationSlot
 import com.yomu.ml.LlamaTranslationBridge
-import com.yomu.ml.opusmt.OpusMtTranslationBridge
 import java.io.File
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -19,65 +18,37 @@ import org.junit.Test
 import org.mockito.ArgumentMatchers.anyString
 import org.mockito.Mockito
 
-class EngineSelectionTest {
+class TranslationModelSelectionTest {
 
     @Test
     fun `selection is not a translation slot`() {
-        assertFalse(TranslationSlot::class.java.isAssignableFrom(EngineSelection::class.java))
+        assertFalse(TranslationSlot::class.java.isAssignableFrom(TranslationModelSelection::class.java))
     }
 
     @Test
-    fun `fromId defaults to ML Kit for unknown values`() {
-        assertEquals(TranslationEngineType.ML_KIT, TranslationEngineType.fromId("nonexistent"))
-        assertEquals(TranslationEngineType.ML_KIT, TranslationEngineType.fromId(""))
-    }
-
-    @Test
-    fun `current returns the selected slot`() {
-        val mlKit = Mockito.mock(MlKitTranslationBridge::class.java)
-        val opus = Mockito.mock(OpusMtTranslationBridge::class.java)
+    fun `current returns the LLM slot`() {
         val llama = Mockito.mock(LlamaTranslationBridge::class.java)
 
-        assertSame(mlKit, selection("ml_kit", mlKit, opus, llama).current())
-        assertSame(opus, selection("opus_mt", mlKit, opus, llama).current())
-        assertSame(llama, selection("llm", mlKit, opus, llama).current())
-    }
-
-    @Test
-    fun `selectEngine ends the old session and persists the new engine`() {
-        val editor = editor()
-        val prefs = prefsWithEngine("ml_kit", editor)
-        val mlKit = Mockito.mock(MlKitTranslationBridge::class.java)
-        val selection = EngineSelection(
-            mlKit,
-            Mockito.mock(OpusMtTranslationBridge::class.java),
-            Mockito.mock(LlamaTranslationBridge::class.java),
-            prefs
-        )
-
-        selection.selectEngine(TranslationEngineType.OPUS_MT)
-
-        assertEquals(TranslationEngineType.OPUS_MT, selection.currentEngine())
-        Mockito.verify(mlKit).endSession()
-        Mockito.verify(editor).putString(Constants.PREF_TRANSLATION_ENGINE, "opus_mt")
-        Mockito.verify(editor).apply()
+        assertSame(llama, selection(llama = llama).current())
     }
 
     @Test
     fun `currentLlmModel defaults when nothing is picked`() {
-        val prefs = prefsWithEngine("llm")
+        val prefs = Mockito.mock(SharedPreferences::class.java)
         Mockito.`when`(prefs.getString(Constants.PREF_LLM_MODEL, null))
             .thenReturn(null)
 
-        assertSame(LlmModelCatalog.DEFAULT, selection("llm", prefs = prefs).currentLlmModel())
+        assertSame(LlmModelCatalog.DEFAULT, selection(prefs = prefs).currentLlmModel())
     }
 
     @Test
     fun `selectLlmModel persists and applies the catalog profile`() = runTest {
         val editor = editor()
-        val prefs = prefsWithEngine("llm", editor)
+        val prefs = Mockito.mock(SharedPreferences::class.java).also {
+            Mockito.`when`(it.edit()).thenReturn(editor)
+        }
         val llama = Mockito.mock(LlamaTranslationBridge::class.java)
-        val selection = selection("llm", llama = llama, prefs = prefs)
+        val selection = selection(llama = llama, prefs = prefs)
         val option = LlmModelCatalog.fromId(Constants.CAT_TRANSLATION_MODEL_ID)!!
 
         selection.selectLlmModel(option)
@@ -91,9 +62,8 @@ class EngineSelectionTest {
 
     @Test
     fun `selectLlmModel carries the stored profile and leaves it stored`() = runTest {
-        val prefs = MapSharedPreferences()
         val llama = Mockito.mock(LlamaTranslationBridge::class.java)
-        val selection = EngineSelection(mlKit(), opus(), llama, prefs, File("models"))
+        val selection = selection(llama = llama)
         selection.saveGeneration(GenerationBound.TOP_K, 12f)
         Mockito.clearInvocations(llama)
 
@@ -108,7 +78,7 @@ class EngineSelectionTest {
     @Test
     fun `saveGeneration applies an accepted value to the slot and refuses a bad one`() = runTest {
         val llama = Mockito.mock(LlamaTranslationBridge::class.java)
-        val selection = EngineSelection(mlKit(), opus(), llama, MapSharedPreferences(), File("models"))
+        val selection = selection(llama = llama)
 
         assertTrue(selection.saveGeneration(GenerationBound.TEMPERATURE, 0.5f))
         assertFalse(selection.saveGeneration(GenerationBound.TEMPERATURE, 2f))
@@ -121,7 +91,7 @@ class EngineSelectionTest {
     @Test
     fun `resetGeneration restores and applies the shipped profile`() = runTest {
         val llama = Mockito.mock(LlamaTranslationBridge::class.java)
-        val selection = EngineSelection(mlKit(), opus(), llama, MapSharedPreferences(), File("models"))
+        val selection = selection(llama = llama)
         selection.saveGeneration(GenerationBound.TOP_P, 0.5f)
 
         selection.resetGeneration()
@@ -134,17 +104,17 @@ class EngineSelectionTest {
     @Test
     fun `an unknown stored model id recovers to the default and is reported`() {
         val prefs = MapSharedPreferences().apply { values[Constants.PREF_LLM_MODEL] = "retired-model" }
-        val selection = EngineSelection(mlKit(), opus(), Mockito.mock(LlamaTranslationBridge::class.java), prefs)
+        val selection = selection(prefs = prefs)
 
         assertSame(LlmModelCatalog.DEFAULT, selection.currentLlmModel())
         assertTrue(selection.storedLlmModelRecovered())
-        assertFalse(EngineSelection(mlKit(), opus(), Mockito.mock(LlamaTranslationBridge::class.java), MapSharedPreferences()).storedLlmModelRecovered())
+        assertFalse(selection().storedLlmModelRecovered())
     }
 
     @Test
     fun `a wrongly typed stored model id recovers to the default and is reported`() {
         val prefs = MapSharedPreferences().apply { values[Constants.PREF_LLM_MODEL] = 42 }
-        val selection = EngineSelection(mlKit(), opus(), Mockito.mock(LlamaTranslationBridge::class.java), prefs)
+        val selection = selection(prefs = prefs)
 
         assertSame(LlmModelCatalog.DEFAULT, selection.currentLlmModel())
         assertTrue(selection.storedLlmModelRecovered())
@@ -157,7 +127,7 @@ class EngineSelectionTest {
             values[GenerationProfileStore.key(GenerationBound.TOP_K)] = 500f
             values[GenerationProfileStore.key(GenerationBound.TOP_P)] = 0.5f
         }
-        val selection = EngineSelection(mlKit(), opus(), Mockito.mock(LlamaTranslationBridge::class.java), prefs)
+        val selection = selection(prefs = prefs)
 
         selection.clearRecovered()
 
@@ -165,39 +135,19 @@ class EngineSelectionTest {
         assertEquals(GenerationProfileStore.Loaded(GenerationParams(topP = 0.5f), emptyList()), selection.generationProfile())
     }
 
-    private fun mlKit() = Mockito.mock(MlKitTranslationBridge::class.java)
-    private fun opus() = Mockito.mock(OpusMtTranslationBridge::class.java)
-
     @Test
-    fun `close closes all slots`() {
-        val mlKit = Mockito.mock(MlKitTranslationBridge::class.java)
-        val opus = Mockito.mock(OpusMtTranslationBridge::class.java)
+    fun `close closes the slot`() {
         val llama = Mockito.mock(LlamaTranslationBridge::class.java)
-        val selection = selection("ml_kit", mlKit, opus, llama)
 
-        selection.close()
+        selection(llama = llama).close()
 
-        Mockito.verify(mlKit).close()
-        Mockito.verify(opus).close()
         Mockito.verify(llama).close()
     }
 
     private fun selection(
-        engine: String,
-        mlKit: MlKitTranslationBridge = Mockito.mock(MlKitTranslationBridge::class.java),
-        opus: OpusMtTranslationBridge = Mockito.mock(OpusMtTranslationBridge::class.java),
         llama: LlamaTranslationBridge = Mockito.mock(LlamaTranslationBridge::class.java),
-        prefs: SharedPreferences = prefsWithEngine(engine)
-    ): EngineSelection = EngineSelection(mlKit, opus, llama, prefs, File("models"))
-
-    private fun prefsWithEngine(
-        engineId: String,
-        editor: SharedPreferences.Editor? = null
-    ): SharedPreferences = Mockito.mock(SharedPreferences::class.java).also { prefs ->
-        Mockito.`when`(prefs.getString(Constants.PREF_TRANSLATION_ENGINE, null))
-            .thenReturn(engineId)
-        editor?.let { Mockito.`when`(prefs.edit()).thenReturn(it) }
-    }
+        prefs: SharedPreferences = MapSharedPreferences()
+    ): TranslationModelSelection = TranslationModelSelection(llama, prefs, File("models"))
 
     private fun editor(): SharedPreferences.Editor =
         Mockito.mock(SharedPreferences.Editor::class.java).also { editor ->

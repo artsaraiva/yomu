@@ -3,10 +3,6 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.StatFs
-import com.google.mlkit.common.model.DownloadConditions
-import com.google.mlkit.nl.translate.TranslateLanguage
-import com.google.mlkit.nl.translate.Translation
-import com.google.mlkit.nl.translate.TranslatorOptions
 import com.yomu.app.db.ModelDao
 import com.yomu.app.db.entities.ModelEntity
 import com.yomu.app.db.entities.ModelStatus
@@ -17,11 +13,9 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.ensureActive
-import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
@@ -64,8 +58,6 @@ class ModelManager @Inject constructor(
     suspend fun getModelsByType(type: ModelType): List<ModelEntity> = modelDao.getModelsByType(type.name)
 
     companion object {
-        private const val ML_KIT_DOWNLOAD_TIMEOUT_MS = 120_000L
-
         /** Every model Yomu ships. [refreshModelList] upserts these rows; plain data so JVM tests can read it. */
         internal val REGISTRY = listOf(
             ModelEntity(
@@ -91,34 +83,6 @@ class ModelManager @Inject constructor(
                 status = ModelStatus.AVAILABLE,
                 version = "1.0",
                 isRequired = true
-            ),
-            ModelEntity(
-                id = Constants.ML_KIT_JA_EN_MODEL_ID,
-                name = "ML Kit Japanese → English",
-                type = ModelType.TRANSLATION,
-                fileName = "mlkit-ja-en",
-                fileSize = 30_000_000L,
-                downloadUrl = "google-mlkit-translate-ja-en",
-                checksum = "",
-                status = ModelStatus.AVAILABLE,
-                version = "1.0",
-                isRequired = false
-            ),
-            // OPUS-MT had a bridge, a DI module, a selector branch and Settings copy recommending
-            // it, but no entry here - so the weights had no route onto the device and the engine
-            // could only ever report load_failed. Encoder is the primary file; decoder and
-            // tokenizer come through additionalFiles, same shape as MangaOCR.
-            ModelEntity(
-                id = Constants.OPUS_MT_MODEL_ID,
-                name = "OPUS-MT Japanese → English (INT8)",
-                type = ModelType.TRANSLATION,
-                fileName = Constants.OPUS_MT_ENCODER_MODEL,
-                fileSize = 50_705_822L,
-                downloadUrl = "https://huggingface.co/Xenova/opus-mt-ja-en/resolve/1a906cfaaf7c8f4193f67f5885c082aa6dbd9d16/onnx/encoder_model_quantized.onnx",
-                checksum = "345262b16bcdda1468b0f3380c112b7ce79f731176b4b1d21f6edd5b2ae0d25c",
-                status = ModelStatus.AVAILABLE,
-                version = "1.0",
-                isRequired = false
             ),
             ModelEntity(
                 id = Constants.CAT_TRANSLATION_MODEL_ID,
@@ -175,20 +139,6 @@ class ModelManager @Inject constructor(
                     size = 24_072L
                 )
             )
-            Constants.OPUS_MT_MODEL_ID -> listOf(
-                AdditionalFile(
-                    fileName = Constants.OPUS_MT_DECODER_MODEL,
-                    url = "https://huggingface.co/Xenova/opus-mt-ja-en/resolve/1a906cfaaf7c8f4193f67f5885c082aa6dbd9d16/onnx/decoder_with_past_model_quantized.onnx",
-                    checksum = "f03825137d2888d654777c9011ff043fe8cd213539c62d054054ae8c7fcee70c",
-                    size = 54_359_578L
-                ),
-                AdditionalFile(
-                    fileName = Constants.OPUS_MT_TOKENIZER,
-                    url = "https://huggingface.co/Xenova/opus-mt-ja-en/resolve/1a906cfaaf7c8f4193f67f5885c082aa6dbd9d16/tokenizer.json",
-                    checksum = "770ff2855437cf44f1f110550c5a9dca773253a167aeac36076b2073d259aa3b",
-                    size = 5_991_485L
-                )
-            )
             else -> emptyList()
         }
     }
@@ -241,10 +191,6 @@ class ModelManager @Inject constructor(
         modelId: String,
         onProgress: (DownloadProgress) -> Unit = {}
     ): Boolean = withContext(Dispatchers.IO) {
-        if (modelId == Constants.ML_KIT_JA_EN_MODEL_ID) {
-            return@withContext downloadMlKitTranslationModel(modelId, onProgress)
-        }
-
         if (!isOnWifi()) {
             return@withContext false
         }
@@ -338,42 +284,6 @@ class ModelManager @Inject constructor(
         }
     }
 
-    private suspend fun downloadMlKitTranslationModel(
-        modelId: String,
-        onProgress: (DownloadProgress) -> Unit
-    ): Boolean {
-        modelDao.updateModelStatus(modelId, ModelStatus.DOWNLOADING)
-        onProgress(DownloadProgress(modelId, 0L, 30_000_000L, 0))
-        val options = TranslatorOptions.Builder()
-            .setSourceLanguage(TranslateLanguage.JAPANESE)
-            .setTargetLanguage(TranslateLanguage.ENGLISH)
-            .build()
-        val translator = Translation.getClient(options)
-        return try {
-            val ready = withTimeoutOrNull(ML_KIT_DOWNLOAD_TIMEOUT_MS) {
-                translator.downloadModelIfNeeded(DownloadConditions.Builder().build()).await()
-                true
-            } ?: false
-            if (ready) {
-                modelDao.updateDownloadProgress(modelId, 100)
-                onProgress(DownloadProgress(modelId, 30_000_000L, 30_000_000L, 100))
-                modelDao.updateModelStatus(modelId, ModelStatus.READY)
-                true
-            } else {
-                modelDao.updateModelStatus(modelId, ModelStatus.ERROR)
-                false
-            }
-        } catch (e: CancellationException) {
-            withContext(NonCancellable) { modelDao.updateModelStatus(modelId, ModelStatus.AVAILABLE) }
-            throw e
-        } catch (_: Exception) {
-            modelDao.updateModelStatus(modelId, ModelStatus.ERROR)
-            false
-        } finally {
-            translator.close()
-        }
-    }
-
     private suspend fun downloadFile(
         url: String,
         outputFile: File,
@@ -426,12 +336,6 @@ class ModelManager @Inject constructor(
     }
 
     suspend fun deleteModel(modelId: String): Boolean = withContext(Dispatchers.IO) {
-        if (modelId == Constants.ML_KIT_JA_EN_MODEL_ID) {
-            modelDao.updateModelStatus(modelId, ModelStatus.AVAILABLE)
-            modelDao.updateDownloadProgress(modelId, 0)
-            return@withContext true
-        }
-
         val model = modelDao.getModelById(modelId) ?: return@withContext false
 
         deleteFiles(modelFiles(model))
