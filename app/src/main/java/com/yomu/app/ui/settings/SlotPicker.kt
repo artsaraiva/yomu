@@ -33,6 +33,7 @@ internal fun SlotPicker(
     onDelete: (String) -> Unit
 ) {
     var open by rememberSaveable { mutableStateOf(false) }
+    var confirmDelete by rememberSaveable { mutableStateOf<String?>(null) }
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     PaperSurface(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp)) {
@@ -67,10 +68,24 @@ internal fun SlotPicker(
                     fits = fits(deliverable),
                     onPick = { onPick(deliverable.id) },
                     onCancel = { onCancel(deliverable.id) },
-                    onDelete = { onDelete(deliverable.id) }
+                    onDelete = { if (deliverable.id == selectedId) confirmDelete = deliverable.id else onDelete(deliverable.id) }
                 )
             }
         }
+    }
+    confirmDelete?.let { id ->
+        AlertDialog(
+            onDismissRequest = { confirmDelete = null },
+            title = { Text("Delete the model in use?") },
+            text = { Text("Yomu can't translate or read until you pick and download a model.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmDelete = null
+                    onDelete(id)
+                }) { Text("Delete") }
+            },
+            dismissButton = { TextButton(onClick = { confirmDelete = null }) { Text("Keep") } }
+        )
     }
 }
 
@@ -111,7 +126,7 @@ private fun DeliverableRow(
             }
             when {
                 progress != null -> PaperButton("Cancel", onCancel)
-                status == ModelStatus.READY -> if (!selected) PaperButton("Delete", onDelete)
+                status == ModelStatus.READY -> PaperButton("Delete", onDelete)
                 else -> PaperButton(if (status == ModelStatus.ERROR) "Retry" else "Download", onPick, enabled = fits)
             }
         }

@@ -36,6 +36,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import java.io.File
@@ -51,6 +52,7 @@ class OverlayService : Service() {
     @Inject lateinit var sessionManager: SessionManager
     @Inject lateinit var modelManager: ModelManager
     @Inject lateinit var readingSelection: ReadingModelSelection
+    @Inject lateinit var slotSelection: ModelSlotSelection
 
     private var readingModelFiles: List<File> = emptyList()
 
@@ -284,8 +286,9 @@ class OverlayService : Service() {
         floatingButton?.setState(FloatingButtonView.State.TRANSLATING)
 
         scope.launch {
-            if (!readingModelFiles.all { it.exists() }) {
-                failTranslation("Download required models in Settings first")
+            val statuses = modelManager.getAllModels().first().associate { it.id to it.status }
+            if (!slotSelection.ready(statuses) || !readingModelFiles.all { it.exists() }) {
+                failTranslation("Download a model in Settings")
                 return@launch
             }
 

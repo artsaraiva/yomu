@@ -16,7 +16,10 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.yomu.app.db.entities.ModelType
+import com.yomu.app.ui.settings.SlotPicker
 import com.yomu.app.ui.theme.*
+import com.yomu.core.toFileSizeString
 
 @Composable
 fun SetupScreen(state: HomeUiState, viewModel: HomeViewModel) {
@@ -32,15 +35,30 @@ fun SetupScreen(state: HomeUiState, viewModel: HomeViewModel) {
             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("Read in the apps you love", style = MaterialTheme.typography.titleLarge)
                 Text("Turn reading on and leave it on while you browse. Tap Yomu’s floating button whenever you want to translate a page.")
-                Text("First, connect to Wi-Fi for a one-time download. We’ll prepare the parts that read the page and the model that translates it. You can pick a different model in Settings.")
+                Text("First, download the models that read and translate the page. The defaults suit most devices; tap a model to pick another.")
             }
+        }
+        if (!state.setupStarted || state.setupError) {
+            SetupSlot(state, viewModel, ModelType.DETECTION, "Detection", "Finds the speech bubbles on the page.")
+            SetupSlot(state, viewModel, ModelType.OCR, "OCR", "Reads the Japanese inside each bubble.")
+            SetupSlot(state, viewModel, ModelType.LLM, "Translation", "The on-device model that translates each bubble.")
         }
         when {
             state.setupError -> PaperError(
                 "Setup couldn't finish. Check Wi-Fi and available storage, then try again. Completed downloads are kept.",
                 viewModel::prepareSetup
             )
-            !state.setupStarted -> PaperButton("Set up on this device", viewModel::prepareSetup, Modifier.fillMaxWidth())
+            !state.setupStarted -> Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    if (state.setupDownloadBytes > 0) "Download size: ${state.setupDownloadBytes.toFileSizeString()}"
+                    else "Every chosen model is already downloaded.",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                if (!state.onWifi) {
+                    Text("You're not on Wi-Fi. Connect to Wi-Fi to download.", color = MaterialTheme.colorScheme.error)
+                }
+                PaperButton("Download", viewModel::prepareSetup, Modifier.fillMaxWidth(), enabled = state.everySlotChosen)
+            }
             !state.setupDownloadsReady -> PaperSurface(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(20.dp).semantics { liveRegion = LiveRegionMode.Polite }, verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(state.downloading ?: "Preparing reading…", style = MaterialTheme.typography.titleMedium)
@@ -72,4 +90,21 @@ fun SetupScreen(state: HomeUiState, viewModel: HomeViewModel) {
         }
         TextButton(colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface), onClick = viewModel::dismissSetup) { Text("Back to Home") }
     }
+}
+
+@Composable
+private fun SetupSlot(state: HomeUiState, viewModel: HomeViewModel, type: ModelType, title: String, description: String) {
+    SlotPicker(
+        title = title,
+        description = description,
+        deliverables = state.deliverables[type].orEmpty(),
+        selectedId = state.selectedIds[type],
+        pendingId = state.pendingIds[type],
+        statuses = state.models.associate { it.id to it.status },
+        downloads = emptyMap(),
+        fits = state::fits,
+        onPick = { viewModel.pickSetupModel(type, it) },
+        onCancel = {},
+        onDelete = viewModel::deleteModel
+    )
 }
