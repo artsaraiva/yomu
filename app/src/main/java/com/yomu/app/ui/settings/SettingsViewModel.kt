@@ -6,9 +6,11 @@ import android.content.SharedPreferences
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.yomu.app.db.entities.ModelEntity
+import com.yomu.app.db.entities.ModelStatus
+import com.yomu.app.db.entities.ModelType
 import com.yomu.app.service.ModelManager
-import com.yomu.app.translation.LlmModelCatalog
-import com.yomu.app.translation.LlmModelOption
+import com.yomu.app.service.ModelSlotSelection
+import com.yomu.app.service.SlotDeliverable
 import com.yomu.app.translation.TranslationModelSelection
 import com.yomu.core.Constants
 import com.yomu.core.GenerationBound
@@ -28,9 +30,10 @@ data class SettingsUiState(
     val translationMode: String = "local",
     val targetLanguage: String = "en",
     val sourceLanguage: String = "ja",
-    val selectedLlmModelId: String = LlmModelCatalog.DEFAULT.id,
-    val llmModels: List<LlmModelOption> = LlmModelCatalog.ALL,
-    // Total device RAM, for the per-model capability gate (part D). 0 until read.
+    val deliverables: Map<ModelType, List<SlotDeliverable>> = emptyMap(),
+    val selectedIds: Map<ModelType, String> = emptyMap(),
+    val pendingIds: Map<ModelType, String> = emptyMap(),
+    // Total device RAM, for the per-model fit budget (part D). 0 until read.
     val deviceTotalMemBytes: Long = 0L,
     val fontSizeScale: Float = Constants.DEFAULT_FONT_SIZE_SCALE,
     val theme: String = "system",
@@ -45,9 +48,7 @@ data class SettingsUiState(
     val generationOverridden: Boolean
         get() = GenerationBound.entries.any { it.read(generation) != it.default }
 
-    /** Whether the device can run [option] (part D); the default is never gated out. */
-    fun canRun(option: LlmModelOption): Boolean =
-        deviceTotalMemBytes <= 0L || LlmModelCatalog.canRunOnDevice(option, deviceTotalMemBytes)
+    fun fits(deliverable: SlotDeliverable): Boolean = ModelSlotSelection.fits(deliverable.id, deviceTotalMemBytes)
 }
 
 @HiltViewModel
@@ -55,6 +56,7 @@ class SettingsViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val sharedPreferences: SharedPreferences,
     private val modelSelection: TranslationModelSelection,
+    private val slotSelection: ModelSlotSelection,
     private val modelManager: ModelManager
 ) : ViewModel() {
 
@@ -69,11 +71,11 @@ class SettingsViewModel @Inject constructor(
             translationMode = sharedPreferences.getString(Constants.PREF_TRANSLATION_MODE, "local") ?: "local",
             targetLanguage = sharedPreferences.getString(Constants.PREF_TARGET_LANGUAGE, "en") ?: "en",
             sourceLanguage = sharedPreferences.getString(Constants.PREF_SOURCE_LANGUAGE, "ja") ?: "ja",
-            selectedLlmModelId = modelSelection.currentLlmModel().id,
+            deliverables = ModelType.entries.associateWith(slotSelection::deliverables),
             deviceTotalMemBytes = deviceTotalMemBytes(),
             fontSizeScale = sharedPreferences.getFloat(Constants.PREF_FONT_SIZE_SCALE, Constants.DEFAULT_FONT_SIZE_SCALE),
             theme = sharedPreferences.getString(Constants.PREF_THEME, "system") ?: "system"
-        ).withGenerationProfile()
+        ).withGenerationProfile().withSlots()
         // The warning is now on screen; forget the bad values so it does not return on every visit.
         if (_uiState.value.recoveryWarning != null) modelSelection.clearRecovered()
 
@@ -83,7 +85,8 @@ class SettingsViewModel @Inject constructor(
 
         viewModelScope.launch {
             modelManager.getAllModels().collect { models ->
-                _uiState.value = _uiState.value.copy(models = models)
+                slotSelection.commitPending(models.associate { it.id to it.status })
+                _uiState.update { it.copy(models = models).withSlots() }
             }
         }
     }
@@ -99,16 +102,19 @@ class SettingsViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(translationMode = mode)
     }
 
-    /** Pick which curated LLM fills the translation slot (#90 part A). Entries that won't fit the device are ignored. */
-    fun setLlmModel(option: LlmModelOption) {
-        if (!_uiState.value.canRun(option)) return
-        // Off the main thread: selectLlmModel waits out any in-flight generation before swapping the
+    /**
+     * Pick the curated model for [type]. A downloaded one takes over at once; any other starts downloading and takes
+     * over when it is READY. Models outside the fit budget are ignored.
+     */
+    fun pickModel(type: ModelType, id: String) {
+        // Off the main thread: committing a translation model waits out any in-flight generation before swapping the
         // native model, which can take up to a batch timeout.
         viewModelScope.launch {
-            modelSelection.selectLlmModel(option)
-            _uiState.value = _uiState.value.copy(
-                selectedLlmModelId = modelSelection.currentLlmModel().id
-            )
+            val state = _uiState.value
+            val status = state.models.find { it.id == id }?.status
+            if (!slotSelection.pick(type, id, status, state.deviceTotalMemBytes)) return@launch
+            _uiState.update { it.withSlots() }
+            if (status != ModelStatus.READY) downloadModel(id)
         }
     }
 
@@ -138,6 +144,11 @@ class SettingsViewModel @Inject constructor(
         )
     }
 
+    private fun SettingsUiState.withSlots(): SettingsUiState = copy(
+        selectedIds = ModelType.entries.associateWith(slotSelection::selectedId),
+        pendingIds = ModelType.entries.mapNotNull { type -> slotSelection.pendingId(type)?.let { type to it } }.toMap()
+    )
+
     private fun deviceTotalMemBytes(): Long {
         val am = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager ?: return 0L
         return ActivityManager.MemoryInfo().also { am.getMemoryInfo(it) }.totalMem
@@ -166,7 +177,10 @@ class SettingsViewModel @Inject constructor(
         job.start()
     }
 
+    /** Cancelling a download also abandons the pending choice waiting on it. */
     fun cancelDownload(modelId: String) {
+        slotSelection.dropPending(modelId)
+        _uiState.update { it.withSlots() }
         downloadJobs[modelId]?.cancel()
     }
 
