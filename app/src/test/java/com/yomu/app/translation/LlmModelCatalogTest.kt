@@ -14,7 +14,12 @@ class LlmModelCatalogTest {
 
     private val eightGb = 8L * 1024 * 1024 * 1024
     private val fourGb = 4L * 1024 * 1024 * 1024
-    private val budget = LlmModelCatalog.DEFAULT_FIT_BUDGET_PERCENT
+
+    private fun fit(
+        totalMemBytes: Long,
+        percent: Int = LlmModelCatalog.DEFAULT_FIT_BUDGET_PERCENT,
+        contextTokens: Int = RuntimeLimits.DEFAULT_CONTEXT_TOKENS
+    ) = FitBudget(totalMemBytes, percent, contextTokens)
 
     @Test
     fun `default is Qwen2_5 1_5B`() {
@@ -53,28 +58,41 @@ class LlmModelCatalogTest {
 
     @Test
     fun `default is never gated out even on a tiny device`() {
-        assertTrue(LlmModelCatalog.canRunOnDevice(LlmModelCatalog.DEFAULT, totalMemBytes = 1L, fitBudgetPercent = 30))
+        assertTrue(LlmModelCatalog.canRunOnDevice(LlmModelCatalog.DEFAULT, fit(1L, percent = 30)))
     }
 
     @Test
     fun `a lower fit budget gates out a model the default budget offers`() {
         val model = LlmModelCatalog.fromId(Constants.CAT_TRANSLATION_14B_MODEL_ID)!!
 
-        assertTrue(LlmModelCatalog.canRunOnDevice(model, fourGb, budget))
-        assertFalse(LlmModelCatalog.canRunOnDevice(model, fourGb, fitBudgetPercent = 30))
+        assertTrue(LlmModelCatalog.canRunOnDevice(model, fit(fourGb)))
+        assertFalse(LlmModelCatalog.canRunOnDevice(model, fit(fourGb, percent = 30)))
+    }
+
+    @Test
+    fun `a larger context's KV cache counts against the fit budget`() {
+        val model = LlmModelCatalog.fromId(Constants.CAT_TRANSLATION_14B_MODEL_ID)!!
+
+        assertTrue(LlmModelCatalog.canRunOnDevice(model, fit(fourGb, percent = 45, contextTokens = 1536)))
+        assertFalse(LlmModelCatalog.canRunOnDevice(model, fit(fourGb, percent = 45, contextTokens = 2816)))
+    }
+
+    @Test
+    fun `every curated entry carries a KV cache cost`() {
+        LlmModelCatalog.ALL.forEach { assertTrue(it.displayName, it.kvCacheBytesPerToken > 0) }
     }
 
     @Test
     fun `a small model fits an 8GB device`() {
         val floor = LlmModelCatalog.selectedOrDefault(Constants.CAT_TRANSLATION_MODEL_ID)
-        assertTrue(LlmModelCatalog.canRunOnDevice(floor, eightGb, budget))
+        assertTrue(LlmModelCatalog.canRunOnDevice(floor, fit(eightGb)))
     }
 
     @Test
     fun `every shortlist model fits an 8GB device`() {
         // The largest curated entry is ~2.5GB GGUF; none reach the 7B footprint that OOMs on 8GB (#84).
         LlmModelCatalog.ALL.forEach { option ->
-            assertTrue(option.displayName, LlmModelCatalog.canRunOnDevice(option, eightGb, budget))
+            assertTrue(option.displayName, LlmModelCatalog.canRunOnDevice(option, fit(eightGb)))
         }
     }
 
@@ -83,13 +101,13 @@ class LlmModelCatalogTest {
         // A ~3GB GGUF plus resident overhead exceeds the usable-RAM budget on 4GB. Synthetic so the
         // test does not depend on a specific large model staying in the shortlist.
         val big = LlmModelCatalog.DEFAULT.copy(id = "synthetic_big", sizeBytes = 3_000_000_000L)
-        assertFalse(LlmModelCatalog.canRunOnDevice(big, fourGb, budget))
+        assertFalse(LlmModelCatalog.canRunOnDevice(big, fit(fourGb)))
     }
 
     @Test
     fun `the low-storage floor still fits a 4GB device`() {
         val floor = LlmModelCatalog.fromId(Constants.CAT_TRANSLATION_MODEL_ID)!!
-        assertTrue(LlmModelCatalog.canRunOnDevice(floor, fourGb, budget))
+        assertTrue(LlmModelCatalog.canRunOnDevice(floor, fit(fourGb)))
     }
 
     @Test

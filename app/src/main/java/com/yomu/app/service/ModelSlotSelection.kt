@@ -2,6 +2,7 @@ package com.yomu.app.service
 
 import com.yomu.app.db.entities.ModelStatus
 import com.yomu.app.db.entities.ModelType
+import com.yomu.app.translation.FitBudget
 import com.yomu.app.translation.LlmModelCatalog
 import com.yomu.app.translation.ResourceLimit
 import com.yomu.app.translation.TranslationModelSelection
@@ -57,8 +58,7 @@ class ModelSlotSelection @Inject constructor(
     }
 
     suspend fun pick(type: ModelType, id: String, status: ModelStatus?, totalMemBytes: Long): Boolean {
-        val fitBudgetPercent = translation.resourceLimit(ResourceLimit.FIT_BUDGET_PERCENT)
-        if (deliverables(type).none { it.id == id } || !fits(id, totalMemBytes, fitBudgetPercent)) return false
+        if (deliverables(type).none { it.id == id } || !fits(id, fitBudget(totalMemBytes))) return false
         when {
             id == selectedId(type) -> pending.remove(type)
             status == ModelStatus.READY -> {
@@ -68,6 +68,24 @@ class ModelSlotSelection @Inject constructor(
             else -> pending[type] = id
         }
         return true
+    }
+
+    fun fitBudget(totalMemBytes: Long): FitBudget = FitBudget(
+        totalMemBytes,
+        translation.resourceLimit(ResourceLimit.FIT_BUDGET_PERCENT),
+        translation.resourceLimit(ResourceLimit.CONTEXT_TOKENS)
+    )
+
+    /** The translation model in use, or waiting to take over, that [changes] would push out of the fit budget; null if none. */
+    fun limitBlocker(changes: Map<ResourceLimit, Int>, totalMemBytes: Long): SlotDeliverable? {
+        val now = fitBudget(totalMemBytes)
+        val after = now.copy(
+            percent = changes[ResourceLimit.FIT_BUDGET_PERCENT] ?: now.percent,
+            contextTokens = changes[ResourceLimit.CONTEXT_TOKENS] ?: now.contextTokens
+        )
+        val blocker = listOfNotNull(selectedId(ModelType.LLM), pending[ModelType.LLM])
+            .firstOrNull { fits(it, now) && !fits(it, after) } ?: return null
+        return deliverables(ModelType.LLM).firstOrNull { it.id == blocker }
     }
 
     suspend fun commitPending(statuses: Map<String, ModelStatus>) {
@@ -119,9 +137,9 @@ class ModelSlotSelection @Inject constructor(
         )
 
         // Only translation models have a fit budget; 0 bytes means the device RAM couldn't be read.
-        fun fits(id: String, totalMemBytes: Long, fitBudgetPercent: Int): Boolean {
+        fun fits(id: String, budget: FitBudget): Boolean {
             val option = LlmModelCatalog.fromId(id) ?: return true
-            return totalMemBytes <= 0L || LlmModelCatalog.canRunOnDevice(option, totalMemBytes, fitBudgetPercent)
+            return budget.totalMemBytes <= 0L || LlmModelCatalog.canRunOnDevice(option, budget)
         }
     }
 }

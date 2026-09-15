@@ -16,8 +16,6 @@ import com.yomu.app.db.entities.ModelType
 import com.yomu.app.service.ModelManager
 import com.yomu.app.service.ModelSlotSelection
 import com.yomu.app.service.OverlayService
-import com.yomu.app.translation.ResourceLimit
-import com.yomu.app.translation.ResourceLimitsStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
@@ -52,8 +50,7 @@ class HomeViewModel @Inject constructor(
         setupComplete = sharedPreferences.getBoolean(SETUP_COMPLETE, false),
         hasRead = sharedPreferences.getBoolean(HAS_READ, false),
         deliverables = ModelType.entries.associateWith(slotSelection::deliverables),
-        deviceTotalMemBytes = modelManager.deviceTotalMemBytes(),
-        fitBudgetPercent = ResourceLimitsStore(sharedPreferences).load(ResourceLimit.FIT_BUDGET_PERCENT)
+        fitBudget = slotSelection.fitBudget(modelManager.deviceTotalMemBytes())
     ).withSlots())
     val uiState = _uiState.asStateFlow()
     private var historyJob: Job? = null
@@ -134,7 +131,7 @@ class HomeViewModel @Inject constructor(
             it.copy(
                 isServiceRunning = running,
                 onWifi = modelManager.isOnWifi(),
-                fitBudgetPercent = ResourceLimitsStore(sharedPreferences).load(ResourceLimit.FIT_BUDGET_PERCENT)
+                fitBudget = slotSelection.fitBudget(it.fitBudget.totalMemBytes)
             )
         }
         countJob?.cancel()
@@ -162,7 +159,7 @@ class HomeViewModel @Inject constructor(
     /** Setup only records the choice; its Download button fetches every slot's choice at once. */
     fun pickSetupModel(type: ModelType, id: String) {
         viewModelScope.launch {
-            slotSelection.pick(type, id, modelManager.getModel(id)?.status, _uiState.value.deviceTotalMemBytes)
+            slotSelection.pick(type, id, modelManager.getModel(id)?.status, _uiState.value.fitBudget.totalMemBytes)
             _uiState.update { it.withSlots() }
         }
     }
@@ -182,11 +179,19 @@ class HomeViewModel @Inject constructor(
     fun prepareSetup() {
         if (setupJob?.isActive == true) return
         setupJob = viewModelScope.launch {
-            _uiState.update { it.copy(setupStarted = true, setupError = false, setupDownloadsReady = false, onWifi = modelManager.isOnWifi()) }
+            _uiState.update {
+                it.copy(setupStarted = true, setupError = false, setupBlockedBy = null, setupDownloadsReady = false, onWifi = modelManager.isOnWifi())
+            }
             try {
                 modelManager.refreshModelList()
                 for (type in ModelType.entries) {
                     val id = slotSelection.chosenId(type)
+                    // Refused before downloading: pick would turn it down afterwards, leaving a download that never takes over.
+                    if (!ModelSlotSelection.fits(id, slotSelection.fitBudget(_uiState.value.fitBudget.totalMemBytes))) {
+                        val name = slotSelection.deliverables(type).firstOrNull { it.id == id }?.name ?: id
+                        _uiState.update { it.copy(setupError = true, setupBlockedBy = name) }
+                        return@launch
+                    }
                     if (modelManager.getModel(id)?.status != ModelStatus.READY) {
                         _uiState.update { it.copy(downloading = DOWNLOAD_LABELS.getValue(type), downloadProgress = 0) }
                         val success = modelManager.downloadModel(id) { progress ->
@@ -197,7 +202,7 @@ class HomeViewModel @Inject constructor(
                             return@launch
                         }
                     }
-                    slotSelection.pick(type, id, ModelStatus.READY, _uiState.value.deviceTotalMemBytes)
+                    slotSelection.pick(type, id, ModelStatus.READY, _uiState.value.fitBudget.totalMemBytes)
                 }
                 refreshReadiness()
                 _uiState.update { it.copy(setupDownloadsReady = true) }

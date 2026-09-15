@@ -32,8 +32,16 @@ data class LlmModelOption(
      *  and stays per-line. Read by the slot, and by the settings screen, which hides the
      *  per-line-only capture-context switch when it is true. */
     val idKeyedBatch: Boolean,
-    val promptMode: TranslationPromptMode
+    val promptMode: TranslationPromptMode,
+    /**
+     * f16 KV cache per context token: layers × 2 (K and V) × KV heads × head dim × 2 bytes, from each model's
+     * config.json (checked 2026-09-15). Counted against the fit budget so a larger context can gate a model out (#79).
+     */
+    val kvCacheBytesPerToken: Long
 )
+
+/** The RAM a translation model must fit inside on this device: [percent] of [totalMemBytes], at [contextTokens]. */
+data class FitBudget(val totalMemBytes: Long, val percent: Int, val contextTokens: Int)
 
 /** The persisted model id, or null when absent or stored as another type (which would otherwise throw). */
 internal fun SharedPreferences.storedLlmModelId(): String? =
@@ -60,7 +68,8 @@ object LlmModelCatalog {
         sizeBytes = Constants.QWEN25_15B_SIZE,
         licence = "Apache-2.0",
         idKeyedBatch = true,
-        promptMode = TranslationPromptMode.TRANSLATION_ONLY
+        promptMode = TranslationPromptMode.TRANSLATION_ONLY,
+        kvCacheBytesPerToken = 28L * 2 * 2 * 128 * 2
     )
 
     /**
@@ -83,7 +92,8 @@ object LlmModelCatalog {
             sizeBytes = Constants.TRANSLATION_MODEL_4BIT_SIZE,
             licence = "MIT",
             idKeyedBatch = false,
-            promptMode = TranslationPromptMode.MODEL_CARD
+            promptMode = TranslationPromptMode.MODEL_CARD,
+            kvCacheBytesPerToken = 24L * 2 * 8 * 80 * 2
         ),
         LlmModelOption(
             id = Constants.CAT_TRANSLATION_14B_MODEL_ID,
@@ -92,7 +102,8 @@ object LlmModelCatalog {
             sizeBytes = Constants.CAT_TRANSLATION_14B_SIZE,
             licence = "MIT",
             idKeyedBatch = true,
-            promptMode = TranslationPromptMode.MODEL_CARD
+            promptMode = TranslationPromptMode.MODEL_CARD,
+            kvCacheBytesPerToken = 24L * 2 * 8 * 112 * 2
         )
     )
 
@@ -113,13 +124,12 @@ object LlmModelCatalog {
         )
 
     /**
-     * Whether [option] can run on a device reporting [totalMemBytes] of RAM, when the model may use
-     * [fitBudgetPercent] of it (part D, #79). The default is never gated out — it must stay usable on the
-     * mid-range floor.
+     * Whether [option] — weights, resident overhead and its KV cache at the budget's context size — fits inside
+     * [budget] (part D, #79). The default is never gated out — it must stay usable on the mid-range floor.
      */
-    fun canRunOnDevice(option: LlmModelOption, totalMemBytes: Long, fitBudgetPercent: Int): Boolean {
+    fun canRunOnDevice(option: LlmModelOption, budget: FitBudget): Boolean {
         if (option.id == DEFAULT.id) return true
-        val budget = totalMemBytes / 100 * fitBudgetPercent
-        return option.sizeBytes + RESIDENT_OVERHEAD_BYTES <= budget
+        val needed = option.sizeBytes + RESIDENT_OVERHEAD_BYTES + option.kvCacheBytesPerToken * budget.contextTokens
+        return needed <= budget.totalMemBytes / 100 * budget.percent
     }
 }

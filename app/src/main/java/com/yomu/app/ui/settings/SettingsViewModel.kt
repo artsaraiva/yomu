@@ -11,6 +11,7 @@ import com.yomu.app.db.entities.ModelType
 import com.yomu.app.service.ModelManager
 import com.yomu.app.service.ModelSlotSelection
 import com.yomu.app.service.SlotDeliverable
+import com.yomu.app.translation.FitBudget
 import com.yomu.app.translation.ResourceLimit
 import com.yomu.app.translation.TranslationModelSelection
 import com.yomu.core.Constants
@@ -49,6 +50,8 @@ data class SettingsUiState(
     val detectionThreshold: Float = DetectionThresholdStore.DEFAULT,
     /** The reader's caps on the translation model (#79). */
     val resourceLimits: Map<ResourceLimit, Int> = ResourceLimit.entries.associateWith { it.default },
+    /** Why the last limit change was refused, or null. */
+    val limitRefusal: LimitRefusal? = null,
     /** What the app is using right now; null until the Performance screen first samples it. */
     val resources: ResourceReadout? = null,
     /** One message naming every stored value that was recovered to its default, or null. */
@@ -57,9 +60,18 @@ data class SettingsUiState(
     val generationOverridden: Boolean
         get() = GenerationBound.entries.any { it.read(generation) != it.default }
 
-    fun fits(deliverable: SlotDeliverable): Boolean =
-        ModelSlotSelection.fits(deliverable.id, deviceTotalMemBytes, resourceLimits.getValue(ResourceLimit.FIT_BUDGET_PERCENT))
+    fun fits(deliverable: SlotDeliverable): Boolean = ModelSlotSelection.fits(
+        deliverable.id,
+        FitBudget(
+            deviceTotalMemBytes,
+            resourceLimits.getValue(ResourceLimit.FIT_BUDGET_PERCENT),
+            resourceLimits.getValue(ResourceLimit.CONTEXT_TOKENS)
+        )
+    )
 }
+
+/** Identity equality on purpose: refusing the same change twice must still snap the slider back. */
+class LimitRefusal(val message: String)
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
@@ -153,18 +165,26 @@ class SettingsViewModel @Inject constructor(
         _uiState.update { it.copy(detectionThreshold = detectionThresholdStore.load()) }
     }
 
-    /** Like [pickModel], off the main thread: a threads or context change waits out any in-flight generation. */
-    fun setResourceLimit(limit: ResourceLimit, value: Int) {
-        viewModelScope.launch {
-            modelSelection.saveResourceLimit(limit, value)
-            _uiState.update { it.copy(resourceLimits = storedResourceLimits()) }
-        }
-    }
+    fun setResourceLimit(limit: ResourceLimit, value: Int) =
+        changeResourceLimits(mapOf(limit to value)) { modelSelection.saveResourceLimit(limit, value) }
 
-    fun resetResourceLimits() {
+    fun resetResourceLimits() =
+        changeResourceLimits(ResourceLimit.entries.associateWith { it.default }) { modelSelection.resetResourceLimits() }
+
+    /**
+     * Refused when it would push the model in use out of the fit budget, so reading keeps working. Like [pickModel],
+     * off the main thread: a threads or context change waits out any in-flight generation.
+     */
+    private fun changeResourceLimits(changes: Map<ResourceLimit, Int>, apply: suspend () -> Unit) {
         viewModelScope.launch {
-            modelSelection.resetResourceLimits()
-            _uiState.update { it.copy(resourceLimits = storedResourceLimits()) }
+            val blocker = slotSelection.limitBlocker(changes, _uiState.value.deviceTotalMemBytes)
+            if (blocker == null) apply()
+            _uiState.update { state ->
+                state.copy(
+                    resourceLimits = storedResourceLimits(),
+                    limitRefusal = blocker?.let { LimitRefusal("${it.name} needs more memory than that allows. Pick a smaller model first.") }
+                )
+            }
         }
     }
 

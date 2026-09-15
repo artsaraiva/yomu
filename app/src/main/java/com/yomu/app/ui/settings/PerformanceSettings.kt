@@ -28,7 +28,7 @@ fun PerformanceSettings(viewModel: SettingsViewModel, onBack: () -> Unit) {
     }
     SettingsPage(SettingsSection.Performance.title, SettingsSection.Performance.description, onBack) {
         ResourceReadoutPanel(state.resources)
-        ResourceLimitsPanel(state.resourceLimits, viewModel::setResourceLimit, viewModel::resetResourceLimits)
+        ResourceLimitsPanel(state.resourceLimits, state.limitRefusal, viewModel::setResourceLimit, viewModel::resetResourceLimits)
     }
 }
 
@@ -64,20 +64,22 @@ private fun ReadoutRow(label: String, value: String) {
 @Composable
 private fun ResourceLimitsPanel(
     stored: Map<ResourceLimit, Int>,
+    refusal: LimitRefusal?,
     onChange: (ResourceLimit, Int) -> Unit,
     onReset: () -> Unit
 ) {
     PaperSurface(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            LimitSlider(ResourceLimit.THREADS, stored, "Threads", onChange) {
+            refusal?.let { Text(it.message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error) }
+            LimitSlider(ResourceLimit.THREADS, stored, refusal, "Threads", onChange) {
                 "$it of ${RuntimeLimits.MAX_THREADS} cores (default ${ResourceLimit.THREADS.default}). " +
                     "Fewer keeps the phone responsive but translates slower. Applied on the next page."
             }
-            LimitSlider(ResourceLimit.CONTEXT_TOKENS, stored, "Context size", onChange) {
+            LimitSlider(ResourceLimit.CONTEXT_TOKENS, stored, refusal, "Context size", onChange) {
                 "$it tokens (default ${ResourceLimit.CONTEXT_TOKENS.default}). Smaller uses less memory, " +
                     "but a long page may be translated line by line. Larger fits longer pages. Applied on the next page."
             }
-            LimitSlider(ResourceLimit.FIT_BUDGET_PERCENT, stored, "Fit budget", onChange) {
+            LimitSlider(ResourceLimit.FIT_BUDGET_PERCENT, stored, refusal, "Fit budget", onChange) {
                 "$it% of this phone's memory (default ${ResourceLimit.FIT_BUDGET_PERCENT.default}%). " +
                     "Models that need more are not offered."
             }
@@ -90,6 +92,7 @@ private fun ResourceLimitsPanel(
 private fun LimitSlider(
     limit: ResourceLimit,
     stored: Map<ResourceLimit, Int>,
+    refusal: LimitRefusal?,
     label: String,
     onChange: (ResourceLimit, Int) -> Unit,
     describe: (Int) -> String
@@ -97,7 +100,7 @@ private fun LimitSlider(
     val options = limit.options
     val storedIndex = options.indexOf(stored.getValue(limit)).coerceAtLeast(0)
     // Local while dragging; saved once on release, like the other settings sliders.
-    var index by remember(storedIndex) { mutableIntStateOf(storedIndex) }
+    var index by remember(storedIndex, refusal) { mutableIntStateOf(storedIndex) }
     SettingRow(label, describe(options[index])) {
         if (options.size > 1) {
             Slider(
