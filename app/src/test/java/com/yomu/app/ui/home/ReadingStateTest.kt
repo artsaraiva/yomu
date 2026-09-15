@@ -60,6 +60,18 @@ class ReadingStateTest {
     }
 
     @Test
+    fun `a slot cleared by deleting its model needs models`() {
+        val ready = mapOf(
+            detector to ModelStatus.READY,
+            reader to ModelStatus.READY,
+            translator to ModelStatus.READY
+        )
+        assertEquals(Readiness.NeedsModels, resolveReadiness(ready, detector, reader, null, true))
+        assertEquals(Readiness.NeedsModels, resolveReadiness(ready, null, reader, translator, true))
+        assertEquals(Readiness.NeedsBoth, resolveReadiness(ready, detector, null, translator, false))
+    }
+
+    @Test
     fun `a missing translator means models are needed`() {
         val readers = mapOf(detector to ModelStatus.READY, reader to ModelStatus.READY)
         assertEquals(Readiness.NeedsModels, readiness(readers, true))

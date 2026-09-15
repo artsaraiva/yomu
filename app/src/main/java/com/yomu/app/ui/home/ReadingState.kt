@@ -14,9 +14,9 @@ fun resolveReadingStatus(isReady: Boolean, isServiceRunning: Boolean): ReadingSt
 
 fun resolveReadiness(
     models: Map<String, ModelStatus>,
-    detectionModelId: String,
-    ocrModelId: String,
-    translationModelId: String,
+    detectionModelId: String?,
+    ocrModelId: String?,
+    translationModelId: String?,
     hasOverlayPermission: Boolean
 ): Readiness {
     val modelsReady = listOf(detectionModelId, ocrModelId, translationModelId).all { models[it] == ModelStatus.READY }

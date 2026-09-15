@@ -15,7 +15,7 @@ import javax.inject.Singleton
 class ReadingModelSelection @Inject constructor(private val sharedPreferences: SharedPreferences) {
 
     fun selected(type: ModelType): ModelEntity {
-        val stored = runCatching { sharedPreferences.getString(prefKey(type), null) }.getOrNull()
+        val stored = stored(type)
         return ModelManager.REGISTRY.firstOrNull { it.type == type && it.id == stored }
             ?: ModelManager.REGISTRY.single { it.id == ModelManager.SLOT_DEFAULTS.getValue(type) }
     }
@@ -23,6 +23,16 @@ class ReadingModelSelection @Inject constructor(private val sharedPreferences: S
     fun select(model: ModelEntity) {
         sharedPreferences.edit().putString(prefKey(model.type), model.id).apply()
     }
+
+    /** An empty stored id marks a slot whose model was deleted; [select] stores an id over it. */
+    fun isCleared(type: ModelType): Boolean = stored(type) == ""
+
+    fun clear(type: ModelType) {
+        sharedPreferences.edit().putString(prefKey(type), "").apply()
+    }
+
+    private fun stored(type: ModelType): String? =
+        runCatching { sharedPreferences.getString(prefKey(type), null) }.getOrNull()
 
     private fun prefKey(type: ModelType): String = when (type) {
         ModelType.DETECTION -> Constants.PREF_DETECTION_MODEL

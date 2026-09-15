@@ -140,7 +140,7 @@ class SettingsViewModel @Inject constructor(
     }
 
     private fun SettingsUiState.withSlots(): SettingsUiState = copy(
-        selectedIds = ModelType.entries.associateWith(slotSelection::selectedId),
+        selectedIds = ModelType.entries.mapNotNull { type -> slotSelection.selectedId(type)?.let { type to it } }.toMap(),
         pendingIds = ModelType.entries.mapNotNull { type -> slotSelection.pendingId(type)?.let { type to it } }.toMap()
     )
 
@@ -187,7 +187,8 @@ class SettingsViewModel @Inject constructor(
 
     fun deleteModel(modelId: String) {
         viewModelScope.launch {
-            modelManager.deleteModel(modelId)
+            slotSelection.delete(modelId)
+            _uiState.update { it.withSlots() }
         }
     }
 }
