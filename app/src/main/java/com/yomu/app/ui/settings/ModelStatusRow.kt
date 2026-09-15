@@ -10,7 +10,6 @@ import androidx.compose.ui.unit.sp
 import com.yomu.app.db.entities.ModelEntity
 import com.yomu.app.db.entities.ModelStatus
 import com.yomu.app.ui.theme.*
-import com.yomu.core.Constants
 import com.yomu.core.toFileSizeString
 
 @Composable
@@ -36,7 +35,7 @@ internal fun ModelStatusRow(
         Column(modifier = Modifier.weight(1f)) {
             when (model.status) {
                 ModelStatus.READY -> Text(
-                    text = if (model.id == Constants.ML_KIT_JA_EN_MODEL_ID) "Downloaded (baseline)" else "Ready",
+                    text = "Ready",
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

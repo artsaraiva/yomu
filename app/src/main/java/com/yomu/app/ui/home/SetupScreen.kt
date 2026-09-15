@@ -32,7 +32,7 @@ fun SetupScreen(state: HomeUiState, viewModel: HomeViewModel) {
             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("Read in the apps you love", style = MaterialTheme.typography.titleLarge)
                 Text("Turn reading on and leave it on while you browse. Tap Yomu’s floating button whenever you want to translate a page.")
-                Text("First, connect to Wi-Fi for a one-time download. We’ll prepare the parts that read the page and a lightweight English translator. You can change the engine in Settings.")
+                Text("First, connect to Wi-Fi for a one-time download. We’ll prepare the parts that read the page and the model that translates it. You can pick a different model in Settings.")
             }
         }
         when {

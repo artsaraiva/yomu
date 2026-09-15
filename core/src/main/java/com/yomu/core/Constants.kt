@@ -8,11 +8,9 @@ object Constants {
     const val VISION_MODELS_DIR = "vision"
     const val LLM_MODELS_DIR = "llm"
     const val TRANSLATION_MODELS_DIR = "translation"
-    const val ML_KIT_JA_EN_MODEL_ID = "mlkit_ja_en_v1"
     const val BUBBLE_DETECTION_MODEL_ID = "bubble_detection_v1"
     const val MANGA_OCR_MODEL_ID = "manga_ocr_v1"
     const val CAT_TRANSLATION_MODEL_ID = "cat_translate_0.8b_v1"
-    const val OPUS_MT_MODEL_ID = "opus_mt_ja_en_v1"
     const val CAT_TRANSLATION_14B_MODEL_ID = "cat_translate_1.4b_v1"
     const val QWEN25_15B_MODEL_ID = "qwen25_1.5b_instruct_v1"
 
@@ -47,9 +45,6 @@ object Constants {
     const val GEMMA2_2B_SIZE = 1_708_582_752L
     const val TRANSLATEGEMMA_4B_SIZE = 2_489_909_760L
 
-    const val OPUS_MT_ENCODER_MODEL = "opus_mt_encoder_model_quantized.onnx"
-    const val OPUS_MT_DECODER_MODEL = "opus_mt_decoder_with_past_model_quantized.onnx"
-    const val OPUS_MT_TOKENIZER = "tokenizer.json"
     
     const val DATABASE_NAME = "yomu_db"
     const val DATABASE_VERSION = 2
@@ -67,8 +62,7 @@ object Constants {
     const val PREF_AUTO_DETECT = "auto_detect"
     const val PREF_BUTTON_POSITION_X = "button_position_x"
     const val PREF_BUTTON_POSITION_Y = "button_position_y"
-    const val PREF_TRANSLATION_ENGINE = "translation_engine"
-    // Which curated LLM occupies the translation slot when engine == LLM (ADR-0009). Stores a
+    // Which curated LLM occupies the translation slot (ADR-0009). Stores a
     // ModelEntity id; nothing picked keeps the default (Qwen2.5-1.5B, ADR-0010).
     const val PREF_LLM_MODEL = "llm_model"
     const val PREF_FONT_SIZE_SCALE = "font_size_scale"

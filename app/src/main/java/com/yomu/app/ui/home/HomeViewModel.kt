@@ -14,8 +14,7 @@ import com.yomu.app.db.HistoryDao
 import com.yomu.app.db.entities.ModelStatus
 import com.yomu.app.service.ModelManager
 import com.yomu.app.service.OverlayService
-import com.yomu.app.translation.EngineSelection
-import com.yomu.app.translation.TranslationEngineType
+import com.yomu.app.translation.TranslationModelSelection
 import com.yomu.core.Constants
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -35,7 +34,7 @@ class HomeViewModel @Inject constructor(
     private val sharedPreferences: SharedPreferences,
     private val modelManager: ModelManager,
     private val historyDao: HistoryDao,
-    private val engineSelector: EngineSelection
+    private val modelSelection: TranslationModelSelection
 ) : ViewModel() {
     private companion object {
         const val SETUP_COMPLETE = "reading_setup_complete"
@@ -44,8 +43,7 @@ class HomeViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(HomeUiState(
         setupComplete = sharedPreferences.getBoolean(SETUP_COMPLETE, false),
-        hasRead = sharedPreferences.getBoolean(HAS_READ, false),
-        selectedEngine = engineSelector.currentEngine()
+        hasRead = sharedPreferences.getBoolean(HAS_READ, false)
     ))
     val uiState = _uiState.asStateFlow()
     private var historyJob: Job? = null
@@ -66,14 +64,7 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private val preferenceListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-        if (key == Constants.PREF_TRANSLATION_ENGINE) {
-            _uiState.update { it.copy(selectedEngine = engineSelector.currentEngine()) }
-        }
-    }
-
     init {
-        sharedPreferences.registerOnSharedPreferenceChangeListener(preferenceListener)
         ContextCompat.registerReceiver(context, serviceStateReceiver, IntentFilter().apply {
             addAction(OverlayService.ACTION_SERVICE_STARTED)
             addAction(OverlayService.ACTION_SERVICE_STOPPED)
@@ -106,7 +97,7 @@ class HomeViewModel @Inject constructor(
     private fun refreshReadiness() {
         val permission = Settings.canDrawOverlays(context)
         _uiState.update { state ->
-            val readiness = resolveReadiness(state.models.associate { it.id to it.status }, permission)
+            val readiness = resolveReadiness(state.models.associate { it.id to it.status }, modelSelection.currentLlmModel().id, permission)
             state.copy(
                 readiness = readiness,
                 setupVisible = state.setupVisible ||
@@ -122,7 +113,7 @@ class HomeViewModel @Inject constructor(
         val running = manager.getRunningServices(Int.MAX_VALUE).any {
             it.service.className == OverlayService::class.java.name && it.foreground
         }
-        _uiState.update { it.copy(isServiceRunning = running, selectedEngine = engineSelector.currentEngine()) }
+        _uiState.update { it.copy(isServiceRunning = running) }
         countJob?.cancel()
         countJob = viewModelScope.launch {
             val start = Calendar.getInstance().apply {
@@ -154,7 +145,7 @@ class HomeViewModel @Inject constructor(
                 val downloads = listOf(
                     Constants.BUBBLE_DETECTION_MODEL_ID to "Finding speech bubbles",
                     Constants.MANGA_OCR_MODEL_ID to "Reading Japanese",
-                    Constants.ML_KIT_JA_EN_MODEL_ID to "Translating into English"
+                    modelSelection.currentLlmModel().id to "Translating into English"
                 )
                 for ((id, label) in downloads) {
                     if (modelManager.getModel(id)?.status == ModelStatus.READY) continue
@@ -166,9 +157,6 @@ class HomeViewModel @Inject constructor(
                         _uiState.update { it.copy(setupError = true) }
                         return@launch
                     }
-                }
-                if (!sharedPreferences.contains(Constants.PREF_TRANSLATION_ENGINE)) {
-                    engineSelector.selectEngine(TranslationEngineType.ML_KIT)
                 }
                 _uiState.update { it.copy(setupDownloadsReady = true) }
             } catch (cancelled: CancellationException) {
@@ -231,7 +219,6 @@ class HomeViewModel @Inject constructor(
     }
 
     override fun onCleared() {
-        sharedPreferences.unregisterOnSharedPreferenceChangeListener(preferenceListener)
         context.unregisterReceiver(serviceStateReceiver)
         super.onCleared()
     }

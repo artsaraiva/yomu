@@ -6,9 +6,7 @@ import com.yomu.core.Constants
 import com.yomu.ml.LlamaBridge
 import com.yomu.ml.LlamaTranslationBridge
 import com.yomu.ml.OnnxRuntime
-import com.yomu.ml.opusmt.OpusMtTranslationBridge
-import com.yomu.app.translation.EngineSelection
-import com.yomu.app.translation.MlKitTranslationBridge
+import com.yomu.app.translation.TranslationModelSelection
 import com.yomu.pipeline.TranslationPipeline
 import com.yomu.pipeline.bubble.BubbleDetector
 import com.yomu.pipeline.context.ContextAssembler
@@ -78,25 +76,17 @@ object PipelineModule {
 
     @Provides
     @Singleton
-    fun provideEngineSelection(
-        mlKitBridge: MlKitTranslationBridge,
-        opusMtBridge: OpusMtTranslationBridge,
+    fun provideTranslationModelSelection(
         llamaBridge: LlamaTranslationBridge,
         sharedPreferences: SharedPreferences,
         @ApplicationContext context: Context
-    ): EngineSelection {
-        return EngineSelection(
-            mlKitBridge,
-            opusMtBridge,
-            llamaBridge,
-            sharedPreferences,
-            llmModelsDir(context)
-        )
+    ): TranslationModelSelection {
+        return TranslationModelSelection(llamaBridge, sharedPreferences, llmModelsDir(context))
     }
 
     @Provides
     @Singleton
-    fun provideTranslationEngine(selection: EngineSelection): TranslationEngine {
+    fun provideTranslationEngine(selection: TranslationModelSelection): TranslationEngine {
         return TranslationEngine(selection::current, selection::close)
     }
 

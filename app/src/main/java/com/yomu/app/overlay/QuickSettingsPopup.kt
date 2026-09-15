@@ -4,7 +4,6 @@ import android.animation.ValueAnimator
 import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.PixelFormat
-import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -14,7 +13,6 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.TextView
-import com.yomu.app.translation.TranslationEngineType
 import com.yomu.app.ui.theme.paperBackground
 import com.yomu.app.ui.theme.paperColors
 import com.yomu.core.Constants
@@ -22,15 +20,12 @@ import com.yomu.core.Constants
 class QuickSettingsPopup(
     private val context: Context,
     private val windowManager: WindowManager,
-    private val onEngineSelected: (TranslationEngineType) -> Unit,
     private val onFontSizeChanged: (Float) -> Unit,
     private val onStopRequested: () -> Unit
 ) {
     private var popupView: ScrollView? = null
-    private val engineButtons = mutableMapOf<TranslationEngineType, Button>()
     private val labels = mutableListOf<TextView>()
     private var fontSizeSeekBar: SeekBar? = null
-    private var selectedEngine = TranslationEngineType.ML_KIT
     private var fontSizeScale = Constants.DEFAULT_FONT_SIZE_SCALE
     private val density = context.resources.displayMetrics.density
 
@@ -74,7 +69,6 @@ class QuickSettingsPopup(
             if (it.isAttachedToWindow) windowManager.removeView(it)
         }
         popupView = null
-        engineButtons.clear()
         labels.clear()
         fontSizeSeekBar = null
     }
@@ -87,23 +81,6 @@ class QuickSettingsPopup(
             thumbTintList = ColorStateList.valueOf(colors.accent)
             progressTintList = ColorStateList.valueOf(colors.accent)
             progressBackgroundTintList = ColorStateList.valueOf(colors.inkMuted)
-        }
-        updateEngineSelection(selectedEngine)
-    }
-
-    fun updateEngineSelection(type: TranslationEngineType) {
-        selectedEngine = type
-        val colors = context.paperColors()
-        engineButtons.forEach { (engine, button) ->
-            val label = context.getString(engine.labelRes)
-            button.text = if (engine == type) "✓ $label" else label
-            button.isSelected = engine == type
-            button.setTextColor(colors.ink)
-            button.background = GradientDrawable().apply {
-                cornerRadius = dp(12).toFloat()
-                setColor(colors.paperRaised)
-                setStroke(dp(if (engine == type) 2 else 1), if (engine == type) colors.accent else colors.inkMuted)
-            }
         }
     }
 
@@ -122,11 +99,6 @@ class QuickSettingsPopup(
             labels.add(this)
         })
         addView(actionButton("Close quick settings") { remove() })
-        TranslationEngineType.entries.forEach { engine ->
-            val button = actionButton(context.getString(engine.labelRes)) { onEngineSelected(engine) }
-            engineButtons[engine] = button
-            addView(button, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) })
-        }
         addView(TextView(context).apply {
             text = "Font size"
             textSize = 14f

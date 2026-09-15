@@ -13,7 +13,6 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
@@ -100,9 +99,9 @@ fun HomeScreen(
                 Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("Get ready to read", style = MaterialTheme.typography.titleLarge)
                     Text(when (state.readiness) {
-                        Readiness.NeedsModels -> "Download the parts that find the speech bubbles and read the Japanese."
+                        Readiness.NeedsModels -> "Download the parts that find the speech bubbles, read the Japanese and translate it."
                         Readiness.NeedsPermission -> "Allow Yomu to display translations over your manga app."
-                        Readiness.NeedsBoth -> "Download the parts that find the speech bubbles and read the Japanese, then allow Yomu to display over other apps."
+                        Readiness.NeedsBoth -> "Download the parts that find the speech bubbles, read the Japanese and translate it, then allow Yomu to display over other apps."
                         Readiness.Ready -> "Finish the short setup, then turn reading on."
                     })
                     PaperButton("Finish setup", viewModel::openSetup)
@@ -111,7 +110,7 @@ fun HomeScreen(
         }
         item {
             TextButton(colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface), onClick = onOpenSettings) {
-                Text("Translated on your device · ${stringResource(state.selectedEngine.labelRes)} ›", style = MaterialTheme.typography.bodyMedium)
+                Text("Translated on your device ›", style = MaterialTheme.typography.bodyMedium)
             }
             Text("${state.pagesTranslatedToday} ${if (state.pagesTranslatedToday == 1) "page" else "pages"} translated today", style = MaterialTheme.typography.bodySmall)
         }
