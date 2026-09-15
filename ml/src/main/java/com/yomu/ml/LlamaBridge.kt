@@ -68,6 +68,13 @@ open class LlamaBridge(private val context: Context?) : TextGenerationBridge {
         }
     }
 
+    /** Raised mid-[generate] from another thread to stop it at the next decode step; cleared by the caller (#76). */
+    open fun setAbortRequested(requested: Boolean) {
+        if (nativeLoaded) {
+            nativeSetAbortRequested(requested)
+        }
+    }
+
     override fun generate(
         prompt: String,
         params: GenerationParams,
@@ -129,6 +136,7 @@ open class LlamaBridge(private val context: Context?) : TextGenerationBridge {
         seed: Int,
         grammar: String
     ): ByteArray?
+    private external fun nativeSetAbortRequested(requested: Boolean)
     private external fun nativeLastStatus(): Int
     private external fun nativeClearMemory()
     private external fun nativeRelease()

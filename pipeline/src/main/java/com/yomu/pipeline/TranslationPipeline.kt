@@ -10,7 +10,10 @@ import com.yomu.pipeline.translation.TranslationEngine
 import com.yomu.pipeline.translation.TranslationResult
 import com.yomu.pipeline.typesetting.TypesetBubble
 import com.yomu.pipeline.typesetting.Typesetter
+import kotlin.coroutines.coroutineContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -130,6 +133,7 @@ class TranslationPipeline(
             currentStage = Stage.BUBBLE_DETECTION
             callback?.onStageProgress(Stage.BUBBLE_DETECTION, 0.0f)
             val bubbles = bubbleDetector.detect(bitmap, confidenceThreshold)
+            coroutineContext.ensureActive()
             callback?.onStageProgress(Stage.BUBBLE_DETECTION, 0.2f)
 
             if (bubbles.isEmpty()) {
@@ -160,6 +164,7 @@ class TranslationPipeline(
                 )
 
                 val result = ocrEngine.extractText(bubbleBitmap)
+                coroutineContext.ensureActive()
                 if (result != null && result.text.isNotEmpty()) {
                     ocrResults[bubble.id] = result
                     onOcrComplete?.invoke(bubble.id, result.text, bubble.boundingBox)
@@ -182,6 +187,7 @@ class TranslationPipeline(
             currentStage = Stage.TRANSLATION
             callback?.onStageProgress(Stage.TRANSLATION, 0.6f)
             val translationResult = translationEngine.translate(pageContext.blocks)
+            coroutineContext.ensureActive()
             callback?.onStageProgress(Stage.TRANSLATION, 0.8f)
 
             currentStage = Stage.TYPESETTING
@@ -214,6 +220,9 @@ class TranslationPipeline(
             callback?.onComplete(result)
             return result
 
+        } catch (e: CancellationException) {
+            // A reader cancel (#76), not a failure: no error callback, no "Translation failed".
+            throw e
         } catch (e: Exception) {
             callback?.onError(currentStage, e.message ?: "Unknown error")
             currentStage = Stage.ERROR

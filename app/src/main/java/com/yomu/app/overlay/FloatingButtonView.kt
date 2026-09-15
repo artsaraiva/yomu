@@ -27,6 +27,7 @@ class FloatingButtonView(context: Context) : View(context) {
         textSize = 24f * density
     }
     private val bounds = RectF()
+    private val stopBounds = RectF()
     private var rotationAngle = 0f
     private var animator: ValueAnimator? = null
     private val motionListener = if (Build.VERSION.SDK_INT >= 33) {
@@ -43,7 +44,7 @@ class FloatingButtonView(context: Context) : View(context) {
     }
 
     fun updateAppearance() {
-        contentDescription = if (currentState == State.IDLE) "Translate screen. Hold for quick settings." else "Translating screen"
+        contentDescription = if (currentState == State.IDLE) "Translate screen. Hold for quick settings." else "Stop translating"
         if (currentState == State.TRANSLATING && isAttachedToWindow && ValueAnimator.areAnimatorsEnabled()) {
             if (animator == null) {
                 animator = ValueAnimator.ofFloat(0f, 1f).apply {
@@ -101,9 +102,17 @@ class FloatingButtonView(context: Context) : View(context) {
         bounds.inset(4f * density, 4f * density)
         fill.color = if (currentState == State.IDLE) colors.accent else colors.paperRaised
         canvas.drawCircle(cx, cy, bounds.width() / 2f, fill)
-        textPaint.color = if (currentState == State.IDLE) colors.onAccent else colors.ink
-        val textYOffset = -(textPaint.ascent() + textPaint.descent()) / 2f
-        canvas.drawText(if (currentState == State.IDLE) "読" else "…", width / 2f, height / 2f + textYOffset, textPaint)
+        if (currentState == State.IDLE) {
+            textPaint.color = colors.onAccent
+            val textYOffset = -(textPaint.ascent() + textPaint.descent()) / 2f
+            canvas.drawText("読", cx, cy + textYOffset, textPaint)
+        } else {
+            // Stop square: a tap while translating cancels (#76).
+            fill.color = colors.ink
+            val half = 7f * density
+            stopBounds.set(cx - half, cy - half, cx + half, cy + half)
+            canvas.drawRoundRect(stopBounds, 2f * density, 2f * density, fill)
+        }
         if (currentState == State.TRANSLATING) {
             edge.color = colors.accent
             val pulse = if (animator == null) 0f else (1f + sin(Math.toRadians(rotationAngle.toDouble())).toFloat()) / 2f

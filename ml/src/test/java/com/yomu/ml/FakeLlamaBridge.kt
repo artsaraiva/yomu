@@ -11,6 +11,7 @@ internal class FakeLlamaBridge(
     val params = mutableListOf<GenerationParams>()
     var releaseCalls = 0
     var clearMemoryCalls = 0
+    val abortRequests = mutableListOf<Boolean>()
 
     override val isNativeAvailable: Boolean get() = true
     override val isModelLoaded: Boolean get() = true
@@ -28,6 +29,10 @@ internal class FakeLlamaBridge(
         this.maxTokens += maxTokens
         this.params += params
         return resultForPrompt(prompt)
+    }
+
+    override fun setAbortRequested(requested: Boolean) {
+        abortRequests += requested
     }
 
     override fun release() {
