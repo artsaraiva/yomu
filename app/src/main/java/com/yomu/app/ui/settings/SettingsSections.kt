@@ -13,13 +13,7 @@ import com.yomu.app.ui.theme.*
 fun TranslationSettings(viewModel: SettingsViewModel, onBack: () -> Unit) {
     val state by viewModel.uiState.collectAsState()
     SettingsPage(SettingsSection.Translation.title, SettingsSection.Translation.description, onBack) {
-        TranslationModelCard(
-            state = state,
-            onDownload = viewModel::downloadModel,
-            onDelete = viewModel::deleteModel,
-            onCancel = viewModel::cancelDownload,
-            onSelectLlm = viewModel::setLlmModel
-        )
+        ModelSlot(state, viewModel, ModelType.LLM, "Model", "The on-device model that translates each bubble.")
         state.recoveryWarning?.let { RecoveryWarning(it) }
         AdvancedGenerationPanel(
             generation = state.generation,
@@ -34,31 +28,26 @@ fun TranslationSettings(viewModel: SettingsViewModel, onBack: () -> Unit) {
 fun PipelineSettings(viewModel: SettingsViewModel, onBack: () -> Unit) {
     val state by viewModel.uiState.collectAsState()
     SettingsPage(SettingsSection.Pipeline.title, SettingsSection.Pipeline.description, onBack) {
-        listOf(
-            Triple(ModelType.DETECTION, "Detection", "Finds the speech bubbles on the page."),
-            Triple(ModelType.OCR, "OCR", "Reads the Japanese inside each bubble.")
-        ).forEach { (type, title, description) ->
-            val models = state.models.filter { it.type == type }
-            if (models.isNotEmpty()) PaperSurface(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(title, style = MaterialTheme.typography.titleMedium)
-                    Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    models.forEach { model ->
-                        Column {
-                            ModelStatusRow(
-                                model = model,
-                                isDownloading = model.id in state.downloads,
-                                progress = state.downloads[model.id] ?: 0,
-                                onDownload = { viewModel.downloadModel(model.id) },
-                                onDelete = { viewModel.deleteModel(model.id) },
-                                onCancel = { viewModel.cancelDownload(model.id) }
-                            )
-                        }
-                    }
-                }
-            }
-        }
+        ModelSlot(state, viewModel, ModelType.DETECTION, "Detection", "Finds the speech bubbles on the page.")
+        ModelSlot(state, viewModel, ModelType.OCR, "OCR", "Reads the Japanese inside each bubble.")
     }
+}
+
+@Composable
+private fun ModelSlot(state: SettingsUiState, viewModel: SettingsViewModel, type: ModelType, title: String, description: String) {
+    SlotPicker(
+        title = title,
+        description = description,
+        deliverables = state.deliverables[type].orEmpty(),
+        selectedId = state.selectedIds[type],
+        pendingId = state.pendingIds[type],
+        statuses = state.models.associate { it.id to it.status },
+        downloads = state.downloads,
+        fits = state::fits,
+        onPick = { viewModel.pickModel(type, it) },
+        onCancel = viewModel::cancelDownload,
+        onDelete = viewModel::deleteModel
+    )
 }
 
 @Composable

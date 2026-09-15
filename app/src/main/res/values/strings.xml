@@ -1,5 +1,3 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="translation_model_label">Local LLM</string>
-    <string name="translation_model_description">On-device JA→EN. Pick a curated model below; default Qwen2.5-1.5B.</string>
 </resources>
