@@ -48,5 +48,6 @@ internal fun QuickSettingsStrip(state: HomeUiState, onPickTranslationModel: (Str
                 }
             }
         }
+        AssistChip(onClick = {}, label = { Text("Japanese → English") }, enabled = false)
     }
 }
