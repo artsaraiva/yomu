@@ -16,6 +16,7 @@ class TranslationModelSelection @Inject constructor(
     private val llmModelsDir: File = File("")
 ) {
     private val generationStore = GenerationProfileStore(sharedPreferences)
+    private val limitsStore = ResourceLimitsStore(sharedPreferences)
 
     fun current(): TranslationSlot = llamaSlot
 
@@ -62,8 +63,26 @@ class TranslationModelSelection @Inject constructor(
         applyLlmProfile(currentLlmModel())
     }
 
+    fun resourceLimit(limit: ResourceLimit): Int = limitsStore.load(limit)
+
+    /** Persist one resource cap; threads and context reach the slot, which reloads the model on its next page (#79). */
+    suspend fun saveResourceLimit(limit: ResourceLimit, value: Int): Boolean {
+        if (!limitsStore.save(limit, value)) return false
+        applyLlmProfile(currentLlmModel())
+        return true
+    }
+
+    suspend fun resetResourceLimits() {
+        limitsStore.reset()
+        applyLlmProfile(currentLlmModel())
+    }
+
+    fun lastPageDurationMs(): Long? = llamaSlot.lastPageDurationMs
+
     private suspend fun applyLlmProfile(option: LlmModelOption) {
-        llamaSlot.selectModel(LlmModelCatalog.profileFor(option, llmModelsDir, generationStore.load().params))
+        llamaSlot.selectModel(
+            LlmModelCatalog.profileFor(option, llmModelsDir, generationStore.load().params, limitsStore.runtime())
+        )
     }
 
     fun close() {

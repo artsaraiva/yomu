@@ -5,6 +5,9 @@ import com.yomu.app.db.entities.ModelType
 import com.yomu.app.db.entities.TranslationEntity
 import com.yomu.app.service.ModelSlotSelection
 import com.yomu.app.service.SlotDeliverable
+import com.yomu.app.translation.FitBudget
+import com.yomu.app.translation.LlmModelCatalog
+import com.yomu.core.RuntimeLimits
 
 data class HomeUiState(
     val isServiceRunning: Boolean = false,
@@ -18,10 +21,12 @@ data class HomeUiState(
     val downloading: String? = null,
     val downloadProgress: Int = 0,
     val setupError: Boolean = false,
+    /** Name of the chosen model setup refused to download because it is outside the fit budget, or null. */
+    val setupBlockedBy: String? = null,
     val deliverables: Map<ModelType, List<SlotDeliverable>> = emptyMap(),
     val chosenIds: Map<ModelType, String> = emptyMap(),
     val setupDownloadBytes: Long = 0L,
-    val deviceTotalMemBytes: Long = 0L,
+    val fitBudget: FitBudget = FitBudget(0L, LlmModelCatalog.DEFAULT_FIT_BUDGET_PERCENT, RuntimeLimits.DEFAULT_CONTEXT_TOKENS),
     val onWifi: Boolean = true,
     val pagesTranslatedToday: Int = 0,
     val translations: List<TranslationEntity> = emptyList(),
@@ -35,5 +40,5 @@ data class HomeUiState(
     val readingStatus: ReadingStatus
         get() = resolveReadingStatus(readiness == Readiness.Ready && setupComplete, isServiceRunning)
 
-    fun fits(deliverable: SlotDeliverable): Boolean = ModelSlotSelection.fits(deliverable.id, deviceTotalMemBytes)
+    fun fits(deliverable: SlotDeliverable): Boolean = ModelSlotSelection.fits(deliverable.id, fitBudget)
 }

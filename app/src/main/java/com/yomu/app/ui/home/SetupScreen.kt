@@ -44,6 +44,10 @@ fun SetupScreen(state: HomeUiState, viewModel: HomeViewModel) {
             SetupSlot(state, viewModel, ModelType.LLM, "Translation", "The on-device model that translates each bubble.")
         }
         when {
+            state.setupBlockedBy != null -> PaperError(
+                "${state.setupBlockedBy} needs more memory than this phone's fit budget allows. Pick a smaller model, then try again.",
+                viewModel::prepareSetup
+            )
             state.setupError -> PaperError(
                 "Setup couldn't finish. Check Wi-Fi and available storage, then try again. Completed downloads are kept.",
                 viewModel::prepareSetup

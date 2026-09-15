@@ -5,6 +5,7 @@ import com.yomu.core.Constants
 import com.yomu.core.GenerationBound
 import com.yomu.core.GenerationParams
 import com.yomu.core.ModelProfile
+import com.yomu.core.RuntimeLimits
 import com.yomu.core.TranslationPromptMode
 import com.yomu.core.TranslationSlot
 import com.yomu.ml.LlamaTranslationBridge
@@ -99,6 +100,33 @@ class TranslationModelSelectionTest {
         val last = Mockito.mockingDetails(llama).invocations.last().arguments[0] as ModelProfile
         assertEquals(GenerationParams(), last.generation)
         assertEquals(GenerationParams(), selection.generationProfile().params)
+    }
+
+    @Test
+    fun `saveResourceLimit applies accepted threads and context to the slot and refuses a bad value`() = runTest {
+        val llama = Mockito.mock(LlamaTranslationBridge::class.java)
+        val selection = selection(llama = llama)
+
+        assertTrue(selection.saveResourceLimit(ResourceLimit.THREADS, 1))
+        assertFalse(selection.saveResourceLimit(ResourceLimit.CONTEXT_TOKENS, 3000))
+        assertTrue(selection.saveResourceLimit(ResourceLimit.CONTEXT_TOKENS, 1536))
+
+        val last = Mockito.mockingDetails(llama).invocations.last().arguments[0] as ModelProfile
+        assertEquals(RuntimeLimits(threads = 1, contextTokens = 1536), last.runtime)
+        assertEquals(2, Mockito.mockingDetails(llama).invocations.size)
+        assertEquals(1, selection.resourceLimit(ResourceLimit.THREADS))
+    }
+
+    @Test
+    fun `resetResourceLimits restores and applies the shipped limits`() = runTest {
+        val llama = Mockito.mock(LlamaTranslationBridge::class.java)
+        val selection = selection(llama = llama)
+        selection.saveResourceLimit(ResourceLimit.CONTEXT_TOKENS, 2816)
+
+        selection.resetResourceLimits()
+
+        val last = Mockito.mockingDetails(llama).invocations.last().arguments[0] as ModelProfile
+        assertEquals(RuntimeLimits(), last.runtime)
     }
 
     @Test

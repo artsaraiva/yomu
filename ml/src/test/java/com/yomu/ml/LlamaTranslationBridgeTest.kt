@@ -2,6 +2,7 @@ package com.yomu.ml
 
 import com.yomu.core.GenerationParams
 import com.yomu.core.ModelProfile
+import com.yomu.core.RuntimeLimits
 import com.yomu.core.TranslatableBubble
 import com.yomu.core.TranslatablePage
 import com.yomu.core.TranslationPromptMode
@@ -212,6 +213,35 @@ class LlamaTranslationBridgeTest {
 
         assertEquals(TranslationStatus.NotReady, slot.status)
         assertEquals(1, native.releaseCalls)
+        model.delete()
+    }
+
+    @Test
+    fun selectModel_newRuntimeLimitsReloadTheModelWithThem() = runTest {
+        val model = File.createTempFile("model", ".gguf")
+        val native = FakeLlamaBridge { GenerationResult.Success("x", 1L) }
+        val slot = LlamaTranslationBridge(native, profile(model))
+        assertTrue(slot.ensureReady())
+
+        slot.selectModel(profile(model).copy(runtime = RuntimeLimits(threads = 1, contextTokens = 1024)))
+        assertEquals(TranslationStatus.NotReady, slot.status)
+        slot.translatePage(page(1 to "こんにちは"))
+
+        assertEquals(1, native.releaseCalls)
+        assertEquals(listOf(1024 to 1), native.loads)
+        model.delete()
+    }
+
+    @Test
+    fun translatePage_recordsTheLastPageDuration() = runTest {
+        val model = File.createTempFile("model", ".gguf")
+        val native = FakeLlamaBridge { GenerationResult.Success("x", 10L) }
+        val slot = LlamaTranslationBridge(native, profile(model))
+        assertEquals(null, slot.lastPageDurationMs)
+
+        slot.translatePage(page(1 to "こんにちは", 2 to "さようなら"))
+
+        assertEquals(20L, slot.lastPageDurationMs)
         model.delete()
     }
 

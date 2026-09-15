@@ -2,8 +2,10 @@ package com.yomu.app.service
 
 import com.yomu.app.db.entities.ModelStatus
 import com.yomu.app.db.entities.ModelType
+import com.yomu.app.translation.FitBudget
 import com.yomu.app.translation.LlmModelCatalog
 import com.yomu.app.translation.MapSharedPreferences
+import com.yomu.app.translation.ResourceLimit
 import com.yomu.app.translation.TranslationModelSelection
 import com.yomu.core.Constants
 import com.yomu.ml.LlamaTranslationBridge
@@ -252,9 +254,61 @@ class ModelSlotSelectionTest {
 
     @Test
     fun `fit is judged by the translation budget and an unknown memory size fits`() {
-        assertFalse(ModelSlotSelection.fits(Constants.CAT_TRANSLATION_14B_MODEL_ID, oneGb))
-        assertTrue(ModelSlotSelection.fits(Constants.CAT_TRANSLATION_14B_MODEL_ID, 0L))
-        assertTrue(ModelSlotSelection.fits(LlmModelCatalog.DEFAULT.id, oneGb))
-        assertTrue(ModelSlotSelection.fits(Constants.MANGA_OCR_MODEL_ID, oneGb))
+        assertFalse(ModelSlotSelection.fits(Constants.CAT_TRANSLATION_14B_MODEL_ID, selection.fitBudget(oneGb)))
+        assertTrue(ModelSlotSelection.fits(Constants.CAT_TRANSLATION_14B_MODEL_ID, selection.fitBudget(0L)))
+        assertTrue(ModelSlotSelection.fits(LlmModelCatalog.DEFAULT.id, selection.fitBudget(oneGb)))
+        assertTrue(ModelSlotSelection.fits(Constants.MANGA_OCR_MODEL_ID, selection.fitBudget(oneGb)))
+    }
+
+    @Test
+    fun `the fit budget carries the reader's stored percent and context size`() {
+        prefs.values[ResourceLimit.FIT_BUDGET_PERCENT.key] = 45
+        prefs.values[ResourceLimit.CONTEXT_TOKENS.key] = 2816
+
+        assertEquals(FitBudget(eightGb, 45, 2816), selection.fitBudget(eightGb))
+    }
+
+    @Test
+    fun `a limit change that would push the model in use out of the fit budget names it`() = runTest {
+        val fourGb = 4L * 1024 * 1024 * 1024
+        selection.pick(ModelType.LLM, Constants.CAT_TRANSLATION_14B_MODEL_ID, ModelStatus.READY, eightGb)
+
+        assertEquals(
+            Constants.CAT_TRANSLATION_14B_MODEL_ID,
+            selection.limitBlocker(mapOf(ResourceLimit.FIT_BUDGET_PERCENT to 30), fourGb)?.id
+        )
+        assertEquals(
+            Constants.CAT_TRANSLATION_14B_MODEL_ID,
+            selection.limitBlocker(mapOf(ResourceLimit.FIT_BUDGET_PERCENT to 45, ResourceLimit.CONTEXT_TOKENS to 2816), fourGb)?.id
+        )
+        assertNull(selection.limitBlocker(mapOf(ResourceLimit.FIT_BUDGET_PERCENT to 45, ResourceLimit.CONTEXT_TOKENS to 1536), fourGb))
+        assertNull(selection.limitBlocker(mapOf(ResourceLimit.THREADS to 1), fourGb))
+    }
+
+    @Test
+    fun `a pending choice also blocks a limit change that would push it out`() = runTest {
+        val fourGb = 4L * 1024 * 1024 * 1024
+        selection.pick(ModelType.LLM, Constants.CAT_TRANSLATION_14B_MODEL_ID, ModelStatus.AVAILABLE, eightGb)
+
+        assertEquals(
+            Constants.CAT_TRANSLATION_14B_MODEL_ID,
+            selection.limitBlocker(mapOf(ResourceLimit.FIT_BUDGET_PERCENT to 30), fourGb)?.id
+        )
+    }
+
+    @Test
+    fun `the default model never blocks a limit change`() {
+        assertNull(selection.limitBlocker(mapOf(ResourceLimit.FIT_BUDGET_PERCENT to 30), oneGb))
+    }
+
+    @Test
+    fun `the reader's stored fit budget gates what can be picked`() = runTest {
+        val fourGb = 4L * 1024 * 1024 * 1024
+        prefs.values[ResourceLimit.FIT_BUDGET_PERCENT.key] = 30
+
+        assertFalse(selection.pick(ModelType.LLM, Constants.CAT_TRANSLATION_14B_MODEL_ID, ModelStatus.READY, fourGb))
+
+        prefs.values[ResourceLimit.FIT_BUDGET_PERCENT.key] = 60
+        assertTrue(selection.pick(ModelType.LLM, Constants.CAT_TRANSLATION_14B_MODEL_ID, ModelStatus.READY, fourGb))
     }
 }
