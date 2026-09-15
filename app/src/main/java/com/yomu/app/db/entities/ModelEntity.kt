@@ -21,10 +21,11 @@ data class ModelEntity(
     val updatedAt: Long = System.currentTimeMillis()
 )
 
+/** A model's slot in the pipeline. Stored by name, so renaming an entry needs a database migration. */
 enum class ModelType {
-    VISION,
-    LLM,
-    TRANSLATION
+    DETECTION,
+    OCR,
+    LLM
 }
 
 enum class ModelStatus {
