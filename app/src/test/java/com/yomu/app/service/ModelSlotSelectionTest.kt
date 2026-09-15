@@ -7,6 +7,12 @@ import com.yomu.app.translation.MapSharedPreferences
 import com.yomu.app.translation.TranslationModelSelection
 import com.yomu.core.Constants
 import com.yomu.ml.LlamaTranslationBridge
+import com.yomu.pipeline.TranslationPipeline
+import com.yomu.pipeline.bubble.BubbleDetector
+import com.yomu.pipeline.context.ContextAssembler
+import com.yomu.pipeline.ocr.OcrEngine
+import com.yomu.pipeline.translation.TranslationEngine
+import com.yomu.pipeline.typesetting.Typesetter
 import java.io.File
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -19,10 +25,23 @@ import org.mockito.Mockito
 class ModelSlotSelectionTest {
 
     private val prefs = MapSharedPreferences()
-    private val selection = ModelSlotSelection(
-        TranslationModelSelection(Mockito.mock(LlamaTranslationBridge::class.java), prefs, File("models")),
-        ReadingModelSelection(prefs)
-    )
+    private val llama = Mockito.mock(LlamaTranslationBridge::class.java)
+    private val detector = Mockito.mock(BubbleDetector::class.java)
+    private val ocr = Mockito.mock(OcrEngine::class.java)
+    private val modelManager = Mockito.mock(ModelManager::class.java)
+    private val selection = newSelection()
+
+    private fun newSelection(): ModelSlotSelection {
+        val translation = TranslationModelSelection(llama, prefs, File("models"))
+        val pipeline = TranslationPipeline(
+            detector,
+            ocr,
+            ContextAssembler(),
+            TranslationEngine(translation::current, translation::close),
+            Mockito.mock(Typesetter::class.java)
+        )
+        return ModelSlotSelection(translation, ReadingModelSelection(prefs), pipeline, modelManager)
+    }
     private val oneGb = 1L * 1024 * 1024 * 1024
     private val eightGb = 8L * 1024 * 1024 * 1024
 
@@ -87,15 +106,18 @@ class ModelSlotSelectionTest {
 
     @Test
     fun `pending choices are kept per slot`() = runTest {
+        selection.delete(Constants.MANGA_OCR_MODEL_ID)
         selection.pick(ModelType.OCR, Constants.MANGA_OCR_MODEL_ID, ModelStatus.AVAILABLE, eightGb)
+        selection.pick(ModelType.LLM, Constants.CAT_TRANSLATION_MODEL_ID, ModelStatus.AVAILABLE, eightGb)
 
         assertEquals(Constants.MANGA_OCR_MODEL_ID, selection.pendingId(ModelType.OCR))
         assertNull(selection.pendingId(ModelType.DETECTION))
-        assertNull(selection.pendingId(ModelType.LLM))
+        assertEquals(Constants.CAT_TRANSLATION_MODEL_ID, selection.pendingId(ModelType.LLM))
 
         selection.commitPending(mapOf(Constants.MANGA_OCR_MODEL_ID to ModelStatus.READY))
 
         assertNull(selection.pendingId(ModelType.OCR))
+        assertEquals(Constants.CAT_TRANSLATION_MODEL_ID, selection.pendingId(ModelType.LLM))
         assertEquals(Constants.MANGA_OCR_MODEL_ID, prefs.values[Constants.PREF_OCR_MODEL])
     }
 
@@ -109,6 +131,101 @@ class ModelSlotSelectionTest {
         assertNull(selection.pendingId(ModelType.LLM))
         assertEquals(LlmModelCatalog.DEFAULT.id, selection.selectedId(ModelType.LLM))
     }
+
+    @Test
+    fun `re-picking the stored selection drops a pending switch`() = runTest {
+        selection.pick(ModelType.LLM, Constants.CAT_TRANSLATION_MODEL_ID, ModelStatus.DOWNLOADING, eightGb)
+
+        assertTrue(selection.pick(ModelType.LLM, LlmModelCatalog.DEFAULT.id, ModelStatus.AVAILABLE, eightGb))
+
+        assertNull(selection.pendingId(ModelType.LLM))
+        assertEquals(LlmModelCatalog.DEFAULT.id, selection.selectedId(ModelType.LLM))
+    }
+
+    @Test
+    fun `deleting the selected translation model clears its slot and unloads it`() = runTest {
+        selection.delete(LlmModelCatalog.DEFAULT.id)
+
+        assertNull(selection.selectedId(ModelType.LLM))
+        Mockito.verify(llama).close()
+        assertTrue(deleted(LlmModelCatalog.DEFAULT.id))
+    }
+
+    @Test
+    fun `deleting a selected reading model clears only its slot and releases it`() = runTest {
+        selection.delete(Constants.MANGA_OCR_MODEL_ID)
+
+        assertNull(selection.selectedId(ModelType.OCR))
+        assertEquals(Constants.BUBBLE_DETECTION_MODEL_ID, selection.selectedId(ModelType.DETECTION))
+        assertEquals(LlmModelCatalog.DEFAULT.id, selection.selectedId(ModelType.LLM))
+        Mockito.verify(ocr).release()
+        Mockito.verifyNoInteractions(detector, llama)
+        assertTrue(deleted(Constants.MANGA_OCR_MODEL_ID))
+    }
+
+    @Test
+    fun `deleting a model that isn't selected leaves every slot and unloads nothing`() = runTest {
+        selection.delete(Constants.CAT_TRANSLATION_MODEL_ID)
+
+        assertEquals(LlmModelCatalog.DEFAULT.id, selection.selectedId(ModelType.LLM))
+        Mockito.verifyNoInteractions(detector, ocr, llama)
+        assertTrue(deleted(Constants.CAT_TRANSLATION_MODEL_ID))
+    }
+
+    @Test
+    fun `a cleared slot stays empty until a model is picked`() = runTest {
+        selection.delete(LlmModelCatalog.DEFAULT.id)
+
+        assertNull(newSelection().selectedId(ModelType.LLM))
+
+        selection.pick(ModelType.LLM, Constants.CAT_TRANSLATION_MODEL_ID, ModelStatus.READY, eightGb)
+
+        assertEquals(Constants.CAT_TRANSLATION_MODEL_ID, selection.selectedId(ModelType.LLM))
+    }
+
+    @Test
+    fun `slots are ready only when every selected model is READY`() = runTest {
+        val statuses = listOf(Constants.BUBBLE_DETECTION_MODEL_ID, Constants.MANGA_OCR_MODEL_ID, LlmModelCatalog.DEFAULT.id)
+            .associateWith { ModelStatus.READY }
+
+        assertTrue(selection.ready(statuses))
+        assertFalse(selection.ready(statuses + (Constants.MANGA_OCR_MODEL_ID to ModelStatus.DOWNLOADING)))
+
+        selection.delete(Constants.MANGA_OCR_MODEL_ID)
+
+        assertFalse(selection.ready(statuses))
+    }
+
+    @Test
+    fun `the download size counts each slot's chosen model that isn't downloaded`() = runTest {
+        selection.pick(ModelType.LLM, Constants.CAT_TRANSLATION_MODEL_ID, ModelStatus.AVAILABLE, eightGb)
+        val size = { id: String -> ModelType.entries.flatMap(selection::deliverables).single { it.id == id }.sizeBytes }
+
+        assertEquals(
+            listOf(Constants.BUBBLE_DETECTION_MODEL_ID, Constants.MANGA_OCR_MODEL_ID, Constants.CAT_TRANSLATION_MODEL_ID),
+            ModelType.entries.map(selection::chosenId)
+        )
+        assertEquals(
+            size(Constants.MANGA_OCR_MODEL_ID) + size(Constants.CAT_TRANSLATION_MODEL_ID),
+            selection.downloadBytes(mapOf(Constants.BUBBLE_DETECTION_MODEL_ID to ModelStatus.READY))
+        )
+    }
+
+    @Test
+    fun `a cleared slot is set up with its curated default`() = runTest {
+        selection.pick(ModelType.LLM, Constants.CAT_TRANSLATION_MODEL_ID, ModelStatus.READY, eightGb)
+        selection.delete(Constants.CAT_TRANSLATION_MODEL_ID)
+
+        assertNull(selection.selectedId(ModelType.LLM))
+        assertEquals(LlmModelCatalog.DEFAULT.id, selection.chosenId(ModelType.LLM))
+        assertEquals(
+            LlmModelCatalog.DEFAULT.sizeBytes,
+            selection.downloadBytes(mapOf(Constants.BUBBLE_DETECTION_MODEL_ID to ModelStatus.READY, Constants.MANGA_OCR_MODEL_ID to ModelStatus.READY))
+        )
+    }
+
+    private fun deleted(id: String): Boolean =
+        Mockito.mockingDetails(modelManager).invocations.any { it.method.name == "deleteModel" && it.arguments[0] == id }
 
     @Test
     fun `every slot lists its curated deliverables with a size and licence`() {

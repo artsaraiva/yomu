@@ -14,9 +14,8 @@ import com.yomu.app.db.HistoryDao
 import com.yomu.app.db.entities.ModelStatus
 import com.yomu.app.db.entities.ModelType
 import com.yomu.app.service.ModelManager
+import com.yomu.app.service.ModelSlotSelection
 import com.yomu.app.service.OverlayService
-import com.yomu.app.service.ReadingModelSelection
-import com.yomu.app.translation.TranslationModelSelection
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
@@ -35,18 +34,24 @@ class HomeViewModel @Inject constructor(
     private val sharedPreferences: SharedPreferences,
     private val modelManager: ModelManager,
     private val historyDao: HistoryDao,
-    private val modelSelection: TranslationModelSelection,
-    private val readingSelection: ReadingModelSelection
+    private val slotSelection: ModelSlotSelection
 ) : ViewModel() {
     private companion object {
         const val SETUP_COMPLETE = "reading_setup_complete"
         const val HAS_READ = "has_read"
+        val DOWNLOAD_LABELS = mapOf(
+            ModelType.DETECTION to "Finding speech bubbles",
+            ModelType.OCR to "Reading Japanese",
+            ModelType.LLM to "Translating into English"
+        )
     }
 
     private val _uiState = MutableStateFlow(HomeUiState(
         setupComplete = sharedPreferences.getBoolean(SETUP_COMPLETE, false),
-        hasRead = sharedPreferences.getBoolean(HAS_READ, false)
-    ))
+        hasRead = sharedPreferences.getBoolean(HAS_READ, false),
+        deliverables = ModelType.entries.associateWith(slotSelection::deliverables),
+        deviceTotalMemBytes = modelManager.deviceTotalMemBytes()
+    ).withSlots())
     val uiState = _uiState.asStateFlow()
     private var historyJob: Job? = null
     private var countJob: Job? = null
@@ -76,7 +81,8 @@ class HomeViewModel @Inject constructor(
             try {
                 modelManager.refreshModelList()
                 modelManager.getAllModels().collect { models ->
-                    _uiState.update { it.copy(models = models) }
+                    slotSelection.commitPending(models.associate { it.id to it.status })
+                    _uiState.update { it.copy(models = models).withSlots() }
                     refreshReadiness()
                     _uiState.update { state ->
                         state.copy(
@@ -101,9 +107,9 @@ class HomeViewModel @Inject constructor(
         _uiState.update { state ->
             val readiness = resolveReadiness(
                 state.models.associate { it.id to it.status },
-                readingSelection.selected(ModelType.DETECTION).id,
-                readingSelection.selected(ModelType.OCR).id,
-                modelSelection.currentLlmModel().id,
+                slotSelection.selectedId(ModelType.DETECTION),
+                slotSelection.selectedId(ModelType.OCR),
+                slotSelection.selectedId(ModelType.LLM),
                 permission
             )
             state.copy(
@@ -121,7 +127,7 @@ class HomeViewModel @Inject constructor(
         val running = manager.getRunningServices(Int.MAX_VALUE).any {
             it.service.className == OverlayService::class.java.name && it.foreground
         }
-        _uiState.update { it.copy(isServiceRunning = running) }
+        _uiState.update { it.copy(isServiceRunning = running, onWifi = modelManager.isOnWifi()) }
         countJob?.cancel()
         countJob = viewModelScope.launch {
             val start = Calendar.getInstance().apply {
@@ -144,28 +150,47 @@ class HomeViewModel @Inject constructor(
         _uiState.update { it.copy(setupVisible = false) }
     }
 
+    /** Setup only records the choice; its Download button fetches every slot's choice at once. */
+    fun pickSetupModel(type: ModelType, id: String) {
+        viewModelScope.launch {
+            slotSelection.pick(type, id, modelManager.getModel(id)?.status, _uiState.value.deviceTotalMemBytes)
+            _uiState.update { it.withSlots() }
+        }
+    }
+
+    fun deleteModel(id: String) {
+        viewModelScope.launch {
+            slotSelection.delete(id)
+            _uiState.update { it.withSlots() }
+        }
+    }
+
+    private fun HomeUiState.withSlots(): HomeUiState = copy(
+        chosenIds = ModelType.entries.associateWith(slotSelection::chosenId),
+        setupDownloadBytes = slotSelection.downloadBytes(models.associate { it.id to it.status })
+    )
+
     fun prepareSetup() {
         if (setupJob?.isActive == true) return
         setupJob = viewModelScope.launch {
-            _uiState.update { it.copy(setupStarted = true, setupError = false, setupDownloadsReady = false) }
+            _uiState.update { it.copy(setupStarted = true, setupError = false, setupDownloadsReady = false, onWifi = modelManager.isOnWifi()) }
             try {
                 modelManager.refreshModelList()
-                val downloads = listOf(
-                    readingSelection.selected(ModelType.DETECTION).id to "Finding speech bubbles",
-                    readingSelection.selected(ModelType.OCR).id to "Reading Japanese",
-                    modelSelection.currentLlmModel().id to "Translating into English"
-                )
-                for ((id, label) in downloads) {
-                    if (modelManager.getModel(id)?.status == ModelStatus.READY) continue
-                    _uiState.update { it.copy(downloading = label, downloadProgress = 0) }
-                    val success = modelManager.downloadModel(id) { progress ->
-                        _uiState.update { it.copy(downloadProgress = progress.percentage.coerceIn(0, 100)) }
+                for (type in ModelType.entries) {
+                    val id = slotSelection.chosenId(type)
+                    if (modelManager.getModel(id)?.status != ModelStatus.READY) {
+                        _uiState.update { it.copy(downloading = DOWNLOAD_LABELS.getValue(type), downloadProgress = 0) }
+                        val success = modelManager.downloadModel(id) { progress ->
+                            _uiState.update { it.copy(downloadProgress = progress.percentage.coerceIn(0, 100)) }
+                        }
+                        if (!success) {
+                            _uiState.update { it.copy(setupError = true) }
+                            return@launch
+                        }
                     }
-                    if (!success) {
-                        _uiState.update { it.copy(setupError = true) }
-                        return@launch
-                    }
+                    slotSelection.pick(type, id, ModelStatus.READY, _uiState.value.deviceTotalMemBytes)
                 }
+                refreshReadiness()
                 _uiState.update { it.copy(setupDownloadsReady = true) }
             } catch (cancelled: CancellationException) {
                 throw cancelled

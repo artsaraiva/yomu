@@ -1,7 +1,5 @@
 package com.yomu.app.ui.settings
 
-import android.app.ActivityManager
-import android.content.Context
 import android.content.SharedPreferences
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -16,7 +14,6 @@ import com.yomu.core.Constants
 import com.yomu.core.GenerationBound
 import com.yomu.core.GenerationParams
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -53,7 +50,6 @@ data class SettingsUiState(
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    @ApplicationContext private val context: Context,
     private val sharedPreferences: SharedPreferences,
     private val modelSelection: TranslationModelSelection,
     private val slotSelection: ModelSlotSelection,
@@ -72,7 +68,7 @@ class SettingsViewModel @Inject constructor(
             targetLanguage = sharedPreferences.getString(Constants.PREF_TARGET_LANGUAGE, "en") ?: "en",
             sourceLanguage = sharedPreferences.getString(Constants.PREF_SOURCE_LANGUAGE, "ja") ?: "ja",
             deliverables = ModelType.entries.associateWith(slotSelection::deliverables),
-            deviceTotalMemBytes = deviceTotalMemBytes(),
+            deviceTotalMemBytes = modelManager.deviceTotalMemBytes(),
             fontSizeScale = sharedPreferences.getFloat(Constants.PREF_FONT_SIZE_SCALE, Constants.DEFAULT_FONT_SIZE_SCALE),
             theme = sharedPreferences.getString(Constants.PREF_THEME, "system") ?: "system"
         ).withGenerationProfile().withSlots()
@@ -140,14 +136,9 @@ class SettingsViewModel @Inject constructor(
     }
 
     private fun SettingsUiState.withSlots(): SettingsUiState = copy(
-        selectedIds = ModelType.entries.associateWith(slotSelection::selectedId),
+        selectedIds = ModelType.entries.mapNotNull { type -> slotSelection.selectedId(type)?.let { type to it } }.toMap(),
         pendingIds = ModelType.entries.mapNotNull { type -> slotSelection.pendingId(type)?.let { type to it } }.toMap()
     )
-
-    private fun deviceTotalMemBytes(): Long {
-        val am = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager ?: return 0L
-        return ActivityManager.MemoryInfo().also { am.getMemoryInfo(it) }.totalMem
-    }
 
     fun setFontSizeScale(scale: Float) {
         sharedPreferences.edit().putFloat(Constants.PREF_FONT_SIZE_SCALE, scale).apply()
@@ -187,7 +178,8 @@ class SettingsViewModel @Inject constructor(
 
     fun deleteModel(modelId: String) {
         viewModelScope.launch {
-            modelManager.deleteModel(modelId)
+            slotSelection.delete(modelId)
+            _uiState.update { it.withSlots() }
         }
     }
 }

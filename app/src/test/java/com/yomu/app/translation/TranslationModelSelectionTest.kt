@@ -121,6 +121,18 @@ class TranslationModelSelectionTest {
     }
 
     @Test
+    fun `a cleared model is not reported as recovered`() {
+        val prefs = MapSharedPreferences()
+        val selection = selection(prefs = prefs)
+
+        selection.clearLlmModel()
+        selection.clearRecovered()
+
+        assertTrue(selection.llmModelCleared())
+        assertFalse(selection.storedLlmModelRecovered())
+    }
+
+    @Test
     fun `clearRecovered drops the bad stored values so the warning is raised once`() {
         val prefs = MapSharedPreferences().apply {
             values[Constants.PREF_LLM_MODEL] = "retired-model"

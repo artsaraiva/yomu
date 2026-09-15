@@ -1,4 +1,5 @@
 package com.yomu.app.service
+import android.app.ActivityManager
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
@@ -185,7 +186,12 @@ class ModelManager @Inject constructor(
         ModelType.DETECTION, ModelType.OCR -> File(context.filesDir, "${Constants.MODELS_DIR}/${Constants.VISION_MODELS_DIR}")
         ModelType.LLM -> File(context.filesDir, "${Constants.MODELS_DIR}/${Constants.LLM_MODELS_DIR}")
     }
-    private fun isOnWifi(): Boolean {
+    fun deviceTotalMemBytes(): Long {
+        val am = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager ?: return 0L
+        return ActivityManager.MemoryInfo().also { am.getMemoryInfo(it) }.totalMem
+    }
+
+    fun isOnWifi(): Boolean {
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         val network = cm.activeNetwork ?: return false
         val caps = cm.getNetworkCapabilities(network) ?: return false

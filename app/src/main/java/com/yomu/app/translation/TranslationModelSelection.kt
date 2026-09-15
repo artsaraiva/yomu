@@ -24,7 +24,15 @@ class TranslationModelSelection @Inject constructor(
     /** True when a model id is stored but unreadable or no longer in the catalog, so [currentLlmModel] fell back. */
     fun storedLlmModelRecovered(): Boolean =
         sharedPreferences.contains(Constants.PREF_LLM_MODEL) &&
+            !llmModelCleared() &&
             LlmModelCatalog.fromId(sharedPreferences.storedLlmModelId()) == null
+
+    /** An empty stored id marks a slot whose model was deleted; picking a model stores its id over it. */
+    fun llmModelCleared(): Boolean = sharedPreferences.storedLlmModelId() == ""
+
+    fun clearLlmModel() {
+        sharedPreferences.edit().putString(Constants.PREF_LLM_MODEL, "").apply()
+    }
 
     /** Drop the stored values that loaded as defaults, so their warning is shown once, not every visit. */
     fun clearRecovered() {
