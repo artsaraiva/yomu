@@ -102,17 +102,12 @@ class SettingsViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(translationMode = mode)
     }
 
-    /**
-     * Pick the curated model for [type]. A downloaded one takes over at once; any other starts downloading and takes
-     * over when it is READY. Models outside the fit budget are ignored.
-     */
     fun pickModel(type: ModelType, id: String) {
         // Off the main thread: committing a translation model waits out any in-flight generation before swapping the
         // native model, which can take up to a batch timeout.
         viewModelScope.launch {
-            val state = _uiState.value
-            val status = state.models.find { it.id == id }?.status
-            if (!slotSelection.pick(type, id, status, state.deviceTotalMemBytes)) return@launch
+            val status = modelManager.getModel(id)?.status
+            if (!slotSelection.pick(type, id, status, _uiState.value.deviceTotalMemBytes)) return@launch
             _uiState.update { it.withSlots() }
             if (status != ModelStatus.READY) downloadModel(id)
         }
@@ -165,19 +160,21 @@ class SettingsViewModel @Inject constructor(
         if (modelId in downloadJobs) return
         // Lazy so the job is registered before it can finish and unregister itself.
         val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
+            var ready = false
             try {
                 setDownloadProgress(modelId, 0)
-                modelManager.downloadModel(modelId) { setDownloadProgress(modelId, it.percentage) }
+                ready = modelManager.downloadModel(modelId) { setDownloadProgress(modelId, it.percentage) }
             } finally {
                 downloadJobs.remove(modelId)
-                _uiState.update { it.copy(downloads = it.downloads - modelId) }
+                // A pick waiting on a download that failed, was refused or was cancelled would otherwise never take over.
+                if (!ready) slotSelection.dropPending(modelId)
+                _uiState.update { it.copy(downloads = it.downloads - modelId).withSlots() }
             }
         }
         downloadJobs[modelId] = job
         job.start()
     }
 
-    /** Cancelling a download also abandons the pending choice waiting on it. */
     fun cancelDownload(modelId: String) {
         slotSelection.dropPending(modelId)
         _uiState.update { it.withSlots() }

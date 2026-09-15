@@ -45,7 +45,7 @@ internal fun SlotPicker(
                                 Text("Switches to ${it.name} when its download finishes", style = MaterialTheme.typography.bodySmall, color = muted)
                             }
                         }
-                        Icon(Icons.Default.KeyboardArrowRight, contentDescription = "Change $title model")
+                        Icon(Icons.Default.KeyboardArrowRight, contentDescription = null)
                     }
                 }
             }
@@ -87,7 +87,7 @@ private fun DeliverableRow(
     onDelete: () -> Unit
 ) {
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
-    val state = when {
+    val statusLabel = when {
         progress != null -> "Downloading $progress%"
         status == ModelStatus.READY -> if (selected) "In use" else "Downloaded"
         status == ModelStatus.ERROR -> "Couldn't download"
@@ -103,16 +103,16 @@ private fun DeliverableRow(
                     style = MaterialTheme.typography.bodySmall,
                     color = muted
                 )
-                if (fits) Text(
-                    state,
+                Text(
+                    statusLabel,
                     style = MaterialTheme.typography.bodySmall,
                     color = if (status == ModelStatus.ERROR && progress == null) MaterialTheme.colorScheme.error else muted
                 )
             }
-            if (fits) when {
+            when {
                 progress != null -> PaperButton("Cancel", onCancel)
                 status == ModelStatus.READY -> if (!selected) PaperButton("Delete", onDelete)
-                else -> PaperButton(if (status == ModelStatus.ERROR) "Retry" else "Download", onPick)
+                else -> PaperButton(if (status == ModelStatus.ERROR) "Retry" else "Download", onPick, enabled = fits)
             }
         }
         progress?.let {

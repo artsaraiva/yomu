@@ -23,6 +23,7 @@ class ModelSlotSelectionTest {
         TranslationModelSelection(Mockito.mock(LlamaTranslationBridge::class.java), prefs, File("models")),
         ReadingModelSelection(prefs)
     )
+    private val oneGb = 1L * 1024 * 1024 * 1024
     private val eightGb = 8L * 1024 * 1024 * 1024
 
     @Test
@@ -68,8 +69,6 @@ class ModelSlotSelectionTest {
 
     @Test
     fun `a deliverable outside the fit budget can't be selected`() = runTest {
-        val oneGb = 1L * 1024 * 1024 * 1024
-
         assertFalse(selection.pick(ModelType.LLM, Constants.CAT_TRANSLATION_14B_MODEL_ID, ModelStatus.READY, oneGb))
         assertFalse(selection.pick(ModelType.LLM, Constants.CAT_TRANSLATION_14B_MODEL_ID, ModelStatus.AVAILABLE, oneGb))
 
@@ -136,8 +135,6 @@ class ModelSlotSelectionTest {
 
     @Test
     fun `fit is judged by the translation budget and an unknown memory size fits`() {
-        val oneGb = 1L * 1024 * 1024 * 1024
-
         assertFalse(ModelSlotSelection.fits(Constants.CAT_TRANSLATION_14B_MODEL_ID, oneGb))
         assertTrue(ModelSlotSelection.fits(Constants.CAT_TRANSLATION_14B_MODEL_ID, 0L))
         assertTrue(ModelSlotSelection.fits(LlmModelCatalog.DEFAULT.id, oneGb))

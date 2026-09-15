@@ -8,7 +8,6 @@ import com.yomu.core.Constants
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** One curated model a slot can hold, as the slot picker lists it. */
 data class SlotDeliverable(val id: String, val name: String, val sizeBytes: Long, val licence: String)
 
 /**
@@ -39,7 +38,6 @@ class ModelSlotSelection @Inject constructor(
 
     fun pendingId(type: ModelType): String? = pending[type]
 
-    /** Refuses a model outside [type]'s deliverables or the fit budget; otherwise commits it if READY, else holds it pending. */
     suspend fun pick(type: ModelType, id: String, status: ModelStatus?, totalMemBytes: Long): Boolean {
         if (deliverables(type).none { it.id == id } || !fits(id, totalMemBytes)) return false
         if (status == ModelStatus.READY) {
@@ -78,7 +76,7 @@ class ModelSlotSelection @Inject constructor(
             Constants.MANGA_OCR_MODEL_ID to "Apache-2.0 (manga-ocr)"
         )
 
-        /** Whether [id] fits a device with [totalMemBytes] of RAM. Only translation models are budgeted; 0 means unknown. */
+        // Only translation models have a fit budget; 0 bytes means the device RAM couldn't be read.
         fun fits(id: String, totalMemBytes: Long): Boolean {
             val option = LlmModelCatalog.fromId(id) ?: return true
             return totalMemBytes <= 0L || LlmModelCatalog.canRunOnDevice(option, totalMemBytes)
