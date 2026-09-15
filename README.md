@@ -18,18 +18,22 @@ Tap once over any manga page, in any app, and read it in English. Nothing leaves
 
 ## See it in action
 
+<p align="center">
+  <img src="docs/images/demo.gif" alt="Screen recording: tapping the Yomu floating button over a Japanese manga page; bubbles are detected and read, then covered with English text" width="320">
+</p>
+
 <table>
   <tr>
-    <th align="center">Before: the page as published</th>
-    <th align="center">After: one tap on the Yomu button</th>
+    <th align="center">Before</th>
+    <th align="center">After one tap</th>
   </tr>
   <tr>
-    <td><img src="docs/images/page-original.svg" alt="A four-panel manga page with Japanese vertical text in its speech bubbles" width="100%"></td>
-    <td><img src="docs/images/page-translated.svg" alt="The same manga page with each speech bubble covered by English text" width="100%"></td>
+    <td><img src="docs/images/demo-before.png" alt="A manga page with Japanese vertical text in its speech bubbles and the Yomu floating button" width="100%"></td>
+    <td><img src="docs/images/demo-after.png" alt="The same manga page with each speech bubble covered by English text" width="100%"></td>
   </tr>
 </table>
 
-<sub>The illustration is original demo art. The right-hand page shows how Yomu draws translations: each detected bubble gets a white rounded fill with dark text over the live page. Sound effects such as ガバッ stay untranslated because the detector only picks up balloon and in-panel text.</sub>
+<sub>Unedited output from the default model (Qwen2.5 1.5B) running on an Android emulator. Manga: ブラックジャックによろしく 佐藤秀峰 (Give My Regards to Black Jack, SHUHO SATO), used under the author's free secondary-use licence.</sub>
 
 ## Table of contents
 
