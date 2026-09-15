@@ -1,15 +1,11 @@
 package com.yomu.app.ui.settings
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -54,39 +50,25 @@ internal fun AdvancedGenerationPanel(
     onChange: (GenerationBound, Float) -> Unit,
     onReset: () -> Unit
 ) {
-    var expanded by rememberSaveable { mutableStateOf(false) }
     PaperSurface(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp)) {
-            Row(
-                Modifier.fillMaxWidth().clickable { expanded = !expanded },
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text("Advanced generation", fontWeight = FontWeight.Medium)
-                    Text(
-                        text = if (overridden) "Changed from the shipped defaults" else "Shipped defaults",
-                        fontSize = 12.sp,
-                        color = if (overridden) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Icon(
-                    if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                    contentDescription = if (expanded) "Collapse" else "Expand"
-                )
-            }
-            if (expanded) {
-                Text(
-                    text = "Sampler settings for the on-device LLM, shared by every model. Applied on the next capture.",
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                GenerationBound.entries.forEach { bound ->
-                    Spacer(Modifier.height(12.dp))
-                    GenerationSlider(bound, bound.read(generation), onChange)
-                }
+            Text("Generation", fontWeight = FontWeight.Medium)
+            Text(
+                text = if (overridden) "Changed from the shipped defaults" else "Shipped defaults",
+                fontSize = 12.sp,
+                color = if (overridden) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = "Sampler settings for the on-device LLM, shared by every model. Applied on the next capture.",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            GenerationBound.entries.forEach { bound ->
                 Spacer(Modifier.height(12.dp))
-                PaperButton("Reset to defaults", onReset, enabled = overridden)
+                GenerationSlider(bound, bound.read(generation), onChange)
             }
+            Spacer(Modifier.height(12.dp))
+            PaperButton("Reset to defaults", onReset, enabled = overridden)
         }
     }
 }

@@ -32,7 +32,16 @@ import com.yomu.app.ui.home.HomeViewModel
 import com.yomu.app.ui.home.SetupScreen
 import com.yomu.app.ui.theme.PaperLoading
 import com.yomu.app.ui.home.HomeScreen
+import androidx.navigation.compose.navigation
+import com.yomu.app.ui.settings.AppearanceSettings
+import com.yomu.app.ui.settings.PipelineSettings
 import com.yomu.app.ui.settings.SettingsScreen
+import com.yomu.app.ui.settings.SettingsSection
+import com.yomu.app.ui.settings.SettingsViewModel
+import com.yomu.app.ui.settings.TranslationSettings
+import com.yomu.app.ui.settings.TypesettingSettings
+
+private const val SETTINGS_ROOT = "settings/root"
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
     data object Home : Screen("home", "Home", Icons.Default.Home)
@@ -85,7 +94,10 @@ fun AppNavigation(onRequestScreenCapture: () -> Unit = {}) {
                                 unselectedTextColor = scheme.onSurfaceVariant
                             ),
                             onClick = {
-                                navController.navigate(screen.route) { launchSingleTop = true }
+                                navController.navigate(screen.route) {
+                                    popUpTo(Screen.Home.route)
+                                    launchSingleTop = true
+                                }
                             }
                         )
                     }
@@ -111,7 +123,25 @@ fun AppNavigation(onRequestScreenCapture: () -> Unit = {}) {
                         navController.navigate(Screen.Settings.route) { launchSingleTop = true }
                     })
                 }
-                composable(Screen.Settings.route) { SettingsScreen() }
+                navigation(startDestination = SETTINGS_ROOT, route = Screen.Settings.route) {
+                    composable(SETTINGS_ROOT) {
+                        SettingsScreen(onOpen = { navController.navigate(it.route) { launchSingleTop = true } })
+                    }
+                    SettingsSection.entries.forEach { section ->
+                        composable(section.route) { entry ->
+                            // One ViewModel for the whole settings graph, so a download survives leaving its sub-screen.
+                            val parent = remember(entry) { navController.getBackStackEntry(Screen.Settings.route) }
+                            val settings: SettingsViewModel = hiltViewModel(parent)
+                            val onBack: () -> Unit = { navController.popBackStack() }
+                            when (section) {
+                                SettingsSection.Translation -> TranslationSettings(settings, onBack)
+                                SettingsSection.Pipeline -> PipelineSettings(settings, onBack)
+                                SettingsSection.Typesetting -> TypesettingSettings(settings, onBack)
+                                SettingsSection.Appearance -> AppearanceSettings(settings, onBack)
+                            }
+                        }
+                    }
+                }
             }
         }
     }
