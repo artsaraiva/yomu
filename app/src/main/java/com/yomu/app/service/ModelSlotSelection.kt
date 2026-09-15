@@ -26,6 +26,7 @@ class ModelSlotSelection @Inject constructor(
     private val models: ModelManager
 ) {
     private val pending = mutableMapOf<ModelType, String>()
+    private val downloading = mutableSetOf<String>()
 
     fun deliverables(type: ModelType): List<SlotDeliverable> = when (type) {
         ModelType.LLM -> LlmModelCatalog.ALL.map { SlotDeliverable(it.id, it.displayName, it.sizeBytes, it.licence) }
@@ -98,6 +99,22 @@ class ModelSlotSelection @Inject constructor(
 
     fun dropPending(id: String) {
         pending.values.remove(id)
+    }
+
+    /**
+     * One download per model, shared by every screen that picks, since two would write the same file. A pick waiting
+     * on a download that failed, was refused or was cancelled would otherwise never take over, so it is dropped.
+     */
+    suspend fun download(id: String, onProgress: (Int) -> Unit = {}): Boolean {
+        if (!downloading.add(id)) return false
+        var ready = false
+        try {
+            ready = models.downloadModel(id) { onProgress(it.percentage) }
+        } finally {
+            downloading.remove(id)
+            if (!ready) dropPending(id)
+        }
+        return ready
     }
 
     /** Unloads a selected model before its files go, so a running overlay never reads a deleted file. */

@@ -16,6 +16,9 @@ import com.yomu.pipeline.ocr.OcrEngine
 import com.yomu.pipeline.translation.TranslationEngine
 import com.yomu.pipeline.typesetting.Typesetter
 import java.io.File
+import kotlin.coroutines.intrinsics.COROUTINE_SUSPENDED
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -33,7 +36,7 @@ class ModelSlotSelectionTest {
     private val modelManager = Mockito.mock(ModelManager::class.java)
     private val selection = newSelection()
 
-    private fun newSelection(): ModelSlotSelection {
+    private fun newSelection(models: ModelManager = modelManager): ModelSlotSelection {
         val translation = TranslationModelSelection(llama, prefs, File("models"))
         val pipeline = TranslationPipeline(
             detector,
@@ -42,7 +45,38 @@ class ModelSlotSelectionTest {
             TranslationEngine(translation::current, translation::close),
             Mockito.mock(Typesetter::class.java)
         )
-        return ModelSlotSelection(translation, ReadingModelSelection(prefs), pipeline, modelManager)
+        return ModelSlotSelection(translation, ReadingModelSelection(prefs), pipeline, models)
+    }
+
+    private fun downloadingWith(result: Any): ModelManager = Mockito.mock(ModelManager::class.java) { invocation ->
+        if (invocation.method.name == "downloadModel") result else Mockito.RETURNS_DEFAULTS.answer(invocation)
+    }
+
+    private fun downloadCalls(models: ModelManager): Int =
+        Mockito.mockingDetails(models).invocations.count { it.method.name == "downloadModel" }
+
+    @Test
+    fun `a failed download drops the pick waiting on it`() = runTest {
+        val selection = newSelection(downloadingWith(false))
+        selection.pick(ModelType.LLM, Constants.CAT_TRANSLATION_MODEL_ID, ModelStatus.AVAILABLE, eightGb)
+
+        assertFalse(selection.download(Constants.CAT_TRANSLATION_MODEL_ID))
+
+        assertNull(selection.pendingId(ModelType.LLM))
+    }
+
+    @Test
+    fun `a model already downloading is not downloaded a second time`() = runTest {
+        val models = downloadingWith(COROUTINE_SUSPENDED)
+        val selection = newSelection(models)
+        selection.pick(ModelType.LLM, Constants.CAT_TRANSLATION_MODEL_ID, ModelStatus.AVAILABLE, eightGb)
+        backgroundScope.launch { selection.download(Constants.CAT_TRANSLATION_MODEL_ID) }
+        runCurrent()
+
+        assertFalse(selection.download(Constants.CAT_TRANSLATION_MODEL_ID))
+
+        assertEquals(1, downloadCalls(models))
+        assertEquals(Constants.CAT_TRANSLATION_MODEL_ID, selection.pendingId(ModelType.LLM))
     }
     private val oneGb = 1L * 1024 * 1024 * 1024
     private val eightGb = 8L * 1024 * 1024 * 1024

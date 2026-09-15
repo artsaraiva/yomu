@@ -225,14 +225,11 @@ class SettingsViewModel @Inject constructor(
         if (modelId in downloadJobs) return
         // Lazy so the job is registered before it can finish and unregister itself.
         val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
-            var ready = false
             try {
                 setDownloadProgress(modelId, 0)
-                ready = modelManager.downloadModel(modelId) { setDownloadProgress(modelId, it.percentage) }
+                slotSelection.download(modelId) { setDownloadProgress(modelId, it) }
             } finally {
                 downloadJobs.remove(modelId)
-                // A pick waiting on a download that failed, was refused or was cancelled would otherwise never take over.
-                if (!ready) slotSelection.dropPending(modelId)
                 _uiState.update { it.copy(downloads = it.downloads - modelId).withSlots() }
             }
         }

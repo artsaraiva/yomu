@@ -171,13 +171,8 @@ class HomeViewModel @Inject constructor(
             if (!slotSelection.pick(ModelType.LLM, id, status, _uiState.value.fitBudget.totalMemBytes)) return@launch
             _uiState.update { it.withSlots() }
             if (slotSelection.pendingId(ModelType.LLM) != id) return@launch
-            var ready = false
-            try {
-                ready = modelManager.downloadModel(id)
-            } finally {
-                if (!ready) slotSelection.dropPending(id)
-                _uiState.update { it.withSlots() }
-            }
+            slotSelection.download(id)
+            _uiState.update { it.withSlots() }
         }
     }
 
