@@ -5,8 +5,7 @@ import com.yomu.app.db.entities.ModelType
 import com.yomu.app.translation.LlmModelCatalog
 import com.yomu.app.translation.TranslationModelSelection
 import com.yomu.core.Constants
-import com.yomu.pipeline.bubble.BubbleDetector
-import com.yomu.pipeline.ocr.OcrEngine
+import com.yomu.pipeline.TranslationPipeline
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -21,8 +20,7 @@ data class SlotDeliverable(val id: String, val name: String, val sizeBytes: Long
 class ModelSlotSelection @Inject constructor(
     private val translation: TranslationModelSelection,
     private val reading: ReadingModelSelection,
-    private val detector: BubbleDetector,
-    private val ocr: OcrEngine,
+    private val pipeline: TranslationPipeline,
     private val models: ModelManager
 ) {
     private val pending = mutableMapOf<ModelType, String>()
@@ -45,14 +43,15 @@ class ModelSlotSelection @Inject constructor(
 
     fun pendingId(type: ModelType): String? = pending[type]
 
-    /** The model a slot will hold once downloads finish: its pending choice, else its selection. */
-    fun chosenId(type: ModelType): String? = pending[type] ?: selectedId(type)
+    // Setup offers the curated default for a slot emptied by a delete, so it always has something to download.
+    fun chosenId(type: ModelType): String =
+        pending[type] ?: selectedId(type) ?: ModelManager.SLOT_DEFAULTS.getValue(type)
 
     fun ready(statuses: Map<String, ModelStatus>): Boolean =
         ModelType.entries.all { type -> selectedId(type)?.let(statuses::get) == ModelStatus.READY }
 
     fun downloadBytes(statuses: Map<String, ModelStatus>): Long = ModelType.entries.sumOf { type ->
-        val id = chosenId(type)?.takeIf { statuses[it] != ModelStatus.READY }
+        val id = chosenId(type).takeIf { statuses[it] != ModelStatus.READY }
         deliverables(type).firstOrNull { it.id == id }?.sizeBytes ?: 0L
     }
 
@@ -87,15 +86,15 @@ class ModelSlotSelection @Inject constructor(
             when (type) {
                 ModelType.LLM -> {
                     translation.clearLlmModel()
-                    translation.close()
+                    pipeline.unloadTranslation()
                 }
                 ModelType.DETECTION -> {
                     reading.clear(type)
-                    detector.release()
+                    pipeline.unloadDetection()
                 }
                 ModelType.OCR -> {
                     reading.clear(type)
-                    ocr.release()
+                    pipeline.unloadOcr()
                 }
             }
         }

@@ -7,8 +7,12 @@ import com.yomu.app.translation.MapSharedPreferences
 import com.yomu.app.translation.TranslationModelSelection
 import com.yomu.core.Constants
 import com.yomu.ml.LlamaTranslationBridge
+import com.yomu.pipeline.TranslationPipeline
 import com.yomu.pipeline.bubble.BubbleDetector
+import com.yomu.pipeline.context.ContextAssembler
 import com.yomu.pipeline.ocr.OcrEngine
+import com.yomu.pipeline.translation.TranslationEngine
+import com.yomu.pipeline.typesetting.Typesetter
 import java.io.File
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -25,13 +29,19 @@ class ModelSlotSelectionTest {
     private val detector = Mockito.mock(BubbleDetector::class.java)
     private val ocr = Mockito.mock(OcrEngine::class.java)
     private val modelManager = Mockito.mock(ModelManager::class.java)
-    private val selection = ModelSlotSelection(
-        TranslationModelSelection(llama, prefs, File("models")),
-        ReadingModelSelection(prefs),
-        detector,
-        ocr,
-        modelManager
-    )
+    private val selection = newSelection()
+
+    private fun newSelection(): ModelSlotSelection {
+        val translation = TranslationModelSelection(llama, prefs, File("models"))
+        val pipeline = TranslationPipeline(
+            detector,
+            ocr,
+            ContextAssembler(),
+            TranslationEngine(translation::current, translation::close),
+            Mockito.mock(Typesetter::class.java)
+        )
+        return ModelSlotSelection(translation, ReadingModelSelection(prefs), pipeline, modelManager)
+    }
     private val oneGb = 1L * 1024 * 1024 * 1024
     private val eightGb = 8L * 1024 * 1024 * 1024
 
@@ -166,9 +176,7 @@ class ModelSlotSelectionTest {
     fun `a cleared slot stays empty until a model is picked`() = runTest {
         selection.delete(LlmModelCatalog.DEFAULT.id)
 
-        assertNull(ModelSlotSelection(
-            TranslationModelSelection(llama, prefs, File("models")), ReadingModelSelection(prefs), detector, ocr, modelManager
-        ).selectedId(ModelType.LLM))
+        assertNull(newSelection().selectedId(ModelType.LLM))
 
         selection.pick(ModelType.LLM, Constants.CAT_TRANSLATION_MODEL_ID, ModelStatus.READY, eightGb)
 
@@ -177,7 +185,8 @@ class ModelSlotSelectionTest {
 
     @Test
     fun `slots are ready only when every selected model is READY`() = runTest {
-        val statuses = ModelType.entries.associate { selection.selectedId(it)!! to ModelStatus.READY }
+        val statuses = listOf(Constants.BUBBLE_DETECTION_MODEL_ID, Constants.MANGA_OCR_MODEL_ID, LlmModelCatalog.DEFAULT.id)
+            .associateWith { ModelStatus.READY }
 
         assertTrue(selection.ready(statuses))
         assertFalse(selection.ready(statuses + (Constants.MANGA_OCR_MODEL_ID to ModelStatus.DOWNLOADING)))
@@ -199,6 +208,19 @@ class ModelSlotSelectionTest {
         assertEquals(
             size(Constants.MANGA_OCR_MODEL_ID) + size(Constants.CAT_TRANSLATION_MODEL_ID),
             selection.downloadBytes(mapOf(Constants.BUBBLE_DETECTION_MODEL_ID to ModelStatus.READY))
+        )
+    }
+
+    @Test
+    fun `a cleared slot is set up with its curated default`() = runTest {
+        selection.pick(ModelType.LLM, Constants.CAT_TRANSLATION_MODEL_ID, ModelStatus.READY, eightGb)
+        selection.delete(Constants.CAT_TRANSLATION_MODEL_ID)
+
+        assertNull(selection.selectedId(ModelType.LLM))
+        assertEquals(LlmModelCatalog.DEFAULT.id, selection.chosenId(ModelType.LLM))
+        assertEquals(
+            LlmModelCatalog.DEFAULT.sizeBytes,
+            selection.downloadBytes(mapOf(Constants.BUBBLE_DETECTION_MODEL_ID to ModelStatus.READY, Constants.MANGA_OCR_MODEL_ID to ModelStatus.READY))
         )
     }
 

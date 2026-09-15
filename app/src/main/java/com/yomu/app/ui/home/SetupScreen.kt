@@ -57,7 +57,7 @@ fun SetupScreen(state: HomeUiState, viewModel: HomeViewModel) {
                 if (!state.onWifi) {
                     Text("You're not on Wi-Fi. Connect to Wi-Fi to download.", color = MaterialTheme.colorScheme.error)
                 }
-                PaperButton("Download", viewModel::prepareSetup, Modifier.fillMaxWidth(), enabled = state.everySlotChosen)
+                PaperButton("Download", viewModel::prepareSetup, Modifier.fillMaxWidth())
             }
             !state.setupDownloadsReady -> PaperSurface(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(20.dp).semantics { liveRegion = LiveRegionMode.Polite }, verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -98,8 +98,8 @@ private fun SetupSlot(state: HomeUiState, viewModel: HomeViewModel, type: ModelT
         title = title,
         description = description,
         deliverables = state.deliverables[type].orEmpty(),
-        selectedId = state.selectedIds[type],
-        pendingId = state.pendingIds[type],
+        selectedId = state.chosenIds[type],
+        pendingId = null,
         statuses = state.models.associate { it.id to it.status },
         downloads = emptyMap(),
         fits = state::fits,

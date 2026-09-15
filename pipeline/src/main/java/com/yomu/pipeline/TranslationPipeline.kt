@@ -11,6 +11,8 @@ import com.yomu.pipeline.translation.TranslationResult
 import com.yomu.pipeline.typesetting.TypesetBubble
 import com.yomu.pipeline.typesetting.Typesetter
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 data class ModelPaths(
@@ -78,10 +80,25 @@ class TranslationPipeline(
         bubbleLoaded && ocrLoaded
     }
 
+    /** Held by a page run, so a model is never unloaded while a native session is still using it. */
+    private val inference = Mutex()
+
     suspend fun processPage(
         bitmap: Bitmap,
         callback: PipelineCallback? = null,
         onOcrComplete: ((bubbleId: Int, ocrText: String, bounds: RectF) -> Unit)? = null
+    ): PipelineResult? = inference.withLock { runPage(bitmap, callback, onOcrComplete) }
+
+    suspend fun unloadDetection() = inference.withLock { bubbleDetector.release() }
+
+    suspend fun unloadOcr() = inference.withLock { ocrEngine.release() }
+
+    suspend fun unloadTranslation() = inference.withLock { translationEngine.close() }
+
+    private suspend fun runPage(
+        bitmap: Bitmap,
+        callback: PipelineCallback?,
+        onOcrComplete: ((bubbleId: Int, ocrText: String, bounds: RectF) -> Unit)?
     ): PipelineResult? {
         val startTime = System.currentTimeMillis()
         val pageWidth = bitmap.width

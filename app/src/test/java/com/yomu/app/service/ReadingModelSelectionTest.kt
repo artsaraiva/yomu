@@ -4,6 +4,8 @@ import com.yomu.app.db.entities.ModelType
 import com.yomu.app.translation.MapSharedPreferences
 import com.yomu.core.Constants
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ReadingModelSelectionTest {
@@ -26,6 +28,18 @@ class ReadingModelSelectionTest {
         assertEquals(ocr.id, prefs.values[Constants.PREF_OCR_MODEL])
         assertEquals(ocr, selection.selected(ModelType.OCR))
         assertEquals(null, prefs.values[Constants.PREF_DETECTION_MODEL])
+    }
+
+    @Test
+    fun `clearing a slot empties only that slot until a model is selected`() {
+        selection.clear(ModelType.OCR)
+
+        assertTrue(selection.isCleared(ModelType.OCR))
+        assertFalse(selection.isCleared(ModelType.DETECTION))
+
+        selection.select(ModelManager.REGISTRY.first { it.type == ModelType.OCR })
+
+        assertFalse(selection.isCleared(ModelType.OCR))
     }
 
     @Test

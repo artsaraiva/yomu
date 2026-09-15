@@ -19,9 +19,7 @@ data class HomeUiState(
     val downloadProgress: Int = 0,
     val setupError: Boolean = false,
     val deliverables: Map<ModelType, List<SlotDeliverable>> = emptyMap(),
-    val selectedIds: Map<ModelType, String> = emptyMap(),
-    val pendingIds: Map<ModelType, String> = emptyMap(),
-    /** Bytes still to download for the model each slot will hold. */
+    val chosenIds: Map<ModelType, String> = emptyMap(),
     val setupDownloadBytes: Long = 0L,
     val deviceTotalMemBytes: Long = 0L,
     val onWifi: Boolean = true,
@@ -36,9 +34,6 @@ data class HomeUiState(
 ) {
     val readingStatus: ReadingStatus
         get() = resolveReadingStatus(readiness == Readiness.Ready && setupComplete, isServiceRunning)
-
-    val everySlotChosen: Boolean
-        get() = ModelType.entries.all { it in selectedIds || it in pendingIds }
 
     fun fits(deliverable: SlotDeliverable): Boolean = ModelSlotSelection.fits(deliverable.id, deviceTotalMemBytes)
 }

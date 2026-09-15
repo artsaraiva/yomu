@@ -166,8 +166,7 @@ class HomeViewModel @Inject constructor(
     }
 
     private fun HomeUiState.withSlots(): HomeUiState = copy(
-        selectedIds = ModelType.entries.mapNotNull { type -> slotSelection.selectedId(type)?.let { type to it } }.toMap(),
-        pendingIds = ModelType.entries.mapNotNull { type -> slotSelection.pendingId(type)?.let { type to it } }.toMap(),
+        chosenIds = ModelType.entries.associateWith(slotSelection::chosenId),
         setupDownloadBytes = slotSelection.downloadBytes(models.associate { it.id to it.status })
     )
 
@@ -178,17 +177,20 @@ class HomeViewModel @Inject constructor(
             try {
                 modelManager.refreshModelList()
                 for (type in ModelType.entries) {
-                    val id = slotSelection.chosenId(type) ?: throw IllegalStateException("No model chosen for $type")
-                    if (modelManager.getModel(id)?.status == ModelStatus.READY) continue
-                    _uiState.update { it.copy(downloading = DOWNLOAD_LABELS.getValue(type), downloadProgress = 0) }
-                    val success = modelManager.downloadModel(id) { progress ->
-                        _uiState.update { it.copy(downloadProgress = progress.percentage.coerceIn(0, 100)) }
+                    val id = slotSelection.chosenId(type)
+                    if (modelManager.getModel(id)?.status != ModelStatus.READY) {
+                        _uiState.update { it.copy(downloading = DOWNLOAD_LABELS.getValue(type), downloadProgress = 0) }
+                        val success = modelManager.downloadModel(id) { progress ->
+                            _uiState.update { it.copy(downloadProgress = progress.percentage.coerceIn(0, 100)) }
+                        }
+                        if (!success) {
+                            _uiState.update { it.copy(setupError = true) }
+                            return@launch
+                        }
                     }
-                    if (!success) {
-                        _uiState.update { it.copy(setupError = true) }
-                        return@launch
-                    }
+                    slotSelection.pick(type, id, ModelStatus.READY, _uiState.value.deviceTotalMemBytes)
                 }
+                refreshReadiness()
                 _uiState.update { it.copy(setupDownloadsReady = true) }
             } catch (cancelled: CancellationException) {
                 throw cancelled
