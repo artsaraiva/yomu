@@ -26,8 +26,7 @@ import java.util.Date
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel,
-    onRequestScreenCapture: () -> Unit,
-    onOpenSettings: () -> Unit
+    onRequestScreenCapture: () -> Unit
 ) {
     val state by viewModel.uiState.collectAsState()
     val scroll = rememberLazyListState()
@@ -89,6 +88,10 @@ fun HomeScreen(
                 else "Turn reading on, then browse manga in the app you already use.",
                 style = MaterialTheme.typography.bodyMedium
             )
+            if (readingStatus != ReadingStatus.NotReady) {
+                Spacer(Modifier.height(12.dp))
+                QuickSettingsStrip(state, viewModel::pickTranslationModel)
+            }
         }
         state.confirmation?.let { message -> item { PaperSuccess(message, viewModel::dismissConfirmation) } }
         if (state.serviceError) item {
@@ -109,9 +112,6 @@ fun HomeScreen(
             }
         }
         item {
-            TextButton(colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface), onClick = onOpenSettings) {
-                Text("Translated on your device ›", style = MaterialTheme.typography.bodyMedium)
-            }
             Text("${state.pagesTranslatedToday} ${if (state.pagesTranslatedToday == 1) "page" else "pages"} translated today", style = MaterialTheme.typography.bodySmall)
         }
         if (state.historyLoading || state.historyError || state.hasRead) {

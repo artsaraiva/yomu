@@ -89,6 +89,13 @@ internal fun SlotPicker(
     }
 }
 
+internal fun deliverableStatus(status: ModelStatus?, progress: Int?, selected: Boolean, pending: Boolean): String = when {
+    progress != null -> "Downloading $progress%"
+    status == ModelStatus.READY -> if (selected) "In use" else "Downloaded"
+    status == ModelStatus.ERROR -> "Couldn't download"
+    else -> "Not downloaded"
+} + if (pending) " · Takes over when downloaded" else ""
+
 @Composable
 private fun DeliverableRow(
     deliverable: SlotDeliverable,
@@ -102,12 +109,7 @@ private fun DeliverableRow(
     onDelete: () -> Unit
 ) {
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
-    val statusLabel = when {
-        progress != null -> "Downloading $progress%"
-        status == ModelStatus.READY -> if (selected) "In use" else "Downloaded"
-        status == ModelStatus.ERROR -> "Couldn't download"
-        else -> "Not downloaded"
-    } + if (pending) " · Takes over when downloaded" else ""
+    val statusLabel = deliverableStatus(status, progress, selected, pending)
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
             RadioButton(selected = selected, onClick = onPick, enabled = fits)

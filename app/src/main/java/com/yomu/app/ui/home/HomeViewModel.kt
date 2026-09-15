@@ -164,6 +164,18 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    /** Home's quick pick: unlike setup, a model that isn't downloaded starts downloading and takes over when READY. */
+    fun pickTranslationModel(id: String) {
+        viewModelScope.launch {
+            val status = modelManager.getModel(id)?.status
+            if (!slotSelection.pick(ModelType.LLM, id, status, _uiState.value.fitBudget.totalMemBytes)) return@launch
+            _uiState.update { it.withSlots() }
+            if (slotSelection.pendingId(ModelType.LLM) != id) return@launch
+            slotSelection.download(id)
+            _uiState.update { it.withSlots() }
+        }
+    }
+
     fun deleteModel(id: String) {
         viewModelScope.launch {
             slotSelection.delete(id)
@@ -173,6 +185,8 @@ class HomeViewModel @Inject constructor(
 
     private fun HomeUiState.withSlots(): HomeUiState = copy(
         chosenIds = ModelType.entries.associateWith(slotSelection::chosenId),
+        translationSelectedId = slotSelection.selectedId(ModelType.LLM),
+        translationPendingId = slotSelection.pendingId(ModelType.LLM),
         setupDownloadBytes = slotSelection.downloadBytes(models.associate { it.id to it.status })
     )
 
