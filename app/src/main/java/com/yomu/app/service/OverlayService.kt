@@ -24,6 +24,7 @@ import com.yomu.app.overlay.OverlayBubbleState
 import com.yomu.app.overlay.QuickSettingsPopup
 import com.yomu.app.overlay.TranslationRenderOverlay
 import com.yomu.app.overlay.TranslationStatusOverlay
+import com.yomu.app.db.entities.ModelType
 import com.yomu.app.db.entities.TranslationSessionEntity
 import com.yomu.core.Constants
 import com.yomu.pipeline.ModelPaths
@@ -48,6 +49,10 @@ class OverlayService : Service() {
     @Inject lateinit var translationPipeline: TranslationPipeline
     @Inject lateinit var sharedPreferences: SharedPreferences
     @Inject lateinit var sessionManager: SessionManager
+    @Inject lateinit var modelManager: ModelManager
+    @Inject lateinit var readingSelection: ReadingModelSelection
+
+    private var readingModelFiles: List<File> = emptyList()
 
     private lateinit var windowManager: WindowManager
     private lateinit var closeZoneOverlay: CloseZoneOverlay
@@ -109,11 +114,14 @@ class OverlayService : Service() {
         statusOverlay = TranslationStatusOverlay(this, windowManager)
         sharedPreferences.registerOnSharedPreferenceChangeListener(preferenceListener)
         createNotificationChannel()
+        val detectionFiles = modelManager.modelFiles(readingSelection.selected(ModelType.DETECTION))
+        val ocrFiles = modelManager.modelFiles(readingSelection.selected(ModelType.OCR))
+        readingModelFiles = detectionFiles + ocrFiles
         translationPipeline.modelPaths = ModelPaths(
-            bubbleDetectionPath = File(filesDir, "${Constants.MODELS_DIR}/${Constants.VISION_MODELS_DIR}/${Constants.BUBBLE_DETECTION_MODEL}").absolutePath,
-            ocrEncoderPath = File(filesDir, "${Constants.MODELS_DIR}/${Constants.VISION_MODELS_DIR}/${Constants.OCR_ENCODER_MODEL}").absolutePath,
-            ocrDecoderPath = File(filesDir, "${Constants.MODELS_DIR}/${Constants.VISION_MODELS_DIR}/${Constants.OCR_DECODER_MODEL}").absolutePath,
-            ocrVocabPath = File(filesDir, "${Constants.MODELS_DIR}/${Constants.VISION_MODELS_DIR}/${Constants.OCR_VOCAB_FILE}").absolutePath
+            bubbleDetectionPath = detectionFiles[0].absolutePath,
+            ocrEncoderPath = ocrFiles[0].absolutePath,
+            ocrDecoderPath = ocrFiles[1].absolutePath,
+            ocrVocabPath = ocrFiles[2].absolutePath
         )
         translationPipeline.fontSizeScale = sharedPreferences.getFloat(
             Constants.PREF_FONT_SIZE_SCALE,
@@ -276,14 +284,7 @@ class OverlayService : Service() {
         floatingButton?.setState(FloatingButtonView.State.TRANSLATING)
 
         scope.launch {
-            val visionDir = File(filesDir, "${Constants.MODELS_DIR}/${Constants.VISION_MODELS_DIR}")
-            val visionModelsReady = listOf(
-                Constants.BUBBLE_DETECTION_MODEL,
-                Constants.OCR_ENCODER_MODEL,
-                Constants.OCR_DECODER_MODEL,
-                Constants.OCR_VOCAB_FILE
-            ).all { File(visionDir, it).exists() }
-            if (!visionModelsReady) {
+            if (!readingModelFiles.all { it.exists() }) {
                 failTranslation("Download required models in Settings first")
                 return@launch
             }

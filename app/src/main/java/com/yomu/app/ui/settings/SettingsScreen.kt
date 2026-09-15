@@ -61,7 +61,7 @@ fun SettingsScreen(
 
         Text("Reading", style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(8.dp))
-        val visionModels = state.models.filter { it.type == ModelType.VISION }
+        val visionModels = state.models.filter { it.type == ModelType.DETECTION || it.type == ModelType.OCR }
         if (visionModels.isNotEmpty()) {
             PaperSurface(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp)) {

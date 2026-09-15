@@ -7,6 +7,7 @@ import com.yomu.app.db.ModelDao
 import com.yomu.app.db.entities.ModelEntity
 import com.yomu.app.db.entities.ModelStatus
 import com.yomu.app.db.entities.ModelType
+import com.yomu.app.translation.LlmModelCatalog
 import com.yomu.core.Constants
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
@@ -63,7 +64,7 @@ class ModelManager @Inject constructor(
             ModelEntity(
                 id = Constants.BUBBLE_DETECTION_MODEL_ID,
                 name = "Bubble Detection (YOLO26 Nano Manga)",
-                type = ModelType.VISION,
+                type = ModelType.DETECTION,
                 fileName = Constants.BUBBLE_DETECTION_MODEL,
                 fileSize = 6_070_000L,
                 downloadUrl = "https://huggingface.co/Kiuyha/Manga-Bubble-YOLO/resolve/fb646500455e8a8a3a807fd27b855c8e4fc63766/onnx/yolo26n.onnx",
@@ -75,7 +76,7 @@ class ModelManager @Inject constructor(
             ModelEntity(
                 id = Constants.MANGA_OCR_MODEL_ID,
                 name = "MangaOCR (Encoder + Decoder)",
-                type = ModelType.VISION,
+                type = ModelType.OCR,
                 fileName = Constants.OCR_ENCODER_MODEL,
                 fileSize = 140_410_339L,
                 downloadUrl = "https://huggingface.co/l0wgear/manga-ocr-2025-onnx/resolve/e8b27bbd3f424fe3877e0bda704d6a920e4f0a33/encoder_model.onnx",
@@ -124,6 +125,17 @@ class ModelManager @Inject constructor(
             )
         )
 
+        /** The curated model each slot holds when nothing (or an unknown id) is selected. */
+        val SLOT_DEFAULTS: Map<ModelType, String> = mapOf(
+            ModelType.DETECTION to Constants.BUBBLE_DETECTION_MODEL_ID,
+            ModelType.OCR to Constants.MANGA_OCR_MODEL_ID,
+            ModelType.LLM to LlmModelCatalog.DEFAULT.id
+        )
+
+        /**
+         * Extra files downloaded with a model, in the order its consumer reads them from
+         * [modelFiles]: MangaOCR's decoder, then its vocabulary.
+         */
         internal fun additionalFiles(modelId: String): List<AdditionalFile> = when (modelId) {
             Constants.MANGA_OCR_MODEL_ID -> listOf(
                 AdditionalFile(
@@ -170,9 +182,8 @@ class ModelManager @Inject constructor(
         }
     }
     private fun getModelDir(type: ModelType): File = when (type) {
-        ModelType.VISION -> File(context.filesDir, "${Constants.MODELS_DIR}/${Constants.VISION_MODELS_DIR}")
+        ModelType.DETECTION, ModelType.OCR -> File(context.filesDir, "${Constants.MODELS_DIR}/${Constants.VISION_MODELS_DIR}")
         ModelType.LLM -> File(context.filesDir, "${Constants.MODELS_DIR}/${Constants.LLM_MODELS_DIR}")
-        ModelType.TRANSLATION -> File(context.filesDir, "${Constants.MODELS_DIR}/${Constants.TRANSLATION_MODELS_DIR}")
     }
     private fun isOnWifi(): Boolean {
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
@@ -345,7 +356,8 @@ class ModelManager @Inject constructor(
         true
     }
 
-    private fun modelFiles(model: ModelEntity): List<File> {
+    /** The model's main file followed by its [additionalFiles], whether or not they are downloaded. */
+    fun modelFiles(model: ModelEntity): List<File> {
         val modelDir = getModelDir(model.type)
         return listOf(File(modelDir, model.fileName)) + additionalFiles(model.id).map { File(modelDir, it.fileName) }
     }

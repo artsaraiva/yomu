@@ -7,7 +7,6 @@ object Constants {
     const val MODELS_DIR = "models"
     const val VISION_MODELS_DIR = "vision"
     const val LLM_MODELS_DIR = "llm"
-    const val TRANSLATION_MODELS_DIR = "translation"
     const val BUBBLE_DETECTION_MODEL_ID = "bubble_detection_v1"
     const val MANGA_OCR_MODEL_ID = "manga_ocr_v1"
     const val CAT_TRANSLATION_MODEL_ID = "cat_translate_0.8b_v1"
@@ -65,6 +64,10 @@ object Constants {
     // Which curated LLM occupies the translation slot (ADR-0009). Stores a
     // ModelEntity id; nothing picked keeps the default (Qwen2.5-1.5B, ADR-0010).
     const val PREF_LLM_MODEL = "llm_model"
+    // Which curated model occupies the detection and OCR slots. Each stores a ModelEntity id;
+    // nothing picked (or an unknown id) keeps the slot's default in ModelManager.SLOT_DEFAULTS.
+    const val PREF_DETECTION_MODEL = "detection_model"
+    const val PREF_OCR_MODEL = "ocr_model"
     const val PREF_FONT_SIZE_SCALE = "font_size_scale"
     
     const val DEFAULT_TARGET_LANGUAGE = "en"

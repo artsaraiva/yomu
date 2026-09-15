@@ -12,10 +12,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.yomu.app.db.HistoryDao
 import com.yomu.app.db.entities.ModelStatus
+import com.yomu.app.db.entities.ModelType
 import com.yomu.app.service.ModelManager
 import com.yomu.app.service.OverlayService
+import com.yomu.app.service.ReadingModelSelection
 import com.yomu.app.translation.TranslationModelSelection
-import com.yomu.core.Constants
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
@@ -34,7 +35,8 @@ class HomeViewModel @Inject constructor(
     private val sharedPreferences: SharedPreferences,
     private val modelManager: ModelManager,
     private val historyDao: HistoryDao,
-    private val modelSelection: TranslationModelSelection
+    private val modelSelection: TranslationModelSelection,
+    private val readingSelection: ReadingModelSelection
 ) : ViewModel() {
     private companion object {
         const val SETUP_COMPLETE = "reading_setup_complete"
@@ -97,7 +99,13 @@ class HomeViewModel @Inject constructor(
     private fun refreshReadiness() {
         val permission = Settings.canDrawOverlays(context)
         _uiState.update { state ->
-            val readiness = resolveReadiness(state.models.associate { it.id to it.status }, modelSelection.currentLlmModel().id, permission)
+            val readiness = resolveReadiness(
+                state.models.associate { it.id to it.status },
+                readingSelection.selected(ModelType.DETECTION).id,
+                readingSelection.selected(ModelType.OCR).id,
+                modelSelection.currentLlmModel().id,
+                permission
+            )
             state.copy(
                 readiness = readiness,
                 setupVisible = state.setupVisible ||
@@ -143,8 +151,8 @@ class HomeViewModel @Inject constructor(
             try {
                 modelManager.refreshModelList()
                 val downloads = listOf(
-                    Constants.BUBBLE_DETECTION_MODEL_ID to "Finding speech bubbles",
-                    Constants.MANGA_OCR_MODEL_ID to "Reading Japanese",
+                    readingSelection.selected(ModelType.DETECTION).id to "Finding speech bubbles",
+                    readingSelection.selected(ModelType.OCR).id to "Reading Japanese",
                     modelSelection.currentLlmModel().id to "Translating into English"
                 )
                 for ((id, label) in downloads) {

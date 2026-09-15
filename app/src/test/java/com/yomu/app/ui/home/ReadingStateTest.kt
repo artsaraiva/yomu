@@ -6,6 +6,13 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class ReadingStateTest {
+    private val detector = "selected_detector"
+    private val reader = "selected_reader"
+    private val translator = Constants.QWEN25_15B_MODEL_ID
+
+    private fun readiness(models: Map<String, ModelStatus>, permission: Boolean) =
+        resolveReadiness(models, detector, reader, translator, permission)
+
     @Test
     fun `reading is on only when ready and service is running`() {
         assertEquals(ReadingStatus.NotReady, resolveReadingStatus(false, false))
@@ -15,38 +22,47 @@ class ReadingStateTest {
     }
 
     @Test
-    fun `readiness requires both reading models, the translator and overlay permission`() {
-        val translator = Constants.QWEN25_15B_MODEL_ID
+    fun `readiness requires the selected detector, reader, translator and overlay permission`() {
         val ready = mapOf(
-            Constants.BUBBLE_DETECTION_MODEL_ID to ModelStatus.READY,
-            Constants.MANGA_OCR_MODEL_ID to ModelStatus.READY,
+            detector to ModelStatus.READY,
+            reader to ModelStatus.READY,
             translator to ModelStatus.READY
         )
-        assertEquals(Readiness.Ready, resolveReadiness(ready, translator, true))
-        assertEquals(Readiness.NeedsPermission, resolveReadiness(ready, translator, false))
-        assertEquals(Readiness.NeedsModels, resolveReadiness(emptyMap(), translator, true))
-        assertEquals(Readiness.NeedsBoth, resolveReadiness(emptyMap(), translator, false))
-        assertEquals(Readiness.NeedsModels, resolveReadiness(ready - Constants.MANGA_OCR_MODEL_ID, translator, true))
+        assertEquals(Readiness.Ready, readiness(ready, true))
+        assertEquals(Readiness.NeedsPermission, readiness(ready, false))
+        assertEquals(Readiness.NeedsModels, readiness(emptyMap(), true))
+        assertEquals(Readiness.NeedsBoth, readiness(emptyMap(), false))
+        assertEquals(Readiness.NeedsModels, readiness(ready - reader, true))
         ModelStatus.entries.filter { it != ModelStatus.READY }.forEach { status ->
-            val incomplete = ready + (Constants.BUBBLE_DETECTION_MODEL_ID to status)
-            assertEquals(Readiness.NeedsModels, resolveReadiness(incomplete, translator, true))
-            assertEquals(Readiness.NeedsBoth, resolveReadiness(incomplete, translator, false))
+            val incomplete = ready + (detector to status)
+            assertEquals(Readiness.NeedsModels, readiness(incomplete, true))
+            assertEquals(Readiness.NeedsBoth, readiness(incomplete, false))
         }
-        assertEquals(Readiness.Ready, resolveReadiness(ready + ("optional" to ModelStatus.ERROR), translator, true))
+    }
+
+    @Test
+    fun `unselected models in any status do not affect readiness`() {
+        val ready = mapOf(
+            detector to ModelStatus.READY,
+            reader to ModelStatus.READY,
+            translator to ModelStatus.READY
+        )
+        val unselected = listOf(
+            Constants.BUBBLE_DETECTION_MODEL_ID,
+            Constants.MANGA_OCR_MODEL_ID,
+            Constants.CAT_TRANSLATION_MODEL_ID
+        )
+        ModelStatus.entries.forEach { status ->
+            val others = unselected.associateWith { status }
+            assertEquals(Readiness.Ready, readiness(ready + others, true))
+            assertEquals(Readiness.NeedsModels, readiness(ready - detector + others, true))
+        }
     }
 
     @Test
     fun `a missing translator means models are needed`() {
-        val translator = Constants.QWEN25_15B_MODEL_ID
-        val readers = mapOf(
-            Constants.BUBBLE_DETECTION_MODEL_ID to ModelStatus.READY,
-            Constants.MANGA_OCR_MODEL_ID to ModelStatus.READY
-        )
-        assertEquals(Readiness.NeedsModels, resolveReadiness(readers, translator, true))
-        assertEquals(Readiness.NeedsModels, resolveReadiness(readers + (translator to ModelStatus.DOWNLOADING), translator, true))
-        assertEquals(
-            Readiness.NeedsModels,
-            resolveReadiness(readers + (Constants.CAT_TRANSLATION_MODEL_ID to ModelStatus.READY), translator, true)
-        )
+        val readers = mapOf(detector to ModelStatus.READY, reader to ModelStatus.READY)
+        assertEquals(Readiness.NeedsModels, readiness(readers, true))
+        assertEquals(Readiness.NeedsModels, readiness(readers + (translator to ModelStatus.DOWNLOADING), true))
     }
 }

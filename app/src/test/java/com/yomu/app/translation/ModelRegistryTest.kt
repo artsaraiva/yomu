@@ -41,6 +41,15 @@ class ModelRegistryTest {
     }
 
     @Test
+    fun `every slot has exactly one curated default of its own type`() {
+        assertEquals(ModelType.entries.toSet(), ModelManager.SLOT_DEFAULTS.keys)
+        ModelManager.SLOT_DEFAULTS.forEach { (type, id) ->
+            assertEquals(type, registry.single { it.id == id }.type)
+        }
+        assertEquals(LlmModelCatalog.DEFAULT.id, ModelManager.SLOT_DEFAULTS[ModelType.LLM])
+    }
+
+    @Test
     fun `every row downloads over http`() {
         val nonHttp = registry.map { it.downloadUrl }.filterNot { it.startsWith("http") }
         assertTrue("non-http urls: $nonHttp", nonHttp.isEmpty())
