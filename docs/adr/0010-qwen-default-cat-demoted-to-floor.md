@@ -10,7 +10,7 @@ This is decided on measured phone evidence, which is the condition ADR-0008 and 
 
 ## Why now — the phone-confirmation run closed the one open question
 
-ADR-0009 kept 0.8b as default for a single reason: the bake-off leaders were ranked on the **emulator**, where latency and RAM are host artifacts, so on-device viability was unconfirmed. "The default is the one thing that must be safe on the mid-range floor, so it changes last, on phone evidence." The [#72](https://github.com/artsaraiva/yomu/issues/72) confirmation run (reference phone: Galaxy S23, 8 GB, 2026-08-18) supplied that evidence, recorded in [`eval/challenger-llm-bakeoff-84.md`](../../eval/challenger-llm-bakeoff-84.md):
+ADR-0009 kept 0.8b as default for a single reason: the bake-off leaders were ranked on the **emulator**, where latency and RAM are host artifacts, so on-device viability was unconfirmed. "The default is the one thing that must be safe on the mid-range floor, so it changes last, on phone evidence." The [#72](https://github.com/artsaraiva/yomu/issues/72) confirmation run (reference phone: Galaxy S23, 8 GB, 2026-08-18) supplied that evidence, recorded in the [#84 bake-off write-up](https://github.com/artsaraiva/yomu/blob/9bdad40c900eba73ecb9b3bfe829516caf25a5a4/eval/challenger-llm-bakeoff-84.md) (removed with the eval code by [#232](https://github.com/artsaraiva/yomu/issues/232)):
 
 | Engine | JP-residue | Coverage | Readability | Latency/page | Peak PSS | On phone |
 |---|---|---|---|---|---|---|

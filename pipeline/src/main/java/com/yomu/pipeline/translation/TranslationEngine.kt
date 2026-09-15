@@ -7,8 +7,6 @@ import com.yomu.core.TranslationOutcome
 import com.yomu.core.TranslationSlot
 import com.yomu.pipeline.context.ConversationBlock
 
-// Twin of is_non_translation in eval/run_eval_lib.py: the runtime rejects what the eval scores as a
-// non-translation, so a shape added on one side belongs on the other.
 private val NON_TRANSLATION_PATTERNS = listOf(
     Regex("""(?i)^\s*(?:sure[!,.]?\s*)?(?:here(?:['’]s| is| are)\s+(?:the |an? )?(?:english )?translations?\b|(?:english )?translation\s*:)"""),
     Regex("""(?i)translate the following|translate these japanese|reply with the translation|one per line, numbered"""),
@@ -32,13 +30,11 @@ internal fun looksLikeNonTranslation(text: String): Boolean {
     return tokens.map { it.lowercase() }.toSet().size * LOOP_UNIQUE_DIVISOR <= tokens.size
 }
 
-// Twin of CJK in eval/run_eval_lib.py: kana, CJK ideographs and half-width katakana.
 private val CJK = Regex("[぀-ヿ㐀-䶿一-鿿豈-﫿ｦ-ﾟ]")
 
 /**
- * Why [text] cannot be a live translation, or null when it can: the scorer's non-empty,
- * `is_non_translation` and `has_cjk` shape checks. The device benchmark asserts a known bubble
- * against this before timing an engine (#158); it is not a quality bar.
+ * Why [text] cannot be a live translation, or null when it can: empty, a non-translation, or
+ * Japanese residue. It is a shape check, not a quality bar.
  */
 fun deadTranslationReason(text: String?): String? = when {
     text.isNullOrBlank() -> "empty"
@@ -65,15 +61,6 @@ data class TranslationResult(
     val translations: List<TranslatedBubble>,
     val rawResponse: String,
     val translationTimeMs: Long,
-    /**
-     * What the slot was asked for and what it gave back, **before** the source-text fallback below
-     * rewrites a missing id into its own Japanese.
-     *
-     * The eval records these (#142/#165): scoring the post-fallback list is how #137 counted a page
-     * as covered that the model never answered. Nothing in the app reads them.
-     */
-    val requestedIds: List<Int> = emptyList(),
-    val rawById: Map<Int, String> = emptyMap(),
     val outcome: TranslationOutcome = TranslationOutcome.SUCCESS,
     val errorCode: String? = null
 )
@@ -124,8 +111,6 @@ class TranslationEngine(
             translations = translations,
             rawResponse = output.rawResponse,
             translationTimeMs = output.durationMs,
-            requestedIds = translatable.panels.flatten().map { it.bubbleId },
-            rawById = output.byId,
             outcome = output.outcome,
             errorCode = output.errorCode
         )

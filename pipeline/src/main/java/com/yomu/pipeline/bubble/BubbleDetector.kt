@@ -22,18 +22,12 @@ class BubbleDetector(private val onnxRuntime: OnnxRuntime) {
         // keeps both — two boxes over the same balloon, whose translated texts then paint on top of
         // each other. Suppress a box that is at least this fraction contained in a higher-confidence
         // kept box. 0.97 (not lower) so only near-perfect duplicates go; genuinely-close distinct
-        // balloons the model under-separates stay for the detector eval (#57), not this heuristic.
+        // balloons the model under-separates are the detector's problem (#57), not this heuristic's.
         private const val NMS_CONTAINMENT_THRESHOLD = 0.97f
     }
 
     private var isLoaded = false
     private var modelPath: String? = null
-
-    /** Pre-NMS (post-threshold) vs post-NMS counts of the last [detect] call. The benchmark reads
-     *  this to check whether NMS ever removes a box (#57); production ignores it. */
-    data class DetectStats(val thresholded: Int, val kept: Int)
-    var lastStats: DetectStats? = null
-        private set
 
     fun loadModel(modelPath: String): Boolean {
         if (!isLoaded) {
@@ -59,7 +53,6 @@ class BubbleDetector(private val onnxRuntime: OnnxRuntime) {
             NMS_IOU_THRESHOLD,
             NMS_CONTAINMENT_THRESHOLD
         )
-        lastStats = DetectStats(thresholded = confidenceFiltered.size, kept = detections.size)
         Log.d(
             TAG,
             "Bubble detection raw=${rawDetections.size} thresholded=${confidenceFiltered.size} kept=${detections.size}"

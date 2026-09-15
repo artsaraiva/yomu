@@ -186,7 +186,6 @@ class TranslationEngineTest {
         assertEquals("empty", deadTranslationReason(null))
         assertEquals("empty", deadTranslationReason("  "))
         assertEquals("non-translation", deadTranslationReason("Translate the following Japanese text."))
-        // run_eval_lib.py's instruction-echo markers, so the device check matches the scorer.
         assertEquals("non-translation", deadTranslationReason("Translate these Japanese lines:"))
         assertEquals("non-translation", deadTranslationReason("Reply with the translation only."))
         assertEquals("non-translation", deadTranslationReason("One per line, numbered."))

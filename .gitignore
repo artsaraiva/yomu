@@ -7,9 +7,6 @@
 .opencode/
 .serena/
 
-# Generated benchmark output
-eval/benchmark-results/
-
 # BEGIN oh-my-opencode-slim worktrees
 .slim/worktrees/
 .slim/worktrees.json
@@ -29,45 +26,14 @@ local.properties
 *.aab
 *.ap_
 
-# OpenMantra dataset (vendored for eval; CC BY-NC, do not ship)
+# OpenMantra dataset (CC BY-NC, do not ship)
 vendor/
-
-# Eval harness generated results
-eval/results/
-
-# OpenMantra page images are generated from vendor; do not commit
-eval/**/page.jpg
-
-# Legacy shared engine outputs. #165 stopped producing these -- every run is now scored in its own
-# eval/benchmark-results/<run-id>/ directory -- but a machine that ran the old harness still has
-# them on disk. Ignored so they stay out of git; safe to delete.
-eval/bubble-detection/cases/*/actual.json
-eval/bubble-detection/cases/*/actual_s.json
-eval/translation-quality/cases/*/actual/
-eval/repetition-probe/actual/
-
-# Test assets are staged copies of eval/ cases, rebuilt by eval/run-benchmark.sh on every run.
-# The canonical copies under eval/ are the tracked ones.
-app/src/androidTest/assets/eval-cases/
-
-# Benchmark model weights, fetched by eval/run-benchmark.sh; do not commit
-app/src/androidTest/assets/models/
-eval/fixtures/
 
 # Python cache
 __pycache__/
 
 # Local agent scratch worktrees
 .claude/worktrees/
-
-# Repetition probe (#152): derived CC BY-NC content, regenerate from vendor/
-eval/repetition-probe/bubbles.json
-
-# Eval harness virtualenv
-eval/.venv/
-
-# Repetition probe staged into test assets by eval/run-benchmark.sh
-app/src/androidTest/assets/eval-probe/
 
 # Speed benchmark fixtures (#230): OpenMantra pages are CC BY-NC, weights are large; never commit
 scripts/speed-fixtures/

@@ -142,9 +142,8 @@ data class ModelProfile(
 /**
  * How a page-level call ended, typed at the boundary that knows the cause.
  *
- * The eval's run records carry this verbatim (#142/#165). It exists so the harness never has to
- * classify a run by matching log or exception text: [TIMEOUT] and [OVERFLOW] in particular must be
- * reported by the layer that actually hit the deadline or the decode budget, not inferred later.
+ * [TIMEOUT] and [OVERFLOW] in particular must be reported by the layer that actually hit the
+ * deadline or the decode budget, not inferred later from log or exception text.
  *
  * [TIMEOUT] and [OVERFLOW] are typed at `llama_jni.cpp` (#149) and carried up through
  * `GenerationResult`: an empty reply means the prompt was refused or the deadline hit, never a
