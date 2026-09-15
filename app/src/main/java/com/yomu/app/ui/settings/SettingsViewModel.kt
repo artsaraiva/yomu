@@ -1,5 +1,6 @@
 package com.yomu.app.ui.settings
 
+import android.content.Context
 import android.content.SharedPreferences
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -10,18 +11,22 @@ import com.yomu.app.db.entities.ModelType
 import com.yomu.app.service.ModelManager
 import com.yomu.app.service.ModelSlotSelection
 import com.yomu.app.service.SlotDeliverable
+import com.yomu.app.translation.ResourceLimit
 import com.yomu.app.translation.TranslationModelSelection
 import com.yomu.core.Constants
 import com.yomu.core.GenerationBound
 import com.yomu.core.GenerationParams
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 data class SettingsUiState(
@@ -42,17 +47,23 @@ data class SettingsUiState(
     val generation: GenerationParams = GenerationParams(),
     /** The reader's bubble confidence threshold (#227). */
     val detectionThreshold: Float = DetectionThresholdStore.DEFAULT,
+    /** The reader's caps on the translation model (#79). */
+    val resourceLimits: Map<ResourceLimit, Int> = ResourceLimit.entries.associateWith { it.default },
+    /** What the app is using right now; null until the Performance screen first samples it. */
+    val resources: ResourceReadout? = null,
     /** One message naming every stored value that was recovered to its default, or null. */
     val recoveryWarning: String? = null
 ) {
     val generationOverridden: Boolean
         get() = GenerationBound.entries.any { it.read(generation) != it.default }
 
-    fun fits(deliverable: SlotDeliverable): Boolean = ModelSlotSelection.fits(deliverable.id, deviceTotalMemBytes)
+    fun fits(deliverable: SlotDeliverable): Boolean =
+        ModelSlotSelection.fits(deliverable.id, deviceTotalMemBytes, resourceLimits.getValue(ResourceLimit.RAM_PERCENT))
 }
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
+    @ApplicationContext context: Context,
     private val sharedPreferences: SharedPreferences,
     private val modelSelection: TranslationModelSelection,
     private val slotSelection: ModelSlotSelection,
@@ -60,6 +71,7 @@ class SettingsViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val detectionThresholdStore = DetectionThresholdStore(sharedPreferences)
+    private val resourceMonitor = ResourceMonitor(context)
 
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
@@ -76,7 +88,8 @@ class SettingsViewModel @Inject constructor(
             deviceTotalMemBytes = modelManager.deviceTotalMemBytes(),
             fontSizeScale = sharedPreferences.getFloat(Constants.PREF_FONT_SIZE_SCALE, Constants.DEFAULT_FONT_SIZE_SCALE),
             theme = sharedPreferences.getString(Constants.PREF_THEME, "system") ?: "system",
-            detectionThreshold = detectionThresholdStore.load()
+            detectionThreshold = detectionThresholdStore.load(),
+            resourceLimits = storedResourceLimits()
         ).withGenerationProfile().withSlots()
         // The warning is now on screen; forget the bad values so it does not return on every visit.
         if (_uiState.value.recoveryWarning != null) modelSelection.clearRecovered()
@@ -139,6 +152,31 @@ class SettingsViewModel @Inject constructor(
         detectionThresholdStore.reset()
         _uiState.update { it.copy(detectionThreshold = detectionThresholdStore.load()) }
     }
+
+    /** Like [pickModel], off the main thread: a threads or context change waits out any in-flight generation. */
+    fun setResourceLimit(limit: ResourceLimit, value: Int) {
+        viewModelScope.launch {
+            modelSelection.saveResourceLimit(limit, value)
+            _uiState.update { it.copy(resourceLimits = storedResourceLimits()) }
+        }
+    }
+
+    fun resetResourceLimits() {
+        viewModelScope.launch {
+            modelSelection.resetResourceLimits()
+            _uiState.update { it.copy(resourceLimits = storedResourceLimits()) }
+        }
+    }
+
+    fun refreshResources() {
+        viewModelScope.launch {
+            val readout = withContext(Dispatchers.Default) { resourceMonitor.sample(modelSelection.lastPageDurationMs()) }
+            _uiState.update { it.copy(resources = readout) }
+        }
+    }
+
+    private fun storedResourceLimits(): Map<ResourceLimit, Int> =
+        ResourceLimit.entries.associateWith(modelSelection::resourceLimit)
 
     private fun SettingsUiState.withGenerationProfile(): SettingsUiState {
         val loaded = modelSelection.generationProfile()

@@ -12,11 +12,18 @@ internal class FakeLlamaBridge(
     var releaseCalls = 0
     var clearMemoryCalls = 0
     val abortRequests = mutableListOf<Boolean>()
+    /** Context tokens and threads of every native load, in order. */
+    val loads = mutableListOf<Pair<Int, Int>>()
+    private var loaded = true
 
     override val isNativeAvailable: Boolean get() = true
-    override val isModelLoaded: Boolean get() = true
+    override val isModelLoaded: Boolean get() = loaded
     override fun loadModel(modelPath: String, nCtx: Int, nGpuLayers: Int): Boolean = true
-    override fun loadModel(modelPath: String, nCtx: Int, nGpuLayers: Int, nThreads: Int): Boolean = true
+    override fun loadModel(modelPath: String, nCtx: Int, nGpuLayers: Int, nThreads: Int): Boolean {
+        loads += nCtx to nThreads
+        loaded = true
+        return true
+    }
     override fun generate(
         prompt: String,
         params: GenerationParams,
@@ -37,6 +44,7 @@ internal class FakeLlamaBridge(
 
     override fun release() {
         releaseCalls++
+        loaded = false
     }
 
     override fun clearMemory() {

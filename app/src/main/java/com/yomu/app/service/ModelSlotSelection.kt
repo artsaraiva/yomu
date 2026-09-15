@@ -3,6 +3,7 @@ package com.yomu.app.service
 import com.yomu.app.db.entities.ModelStatus
 import com.yomu.app.db.entities.ModelType
 import com.yomu.app.translation.LlmModelCatalog
+import com.yomu.app.translation.ResourceLimit
 import com.yomu.app.translation.TranslationModelSelection
 import com.yomu.core.Constants
 import com.yomu.pipeline.TranslationPipeline
@@ -56,7 +57,8 @@ class ModelSlotSelection @Inject constructor(
     }
 
     suspend fun pick(type: ModelType, id: String, status: ModelStatus?, totalMemBytes: Long): Boolean {
-        if (deliverables(type).none { it.id == id } || !fits(id, totalMemBytes)) return false
+        val ramPercent = translation.resourceLimit(ResourceLimit.RAM_PERCENT)
+        if (deliverables(type).none { it.id == id } || !fits(id, totalMemBytes, ramPercent)) return false
         when {
             id == selectedId(type) -> pending.remove(type)
             status == ModelStatus.READY -> {
@@ -117,9 +119,9 @@ class ModelSlotSelection @Inject constructor(
         )
 
         // Only translation models have a fit budget; 0 bytes means the device RAM couldn't be read.
-        fun fits(id: String, totalMemBytes: Long): Boolean {
+        fun fits(id: String, totalMemBytes: Long, ramPercent: Int): Boolean {
             val option = LlmModelCatalog.fromId(id) ?: return true
-            return totalMemBytes <= 0L || LlmModelCatalog.canRunOnDevice(option, totalMemBytes)
+            return totalMemBytes <= 0L || LlmModelCatalog.canRunOnDevice(option, totalMemBytes, ramPercent)
         }
     }
 }

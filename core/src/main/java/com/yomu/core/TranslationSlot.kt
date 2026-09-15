@@ -136,8 +136,22 @@ data class ModelProfile(
     val modelPath: String,
     val idKeyedBatch: Boolean,
     val promptMode: TranslationPromptMode,
-    val generation: GenerationParams = GenerationParams()
+    val generation: GenerationParams = GenerationParams(),
+    val runtime: RuntimeLimits = RuntimeLimits()
 )
+
+/** How much of the device the loaded model may use (#79). Changing either means reloading the model. */
+data class RuntimeLimits(
+    val threads: Int = DEFAULT_THREADS,
+    val contextTokens: Int = DEFAULT_CONTEXT_TOKENS
+) {
+    companion object {
+        val MAX_THREADS: Int = Runtime.getRuntime().availableProcessors()
+        val DEFAULT_THREADS: Int = MAX_THREADS.coerceAtMost(4)
+        const val DEFAULT_CONTEXT_TOKENS = 2048
+        val CONTEXT_TOKEN_OPTIONS = listOf(1024, 2048, 4096)
+    }
+}
 
 /**
  * How a page-level call ended, typed at the boundary that knows the cause.

@@ -21,6 +21,7 @@ import dagger.hilt.components.SingletonComponent
 import java.io.File
 import com.yomu.app.translation.GenerationProfileStore
 import com.yomu.app.translation.LlmModelCatalog
+import com.yomu.app.translation.ResourceLimitsStore
 import com.yomu.app.translation.storedLlmModelId
 import javax.inject.Singleton
 
@@ -71,7 +72,8 @@ object PipelineModule {
     ): LlamaTranslationBridge {
         val selected = LlmModelCatalog.selectedOrDefault(sharedPreferences.storedLlmModelId())
         val generation = GenerationProfileStore(sharedPreferences).load().params
-        return LlamaTranslationBridge(llamaBridge, LlmModelCatalog.profileFor(selected, llmModelsDir(context), generation))
+        val runtime = ResourceLimitsStore(sharedPreferences).runtime()
+        return LlamaTranslationBridge(llamaBridge, LlmModelCatalog.profileFor(selected, llmModelsDir(context), generation, runtime))
     }
 
     @Provides

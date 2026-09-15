@@ -37,7 +37,7 @@ class LlamaTranslationBridge(
 
     suspend fun selectModel(newProfile: ModelProfile) = readinessMutex.withLock {
         if (newProfile == profile) return@withLock
-        if (newProfile.modelPath != profile.modelPath) {
+        if (newProfile.modelPath != profile.modelPath || newProfile.runtime != profile.runtime) {
             llamaBridge.release()
             status = TranslationStatus.NotReady
         }
@@ -47,12 +47,10 @@ class LlamaTranslationBridge(
 
     companion object {
         private const val TAG = "LlamaTranslationBridge"
-        private const val N_CTX = 2048
         private const val N_GPU_LAYERS = 0
-        private val N_THREADS = Runtime.getRuntime().availableProcessors().coerceAtMost(4)
         /**
          * The whole token budget a page's reply may use, fixed rather than derived from what the
-         * prompt leaves over. The old "all of N_CTX the prompt does not use" arithmetic was handed
+         * prompt leaves over. The old "all of the context the prompt does not use" arithmetic was handed
          * to the native `prompt_fits` as `output` and therefore *shrank* the prompt allowance,
          * which is the self-refusal #136 measured. Deliberately separate from
          * `profile.generation.maxTokens`: a page's completion is roughly 8x a bubble's, and one
@@ -92,17 +90,25 @@ class LlamaTranslationBridge(
             status = TranslationStatus.Error("model_missing")
             return@withLock false
         }
-        val loaded = llamaBridge.loadModel(profile.modelPath, N_CTX, N_GPU_LAYERS, N_THREADS)
+        val runtime = profile.runtime
+        val loaded = llamaBridge.loadModel(profile.modelPath, runtime.contextTokens, N_GPU_LAYERS, runtime.threads)
         status = if (loaded) TranslationStatus.Ready else TranslationStatus.Error("load_failed")
         loaded
     }
+
+    /** How long the model took on the most recent page, for the in-app resource readout (#79); null before any. */
+    @Volatile
+    var lastPageDurationMs: Long? = null
+        private set
 
     override suspend fun translatePage(page: TranslatablePage): PageTranslation {
         if (page.panels.flatten().isEmpty()) return PageTranslation(emptyMap(), "", 0L)
         if (status !is TranslationStatus.Ready && !ensureReady()) {
             return PageTranslation.notLoaded(status)
         }
-        return if (profile.idKeyedBatch) translateBatch(page) else translatePerLine(page)
+        val result = if (profile.idKeyedBatch) translateBatch(page) else translatePerLine(page)
+        lastPageDurationMs = result.durationMs
+        return result
     }
 
     private suspend fun translatePerLine(page: TranslatablePage): PageTranslation {

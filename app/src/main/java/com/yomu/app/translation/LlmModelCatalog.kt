@@ -4,6 +4,7 @@ import android.content.SharedPreferences
 import com.yomu.core.Constants
 import com.yomu.core.GenerationParams
 import com.yomu.core.ModelProfile
+import com.yomu.core.RuntimeLimits
 import com.yomu.core.TranslationPromptMode
 import java.io.File
 
@@ -45,11 +46,11 @@ object LlmModelCatalog {
     // exact param×quant math can replace it if the coarse fit gate proves wrong on a real device.
     const val RESIDENT_OVERHEAD_BYTES = 800L * 1024 * 1024
 
-    // Fraction of device totalMem an app can realistically use for weights before the OS OOM-kills
+    // Default share of device totalMem an app can realistically use for weights before the OS OOM-kills
     // it. Calibrated to #84: Hunyuan-7B Q4 (4.6GB) is killed on an 8GB phone, its Q3 (3.8GB) fits.
-    // ponytail: single tuning knob — raise if capable devices wrongly hide a model, lower if one
+    // The reader may move it (#79) — raise if a capable device wrongly hides a model, lower if one
     // that OOMs still shows.
-    const val USABLE_RAM_FRACTION = 0.6
+    const val DEFAULT_RAM_PERCENT = 60
 
     /** ADR-0010: phone-confirmed default. Picking nothing keeps this; it is never gated out (part D). */
     val DEFAULT: LlmModelOption = LlmModelOption(
@@ -100,23 +101,25 @@ object LlmModelCatalog {
     /** The selected option, or the default when nothing (or an unknown id) is persisted. */
     fun selectedOrDefault(id: String?): LlmModelOption = fromId(id) ?: DEFAULT
 
-    fun profileFor(option: LlmModelOption, modelsDir: File, generation: GenerationParams): ModelProfile =
+    fun profileFor(option: LlmModelOption, modelsDir: File, generation: GenerationParams, runtime: RuntimeLimits): ModelProfile =
         ModelProfile(
             modelPath = File(modelsDir, option.ggufFileName).absolutePath,
             idKeyedBatch = option.idKeyedBatch,
             promptMode = option.promptMode,
             // The reader's global profile, identical for every option (#192). A per-model override
             // is added when a measurement forces two models apart, not before (#139).
-            generation = generation
+            generation = generation,
+            runtime = runtime
         )
 
     /**
-     * Whether [option] can run on a device reporting [totalMemBytes] of RAM (part D). The default is
-     * never gated out — it must stay usable on the mid-range floor.
+     * Whether [option] can run on a device reporting [totalMemBytes] of RAM, when the model may use
+     * [ramPercent] of it (part D, #79). The default is never gated out — it must stay usable on the
+     * mid-range floor.
      */
-    fun canRunOnDevice(option: LlmModelOption, totalMemBytes: Long): Boolean {
+    fun canRunOnDevice(option: LlmModelOption, totalMemBytes: Long, ramPercent: Int): Boolean {
         if (option.id == DEFAULT.id) return true
-        val budget = (totalMemBytes * USABLE_RAM_FRACTION).toLong()
+        val budget = totalMemBytes / 100 * ramPercent
         return option.sizeBytes + RESIDENT_OVERHEAD_BYTES <= budget
     }
 }

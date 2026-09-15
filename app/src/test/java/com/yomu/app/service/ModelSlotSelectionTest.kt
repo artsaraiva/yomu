@@ -4,6 +4,7 @@ import com.yomu.app.db.entities.ModelStatus
 import com.yomu.app.db.entities.ModelType
 import com.yomu.app.translation.LlmModelCatalog
 import com.yomu.app.translation.MapSharedPreferences
+import com.yomu.app.translation.ResourceLimit
 import com.yomu.app.translation.TranslationModelSelection
 import com.yomu.core.Constants
 import com.yomu.ml.LlamaTranslationBridge
@@ -252,9 +253,21 @@ class ModelSlotSelectionTest {
 
     @Test
     fun `fit is judged by the translation budget and an unknown memory size fits`() {
-        assertFalse(ModelSlotSelection.fits(Constants.CAT_TRANSLATION_14B_MODEL_ID, oneGb))
-        assertTrue(ModelSlotSelection.fits(Constants.CAT_TRANSLATION_14B_MODEL_ID, 0L))
-        assertTrue(ModelSlotSelection.fits(LlmModelCatalog.DEFAULT.id, oneGb))
-        assertTrue(ModelSlotSelection.fits(Constants.MANGA_OCR_MODEL_ID, oneGb))
+        val share = LlmModelCatalog.DEFAULT_RAM_PERCENT
+        assertFalse(ModelSlotSelection.fits(Constants.CAT_TRANSLATION_14B_MODEL_ID, oneGb, share))
+        assertTrue(ModelSlotSelection.fits(Constants.CAT_TRANSLATION_14B_MODEL_ID, 0L, share))
+        assertTrue(ModelSlotSelection.fits(LlmModelCatalog.DEFAULT.id, oneGb, share))
+        assertTrue(ModelSlotSelection.fits(Constants.MANGA_OCR_MODEL_ID, oneGb, share))
+    }
+
+    @Test
+    fun `the reader's stored RAM share gates what can be picked`() = runTest {
+        val fourGb = 4L * 1024 * 1024 * 1024
+        prefs.values[ResourceLimit.RAM_PERCENT.key] = 30
+
+        assertFalse(selection.pick(ModelType.LLM, Constants.CAT_TRANSLATION_14B_MODEL_ID, ModelStatus.READY, fourGb))
+
+        prefs.values[ResourceLimit.RAM_PERCENT.key] = 60
+        assertTrue(selection.pick(ModelType.LLM, Constants.CAT_TRANSLATION_14B_MODEL_ID, ModelStatus.READY, fourGb))
     }
 }

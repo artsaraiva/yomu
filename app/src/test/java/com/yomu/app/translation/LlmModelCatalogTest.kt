@@ -2,6 +2,7 @@ package com.yomu.app.translation
 
 import com.yomu.core.Constants
 import com.yomu.core.GenerationParams
+import com.yomu.core.RuntimeLimits
 import com.yomu.core.TranslationPromptMode
 import java.io.File
 import org.junit.Assert.assertEquals
@@ -13,6 +14,7 @@ class LlmModelCatalogTest {
 
     private val eightGb = 8L * 1024 * 1024 * 1024
     private val fourGb = 4L * 1024 * 1024 * 1024
+    private val share = LlmModelCatalog.DEFAULT_RAM_PERCENT
 
     @Test
     fun `default is Qwen2_5 1_5B`() {
@@ -38,26 +40,41 @@ class LlmModelCatalogTest {
         val generation = GenerationParams(temperature = 0.7f, topK = 12, topP = 0.5f)
 
         LlmModelCatalog.ALL.forEach { option ->
-            assertEquals(option.displayName, generation, LlmModelCatalog.profileFor(option, File("m"), generation).generation)
+            assertEquals(option.displayName, generation, LlmModelCatalog.profileFor(option, File("m"), generation, RuntimeLimits()).generation)
         }
     }
 
     @Test
+    fun `profileFor carries the supplied runtime limits onto the profile`() {
+        val runtime = RuntimeLimits(threads = 2, contextTokens = 1024)
+
+        assertEquals(runtime, LlmModelCatalog.profileFor(LlmModelCatalog.DEFAULT, File("m"), GenerationParams(), runtime).runtime)
+    }
+
+    @Test
     fun `default is never gated out even on a tiny device`() {
-        assertTrue(LlmModelCatalog.canRunOnDevice(LlmModelCatalog.DEFAULT, totalMemBytes = 1L))
+        assertTrue(LlmModelCatalog.canRunOnDevice(LlmModelCatalog.DEFAULT, totalMemBytes = 1L, ramPercent = 30))
+    }
+
+    @Test
+    fun `a lower RAM share gates out a model the default share offers`() {
+        val model = LlmModelCatalog.fromId(Constants.CAT_TRANSLATION_14B_MODEL_ID)!!
+
+        assertTrue(LlmModelCatalog.canRunOnDevice(model, fourGb, share))
+        assertFalse(LlmModelCatalog.canRunOnDevice(model, fourGb, ramPercent = 30))
     }
 
     @Test
     fun `a small model fits an 8GB device`() {
         val floor = LlmModelCatalog.selectedOrDefault(Constants.CAT_TRANSLATION_MODEL_ID)
-        assertTrue(LlmModelCatalog.canRunOnDevice(floor, eightGb))
+        assertTrue(LlmModelCatalog.canRunOnDevice(floor, eightGb, share))
     }
 
     @Test
     fun `every shortlist model fits an 8GB device`() {
         // The largest curated entry is ~2.5GB GGUF; none reach the 7B footprint that OOMs on 8GB (#84).
         LlmModelCatalog.ALL.forEach { option ->
-            assertTrue(option.displayName, LlmModelCatalog.canRunOnDevice(option, eightGb))
+            assertTrue(option.displayName, LlmModelCatalog.canRunOnDevice(option, eightGb, share))
         }
     }
 
@@ -66,13 +83,13 @@ class LlmModelCatalogTest {
         // A ~3GB GGUF plus resident overhead exceeds the usable-RAM budget on 4GB. Synthetic so the
         // test does not depend on a specific large model staying in the shortlist.
         val big = LlmModelCatalog.DEFAULT.copy(id = "synthetic_big", sizeBytes = 3_000_000_000L)
-        assertFalse(LlmModelCatalog.canRunOnDevice(big, fourGb))
+        assertFalse(LlmModelCatalog.canRunOnDevice(big, fourGb, share))
     }
 
     @Test
     fun `the low-storage floor still fits a 4GB device`() {
         val floor = LlmModelCatalog.fromId(Constants.CAT_TRANSLATION_MODEL_ID)!!
-        assertTrue(LlmModelCatalog.canRunOnDevice(floor, fourGb))
+        assertTrue(LlmModelCatalog.canRunOnDevice(floor, fourGb, share))
     }
 
     @Test

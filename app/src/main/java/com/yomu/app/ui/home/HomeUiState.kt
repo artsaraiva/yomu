@@ -5,6 +5,7 @@ import com.yomu.app.db.entities.ModelType
 import com.yomu.app.db.entities.TranslationEntity
 import com.yomu.app.service.ModelSlotSelection
 import com.yomu.app.service.SlotDeliverable
+import com.yomu.app.translation.LlmModelCatalog
 
 data class HomeUiState(
     val isServiceRunning: Boolean = false,
@@ -22,6 +23,7 @@ data class HomeUiState(
     val chosenIds: Map<ModelType, String> = emptyMap(),
     val setupDownloadBytes: Long = 0L,
     val deviceTotalMemBytes: Long = 0L,
+    val ramPercent: Int = LlmModelCatalog.DEFAULT_RAM_PERCENT,
     val onWifi: Boolean = true,
     val pagesTranslatedToday: Int = 0,
     val translations: List<TranslationEntity> = emptyList(),
@@ -35,5 +37,5 @@ data class HomeUiState(
     val readingStatus: ReadingStatus
         get() = resolveReadingStatus(readiness == Readiness.Ready && setupComplete, isServiceRunning)
 
-    fun fits(deliverable: SlotDeliverable): Boolean = ModelSlotSelection.fits(deliverable.id, deviceTotalMemBytes)
+    fun fits(deliverable: SlotDeliverable): Boolean = ModelSlotSelection.fits(deliverable.id, deviceTotalMemBytes, ramPercent)
 }

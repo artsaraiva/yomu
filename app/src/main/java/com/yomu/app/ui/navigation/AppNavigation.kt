@@ -34,6 +34,7 @@ import com.yomu.app.ui.theme.PaperLoading
 import com.yomu.app.ui.home.HomeScreen
 import androidx.navigation.compose.navigation
 import com.yomu.app.ui.settings.AppearanceSettings
+import com.yomu.app.ui.settings.PerformanceSettings
 import com.yomu.app.ui.settings.PipelineSettings
 import com.yomu.app.ui.settings.SettingsScreen
 import com.yomu.app.ui.settings.SettingsSection
@@ -137,6 +138,7 @@ fun AppNavigation(onRequestScreenCapture: () -> Unit = {}) {
                                 SettingsSection.Translation -> TranslationSettings(settings, onBack)
                                 SettingsSection.Pipeline -> PipelineSettings(settings, onBack)
                                 SettingsSection.Typesetting -> TypesettingSettings(settings, onBack)
+                                SettingsSection.Performance -> PerformanceSettings(settings, onBack)
                                 SettingsSection.Appearance -> AppearanceSettings(settings, onBack)
                             }
                         }

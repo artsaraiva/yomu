@@ -16,6 +16,8 @@ import com.yomu.app.db.entities.ModelType
 import com.yomu.app.service.ModelManager
 import com.yomu.app.service.ModelSlotSelection
 import com.yomu.app.service.OverlayService
+import com.yomu.app.translation.ResourceLimit
+import com.yomu.app.translation.ResourceLimitsStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
@@ -50,7 +52,8 @@ class HomeViewModel @Inject constructor(
         setupComplete = sharedPreferences.getBoolean(SETUP_COMPLETE, false),
         hasRead = sharedPreferences.getBoolean(HAS_READ, false),
         deliverables = ModelType.entries.associateWith(slotSelection::deliverables),
-        deviceTotalMemBytes = modelManager.deviceTotalMemBytes()
+        deviceTotalMemBytes = modelManager.deviceTotalMemBytes(),
+        ramPercent = ResourceLimitsStore(sharedPreferences).load(ResourceLimit.RAM_PERCENT)
     ).withSlots())
     val uiState = _uiState.asStateFlow()
     private var historyJob: Job? = null

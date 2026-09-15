@@ -8,6 +8,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.yomu.app.translation.LlmModelCatalog
 import com.yomu.core.Constants
 import com.yomu.core.GenerationParams
+import com.yomu.core.RuntimeLimits
 import com.yomu.ml.LlamaBridge
 import com.yomu.ml.LlamaTranslationBridge
 import com.yomu.ml.OnnxRuntime
@@ -62,7 +63,7 @@ class SpeedBenchmarkTest {
                 // Rebuilt per entry, on the call shape the catalog ships for it (batch or per-line).
                 // The pipeline's confidenceThreshold is never set here, so detection runs at the
                 // default, not the reader's stored value (#227).
-                val slot = LlamaTranslationBridge(native, LlmModelCatalog.profileFor(option, llmDir, GenerationParams()))
+                val slot = LlamaTranslationBridge(native, LlmModelCatalog.profileFor(option, llmDir, GenerationParams(), RuntimeLimits()))
                 val pipeline = TranslationPipeline(
                     BubbleDetector(onnx),
                     OcrEngine(onnx),
