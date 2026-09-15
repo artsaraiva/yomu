@@ -16,14 +16,15 @@ class BubbleDetector(private val onnxRuntime: OnnxRuntime) {
 
     companion object {
         private const val TAG = "BubbleDetector"
-        private const val CONFIDENCE_THRESHOLD = 0.25f
-        private const val NMS_IOU_THRESHOLD = 0.80f
+        /** The shipped threshold; the reader tunes it in Settings (#227), benchmarks never do. */
+        const val DEFAULT_CONFIDENCE_THRESHOLD = 0.25f
+        internal const val NMS_IOU_THRESHOLD = 0.80f
         // #88 bug B: a small box sitting almost entirely inside a bigger one has low IoU, so IoU-NMS
         // keeps both — two boxes over the same balloon, whose translated texts then paint on top of
         // each other. Suppress a box that is at least this fraction contained in a higher-confidence
         // kept box. 0.97 (not lower) so only near-perfect duplicates go; genuinely-close distinct
         // balloons the model under-separates are the detector's problem (#57), not this heuristic's.
-        private const val NMS_CONTAINMENT_THRESHOLD = 0.97f
+        internal const val NMS_CONTAINMENT_THRESHOLD = 0.97f
     }
 
     private var isLoaded = false
@@ -39,7 +40,7 @@ class BubbleDetector(private val onnxRuntime: OnnxRuntime) {
 
     fun isModelLoaded(): Boolean = isLoaded
 
-    fun detect(bitmap: Bitmap): List<Bubble> {
+    fun detect(bitmap: Bitmap, confidenceThreshold: Float): List<Bubble> {
         if (!isLoaded) return emptyList()
         val path = modelPath ?: return emptyList()
 
@@ -47,15 +48,10 @@ class BubbleDetector(private val onnxRuntime: OnnxRuntime) {
         val origHeight = bitmap.height
 
         val rawDetections = onnxRuntime.runBitmapInference(path, bitmap)
-        val confidenceFiltered = rawDetections.filter { it.confidence >= CONFIDENCE_THRESHOLD }
-        val detections = nonMaxSuppressDetections(
-            confidenceFiltered,
-            NMS_IOU_THRESHOLD,
-            NMS_CONTAINMENT_THRESHOLD
-        )
+        val detections = keptDetections(rawDetections, confidenceThreshold)
         Log.d(
             TAG,
-            "Bubble detection raw=${rawDetections.size} thresholded=${confidenceFiltered.size} kept=${detections.size}"
+            "Bubble detection raw=${rawDetections.size} threshold=$confidenceThreshold kept=${detections.size}"
         )
         detections.forEachIndexed { index, detection ->
             Log.d(
@@ -86,6 +82,15 @@ class BubbleDetector(private val onnxRuntime: OnnxRuntime) {
         modelPath = null
     }
 }
+
+internal fun keptDetections(
+    detections: List<OnnxRuntime.Detection>,
+    confidenceThreshold: Float
+): List<OnnxRuntime.Detection> = nonMaxSuppressDetections(
+    detections.filter { it.confidence >= confidenceThreshold },
+    BubbleDetector.NMS_IOU_THRESHOLD,
+    BubbleDetector.NMS_CONTAINMENT_THRESHOLD
+)
 
 internal fun nonMaxSuppressDetections(
     detections: List<OnnxRuntime.Detection>,
