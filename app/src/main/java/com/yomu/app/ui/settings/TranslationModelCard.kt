@@ -34,7 +34,7 @@ internal fun TranslationModelCard(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Pick which model fills the translation slot. The default is safe on every device.",
+                text = "Pick which model translates. The default is safe on every device.",
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

@@ -54,7 +54,7 @@ data class SettingsUiState(
 class SettingsViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val sharedPreferences: SharedPreferences,
-    private val translationModel: TranslationModelSelection,
+    private val modelSelection: TranslationModelSelection,
     private val modelManager: ModelManager
 ) : ViewModel() {
 
@@ -69,13 +69,13 @@ class SettingsViewModel @Inject constructor(
             translationMode = sharedPreferences.getString(Constants.PREF_TRANSLATION_MODE, "local") ?: "local",
             targetLanguage = sharedPreferences.getString(Constants.PREF_TARGET_LANGUAGE, "en") ?: "en",
             sourceLanguage = sharedPreferences.getString(Constants.PREF_SOURCE_LANGUAGE, "ja") ?: "ja",
-            selectedLlmModelId = translationModel.currentLlmModel().id,
+            selectedLlmModelId = modelSelection.currentLlmModel().id,
             deviceTotalMemBytes = deviceTotalMemBytes(),
             fontSizeScale = sharedPreferences.getFloat(Constants.PREF_FONT_SIZE_SCALE, Constants.DEFAULT_FONT_SIZE_SCALE),
             theme = sharedPreferences.getString(Constants.PREF_THEME, "system") ?: "system"
         ).withGenerationProfile()
         // The warning is now on screen; forget the bad values so it does not return on every visit.
-        if (_uiState.value.recoveryWarning != null) translationModel.clearRecovered()
+        if (_uiState.value.recoveryWarning != null) modelSelection.clearRecovered()
 
         viewModelScope.launch {
             modelManager.refreshModelList()
@@ -105,9 +105,9 @@ class SettingsViewModel @Inject constructor(
         // Off the main thread: selectLlmModel waits out any in-flight generation before swapping the
         // native model, which can take up to a batch timeout.
         viewModelScope.launch {
-            translationModel.selectLlmModel(option)
+            modelSelection.selectLlmModel(option)
             _uiState.value = _uiState.value.copy(
-                selectedLlmModelId = translationModel.currentLlmModel().id
+                selectedLlmModelId = modelSelection.currentLlmModel().id
             )
         }
     }
@@ -115,22 +115,22 @@ class SettingsViewModel @Inject constructor(
     /** Values the bounds refuse are dropped by the store; the panel just re-reads what stuck. */
     fun setGeneration(bound: GenerationBound, value: Float) {
         viewModelScope.launch {
-            translationModel.saveGeneration(bound, value)
+            modelSelection.saveGeneration(bound, value)
             _uiState.value = _uiState.value.withGenerationProfile()
         }
     }
 
     fun resetGeneration() {
         viewModelScope.launch {
-            translationModel.resetGeneration()
+            modelSelection.resetGeneration()
             _uiState.value = _uiState.value.withGenerationProfile()
         }
     }
 
     private fun SettingsUiState.withGenerationProfile(): SettingsUiState {
-        val loaded = translationModel.generationProfile()
+        val loaded = modelSelection.generationProfile()
         val recovered = loaded.recovered.map { it.label } +
-            if (translationModel.storedLlmModelRecovered()) listOf("Model") else emptyList()
+            if (modelSelection.storedLlmModelRecovered()) listOf("Model") else emptyList()
         return copy(
             generation = loaded.params,
             recoveryWarning = recovered.takeIf { it.isNotEmpty() }

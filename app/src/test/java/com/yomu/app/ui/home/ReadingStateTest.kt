@@ -44,7 +44,6 @@ class ReadingStateTest {
         )
         assertEquals(Readiness.NeedsModels, resolveReadiness(readers, translator, true))
         assertEquals(Readiness.NeedsModels, resolveReadiness(readers + (translator to ModelStatus.DOWNLOADING), translator, true))
-        // A different deliverable being ready does not stand in for the selected one.
         assertEquals(
             Readiness.NeedsModels,
             resolveReadiness(readers + (Constants.CAT_TRANSLATION_MODEL_ID to ModelStatus.READY), translator, true)

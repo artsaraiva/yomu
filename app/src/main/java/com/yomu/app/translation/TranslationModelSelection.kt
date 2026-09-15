@@ -9,7 +9,6 @@ import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Which curated LLM fills the translation slot, and the generation profile it runs with (ADR-0016). */
 @Singleton
 class TranslationModelSelection @Inject constructor(
     private val llamaSlot: LlamaTranslationBridge,

@@ -2,7 +2,7 @@
 
 **Status:** accepted, 2026-09-15. Decides [#222](https://github.com/artsaraiva/yomu/issues/222). Supersedes in part [ADR-0008](0008-translation-model-selection.md): its "OPUS-MT and ML Kit stay as optional floor engines" clause.
 
-Yomu removes the ML Kit and OPUS-MT floor engines. A curated LLM deliverable is the only thing that fills the translation slot. Setup downloads the default curated LLM deliverable, Yomu is not ready until the selected deliverable is downloaded, and the translation model is chosen only in Settings. The engine type, the engine role and the stored engine preference go away. What was the engine selection now holds only the LLM deliverable choice and the generation profile. The `TranslationSlot` seam from [ADR-0012](0012-page-translation-slot.md) stays.
+Yomu removes the ML Kit and OPUS-MT floor engines. A curated LLM deliverable is the only thing that fills the translation slot. Setup downloads the selected curated LLM deliverable, which on a fresh install is the default. Yomu is not ready until the selected deliverable is downloaded, and the translation model is chosen only in Settings. The engine type, the engine role and the stored engine preference go away. What was the engine selection now holds only the LLM deliverable choice and the generation profile. The `TranslationSlot` seam from [ADR-0012](0012-page-translation-slot.md) stays.
 
 ## Why
 
@@ -16,7 +16,9 @@ ADR-0008 kept the floors for devices that cannot run an LLM. Neither floor deliv
 
 ## Consequences
 
-**No migration.** Nobody uses the app yet. A stored `translation_engine` preference is ignored, and floor-engine files already on a device are not cleaned up. Their rows leave the model registry, so `refreshModelList` drops them.
+**No migration.** Nobody uses the app yet. A stored `translation_engine` preference is ignored. The floor rows leave the model registry, so `refreshModelList` drops them and deletes each row's primary file; OPUS-MT's decoder and tokenizer files are left on the device.
+
+**Setup needs Wi-Fi for all three downloads.** ML Kit's download went through Play Services and skipped the Wi-Fi check; the LLM download does not.
 
 **ONNX Runtime stays.** Detection and OCR still use it. The DJL tokenizer dependency, which only OPUS-MT used, is removed.
 

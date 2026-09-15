@@ -34,7 +34,7 @@ class HomeViewModel @Inject constructor(
     private val sharedPreferences: SharedPreferences,
     private val modelManager: ModelManager,
     private val historyDao: HistoryDao,
-    private val translationModel: TranslationModelSelection
+    private val modelSelection: TranslationModelSelection
 ) : ViewModel() {
     private companion object {
         const val SETUP_COMPLETE = "reading_setup_complete"
@@ -97,7 +97,7 @@ class HomeViewModel @Inject constructor(
     private fun refreshReadiness() {
         val permission = Settings.canDrawOverlays(context)
         _uiState.update { state ->
-            val readiness = resolveReadiness(state.models.associate { it.id to it.status }, translationModel.currentLlmModel().id, permission)
+            val readiness = resolveReadiness(state.models.associate { it.id to it.status }, modelSelection.currentLlmModel().id, permission)
             state.copy(
                 readiness = readiness,
                 setupVisible = state.setupVisible ||
@@ -145,7 +145,7 @@ class HomeViewModel @Inject constructor(
                 val downloads = listOf(
                     Constants.BUBBLE_DETECTION_MODEL_ID to "Finding speech bubbles",
                     Constants.MANGA_OCR_MODEL_ID to "Reading Japanese",
-                    translationModel.currentLlmModel().id to "Translating into English"
+                    modelSelection.currentLlmModel().id to "Translating into English"
                 )
                 for ((id, label) in downloads) {
                     if (modelManager.getModel(id)?.status == ModelStatus.READY) continue
