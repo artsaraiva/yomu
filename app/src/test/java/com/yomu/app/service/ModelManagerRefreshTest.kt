@@ -55,4 +55,20 @@ class ModelManagerRefreshTest {
         assertFalse(stale.id in dao.rows.value)
         assertEquals(ModelManager.REGISTRY.map { it.id }.toSet(), dao.rows.value.keys)
     }
+
+    @Test
+    fun `model files list the main file then its additional files in the vision directory`() {
+        val filesDir = tmp.newFolder()
+        val context = mock(Context::class.java)
+        `when`(context.filesDir).thenReturn(filesDir)
+        val ocr = ModelManager.REGISTRY.single { it.id == Constants.MANGA_OCR_MODEL_ID }
+        val visionDir = File(filesDir, "${Constants.MODELS_DIR}/${Constants.VISION_MODELS_DIR}")
+
+        val files = ModelManager(context, FakeModelDao(), OkHttpClient()).modelFiles(ocr)
+
+        assertEquals(
+            listOf(Constants.OCR_ENCODER_MODEL, Constants.OCR_DECODER_MODEL, Constants.OCR_VOCAB_FILE).map { File(visionDir, it) },
+            files
+        )
+    }
 }
