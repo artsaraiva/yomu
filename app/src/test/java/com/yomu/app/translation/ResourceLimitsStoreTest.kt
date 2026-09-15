@@ -14,7 +14,7 @@ class ResourceLimitsStoreTest {
     @Test
     fun `nothing stored loads every default`() {
         assertEquals(RuntimeLimits(), store.runtime())
-        assertEquals(60, store.load(ResourceLimit.RAM_PERCENT))
+        assertEquals(60, store.load(ResourceLimit.FIT_BUDGET_PERCENT))
     }
 
     @Test
@@ -30,21 +30,21 @@ class ResourceLimitsStoreTest {
     @Test
     fun `saved threads and context reach the runtime limits`() {
         store.save(ResourceLimit.THREADS, 1)
-        store.save(ResourceLimit.CONTEXT_TOKENS, 1024)
+        store.save(ResourceLimit.CONTEXT_TOKENS, 1536)
 
-        assertEquals(RuntimeLimits(threads = 1, contextTokens = 1024), store.runtime())
+        assertEquals(RuntimeLimits(threads = 1, contextTokens = 1536), store.runtime())
     }
 
     @Test
     fun `values outside the offered options are refused and storage is untouched`() {
-        store.save(ResourceLimit.RAM_PERCENT, 45)
+        store.save(ResourceLimit.FIT_BUDGET_PERCENT, 45)
         val before = prefs.all
 
         assertFalse(store.save(ResourceLimit.THREADS, 0))
         assertFalse(store.save(ResourceLimit.THREADS, RuntimeLimits.MAX_THREADS + 1))
         assertFalse(store.save(ResourceLimit.CONTEXT_TOKENS, 3000))
-        assertFalse(store.save(ResourceLimit.RAM_PERCENT, 95))
-        assertFalse(store.save(ResourceLimit.RAM_PERCENT, 42))
+        assertFalse(store.save(ResourceLimit.FIT_BUDGET_PERCENT, 95))
+        assertFalse(store.save(ResourceLimit.FIT_BUDGET_PERCENT, 42))
 
         assertEquals(before, prefs.all)
     }

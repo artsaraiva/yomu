@@ -253,21 +253,21 @@ class ModelSlotSelectionTest {
 
     @Test
     fun `fit is judged by the translation budget and an unknown memory size fits`() {
-        val share = LlmModelCatalog.DEFAULT_RAM_PERCENT
-        assertFalse(ModelSlotSelection.fits(Constants.CAT_TRANSLATION_14B_MODEL_ID, oneGb, share))
-        assertTrue(ModelSlotSelection.fits(Constants.CAT_TRANSLATION_14B_MODEL_ID, 0L, share))
-        assertTrue(ModelSlotSelection.fits(LlmModelCatalog.DEFAULT.id, oneGb, share))
-        assertTrue(ModelSlotSelection.fits(Constants.MANGA_OCR_MODEL_ID, oneGb, share))
+        val budget = LlmModelCatalog.DEFAULT_FIT_BUDGET_PERCENT
+        assertFalse(ModelSlotSelection.fits(Constants.CAT_TRANSLATION_14B_MODEL_ID, oneGb, budget))
+        assertTrue(ModelSlotSelection.fits(Constants.CAT_TRANSLATION_14B_MODEL_ID, 0L, budget))
+        assertTrue(ModelSlotSelection.fits(LlmModelCatalog.DEFAULT.id, oneGb, budget))
+        assertTrue(ModelSlotSelection.fits(Constants.MANGA_OCR_MODEL_ID, oneGb, budget))
     }
 
     @Test
-    fun `the reader's stored RAM share gates what can be picked`() = runTest {
+    fun `the reader's stored fit budget gates what can be picked`() = runTest {
         val fourGb = 4L * 1024 * 1024 * 1024
-        prefs.values[ResourceLimit.RAM_PERCENT.key] = 30
+        prefs.values[ResourceLimit.FIT_BUDGET_PERCENT.key] = 30
 
         assertFalse(selection.pick(ModelType.LLM, Constants.CAT_TRANSLATION_14B_MODEL_ID, ModelStatus.READY, fourGb))
 
-        prefs.values[ResourceLimit.RAM_PERCENT.key] = 60
+        prefs.values[ResourceLimit.FIT_BUDGET_PERCENT.key] = 60
         assertTrue(selection.pick(ModelType.LLM, Constants.CAT_TRANSLATION_14B_MODEL_ID, ModelStatus.READY, fourGb))
     }
 }

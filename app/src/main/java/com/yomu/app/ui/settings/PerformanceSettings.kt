@@ -43,11 +43,11 @@ private fun ResourceReadoutPanel(readout: ResourceReadout?) {
                 Text("Measuring…", style = MaterialTheme.typography.bodySmall)
                 return@Column
             }
-            ReadoutRow("App memory", "${bytes(readout.appPssBytes)}, including the loaded model")
+            ReadoutRow("App memory", "${bytes(readout.appPssBytes)} (PSS)")
             ReadoutRow("Native heap", bytes(readout.nativeHeapBytes))
             ReadoutRow("Phone memory free", "${bytes(readout.deviceAvailableBytes)} of ${bytes(readout.deviceTotalBytes)}")
             ReadoutRow("CPU", readout.cpuPercent?.let { "$it% of all cores" } ?: "Measuring…")
-            ReadoutRow("Last page", readout.lastPageMs?.let { "Translated in $it ms" } ?: "No page translated yet")
+            ReadoutRow("Model time, last page", readout.lastPageMs?.let { "$it ms" } ?: "No page translated yet")
         }
     }
 }
@@ -74,10 +74,10 @@ private fun ResourceLimitsPanel(
             }
             LimitSlider(ResourceLimit.CONTEXT_TOKENS, stored, "Context size", onChange) {
                 "$it tokens (default ${ResourceLimit.CONTEXT_TOKENS.default}). Smaller uses less memory, " +
-                    "but a long page may be translated line by line. Applied on the next page."
+                    "but a long page may be translated line by line. Larger fits longer pages. Applied on the next page."
             }
-            LimitSlider(ResourceLimit.RAM_PERCENT, stored, "Memory ceiling", onChange) {
-                "$it% of this phone's memory (default ${ResourceLimit.RAM_PERCENT.default}%). " +
+            LimitSlider(ResourceLimit.FIT_BUDGET_PERCENT, stored, "Fit budget", onChange) {
+                "$it% of this phone's memory (default ${ResourceLimit.FIT_BUDGET_PERCENT.default}%). " +
                     "Models that need more are not offered."
             }
             PaperButton("Reset to defaults", onReset, enabled = ResourceLimit.entries.any { stored[it] != it.default })

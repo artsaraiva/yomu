@@ -50,7 +50,7 @@ object LlmModelCatalog {
     // it. Calibrated to #84: Hunyuan-7B Q4 (4.6GB) is killed on an 8GB phone, its Q3 (3.8GB) fits.
     // The reader may move it (#79) — raise if a capable device wrongly hides a model, lower if one
     // that OOMs still shows.
-    const val DEFAULT_RAM_PERCENT = 60
+    const val DEFAULT_FIT_BUDGET_PERCENT = 60
 
     /** ADR-0010: phone-confirmed default. Picking nothing keeps this; it is never gated out (part D). */
     val DEFAULT: LlmModelOption = LlmModelOption(
@@ -114,12 +114,12 @@ object LlmModelCatalog {
 
     /**
      * Whether [option] can run on a device reporting [totalMemBytes] of RAM, when the model may use
-     * [ramPercent] of it (part D, #79). The default is never gated out — it must stay usable on the
+     * [fitBudgetPercent] of it (part D, #79). The default is never gated out — it must stay usable on the
      * mid-range floor.
      */
-    fun canRunOnDevice(option: LlmModelOption, totalMemBytes: Long, ramPercent: Int): Boolean {
+    fun canRunOnDevice(option: LlmModelOption, totalMemBytes: Long, fitBudgetPercent: Int): Boolean {
         if (option.id == DEFAULT.id) return true
-        val budget = totalMemBytes / 100 * ramPercent
+        val budget = totalMemBytes / 100 * fitBudgetPercent
         return option.sizeBytes + RESIDENT_OVERHEAD_BYTES <= budget
     }
 }

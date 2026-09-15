@@ -149,7 +149,9 @@ data class RuntimeLimits(
         val MAX_THREADS: Int = Runtime.getRuntime().availableProcessors()
         val DEFAULT_THREADS: Int = MAX_THREADS.coerceAtMost(4)
         const val DEFAULT_CONTEXT_TOKENS = 2048
-        val CONTEXT_TOKEN_OPTIONS = listOf(1024, 2048, 4096)
+        // A batch page reserves 776 tokens for its reply and llama_jni.cpp caps the prompt at n_batch=2048, so 2816
+        // is the largest context a prompt can fill and below 1536 almost every page overflows to per-line.
+        val CONTEXT_TOKEN_OPTIONS = listOf(1536, 2048, 2816)
     }
 }
 

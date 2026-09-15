@@ -23,7 +23,7 @@ data class HomeUiState(
     val chosenIds: Map<ModelType, String> = emptyMap(),
     val setupDownloadBytes: Long = 0L,
     val deviceTotalMemBytes: Long = 0L,
-    val ramPercent: Int = LlmModelCatalog.DEFAULT_RAM_PERCENT,
+    val fitBudgetPercent: Int = LlmModelCatalog.DEFAULT_FIT_BUDGET_PERCENT,
     val onWifi: Boolean = true,
     val pagesTranslatedToday: Int = 0,
     val translations: List<TranslationEntity> = emptyList(),
@@ -37,5 +37,5 @@ data class HomeUiState(
     val readingStatus: ReadingStatus
         get() = resolveReadingStatus(readiness == Readiness.Ready && setupComplete, isServiceRunning)
 
-    fun fits(deliverable: SlotDeliverable): Boolean = ModelSlotSelection.fits(deliverable.id, deviceTotalMemBytes, ramPercent)
+    fun fits(deliverable: SlotDeliverable): Boolean = ModelSlotSelection.fits(deliverable.id, deviceTotalMemBytes, fitBudgetPercent)
 }

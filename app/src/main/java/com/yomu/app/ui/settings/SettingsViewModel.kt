@@ -58,7 +58,7 @@ data class SettingsUiState(
         get() = GenerationBound.entries.any { it.read(generation) != it.default }
 
     fun fits(deliverable: SlotDeliverable): Boolean =
-        ModelSlotSelection.fits(deliverable.id, deviceTotalMemBytes, resourceLimits.getValue(ResourceLimit.RAM_PERCENT))
+        ModelSlotSelection.fits(deliverable.id, deviceTotalMemBytes, resourceLimits.getValue(ResourceLimit.FIT_BUDGET_PERCENT))
 }
 
 @HiltViewModel

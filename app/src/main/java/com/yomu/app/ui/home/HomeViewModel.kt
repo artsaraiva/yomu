@@ -53,7 +53,7 @@ class HomeViewModel @Inject constructor(
         hasRead = sharedPreferences.getBoolean(HAS_READ, false),
         deliverables = ModelType.entries.associateWith(slotSelection::deliverables),
         deviceTotalMemBytes = modelManager.deviceTotalMemBytes(),
-        ramPercent = ResourceLimitsStore(sharedPreferences).load(ResourceLimit.RAM_PERCENT)
+        fitBudgetPercent = ResourceLimitsStore(sharedPreferences).load(ResourceLimit.FIT_BUDGET_PERCENT)
     ).withSlots())
     val uiState = _uiState.asStateFlow()
     private var historyJob: Job? = null
@@ -130,7 +130,13 @@ class HomeViewModel @Inject constructor(
         val running = manager.getRunningServices(Int.MAX_VALUE).any {
             it.service.className == OverlayService::class.java.name && it.foreground
         }
-        _uiState.update { it.copy(isServiceRunning = running, onWifi = modelManager.isOnWifi()) }
+        _uiState.update {
+            it.copy(
+                isServiceRunning = running,
+                onWifi = modelManager.isOnWifi(),
+                fitBudgetPercent = ResourceLimitsStore(sharedPreferences).load(ResourceLimit.FIT_BUDGET_PERCENT)
+            )
+        }
         countJob?.cancel()
         countJob = viewModelScope.launch {
             val start = Calendar.getInstance().apply {

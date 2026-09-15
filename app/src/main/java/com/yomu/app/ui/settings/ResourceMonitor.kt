@@ -17,6 +17,8 @@ data class ResourceReadout(
     val lastPageMs: Long?
 )
 
+private const val STALE_BASELINE_MS = 5_000L
+
 /** Samples this process for the Performance screen (#79). The overlay runs in the same process, so it is counted. */
 class ResourceMonitor(private val context: Context) {
 
@@ -26,7 +28,8 @@ class ResourceMonitor(private val context: Context) {
     fun sample(lastPageMs: Long?): ResourceReadout {
         val cpuMs = Process.getElapsedCpuTime()
         val wallMs = SystemClock.elapsedRealtime()
-        val cpu = if (previousWallMs == 0L) null
+        // A baseline from before the reader left the screen would average over the time away.
+        val cpu = if (previousWallMs == 0L || wallMs - previousWallMs > STALE_BASELINE_MS) null
         else cpuPercent(cpuMs - previousCpuMs, wallMs - previousWallMs, Runtime.getRuntime().availableProcessors())
         previousCpuMs = cpuMs
         previousWallMs = wallMs

@@ -109,10 +109,10 @@ class TranslationModelSelectionTest {
 
         assertTrue(selection.saveResourceLimit(ResourceLimit.THREADS, 1))
         assertFalse(selection.saveResourceLimit(ResourceLimit.CONTEXT_TOKENS, 3000))
-        assertTrue(selection.saveResourceLimit(ResourceLimit.CONTEXT_TOKENS, 1024))
+        assertTrue(selection.saveResourceLimit(ResourceLimit.CONTEXT_TOKENS, 1536))
 
         val last = Mockito.mockingDetails(llama).invocations.last().arguments[0] as ModelProfile
-        assertEquals(RuntimeLimits(threads = 1, contextTokens = 1024), last.runtime)
+        assertEquals(RuntimeLimits(threads = 1, contextTokens = 1536), last.runtime)
         assertEquals(2, Mockito.mockingDetails(llama).invocations.size)
         assertEquals(1, selection.resourceLimit(ResourceLimit.THREADS))
     }
@@ -121,7 +121,7 @@ class TranslationModelSelectionTest {
     fun `resetResourceLimits restores and applies the shipped limits`() = runTest {
         val llama = Mockito.mock(LlamaTranslationBridge::class.java)
         val selection = selection(llama = llama)
-        selection.saveResourceLimit(ResourceLimit.CONTEXT_TOKENS, 4096)
+        selection.saveResourceLimit(ResourceLimit.CONTEXT_TOKENS, 2816)
 
         selection.resetResourceLimits()
 

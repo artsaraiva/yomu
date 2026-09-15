@@ -57,8 +57,8 @@ class ModelSlotSelection @Inject constructor(
     }
 
     suspend fun pick(type: ModelType, id: String, status: ModelStatus?, totalMemBytes: Long): Boolean {
-        val ramPercent = translation.resourceLimit(ResourceLimit.RAM_PERCENT)
-        if (deliverables(type).none { it.id == id } || !fits(id, totalMemBytes, ramPercent)) return false
+        val fitBudgetPercent = translation.resourceLimit(ResourceLimit.FIT_BUDGET_PERCENT)
+        if (deliverables(type).none { it.id == id } || !fits(id, totalMemBytes, fitBudgetPercent)) return false
         when {
             id == selectedId(type) -> pending.remove(type)
             status == ModelStatus.READY -> {
@@ -119,9 +119,9 @@ class ModelSlotSelection @Inject constructor(
         )
 
         // Only translation models have a fit budget; 0 bytes means the device RAM couldn't be read.
-        fun fits(id: String, totalMemBytes: Long, ramPercent: Int): Boolean {
+        fun fits(id: String, totalMemBytes: Long, fitBudgetPercent: Int): Boolean {
             val option = LlmModelCatalog.fromId(id) ?: return true
-            return totalMemBytes <= 0L || LlmModelCatalog.canRunOnDevice(option, totalMemBytes, ramPercent)
+            return totalMemBytes <= 0L || LlmModelCatalog.canRunOnDevice(option, totalMemBytes, fitBudgetPercent)
         }
     }
 }
