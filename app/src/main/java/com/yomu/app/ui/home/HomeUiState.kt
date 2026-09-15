@@ -25,6 +25,8 @@ data class HomeUiState(
     val setupBlockedBy: String? = null,
     val deliverables: Map<ModelType, List<SlotDeliverable>> = emptyMap(),
     val chosenIds: Map<ModelType, String> = emptyMap(),
+    val translationSelectedId: String? = null,
+    val translationPendingId: String? = null,
     val setupDownloadBytes: Long = 0L,
     val fitBudget: FitBudget = FitBudget(0L, LlmModelCatalog.DEFAULT_FIT_BUDGET_PERCENT, RuntimeLimits.DEFAULT_CONTEXT_TOKENS),
     val onWifi: Boolean = true,
@@ -41,4 +43,10 @@ data class HomeUiState(
         get() = resolveReadingStatus(readiness == Readiness.Ready && setupComplete, isServiceRunning)
 
     fun fits(deliverable: SlotDeliverable): Boolean = ModelSlotSelection.fits(deliverable.id, fitBudget)
+
+    fun translationChipLabel(): String {
+        val options = deliverables[ModelType.LLM].orEmpty()
+        val selected = options.firstOrNull { it.id == translationSelectedId }?.name ?: "No model selected"
+        return options.firstOrNull { it.id == translationPendingId }?.let { "$selected · ${it.name} when downloaded" } ?: selected
+    }
 }
