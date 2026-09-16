@@ -17,7 +17,6 @@ import android.view.WindowManager
 import android.widget.Toast
 import com.yomu.app.capture.ScreenCaptureManager
 import com.yomu.app.detection.DetectionThresholdStore
-import com.yomu.app.overlay.CloseZoneOverlay
 import com.yomu.app.overlay.FloatingButtonView
 import com.yomu.app.overlay.FloatingButtonOverlay
 import com.yomu.app.overlay.OverlayBounds
@@ -63,7 +62,6 @@ class OverlayService : Service() {
     private var readingModelFiles: List<File> = emptyList()
 
     private lateinit var windowManager: WindowManager
-    private lateinit var closeZoneOverlay: CloseZoneOverlay
     private lateinit var floatingButtonOverlay: FloatingButtonOverlay
     private lateinit var translationRenderOverlay: TranslationRenderOverlay
     private var floatingButton: FloatingButtonView? = null
@@ -117,8 +115,7 @@ class OverlayService : Service() {
     override fun onCreate() {
         super.onCreate()
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
-        closeZoneOverlay = CloseZoneOverlay(this, windowManager)
-        floatingButtonOverlay = FloatingButtonOverlay(this, windowManager, closeZoneOverlay)
+        floatingButtonOverlay = FloatingButtonOverlay(this, windowManager)
         translationRenderOverlay = TranslationRenderOverlay(this, windowManager)
         statusOverlay = TranslationStatusOverlay(this, windowManager)
         sharedPreferences.registerOnSharedPreferenceChangeListener(preferenceListener)
@@ -185,14 +182,12 @@ class OverlayService : Service() {
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         removeQuickSettingsPopup()
-        closeZoneOverlay.remove()
         floatingButtonOverlay.keepInBounds()
         updateOverlayAppearance()
     }
 
     private fun updateOverlayAppearance() {
         floatingButton?.updateAppearance()
-        closeZoneOverlay.updateAppearance()
         quickSettingsPopup?.updateAppearance()
         statusOverlay.updateAppearance()
     }
@@ -206,7 +201,6 @@ class OverlayService : Service() {
         }
         removeQuickSettingsPopup()
         removeFloatingButton()
-        closeZoneOverlay.remove()
         translationRenderOverlay.remove()
         statusOverlay.remove()
         screenCaptureManager.stopProjection()
@@ -262,8 +256,7 @@ class OverlayService : Service() {
                 }
             },
             onDragEnd = { x, y -> persistButtonPosition(x, y) },
-            onLongPress = { showQuickSettings() },
-            onClose = { stopSelf() }
+            onLongPress = { showQuickSettings() }
         )
     }
 
