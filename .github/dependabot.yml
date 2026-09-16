@@ -1,0 +1,34 @@
+version: 2
+updates:
+  - package-ecosystem: gradle
+    directory: /
+    schedule:
+      interval: weekly
+    assignees:
+      - artsaraiva
+    groups:
+      gradle-minor-patch:
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    assignees:
+      - artsaraiva
+    groups:
+      actions-minor-patch:
+        update-types:
+          - minor
+          - patch
+
+  # llama.cpp moves daily and its C API churns; a monthly bump keeps the
+  # native engine patched without a PR every week.
+  - package-ecosystem: gitsubmodule
+    directory: /
+    schedule:
+      interval: monthly
+    assignees:
+      - artsaraiva

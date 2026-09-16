@@ -1,0 +1,44 @@
+name: CodeQL
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  schedule:
+    - cron: '17 4 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: Analyze (java-kotlin, c-cpp)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: java-kotlin, c-cpp
+          build-mode: manual
+      # CodeQL extracts by tracing the compiler, so the build must run in this
+      # process from scratch: no daemon, no build cache.
+      - name: Build
+        run: ./gradlew --no-daemon --no-build-cache assembleDebug
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v4
