@@ -91,6 +91,7 @@ static bool rebuild_sampler(const float *params, uint32_t seed) {
     }
 
     llama_sampler_chain_add(g_sampler, llama_sampler_init_penalties(
+        llama_vocab_n_tokens(g_vocab),
         (int32_t)params[SAMPLER_PENALTY_LAST_N],
         params[SAMPLER_PENALTY_REPEAT],
         params[SAMPLER_PENALTY_FREQ],

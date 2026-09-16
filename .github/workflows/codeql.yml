@@ -1,17 +1,24 @@
 name: CodeQL
 
+# Not on PRs: CodeQL traces a from-scratch build of all of llama.cpp, which
+# took ~20 minutes per PR. Findings land on main after merge and weekly.
 on:
   push:
     branches:
       - main
-  pull_request:
-    branches:
-      - main
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+  workflow_dispatch:
   schedule:
     - cron: '17 4 * * 1'
 
 permissions:
   contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   analyze:
@@ -37,8 +44,9 @@ jobs:
           languages: java-kotlin, c-cpp
           build-mode: manual
       # CodeQL extracts by tracing the compiler, so the build must run in this
-      # process from scratch: no daemon, no build cache.
+      # process from scratch: no daemon, no build cache. One ABI: the x86_64 build is
+      # the same C++ source and doubles the tracing time.
       - name: Build
-        run: ./gradlew --no-daemon --no-build-cache assembleDebug
+        run: ./gradlew --no-daemon --no-build-cache assembleDebug -Pyomu.abis=arm64-v8a
       - name: Perform CodeQL analysis
         uses: github/codeql-action/analyze@v4
