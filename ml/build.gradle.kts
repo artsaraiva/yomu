@@ -16,7 +16,9 @@ android {
                 arguments += "-DANDROID_STL=c++_shared"
             }
         }
-        ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
+        // CI passes -Pyomu.abis=arm64-v8a on PRs to compile llama.cpp once instead of twice.
+        val abis = (findProperty("yomu.abis") as String?)?.split(",") ?: listOf("arm64-v8a", "x86_64")
+        ndk { abiFilters += abis }
     }
     externalNativeBuild {
         cmake {
