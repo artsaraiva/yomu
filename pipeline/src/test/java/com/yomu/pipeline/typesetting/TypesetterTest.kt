@@ -170,4 +170,28 @@ class TypesetterTest {
             assertFitsDrawnBox(b)
         }
     }
+
+    // Robolectric's Paint measures one unit per character, so these boxes are sized in characters.
+    @Test
+    fun `short word in a box narrower than it widens instead of breaking letters`() {
+        val b = typesetter.typeset(
+            listOf(bubble(1, "Yes!")),
+            mapOf(1 to floatArrayOf(100f, 0f, 103f, 40f))
+        ).first()
+
+        assertEquals(listOf("Yes!"), b.textLines)
+        assertEquals("Widening is centred", 101.5f, (b.boundingBox[0] + b.boundingBox[2]) / 2f, 0.01f)
+        assertFitsDrawnBox(b)
+    }
+
+    @Test
+    fun `untranslated japanese wraps by character instead of widening`() {
+        val b = typesetter.typeset(
+            listOf(bubble(1, "ジュンの適当発言")),
+            mapOf(1 to floatArrayOf(100f, 0f, 103f, 40f))
+        ).first()
+
+        assertEquals(103f - 100f, b.boundingBox[2] - b.boundingBox[0], 0.01f)
+        assertTrue("Wraps onto several lines", b.textLines.size > 1)
+    }
 }

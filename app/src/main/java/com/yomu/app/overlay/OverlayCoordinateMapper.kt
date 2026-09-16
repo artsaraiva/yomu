@@ -41,14 +41,22 @@ object OverlayCoordinateMapper {
     }
 
     // A bubble grown to hold its text can reach past the canvas; slide it back so no line is
-    // drawn off-screen. A box taller than the canvas is pinned to the top.
-    fun clampToCanvas(bounds: OverlayBounds, canvasHeight: Float): OverlayBounds {
-        val shift = when {
-            bounds.top < 0f -> -bounds.top
-            bounds.bottom > canvasHeight -> canvasHeight - bounds.bottom
-            else -> return bounds
-        }
-        return bounds.copy(top = bounds.top + shift, bottom = bounds.bottom + shift)
+    // drawn off-screen. A box larger than the canvas is pinned to the top-left.
+    fun clampToCanvas(bounds: OverlayBounds, canvasWidth: Float, canvasHeight: Float): OverlayBounds {
+        val shiftX = slideInside(bounds.left, bounds.right, canvasWidth)
+        val shiftY = slideInside(bounds.top, bounds.bottom, canvasHeight)
+        return OverlayBounds(
+            left = bounds.left + shiftX,
+            top = bounds.top + shiftY,
+            right = bounds.right + shiftX,
+            bottom = bounds.bottom + shiftY
+        )
+    }
+
+    private fun slideInside(start: Float, end: Float, size: Float): Float = when {
+        start < 0f -> -start
+        end > size -> size - end
+        else -> 0f
     }
 
     fun map(bounds: FloatArray, params: MapParams): OverlayBounds {

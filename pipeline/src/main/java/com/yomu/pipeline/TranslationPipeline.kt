@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.RectF
 import android.util.Log
 import com.yomu.pipeline.bubble.BubbleDetector
+import com.yomu.pipeline.bubble.bubbleRenderBoxes
 import com.yomu.pipeline.context.ContextAssembler
 import com.yomu.pipeline.ocr.OcrEngine
 import com.yomu.pipeline.translation.TranslationEngine
@@ -192,14 +193,19 @@ class TranslationPipeline(
 
             currentStage = Stage.TYPESETTING
             callback?.onStageProgress(Stage.TYPESETTING, 0.8f)
-            val bubbleBounds = bubbles.associate { bubble ->
-                bubble.id to floatArrayOf(
-                    bubble.boundingBox.left,
-                    bubble.boundingBox.top,
-                    bubble.boundingBox.right,
-                    bubble.boundingBox.bottom
-                )
-            }
+            // Typeset into the bubble interior; boundingBox stays the detector's glyph box, which
+            // OCR crops and panel grouping are tuned to.
+            val bubbleBounds = bubbleRenderBoxes(
+                bitmap,
+                bubbles.associate { bubble ->
+                    bubble.id to floatArrayOf(
+                        bubble.boundingBox.left,
+                        bubble.boundingBox.top,
+                        bubble.boundingBox.right,
+                        bubble.boundingBox.bottom
+                    )
+                }
+            )
             typesetter.fontSizeScale = fontSizeScale
             val typesetBubbles = typesetter.typeset(
                 translationResult.translations,
