@@ -6,7 +6,26 @@ updates:
       interval: weekly
     assignees:
       - artsaraiva
+    # AGP, Kotlin and KSP only work in lockstep, and a major bump of any of
+    # them is a migration (AGP 9 drops the kotlin.android plugin), not a PR
+    # to merge. Hilt 2.59+ requires AGP 9. Drop these ignores when migrating.
+    ignore:
+      - dependency-name: "com.android.*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "org.jetbrains.kotlin*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "com.google.devtools.ksp"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "com.google.dagger*"
+        versions: [">= 2.59"]
     groups:
+      # First match wins, so the toolchain lands as one PR instead of
+      # kotlin.jvm moving without kotlin.android.
+      toolchain:
+        patterns:
+          - "com.android.*"
+          - "org.jetbrains.kotlin.*"
+          - "com.google.devtools.ksp"
       gradle-minor-patch:
         update-types:
           - minor
