@@ -87,7 +87,7 @@ object LlmModelCatalog {
         DEFAULT,
         LlmModelOption(
             id = Constants.CAT_TRANSLATION_MODEL_ID,
-            displayName = "CAT-Translate 0.8B (low-storage option)",
+            displayName = "CAT-Translate 0.8B",
             ggufFileName = Constants.TRANSLATION_MODEL_4BIT,
             sizeBytes = Constants.TRANSLATION_MODEL_4BIT_SIZE,
             licence = "MIT",

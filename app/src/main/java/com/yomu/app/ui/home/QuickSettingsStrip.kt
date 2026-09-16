@@ -7,21 +7,24 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.yomu.app.db.entities.ModelType
 import com.yomu.app.ui.settings.deliverableStatus
+import com.yomu.core.toFileSizeString
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun QuickSettingsStrip(state: HomeUiState, onPickTranslationModel: (String) -> Unit) {
     var open by rememberSaveable { mutableStateOf(false) }
     val statuses = state.models.associate { it.id to it.status }
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Box {
+    // One row always: the model chip shrinks and ellipsizes so the language chip never wraps (#273).
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.weight(1f, fill = false)) {
             AssistChip(
                 onClick = { open = true },
-                label = { Text(state.translationChipLabel()) },
+                label = { Text(state.translationChipLabel(), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) }
             )
             DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
@@ -33,7 +36,8 @@ internal fun QuickSettingsStrip(state: HomeUiState, onPickTranslationModel: (Str
                         text = {
                             Column {
                                 Text(deliverable.name, style = MaterialTheme.typography.titleSmall)
-                                Text(if (fits) status else "$status · Needs more memory", style = MaterialTheme.typography.bodySmall)
+                                val detail = "$status · ${deliverable.sizeBytes.toFileSizeString()}"
+                                Text(if (fits) detail else "$detail · Needs more memory", style = MaterialTheme.typography.bodySmall)
                             }
                         },
                         onClick = {
