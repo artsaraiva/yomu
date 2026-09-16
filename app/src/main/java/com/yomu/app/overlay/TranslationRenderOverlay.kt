@@ -152,6 +152,7 @@ class TranslationRenderOverlay(
     ) {
         val mappedBounds = OverlayCoordinateMapper.clampToCanvas(
             OverlayCoordinateMapper.map(bubble.boundingBox, params),
+            canvas.width.toFloat(),
             canvas.height.toFloat()
         )
         val bx = mappedBounds.left

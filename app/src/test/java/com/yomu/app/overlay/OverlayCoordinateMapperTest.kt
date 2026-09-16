@@ -91,6 +91,7 @@ class OverlayCoordinateMapperTest {
     fun `a box grown past the bottom slides back on screen`() {
         val clamped = OverlayCoordinateMapper.clampToCanvas(
             OverlayBounds(10f, 900f, 110f, 1100f),
+            1000f,
             1000f
         )
 
@@ -103,6 +104,7 @@ class OverlayCoordinateMapperTest {
     fun `a box grown past the top slides back on screen`() {
         val clamped = OverlayCoordinateMapper.clampToCanvas(
             OverlayBounds(10f, -60f, 110f, 140f),
+            1000f,
             1000f
         )
 
@@ -114,9 +116,23 @@ class OverlayCoordinateMapperTest {
     fun `a box taller than the canvas is pinned to the top`() {
         val clamped = OverlayCoordinateMapper.clampToCanvas(
             OverlayBounds(0f, -50f, 100f, 1200f),
+            1000f,
             1000f
         )
 
         assertEquals(0f, clamped.top, 0.01f)
+    }
+
+    @Test
+    fun `a box widened past the right edge slides back on screen`() {
+        val clamped = OverlayCoordinateMapper.clampToCanvas(
+            OverlayBounds(950f, 10f, 1100f, 110f),
+            1000f,
+            1000f
+        )
+
+        assertEquals(850f, clamped.left, 0.01f)
+        assertEquals(1000f, clamped.right, 0.01f)
+        assertEquals(10f, clamped.top, 0.01f)
     }
 }

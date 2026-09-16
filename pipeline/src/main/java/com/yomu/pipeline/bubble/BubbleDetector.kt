@@ -22,9 +22,11 @@ class BubbleDetector(private val onnxRuntime: OnnxRuntime) {
         // #88 bug B: a small box sitting almost entirely inside a bigger one has low IoU, so IoU-NMS
         // keeps both — two boxes over the same balloon, whose translated texts then paint on top of
         // each other. Suppress a box that is at least this fraction contained in a higher-confidence
-        // kept box. 0.97 (not lower) so only near-perfect duplicates go; genuinely-close distinct
-        // balloons the model under-separates are the detector's problem (#57), not this heuristic's.
-        internal const val NMS_CONTAINMENT_THRESHOLD = 0.97f
+        // kept box. 0.90: a box that merges two bubbles plus a second box over just one of them
+        // measured 0.92 contained on device, and both translations painted over each other; the
+        // merged box's OCR already carries that text. Genuinely-close distinct balloons the model
+        // under-separates are still the detector's problem (#57), not this heuristic's.
+        internal const val NMS_CONTAINMENT_THRESHOLD = 0.90f
     }
 
     private var isLoaded = false

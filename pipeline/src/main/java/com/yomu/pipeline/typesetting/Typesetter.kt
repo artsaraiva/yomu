@@ -27,6 +27,11 @@ class Typesetter(var fontSizeScale: Float = 1.0f) {
     companion object {
         private const val MIN_FONT_SIZE = 10f
         private const val MAX_FONT_SIZE = 36f
+        // A box narrower than its longest word at this size is widened rather than breaking the
+        // word letter by letter (a tall text box around vertical はい rendered "Y / e / s").
+        private const val MIN_WORD_FONT_SIZE = 20f
+        // CJK punctuation, kana and ideographs all sit at or above U+3000.
+        private const val CJK_START = 0x3000
         private const val PADDING = 0.1f
         // ponytail: fixed growth budget, take page bounds into the Typesetter if bubbles need
         // to grow against real page room rather than a multiple of their own box.
@@ -50,9 +55,12 @@ class Typesetter(var fontSizeScale: Float = 1.0f) {
                 ?: floatArrayOf(0f, 0f, 100f, 50f)
 
             val cleaned = cleanText(translation.translatedText)
-            val maxWidth = (bounds[2] - bounds[0]) * (1 - PADDING * 2)
+            val boxWidth = (bounds[2] - bounds[0]) * (1 - PADDING * 2)
             val maxHeight = (bounds[3] - bounds[1]) * (1 - PADDING * 2)
-            val fontSize = calculateFontSize(cleaned, maxWidth, maxHeight)
+            val searchWidth = maxOf(boxWidth, longestWordWidth(cleaned, MIN_WORD_FONT_SIZE))
+            val fontSize = calculateFontSize(cleaned, searchWidth, maxHeight)
+            // fontSizeScale can push a word past the searched width, so widen to the final size too.
+            val maxWidth = maxOf(searchWidth, longestWordWidth(cleaned, fontSize))
             val lines = fitLines(wrapText(cleaned, maxWidth, fontSize), fontSize, maxWidth, maxHeight)
             val textHeight = lineHeight(fontSize) * lines.size
 
@@ -62,7 +70,7 @@ class Typesetter(var fontSizeScale: Float = 1.0f) {
                 originalText = translation.originalText,
                 fontSize = fontSize,
                 textLines = lines,
-                boundingBox = if (textHeight <= maxHeight) bounds else grownBounds(bounds, textHeight)
+                boundingBox = grownBounds(bounds, maxWidth, textHeight)
             )
         }
     }
@@ -81,7 +89,7 @@ class Typesetter(var fontSizeScale: Float = 1.0f) {
             val lines = wrapText(text, maxWidth, mid)
             val totalHeight = lineHeight(mid) * lines.size
 
-            if (totalHeight <= maxHeight) {
+            if (totalHeight <= maxHeight && longestWordWidth(text, mid) <= maxWidth) {
                 bestSize = mid
                 low = mid + 1
             } else {
@@ -94,10 +102,21 @@ class Typesetter(var fontSizeScale: Float = 1.0f) {
 
     private fun lineHeight(fontSize: Float): Float = fontSize * TypesetBubble.LINE_HEIGHT_RATIO
 
-    private fun grownBounds(bounds: FloatArray, textHeight: Float): FloatArray {
-        val height = textHeight / (1 - PADDING * 2)
+    // Japanese has no spaces and breaks anywhere, so untranslated source text (the per-bubble
+    // fallback) is left to wrap by character instead of widening the box to one long line.
+    private fun longestWordWidth(text: String, fontSize: Float): Float {
+        paint.textSize = fontSize
+        return text.split(" ")
+            .filter { word -> word.none { it.code >= CJK_START } }
+            .maxOfOrNull { paint.measureText(it) } ?: 0f
+    }
+
+    private fun grownBounds(bounds: FloatArray, textWidth: Float, textHeight: Float): FloatArray {
+        val width = maxOf(bounds[2] - bounds[0], textWidth / (1 - PADDING * 2))
+        val height = maxOf(bounds[3] - bounds[1], textHeight / (1 - PADDING * 2))
+        val centerX = (bounds[0] + bounds[2]) / 2f
         val centerY = (bounds[1] + bounds[3]) / 2f
-        return floatArrayOf(bounds[0], centerY - height / 2f, bounds[2], centerY + height / 2f)
+        return floatArrayOf(centerX - width / 2f, centerY - height / 2f, centerX + width / 2f, centerY + height / 2f)
     }
 
     private fun wrapText(text: String, maxWidth: Float, fontSize: Float): List<String> {
