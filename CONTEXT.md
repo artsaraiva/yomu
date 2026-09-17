@@ -18,6 +18,10 @@ _Avoid_: sideloaded model, user model, BYO model, third-party model
 One model at one quantization — the unit the curated catalog lists, gates on device fit, and downloads. Two quantizations of the same model are two deliverables, each with its own size, checksum and licence.
 _Avoid_: model variant, build, quant entry, artefact
 
+**Experimental deliverable**:
+A curated [[deliverable]] added on desk research and not yet confirmed on the reference phone, shown with an Experimental tag so the reader knows Yomu has not tested it. A temporary state with three exits — confirmed, switched to per-line, or removed (ADR-0017); the default is never experimental.
+_Avoid_: beta model, preview model, untested model
+
 **Fit budget**:
 The RAM a deliverable must fit inside to be offered on a given device — its file size plus a fixed resident-overhead estimate, against a fraction of the device's total memory. Estimated from measurement, never from parsing a file Yomu has not downloaded.
 _Avoid_: RAM gate, memory limit, device tier

@@ -2,6 +2,8 @@
 
 > **Supersedes in part [ADR-0009](0009-selectable-translation-model-set.md)** (the three-tier delivery split) and **retracts the HuggingFace-authenticated carve-out in [ADR-0001](0001-custom-model-permissiveness.md)**. ADR-0009's selectable-set core — a curated shortlist, a default that is never gated out, evidence-gated membership, the open custom slot — stands unchanged.
 
+> **Revised in part by [ADR-0017](0017-experimental-curated-tier.md).** The licence rule tightens and one exclusion reverses. "A deliverable Yomu cannot redistribute is not curated" becomes **Apache-2.0 or MIT only** — stricter, because the licences that fail are the ones carrying conditions Yomu would pass on to the reader (a "Built with X" notice, a Notice file, an AUP, a MAU clause, registration for commercial use, Chinese governing law). That rule also **lets Gemma back in**: Gemma 4 is Apache-2.0, not the Gemma Terms of Use that excluded every earlier Gemma. Everything else here stands: an entry is still one deliverable at one quantization, pinning is still content-addressed, and the fit budget is still measured rather than parsed. Model families and largest-fitting-sibling selection remain unbuilt.
+
 [#140](https://github.com/artsaraiva/yomu/issues/140) asked whether the curated catalog gains a quantization matrix and a pinned revision, following koharu's descriptor (2–7 quantizations per model, plus `repository` and a `revision` git sha). Four rules answer it, and a fifth falls out of them.
 
 ## Quantization is lossy, so the matrix exists to avoid *nothing*, not to get something for free

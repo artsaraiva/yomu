@@ -2,6 +2,8 @@
 
 **Status:** accepted, 2026-09-15. Decides [#228](https://github.com/artsaraiva/yomu/issues/228). Supersedes [ADR-0003](0003-detection-hit-criterion.md), [ADR-0004](0004-translation-eval-contract.md) and its amendments, [ADR-0005](0005-ocr-eval-contract.md) and [ADR-0006](0006-coherence-gate-contract.md). Supersedes in part [ADR-0013](0013-grammar-constrained-page-level-batch.md).
 
+> **Revised in part by [ADR-0017](0017-experimental-curated-tier.md).** The "choosing a model is a short ADR" clause below requires a manual look at output *before* a model is chosen. ADR-0017 lets a deliverable join the catalog on desk research alone, ahead of that look, and makes the **Experimental** tag what tells the reader so. The look is not waived, only moved: each Experimental deliverable has a phone check that must take one of ADR-0017's three exits. Everything else stands — CI still tests plumbing only, no test scores a model's output, the speed benchmark is still report-only, and no number here gates or reverts anything.
+
 Yomu does not measure translation, OCR or detection quality. How well a model reads or translates manga is a property of the model, and it is judged when the model is chosen, by a person looking at output — not by a harness in this repository. What Yomu tests is its own code: that pages are cropped, assembled, prompted, parsed, fallen back and rendered correctly, and how fast that happens on a real phone.
 
 - **Unit tests in CI cover plumbing only.** No test runs a model and scores its output. A test may use a fake slot or a fixed model reply to pin parsing, fallback and assembly behaviour.
