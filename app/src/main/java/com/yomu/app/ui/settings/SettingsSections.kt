@@ -52,7 +52,7 @@ private fun DetectionThresholdPanel(stored: Float, onChange: (Float) -> Unit, on
                     onValueChange = { value = DetectionThresholdStore.snap(it) },
                     onValueChangeFinished = { onChange(value) },
                     valueRange = DetectionThresholdStore.MIN..DetectionThresholdStore.MAX,
-                    steps = ((DetectionThresholdStore.MAX - DetectionThresholdStore.MIN) / DetectionThresholdStore.STEP).roundToInt() - 1,
+                    steps = DetectionThresholdStore.STEPS - 1,
                     colors = SliderDefaults.colors(inactiveTrackColor = MaterialTheme.colorScheme.onSurfaceVariant),
                     modifier = Modifier.fillMaxWidth()
                 )

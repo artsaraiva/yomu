@@ -35,7 +35,14 @@ class DetectionThresholdStore(private val prefs: SharedPreferences) {
             return abs(steps - steps.roundToInt()) < 1e-3f
         }
 
+        /** Slider positions between [MIN] and [MAX]: position 0 is [MIN], position [STEPS] is [MAX]. */
+        val STEPS = ((MAX - MIN) / STEP).roundToInt()
+
         /** Nearest step, exact for every stored value: n / 20f is the float closest to n × 0.05. */
         fun snap(value: Float): Float = ((value / STEP).roundToInt() / 20f).coerceIn(MIN, MAX)
+
+        fun atStep(step: Int): Float = snap(MIN + step.coerceIn(0, STEPS) * STEP)
+
+        fun stepOf(value: Float): Int = ((value - MIN) / STEP).roundToInt().coerceIn(0, STEPS)
     }
 }

@@ -13,20 +13,34 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.TextView
+import com.yomu.app.detection.DetectionThresholdStore
 import com.yomu.app.ui.theme.paperBackground
 import com.yomu.app.ui.theme.paperColors
 import com.yomu.core.Constants
+import kotlin.math.abs
 
 class QuickSettingsPopup(
     private val context: Context,
     private val windowManager: WindowManager,
+    private val modelName: () -> String,
     private val onFontSizeChanged: (Float) -> Unit,
+    private val onThresholdChanged: (Float) -> Unit,
+    private val onOpenAppRequested: () -> Unit,
     private val onStopRequested: () -> Unit
 ) {
     private var popupView: ScrollView? = null
     private val labels = mutableListOf<TextView>()
+    private val mutedLabels = mutableListOf<TextView>()
+    private val accentLabels = mutableListOf<TextView>()
+    private val resetButtons = mutableListOf<Button>()
+    private val seekBars = mutableListOf<SeekBar>()
     private var fontSizeSeekBar: SeekBar? = null
+    private var thresholdSeekBar: SeekBar? = null
+    private var thresholdLabel: TextView? = null
+    private var fontSizeReset: Button? = null
+    private var thresholdReset: Button? = null
     private var fontSizeScale = Constants.DEFAULT_FONT_SIZE_SCALE
+    private var threshold = DetectionThresholdStore.DEFAULT
     private val density = context.resources.displayMetrics.density
 
     fun show(anchorX: Int, anchorY: Int) {
@@ -70,51 +84,79 @@ class QuickSettingsPopup(
         }
         popupView = null
         labels.clear()
+        mutedLabels.clear()
+        accentLabels.clear()
+        resetButtons.clear()
+        seekBars.clear()
         fontSizeSeekBar = null
+        thresholdSeekBar = null
+        thresholdLabel = null
+        fontSizeReset = null
+        thresholdReset = null
     }
 
     fun updateAppearance() {
         val colors = context.paperColors()
         popupView?.background = context.paperBackground()
         labels.forEach { it.setTextColor(colors.ink) }
-        fontSizeSeekBar?.apply {
-            thumbTintList = ColorStateList.valueOf(colors.accent)
-            progressTintList = ColorStateList.valueOf(colors.accent)
-            progressBackgroundTintList = ColorStateList.valueOf(colors.inkMuted)
+        mutedLabels.forEach { it.setTextColor(colors.inkMuted) }
+        accentLabels.forEach { it.setTextColor(colors.accent) }
+        val resetColors = ColorStateList(
+            arrayOf(intArrayOf(-android.R.attr.state_enabled), intArrayOf()),
+            intArrayOf(colors.inkMuted, colors.ink)
+        )
+        resetButtons.forEach { it.setTextColor(resetColors) }
+        seekBars.forEach {
+            it.thumbTintList = ColorStateList.valueOf(colors.accent)
+            it.progressTintList = ColorStateList.valueOf(colors.accent)
+            it.progressBackgroundTintList = ColorStateList.valueOf(colors.inkMuted)
         }
     }
 
     fun updateFontSizeScale(scale: Float) {
         fontSizeScale = scale.coerceIn(0.5f, 2f)
-        fontSizeSeekBar?.progress = ((fontSizeScale - 0.5f) / 1.5f * 100).toInt()
+        fontSizeSeekBar?.progress = fontSizeProgress(fontSizeScale)
+        refreshFontSize()
+    }
+
+    fun updateThreshold(value: Float) {
+        threshold = DetectionThresholdStore.snap(value)
+        thresholdSeekBar?.progress = DetectionThresholdStore.stepOf(threshold)
+        refreshThreshold()
     }
 
     private fun createContentView(): LinearLayout = LinearLayout(context).apply {
         orientation = LinearLayout.VERTICAL
         setPadding(dp(16), dp(16), dp(16), dp(16))
-        addView(TextView(context).apply {
-            text = "Quick settings"
-            textSize = 20f
-            setTypeface(typeface, android.graphics.Typeface.BOLD)
-            labels.add(this)
+        addView(row().apply {
+            addView(TextView(context).apply {
+                text = "Quick settings"
+                textSize = 20f
+                setTypeface(typeface, android.graphics.Typeface.BOLD)
+                gravity = Gravity.CENTER_VERTICAL
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                labels.add(this)
+            })
+            addView(textButton("✕") { remove() }.apply {
+                contentDescription = "Close quick settings"
+                labels.add(this)
+            })
         })
-        addView(actionButton("Close quick settings") { remove() })
-        addView(TextView(context).apply {
-            text = "Font size"
-            textSize = 14f
-            setPadding(0, dp(16), 0, dp(8))
-            labels.add(this)
-        })
+        addView(mutedLabel(modelName()))
+        addView(languageChip())
+        addView(labelRow(sectionLabel("Font size"), resetButton { resetFontSize() }.also { fontSizeReset = it }))
         addView(SeekBar(context).apply {
             max = 100
-            progress = ((fontSizeScale - 0.5f) / 1.5f * 100).toInt()
+            progress = fontSizeProgress(fontSizeScale)
             minimumHeight = dp(48)
             contentDescription = "Translation font size"
             fontSizeSeekBar = this
+            seekBars.add(this)
             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                     if (fromUser) {
                         fontSizeScale = 0.5f + progress / 100f * 1.5f
+                        refreshFontSize()
                         onFontSizeChanged(fontSizeScale)
                     }
                 }
@@ -122,19 +164,127 @@ class QuickSettingsPopup(
                 override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
             })
         })
-        addView(actionButton("Stop service", onStopRequested))
+        addView(labelRow(
+            sectionLabel(thresholdText()).also { thresholdLabel = it },
+            resetButton { resetThreshold() }.also { thresholdReset = it }
+        ))
+        addView(SeekBar(context).apply {
+            max = DetectionThresholdStore.STEPS
+            progress = DetectionThresholdStore.stepOf(threshold)
+            minimumHeight = dp(48)
+            contentDescription = "Bubble threshold"
+            thresholdSeekBar = this
+            seekBars.add(this)
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                    if (fromUser) {
+                        threshold = DetectionThresholdStore.atStep(progress)
+                        refreshThreshold()
+                    }
+                }
+                override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
+                // Saved on release, like the Pipeline settings slider.
+                override fun onStopTrackingTouch(seekBar: SeekBar?) = onThresholdChanged(threshold)
+            })
+        })
+        addView(row().apply {
+            setPadding(0, dp(8), 0, 0)
+            addView(textButton("Open Yomu") { remove(); onOpenAppRequested() }.apply {
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                labels.add(this)
+            })
+            addView(textButton("Stop service", onStopRequested).apply {
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                accentLabels.add(this)
+            })
+        })
+        refreshThreshold()
+        refreshFontSize()
     }
 
-    private fun actionButton(label: String, action: () -> Unit): Button = Button(context).apply {
+    private fun resetFontSize() {
+        fontSizeScale = Constants.DEFAULT_FONT_SIZE_SCALE
+        fontSizeSeekBar?.progress = fontSizeProgress(fontSizeScale)
+        refreshFontSize()
+        onFontSizeChanged(fontSizeScale)
+    }
+
+    private fun resetThreshold() {
+        threshold = DetectionThresholdStore.DEFAULT
+        thresholdSeekBar?.progress = DetectionThresholdStore.stepOf(threshold)
+        refreshThreshold()
+        onThresholdChanged(threshold)
+    }
+
+    // A slider step is coarser than the stored scale, so the default is "close enough", not equal.
+    private fun refreshFontSize() {
+        fontSizeReset?.isEnabled = abs(fontSizeScale - Constants.DEFAULT_FONT_SIZE_SCALE) > FONT_SIZE_STEP / 2
+    }
+
+    private fun refreshThreshold() {
+        thresholdLabel?.text = thresholdText()
+        thresholdReset?.isEnabled = threshold != DetectionThresholdStore.DEFAULT
+    }
+
+    private fun thresholdText(): String = "Bubble threshold · %.2f".format(threshold)
+
+    private fun fontSizeProgress(scale: Float): Int = ((scale - 0.5f) / 1.5f * 100).toInt()
+
+    /** A section's label on the left, its small Reset on the right. */
+    private fun labelRow(label: TextView, reset: Button): LinearLayout = row().apply {
+        setPadding(0, dp(16), 0, dp(4))
+        addView(label)
+        addView(reset)
+    }
+
+    private fun sectionLabel(text: String): TextView = TextView(context).apply {
+        this.text = text
+        textSize = 14f
+        gravity = Gravity.CENTER_VERTICAL
+        layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        labels.add(this)
+    }
+
+    private fun resetButton(onReset: () -> Unit): Button =
+        textButton("Reset", onReset).apply { resetButtons.add(this) }
+
+    /** The fixed pair, drawn like the disabled chip on Home. */
+    private fun languageChip(): TextView = mutedLabel("Japanese → English").apply {
+        background = context.paperBackground()
+        setPadding(dp(12), dp(6), dp(12), dp(6))
+        layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply { topMargin = dp(12) }
+    }
+
+    private fun mutedLabel(text: String): TextView = TextView(context).apply {
+        this.text = text
+        textSize = 13f
+        mutedLabels.add(this)
+    }
+
+    private fun row(): LinearLayout = LinearLayout(context).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+    }
+
+    private fun textButton(label: String, action: () -> Unit): Button = Button(context).apply {
         text = label
         textSize = 14f
         isAllCaps = false
+        minWidth = dp(48)
         minHeight = dp(48)
-        background = context.paperBackground()
+        setPadding(dp(8), 0, dp(8), 0)
+        background = null
         stateListAnimator = null
-        labels.add(this)
         setOnClickListener { action() }
     }
 
     private fun dp(value: Int): Int = (value * density).toInt()
+
+    private companion object {
+        /** One of the font slider's 100 steps, in scale units. */
+        const val FONT_SIZE_STEP = 1.5f / 100
+    }
 }
