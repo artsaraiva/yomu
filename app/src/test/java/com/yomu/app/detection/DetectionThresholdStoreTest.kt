@@ -56,6 +56,20 @@ class DetectionThresholdStoreTest {
     }
 
     @Test
+    fun `slider positions round-trip to accepted values across the range`() {
+        assertEquals(DetectionThresholdStore.MIN, DetectionThresholdStore.atStep(0))
+        assertEquals(DetectionThresholdStore.MAX, DetectionThresholdStore.atStep(DetectionThresholdStore.STEPS))
+        assertEquals(DetectionThresholdStore.MIN, DetectionThresholdStore.atStep(-1))
+        assertEquals(DetectionThresholdStore.MAX, DetectionThresholdStore.atStep(DetectionThresholdStore.STEPS + 1))
+        (0..DetectionThresholdStore.STEPS).forEach { step ->
+            val value = DetectionThresholdStore.atStep(step)
+            assertTrue("$value", DetectionThresholdStore.accepts(value))
+            assertEquals(step, DetectionThresholdStore.stepOf(value))
+        }
+        assertEquals(DetectionThresholdStore.DEFAULT, DetectionThresholdStore.atStep(DetectionThresholdStore.stepOf(DetectionThresholdStore.DEFAULT)))
+    }
+
+    @Test
     fun `reset restores the default`() {
         store.save(0.5f)
 

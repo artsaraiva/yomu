@@ -15,6 +15,7 @@ import android.provider.Settings
 import android.util.Log
 import android.view.WindowManager
 import android.widget.Toast
+import com.yomu.app.MainActivity
 import com.yomu.app.capture.ScreenCaptureManager
 import com.yomu.app.detection.DetectionThresholdStore
 import com.yomu.app.overlay.FloatingButtonView
@@ -266,25 +267,34 @@ class OverlayService : Service() {
     }
 
     private fun showQuickSettings() {
-        quickSettingsPopup?.let {
-            it.show(buttonPositionX, buttonPositionY)
-            return
-        }
-
-        val popup = QuickSettingsPopup(
+        val thresholdStore = DetectionThresholdStore(sharedPreferences)
+        val popup = quickSettingsPopup ?: QuickSettingsPopup(
             context = this,
             windowManager = windowManager,
+            modelName = ::translationModelName,
             onFontSizeChanged = { scale ->
                 sharedPreferences.edit().putFloat(Constants.PREF_FONT_SIZE_SCALE, scale).apply()
             },
+            onThresholdChanged = { thresholdStore.save(it) },
+            onOpenAppRequested = {
+                startActivity(
+                    Intent(this, MainActivity::class.java)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                )
+            },
             onStopRequested = { stopSelf() }
-        )
-        quickSettingsPopup = popup
+        ).also { quickSettingsPopup = it }
+        // The app can change either value while the service runs, so re-read both on every long-press.
         popup.updateFontSizeScale(
             sharedPreferences.getFloat(Constants.PREF_FONT_SIZE_SCALE, Constants.DEFAULT_FONT_SIZE_SCALE)
         )
+        popup.updateThreshold(thresholdStore.load())
         popup.show(buttonPositionX, buttonPositionY)
     }
+
+    private fun translationModelName(): String = slotSelection.selectedId(ModelType.LLM)
+        ?.let { id -> slotSelection.deliverables(ModelType.LLM).firstOrNull { it.id == id }?.name }
+        ?: "No model selected"
 
     private fun removeQuickSettingsPopup() {
         quickSettingsPopup?.remove()
