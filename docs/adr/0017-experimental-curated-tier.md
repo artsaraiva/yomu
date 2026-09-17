@@ -24,7 +24,11 @@ The default deliverable is never Experimental. A fresh install keeps the behavio
 
 The catalog admits nothing above about 9B parameters. Nothing new is written to enforce that: for every entry but the default, `LlmModelCatalog.canRunOnDevice` already computes `sizeBytes + RESIDENT_OVERHEAD_BYTES + kvCacheBytesPerToken × contextTokens ≤ totalMem / 100 × percent`, at `RESIDENT_OVERHEAD_BYTES = 800 MiB` and `DEFAULT_FIT_BUDGET_PERCENT = 60`. At that budget a 9B Q4_K_M deliverable needs about 6.2 GiB, which no 8 GiB phone passes and a 12 GiB phone does. The ceiling is therefore a curation rule for what gets a catalog entry, and the device rule stays the one gate the app already has.
 
-The default is exempt from the gate by design — it must stay usable on the mid-range floor — so the ceiling binds it through curation alone. That is not a new risk: the default is the one entry that is never Experimental and never picked without a phone check.
+**The gate has two exemptions, and the 9B tier makes the second one matter.** The first is by design: `canRunOnDevice` returns early for the default, which must stay usable on the mid-range floor, so the ceiling binds the default through curation alone. That is not a new risk — the default is the one entry that is never Experimental and never picked without a phone check.
+
+The second is `ModelSlotSelection.fits`, which short-circuits to `true` when `budget.totalMemBytes <= 0` and never reaches `canRunOnDevice`. `ModelManager.deviceTotalMemBytes()` returns `0` when `ActivityManager` is unavailable, and `SettingsViewModel` holds `0` in its UI state until the real figure loads. On a 3-deliverable catalog that was harmless: everything fitted an 8 GB phone, so "offer everything when we cannot measure" cost nothing. With a 9B tier it is the one path that can hand a 12 GiB-class deliverable to an 8 GB phone, which is the outcome [ADR-0014](0014-quantization-deliverables-and-revision-pinning.md)'s disabled-with-a-reason rule exists to prevent.
+
+This ADR records the exemption rather than closing it; the fix is code, and it is [#298](https://github.com/artsaraiva/yomu/issues/298). Until it lands, the ceiling's enforcement is "the fit gate, except when total memory is unknown".
 
 Rejected: a device-tier enum, or a "Recommended for this phone" badge. Both invent a ranking Yomu does not have. The fit gate is a boolean about memory, and until phone checks produce a measured ranking there is nothing to recommend from.
 
