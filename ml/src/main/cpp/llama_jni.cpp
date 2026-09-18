@@ -118,7 +118,9 @@ static bool rebuild_sampler(const float *params, uint32_t seed) {
 // models that ship no template or one the engine cannot parse. llama_chat_apply_template's heuristic
 // guesser is gone (#281): it mistook CAT's template for ChatGLM4's and cannot format newer models.
 static common_chat_templates_ptr load_chat_templates() {
-    if (!llama_model_chat_template(g_model, nullptr)) {
+    // An empty template counts as missing: common_chat_templates_init would swap it for ChatML.
+    const char *tmpl = llama_model_chat_template(g_model, nullptr);
+    if (!tmpl || !*tmpl) {
         LOGW("Model ships no chat template; using CAT fallback");
         return nullptr;
     }
