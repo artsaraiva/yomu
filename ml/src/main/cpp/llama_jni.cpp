@@ -1,5 +1,6 @@
 #include "grammar_sampler.h"
 #include "prompt_budget.h"
+#include "chat_prompt.h"
 #include <jni.h>
 #include <string>
 #include <vector>
@@ -21,6 +22,7 @@ static llama_context *g_ctx = nullptr;
 static const llama_vocab *g_vocab = nullptr;
 static llama_sampler *g_sampler = nullptr;
 static GrammarSampler g_grammar;
+static common_chat_templates_ptr g_chat_templates;
 static std::atomic<int64_t> g_abort_deadline_ms{0};
 // Raised from another thread when the reader cancels the page (#76); only the Kotlin side clears it.
 static std::atomic<bool> g_abort_requested{false};
@@ -111,37 +113,21 @@ static bool rebuild_sampler(const float *params, uint32_t seed) {
 // nearly every line. That produced both the repetition ("I'm sorry, I'm sorry, ...") and roughly
 // four times the necessary latency, since the cost is per generated token.
 //
-// Preference order: the template embedded in the GGUF, so a swapped model brings its own format
-// (ADR-0001 permits user-supplied models); then the explicit fallback below for models that ship
-// no template or one llama.cpp cannot parse.
-static std::string apply_chat_template(const char *user_prompt) {
-    const char *tmpl = g_model ? llama_model_chat_template(g_model, nullptr) : nullptr;
-
-    if (tmpl) {
-        // CAT-Translate carries its instruction in the user turn and was trained with no system
-        // prompt (model card). Injecting one made the 0.8b echo/refuse the instruction instead of
-        // translating (#68).
-        const llama_chat_message messages[] = {
-            {"user", user_prompt},
-        };
-        const int n_msg = (int)(sizeof(messages) / sizeof(messages[0]));
-
-        // add_ass = true appends the assistant cue, which is what tells the model to answer now
-        // rather than keep completing the user's turn.
-        std::vector<char> buf(4096);
-        int32_t n = llama_chat_apply_template(tmpl, messages, n_msg, true, buf.data(), (int32_t)buf.size());
-        if (n > (int32_t)buf.size()) {
-            buf.resize(n);
-            n = llama_chat_apply_template(tmpl, messages, n_msg, true, buf.data(), (int32_t)buf.size());
-        }
-        if (n > 0) {
-            return std::string(buf.data(), n);
-        }
-        LOGW("Model chat template not applicable (rc=%d); using explicit fallback", n);
+// Preference order: the template embedded in the GGUF, rendered by llama.cpp's Jinja engine, so a
+// swapped model brings its own format (ADR-0001 permits user-supplied models); then CAT's format for
+// models that ship no template or one the engine cannot parse. llama_chat_apply_template's heuristic
+// guesser is gone (#281): it mistook CAT's template for ChatGLM4's and cannot format newer models.
+static common_chat_templates_ptr load_chat_templates() {
+    if (!llama_model_chat_template(g_model, nullptr)) {
+        LOGW("Model ships no chat template; using CAT fallback");
+        return nullptr;
     }
-
-    // Fallback matching CAT-Translate's own template: <|user|>...</s><|assistant|>
-    return std::string("<|user|>") + user_prompt + "</s>" + "<|assistant|>";
+    try {
+        return common_chat_templates_init(g_model, "");
+    } catch (const std::exception &e) {
+        LOGW("Model chat template not parseable (%s); using CAT fallback", e.what());
+        return nullptr;
+    }
 }
 
 extern "C" JNIEXPORT jint JNICALL
@@ -198,6 +184,7 @@ Java_com_yomu_ml_LlamaBridge_nativeLoadModel(
     }
 
     g_vocab = llama_model_get_vocab(g_model);
+    g_chat_templates = load_chat_templates();
 
     LOGI("Model loaded: n_ctx=%d n_threads=%d n_gpu_layers=%d", n_ctx, threads, n_gpu_layers);
     LOGI("Model loaded successfully");
@@ -264,7 +251,7 @@ Java_com_yomu_ml_LlamaBridge_nativeGenerate(
     }
 
     const char *prompt_str = env->GetStringUTFChars(prompt, nullptr);
-    std::string formatted = apply_chat_template(prompt_str);
+    std::string formatted = format_chat_prompt(g_chat_templates.get(), prompt_str);
     env->ReleaseStringUTFChars(prompt, prompt_str);
 
     int prompt_len = (int)formatted.size();
@@ -388,6 +375,7 @@ Java_com_yomu_ml_LlamaBridge_nativeRelease(JNIEnv *env, jobject /* this */) {
     LOGI("Releasing model resources");
 
     g_grammar.reset();
+    g_chat_templates.reset();
 
     if (g_sampler) {
         llama_sampler_free(g_sampler);
