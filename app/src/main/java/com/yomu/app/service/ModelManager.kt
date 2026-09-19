@@ -123,6 +123,18 @@ class ModelManager @Inject constructor(
                 status = ModelStatus.AVAILABLE,
                 version = "1.0",
                 isRequired = false
+            ),
+            ModelEntity(
+                id = Constants.QWEN35_2B_MODEL_ID,
+                name = "Qwen3.5 2B (Q4_K_M)",
+                type = ModelType.LLM,
+                fileName = Constants.QWEN35_2B_MODEL,
+                fileSize = Constants.QWEN35_2B_SIZE,
+                downloadUrl = "https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/f6d5376be1edb4d416d56da11e5397a961aca8ae/Qwen3.5-2B-Q4_K_M.gguf",
+                checksum = "aaf42c8b7c3cab2bf3d69c355048d4a0ee9973d48f16c731c0520ee914699223",
+                status = ModelStatus.AVAILABLE,
+                version = "1.0",
+                isRequired = false
             )
         )
 

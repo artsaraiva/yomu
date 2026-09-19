@@ -23,7 +23,8 @@ data class LlmModelOption(
      * Confirmed licence — the evidence an entry may be redistributed, since Yomu hosts every curated
      * model through the pinned-URL [ModelManager] flow (ADR-0014). Checked 2026-08-19:
      * Qwen2.5 = Apache-2.0; CAT-Translate 0.8b/1.4b = MIT (cyberagent, finetunes of sbintuitions
-     * sarashina2.2, both declared MIT). Also the "governed by its own licence" notice ADR-0009 asks
+     * sarashina2.2, both declared MIT). Qwen3.5 = Apache-2.0 on the card and the unsloth GGUF repo
+     * (checked 2026-09-16). Also the "governed by its own licence" notice ADR-0009 asks
      * Yomu to surface.
      */
     val licence: String,
@@ -37,7 +38,9 @@ data class LlmModelOption(
      * f16 KV cache per context token: layers × 2 (K and V) × KV heads × head dim × 2 bytes, from each model's
      * config.json (checked 2026-09-15). Counted against the fit budget so a larger context can gate a model out (#79).
      */
-    val kvCacheBytesPerToken: Long
+    val kvCacheBytesPerToken: Long,
+    /** Added on desk research and not yet run on the reference phone; the picker tags it (ADR-0017). */
+    val experimental: Boolean = false
 )
 
 /** The RAM a translation model must fit inside on this device: [percent] of [totalMemBytes], at [contextTokens]. */
@@ -104,6 +107,18 @@ object LlmModelCatalog {
             idKeyedBatch = true,
             promptMode = TranslationPromptMode.MODEL_CARD,
             kvCacheBytesPerToken = 24L * 2 * 8 * 112 * 2
+        ),
+        LlmModelOption(
+            id = Constants.QWEN35_2B_MODEL_ID,
+            displayName = "Qwen3.5 2B",
+            ggufFileName = Constants.QWEN35_2B_MODEL,
+            sizeBytes = Constants.QWEN35_2B_SIZE,
+            licence = "Apache-2.0",
+            idKeyedBatch = true,
+            promptMode = TranslationPromptMode.TRANSLATION_ONLY,
+            // Only its 6 full-attention layers hold a KV cache; the 18 DeltaNet layers keep a fixed ~19 MiB state instead.
+            kvCacheBytesPerToken = 6L * 2 * 2 * 256 * 2,
+            experimental = true
         )
     )
 

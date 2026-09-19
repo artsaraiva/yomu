@@ -11,7 +11,7 @@ import com.yomu.pipeline.TranslationPipeline
 import javax.inject.Inject
 import javax.inject.Singleton
 
-data class SlotDeliverable(val id: String, val name: String, val sizeBytes: Long, val licence: String)
+data class SlotDeliverable(val id: String, val name: String, val sizeBytes: Long, val licence: String, val experimental: Boolean = false)
 
 /**
  * Which curated model fills each slot, and which one is waiting to take over. A model picked before it is READY is
@@ -29,7 +29,7 @@ class ModelSlotSelection @Inject constructor(
     private val downloading = mutableSetOf<String>()
 
     fun deliverables(type: ModelType): List<SlotDeliverable> = when (type) {
-        ModelType.LLM -> LlmModelCatalog.ALL.map { SlotDeliverable(it.id, it.displayName, it.sizeBytes, it.licence) }
+        ModelType.LLM -> LlmModelCatalog.ALL.map { SlotDeliverable(it.id, it.displayName, it.sizeBytes, it.licence, it.experimental) }
         else -> ModelManager.REGISTRY.filter { it.type == type }.map {
             SlotDeliverable(
                 it.id,
