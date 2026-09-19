@@ -78,6 +78,37 @@ class ModelSlotSelectionTest {
         assertEquals(1, downloadCalls(models))
         assertEquals(Constants.CAT_TRANSLATION_MODEL_ID, selection.pendingId(ModelType.LLM))
     }
+    @Test
+    fun `a running download's progress is visible whichever screen started it`() = runTest {
+        val selection = newSelection(downloadingWith(COROUTINE_SUSPENDED))
+        backgroundScope.launch { selection.download(Constants.CAT_TRANSLATION_MODEL_ID) }
+        runCurrent()
+
+        assertEquals(mapOf(Constants.CAT_TRANSLATION_MODEL_ID to 0), selection.progress.value)
+    }
+
+    @Test
+    fun `a finished download leaves no progress behind`() = runTest {
+        val selection = newSelection(downloadingWith(false))
+
+        selection.download(Constants.CAT_TRANSLATION_MODEL_ID)
+
+        assertEquals(emptyMap<String, Int>(), selection.progress.value)
+    }
+
+    @Test
+    fun `cancelling stops a download another screen started and drops the pick waiting on it`() = runTest {
+        val selection = newSelection(downloadingWith(COROUTINE_SUSPENDED))
+        selection.pick(ModelType.LLM, Constants.CAT_TRANSLATION_MODEL_ID, ModelStatus.AVAILABLE, eightGb)
+        val download = backgroundScope.launch { selection.download(Constants.CAT_TRANSLATION_MODEL_ID) }
+        runCurrent()
+
+        selection.cancel(Constants.CAT_TRANSLATION_MODEL_ID)
+
+        assertTrue(download.isCancelled)
+        assertNull(selection.pendingId(ModelType.LLM))
+    }
+
     private val oneGb = 1L * 1024 * 1024 * 1024
     private val eightGb = 8L * 1024 * 1024 * 1024
 
@@ -158,10 +189,10 @@ class ModelSlotSelectionTest {
     }
 
     @Test
-    fun `dropping a pending choice leaves the stored selection`() = runTest {
+    fun `cancelling a pending choice leaves the stored selection`() = runTest {
         selection.pick(ModelType.LLM, Constants.CAT_TRANSLATION_MODEL_ID, ModelStatus.DOWNLOADING, eightGb)
 
-        selection.dropPending(Constants.CAT_TRANSLATION_MODEL_ID)
+        selection.cancel(Constants.CAT_TRANSLATION_MODEL_ID)
         selection.commitPending(mapOf(Constants.CAT_TRANSLATION_MODEL_ID to ModelStatus.READY))
 
         assertNull(selection.pendingId(ModelType.LLM))

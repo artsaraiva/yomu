@@ -9,6 +9,13 @@ import com.yomu.app.translation.TranslationModelSelection
 import com.yomu.core.Constants
 import com.yomu.pipeline.TranslationPipeline
 import javax.inject.Inject
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.job
 import javax.inject.Singleton
 
 data class SlotDeliverable(val id: String, val name: String, val sizeBytes: Long, val licence: String, val experimental: Boolean = false)
@@ -26,7 +33,11 @@ class ModelSlotSelection @Inject constructor(
     private val models: ModelManager
 ) {
     private val pending = mutableMapOf<ModelType, String>()
-    private val downloading = mutableSetOf<String>()
+    private val downloads = mutableMapOf<String, Job>()
+    private val _progress = MutableStateFlow<Map<String, Int>>(emptyMap())
+
+    /** Percentage done of every running [download], by model id, whichever screen started it. */
+    val progress: StateFlow<Map<String, Int>> = _progress.asStateFlow()
 
     fun deliverables(type: ModelType): List<SlotDeliverable> = when (type) {
         ModelType.LLM -> LlmModelCatalog.ALL.map { SlotDeliverable(it.id, it.displayName, it.sizeBytes, it.licence, it.experimental) }
@@ -97,7 +108,7 @@ class ModelSlotSelection @Inject constructor(
         }
     }
 
-    fun dropPending(id: String) {
+    private fun dropPending(id: String) {
         pending.values.remove(id)
     }
 
@@ -105,16 +116,24 @@ class ModelSlotSelection @Inject constructor(
      * One download per model, shared by every screen that picks, since two would write the same file. A pick waiting
      * on a download that failed, was refused or was cancelled would otherwise never take over, so it is dropped.
      */
-    suspend fun download(id: String, onProgress: (Int) -> Unit = {}): Boolean {
-        if (!downloading.add(id)) return false
+    suspend fun download(id: String): Boolean {
+        if (id in downloads) return false
+        downloads[id] = currentCoroutineContext().job
+        _progress.update { it + (id to 0) }
         var ready = false
         try {
-            ready = models.downloadModel(id) { onProgress(it.percentage) }
+            ready = models.downloadModel(id) { p -> _progress.update { it + (id to p.percentage.coerceIn(0, 100)) } }
         } finally {
-            downloading.remove(id)
+            downloads.remove(id)
+            _progress.update { it - id }
             if (!ready) dropPending(id)
         }
         return ready
+    }
+
+    fun cancel(id: String) {
+        dropPending(id)
+        downloads[id]?.cancel()
     }
 
     /** Unloads a selected model before its files go, so a running overlay never reads a deleted file. */
