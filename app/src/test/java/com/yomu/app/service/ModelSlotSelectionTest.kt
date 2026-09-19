@@ -279,6 +279,15 @@ class ModelSlotSelectionTest {
     }
 
     @Test
+    fun `a deliverable reports whether it is experimental`() {
+        val llm = selection.deliverables(ModelType.LLM)
+
+        assertTrue(llm.single { it.id == Constants.QWEN35_2B_MODEL_ID }.experimental)
+        assertFalse(llm.single { it.id == LlmModelCatalog.DEFAULT.id }.experimental)
+        assertTrue(ModelType.entries.minus(ModelType.LLM).flatMap { selection.deliverables(it) }.none { it.experimental })
+    }
+
+    @Test
     fun `a deliverable's size counts its additional files`() {
         val ocr = selection.deliverables(ModelType.OCR).single { it.id == Constants.MANGA_OCR_MODEL_ID }
         val entity = ModelManager.REGISTRY.single { it.id == Constants.MANGA_OCR_MODEL_ID }
