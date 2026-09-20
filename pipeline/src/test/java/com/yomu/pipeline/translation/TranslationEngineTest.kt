@@ -3,6 +3,7 @@ package com.yomu.pipeline.translation
 import android.graphics.RectF
 import com.yomu.core.PageTranslation
 import com.yomu.core.TranslatablePage
+import com.yomu.core.TranslationOutcome
 import com.yomu.core.TranslationSlot
 import com.yomu.core.TranslationStatus
 import com.yomu.pipeline.bubble.Bubble
@@ -11,6 +12,7 @@ import com.yomu.pipeline.ocr.OcrResult
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -204,6 +206,28 @@ class TranslationEngineTest {
         assertFalse(looksLikeNonTranslation("Please provide the sword tomorrow."))
         assertFalse(looksLikeNonTranslation("Provide me with your best excuse, then."))
         assertFalse(looksLikeNonTranslation("The Japanese text on that sign scared me."))
+    }
+
+    @Test
+    fun translate_modelMissingIsANotLoadedResultWithAReaderMessage() = runTest {
+        val slot = FakeTranslationSlot(PageTranslation.notLoaded(TranslationStatus.Error("model_missing")))
+
+        val result = TranslationEngine { slot }.translate(listOf(block(1 to "\u3053\u3093\u306b\u3061\u306f")))
+
+        assertEquals(TranslationOutcome.NOT_LOADED, result.outcome)
+        assertEquals("model_missing", result.errorCode)
+        assertEquals("Translation model is missing \u2014 download it again in Settings", result.readerFailure())
+        // The bubble still carries its source text, which is exactly why the reader needs telling.
+        assertEquals("\u3053\u3093\u306b\u3061\u306f", result.translations.single().translatedText)
+    }
+
+    @Test
+    fun readerFailure_isNullForATranslatedPage() = runTest {
+        val slot = FakeTranslationSlot(PageTranslation(mapOf(1 to "Hello"), "", 1L))
+
+        val result = TranslationEngine { slot }.translate(listOf(block(1 to "\u3053\u3093\u306b\u3061\u306f")))
+
+        assertNull(result.readerFailure())
     }
 
     private fun block(

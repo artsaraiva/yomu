@@ -5,6 +5,7 @@ import com.yomu.core.ModelProfile
 import com.yomu.core.RuntimeLimits
 import com.yomu.core.TranslatableBubble
 import com.yomu.core.TranslatablePage
+import com.yomu.core.TranslationOutcome
 import com.yomu.core.TranslationPromptMode
 import com.yomu.core.TranslationStatus
 import java.io.File
@@ -290,6 +291,22 @@ class LlamaTranslationBridgeTest {
         assertEquals(listOf(false, true), native.abortRequests)
         assertEquals(1, native.prompts.size)
         model.delete()
+    }
+
+    @Test
+    fun translatePage_missingModelFileIsANotLoadedOutcome() = runTest {
+        val model = File.createTempFile("model", ".gguf")
+        model.delete()
+        val native = FakeLlamaBridge { GenerationResult.Success("Hello", 1L) }
+        native.release() // nothing loaded yet, as on a fresh process
+        val slot = LlamaTranslationBridge(native, profile(model))
+
+        val result = slot.translatePage(page(1 to "\u3053\u3093\u306b\u3061\u306f"))
+
+        assertEquals(TranslationOutcome.NOT_LOADED, result.outcome)
+        assertEquals("model_missing", result.errorCode)
+        assertEquals(TranslationStatus.Error("model_missing"), slot.status)
+        assertTrue(native.prompts.isEmpty())
     }
 
     private fun profile(

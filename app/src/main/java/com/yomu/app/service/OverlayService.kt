@@ -31,6 +31,7 @@ import com.yomu.core.Constants
 import com.yomu.pipeline.ModelPaths
 import com.yomu.pipeline.PipelineResult
 import com.yomu.pipeline.TranslationPipeline
+import com.yomu.pipeline.translation.readerFailure
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -375,11 +376,17 @@ class OverlayService : Service() {
                 callback = callback,
                 onOcrComplete = onOcrComplete
             )
-            if (result != null && result.typesetBubbles.isNotEmpty()) {
+            val failure = result?.translationResult?.readerFailure()
+            if (result != null && failure == null && result.typesetBubbles.isNotEmpty()) {
                 saveSessionResult(session, result)
             }
+            if (failure != null) {
+                // The row that said READY has no file behind it: put the picker right now, rather
+                // than leaving it to the next Home or Settings visit (#308).
+                modelManager.refreshModelList()
+            }
             withContext(Dispatchers.Main) {
-                if (result != null) {
+                if (result != null && failure == null) {
                     translationRenderOverlay.show(
                         result.typesetBubbles,
                         result.pageWidth,
@@ -387,7 +394,10 @@ class OverlayService : Service() {
                     )
                     statusOverlay.remove()
                 } else {
-                    showTranslationFailedToast()
+                    // The OCR pass may already have drawn its bubbles, and that overlay is
+                    // untouchable — without this the reader is left with pinned Japanese (#308).
+                    translationRenderOverlay.remove()
+                    showTranslationFailedToast(failure)
                     delay(1500)
                     statusOverlay.remove()
                 }
@@ -431,8 +441,8 @@ class OverlayService : Service() {
         }
     }
 
-    private fun showTranslationFailedToast(message: String = "Translation failed") {
-        Toast.makeText(applicationContext, message, Toast.LENGTH_SHORT).show()
+    private fun showTranslationFailedToast(message: String? = null) {
+        Toast.makeText(applicationContext, message ?: "Translation failed", Toast.LENGTH_SHORT).show()
     }
 
     private fun persistButtonPosition(x: Int, y: Int) {
