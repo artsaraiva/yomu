@@ -202,7 +202,8 @@ Java_com_yomu_ml_LlamaBridge_nativeGenerate(
     jint timeout_ms,
     jfloatArray sampler_params,
     jint seed,
-    jstring grammar) {
+    jstring grammar,
+    jstring system_prompt) {
 
     const int64_t started_ms = now_ms();
     g_last_status.store(GENERATION_OK, std::memory_order_relaxed);
@@ -252,9 +253,11 @@ Java_com_yomu_ml_LlamaBridge_nativeGenerate(
         return to_java_bytes(env, "");
     }
 
+    const char *system_str = system_prompt ? env->GetStringUTFChars(system_prompt, nullptr) : nullptr;
     const char *prompt_str = env->GetStringUTFChars(prompt, nullptr);
-    std::string formatted = format_chat_prompt(g_chat_templates.get(), prompt_str);
+    std::string formatted = format_chat_prompt(g_chat_templates.get(), system_str ? system_str : "", prompt_str);
     env->ReleaseStringUTFChars(prompt, prompt_str);
+    if (system_str) env->ReleaseStringUTFChars(system_prompt, system_str);
 
     int prompt_len = (int)formatted.size();
 

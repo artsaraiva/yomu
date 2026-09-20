@@ -9,6 +9,7 @@ internal class FakeLlamaBridge(
     val grammars = mutableListOf<String>()
     val maxTokens = mutableListOf<Int>()
     val params = mutableListOf<GenerationParams>()
+    val systemMessages = mutableListOf<String>()
     var releaseCalls = 0
     var clearMemoryCalls = 0
     val abortRequests = mutableListOf<Boolean>()
@@ -29,10 +30,12 @@ internal class FakeLlamaBridge(
         params: GenerationParams,
         maxTokens: Int,
         timeoutMs: Int,
-        grammar: String
+        grammar: String,
+        systemMessage: String
     ): GenerationResult {
         prompts += prompt
         grammars += grammar
+        systemMessages += systemMessage
         this.maxTokens += maxTokens
         this.params += params
         return resultForPrompt(prompt)
