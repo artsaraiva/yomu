@@ -75,6 +75,7 @@ private fun ModelSlot(state: SettingsUiState, viewModel: SettingsViewModel, type
         statuses = state.models.associate { it.id to it.status },
         downloads = state.downloads,
         fits = state::fits,
+        needsSlowWarning = state::needsSlowWarning,
         onPick = { viewModel.pickModel(type, it) },
         onCancel = viewModel::cancelDownload,
         onDelete = viewModel::deleteModel

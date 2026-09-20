@@ -18,7 +18,23 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.job
 import javax.inject.Singleton
 
-data class SlotDeliverable(val id: String, val name: String, val sizeBytes: Long, val licence: String, val experimental: Boolean = false)
+data class SlotDeliverable(val id: String, val name: String, val sizeBytes: Long, val licence: String, val experimental: Boolean = false) {
+    /** How fast a page will feel, read off the download size alone, so every device labels a deliverable the same. */
+    val speed: String
+        get() = when {
+            sizeBytes <= FAST_MAX_BYTES -> "Fast"
+            sizeBytes <= MEDIUM_MAX_BYTES -> "Medium"
+            else -> "Slow"
+        }
+
+    val slow: Boolean get() = sizeBytes > MEDIUM_MAX_BYTES
+
+    companion object {
+        private const val GB = 1024L * 1024 * 1024
+        private const val FAST_MAX_BYTES = 3 * GB / 2
+        private const val MEDIUM_MAX_BYTES = 7 * GB / 2
+    }
+}
 
 /**
  * Which curated model fills each slot, and which one is waiting to take over. A model picked before it is READY is
@@ -171,6 +187,10 @@ class ModelSlotSelection @Inject constructor(
             Constants.BUBBLE_DETECTION_MODEL_ID to "AGPL-3.0 (YOLO26)",
             Constants.MANGA_OCR_MODEL_ID to "Apache-2.0 (manga-ocr)"
         )
+
+        /** A Slow deliverable asks before gigabytes are downloaded; one that doesn't fit can't be picked at all. */
+        fun needsSlowWarning(deliverable: SlotDeliverable, budget: FitBudget): Boolean =
+            deliverable.slow && fits(deliverable.id, budget)
 
         // Only translation models have a fit budget; 0 bytes means the device RAM couldn't be read.
         fun fits(id: String, budget: FitBudget): Boolean {

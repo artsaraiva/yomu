@@ -44,6 +44,9 @@ data class HomeUiState(
 
     fun fits(deliverable: SlotDeliverable): Boolean = ModelSlotSelection.fits(deliverable.id, fitBudget)
 
+    fun needsSlowWarning(deliverable: SlotDeliverable): Boolean =
+        ModelSlotSelection.needsSlowWarning(deliverable, fitBudget)
+
     fun translationChipLabel(): String {
         val options = deliverables[ModelType.LLM].orEmpty()
         val selected = options.firstOrNull { it.id == translationSelectedId }?.name ?: "No model selected"
