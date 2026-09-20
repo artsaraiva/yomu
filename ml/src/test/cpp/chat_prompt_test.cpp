@@ -60,6 +60,15 @@ int main() {
     assert(qwen35.compare(qwen35.size() - thinking_off.size(), thinking_off.size(), thinking_off) == 0);
     assert(qwen35.find("<|im_start|>system") == std::string::npos);
 
+    // Gemma 4's own turn format, which the pre-#281 guesser did not recognise at all (it fell back
+    // to CAT). E2B and E4B ship the same template, byte for byte, in both pinned QAT GGUFs.
+    const std::string gemma4 = jinja_prompt(read_template("gemma4.jinja"), "<bos>", "<eos>", user);
+    assert(gemma4 == "<bos><|turn>user\n" + user + "<turn|>\n<|turn>model\n");
+    // Thinking is on iff <|think|> opens the system turn, so with it off there is no system turn at all.
+    assert(gemma4.find("<|think|>") == std::string::npos);
+    assert(gemma4.find("<|turn>system") == std::string::npos);
+    assert(guesser_prompt(read_template("gemma4.jinja"), user) == cat_prompt(user));
+
     // No template, or one that fails at render time, keeps the CAT format.
     assert(format_chat_prompt(nullptr, user) == cat_prompt(user));
     assert(jinja_prompt("{{ raise_exception('unsupported') }}", "", "", user) == cat_prompt(user));

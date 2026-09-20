@@ -55,6 +55,12 @@ class SpeedBenchmarkTest {
         var rows = 0
         try {
             for (option in LlmModelCatalog.ALL) {
+                // An entry whose GGUF was not pushed is skipped, not a failure: the 12 GB-tier
+                // entries are gigabytes the script leaves out unless a run asks for them.
+                if (!File(FIXTURE_DIR, "models/${Constants.LLM_MODELS_DIR}/${option.ggufFileName}").isFile) {
+                    Log.i(TAG, "SKIPPED model=${option.id} reason=not-pushed")
+                    continue
+                }
                 // One GGUF in filesDir at a time: staging all of them next to their /data/local/tmp
                 // copies can ENOSPC a small emulator partition.
                 val llmDir = stage(Constants.LLM_MODELS_DIR, listOf(option.ggufFileName))

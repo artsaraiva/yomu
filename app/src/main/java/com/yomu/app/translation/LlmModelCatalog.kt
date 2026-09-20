@@ -24,7 +24,9 @@ data class LlmModelOption(
      * model through the pinned-URL [ModelManager] flow (ADR-0014). Checked 2026-08-19:
      * Qwen2.5 = Apache-2.0; CAT-Translate 0.8b/1.4b = MIT (cyberagent, finetunes of sbintuitions
      * sarashina2.2, both declared MIT). Qwen3.5 = Apache-2.0 on the card and the unsloth GGUF repo
-     * (checked 2026-09-16). Also the "governed by its own licence" notice ADR-0009 asks
+     * (checked 2026-09-16). Gemma 4 = Apache-2.0 on the card and on Google's QAT GGUF repos, a
+     * change from the Gemma Terms the older Gemma models carry (checked 2026-09-16). Also the
+     * "governed by its own licence" notice ADR-0009 asks
      * Yomu to surface.
      */
     val licence: String,
@@ -70,6 +72,9 @@ object LlmModelCatalog {
     // that OOMs still shows.
     const val DEFAULT_FIT_BUDGET_PERCENT = 60
 
+    /** Google's recommended sampling for Gemma 4, shared by E2B and E4B (model card). */
+    private val GEMMA4_SAMPLING = GenerationParams(temperature = 1.0f, topK = 64, topP = 0.95f)
+
     /** ADR-0010: phone-confirmed default. Picking nothing keeps this; it is never gated out (part D). */
     val DEFAULT: LlmModelOption = LlmModelOption(
         id = Constants.QWEN25_15B_MODEL_ID,
@@ -85,6 +90,9 @@ object LlmModelCatalog {
 
     /**
      * The curated selectable shortlist. Every entry is redistributable and hosted.
+     *
+     * Gemma 4 is Apache-2.0 and ungated, so it needs none of that and is curated like any other
+     * entry. What follows is about Gemma 2/3 and TranslateGemma, which stay out:
      *
      * Gemma / TranslateGemma were the intended gated-download members, but there is no usable
      * licence-clean gated GGUF for them: the official gated repo ships only a 10.5 GB f32 file, and
@@ -133,6 +141,34 @@ object LlmModelCatalog {
             // The first entry whose sampling differs from the shipped floor, which is what ADR-0017
             // reversed #139 for.
             generationDefaults = GenerationParams(temperature = 1.0f, topK = 20, topP = 1.0f, penaltyPresent = 2.0f),
+            experimental = true
+        ),
+        LlmModelOption(
+            id = Constants.GEMMA4_E2B_MODEL_ID,
+            displayName = "Gemma 4 E2B",
+            ggufFileName = Constants.GEMMA4_E2B_MODEL,
+            sizeBytes = Constants.GEMMA4_E2B_SIZE,
+            licence = "Apache-2.0",
+            idKeyedBatch = true,
+            promptMode = TranslationPromptMode.TRANSLATION_ONLY,
+            // KV sharing: only the first 35 − 20 = 15 layers own a KV cache, and of those 12 slide
+            // (1 KV head × 256) and 3 are global (× 512). Counting all 35 would gate the model out
+            // on RAM it never spends.
+            kvCacheBytesPerToken = 12L * 2 * 1 * 256 * 2 + 3L * 2 * 1 * 512 * 2,
+            generationDefaults = GEMMA4_SAMPLING,
+            experimental = true
+        ),
+        LlmModelOption(
+            id = Constants.GEMMA4_E4B_MODEL_ID,
+            displayName = "Gemma 4 E4B",
+            ggufFileName = Constants.GEMMA4_E4B_MODEL,
+            sizeBytes = Constants.GEMMA4_E4B_SIZE,
+            licence = "Apache-2.0",
+            idKeyedBatch = true,
+            promptMode = TranslationPromptMode.TRANSLATION_ONLY,
+            // 42 layers, 18 KV-shared, so 24 own a cache: 20 sliding (2 KV heads × 256) + 4 global (× 512).
+            kvCacheBytesPerToken = 20L * 2 * 2 * 256 * 2 + 4L * 2 * 2 * 512 * 2,
+            generationDefaults = GEMMA4_SAMPLING,
             experimental = true
         )
     )

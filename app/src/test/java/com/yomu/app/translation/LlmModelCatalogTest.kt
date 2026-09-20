@@ -13,6 +13,7 @@ import org.junit.Test
 
 class LlmModelCatalogTest {
 
+    private val twelveGb = 12L * 1024 * 1024 * 1024
     private val eightGb = 8L * 1024 * 1024 * 1024
     private val fourGb = 4L * 1024 * 1024 * 1024
 
@@ -111,11 +112,42 @@ class LlmModelCatalogTest {
     }
 
     @Test
-    fun `every shortlist model fits an 8GB device`() {
-        // The largest curated entry is ~2.5GB GGUF; none reach the 7B footprint that OOMs on 8GB (#84).
-        LlmModelCatalog.ALL.forEach { option ->
+    fun `every shortlist model but the 12GB tier fits an 8GB device`() {
+        // Gemma 4 E4B (5.1GB GGUF) is the first entry the 8GB gate turns away; everything else is
+        // well under the 7B footprint that OOMs on 8GB (#84).
+        LlmModelCatalog.ALL.filter { it.id != Constants.GEMMA4_E4B_MODEL_ID }.forEach { option ->
             assertTrue(option.displayName, LlmModelCatalog.canRunOnDevice(option, fit(eightGb)))
         }
+    }
+
+    @Test
+    fun `Gemma 4 E4B is gated out on 8GB and offered on 12GB`() {
+        val e4b = LlmModelCatalog.fromId(Constants.GEMMA4_E4B_MODEL_ID)!!
+
+        assertFalse(LlmModelCatalog.canRunOnDevice(e4b, fit(eightGb)))
+        assertTrue(LlmModelCatalog.canRunOnDevice(e4b, fit(twelveGb)))
+    }
+
+    @Test
+    fun `both Gemma 4 entries are experimental Apache page-batch entries`() {
+        listOf(Constants.GEMMA4_E2B_MODEL_ID, Constants.GEMMA4_E4B_MODEL_ID).forEach { id ->
+            val option = LlmModelCatalog.fromId(id)!!
+
+            assertTrue(id, option.experimental)
+            assertTrue(id, option.idKeyedBatch)
+            assertEquals(id, TranslationPromptMode.TRANSLATION_ONLY, option.promptMode)
+            assertEquals(id, "Apache-2.0", option.licence)
+            // Google's card sampling, shared by both sizes.
+            assertEquals(id, GenerationParams(temperature = 1.0f, topK = 64, topP = 0.95f), option.generationDefaults)
+        }
+    }
+
+    @Test
+    fun `Gemma 4 KV sharing is counted, not the full layer stack`() {
+        // 15 of E2B's 35 layers and 24 of E4B's 42 own a cache; the naive figures (35,840 and
+        // 86,016 B/token) would gate both out on RAM they never spend.
+        assertEquals(18_432L, LlmModelCatalog.fromId(Constants.GEMMA4_E2B_MODEL_ID)!!.kvCacheBytesPerToken)
+        assertEquals(57_344L, LlmModelCatalog.fromId(Constants.GEMMA4_E4B_MODEL_ID)!!.kvCacheBytesPerToken)
     }
 
     @Test
