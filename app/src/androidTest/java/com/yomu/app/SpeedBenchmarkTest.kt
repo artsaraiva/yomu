@@ -55,6 +55,13 @@ class SpeedBenchmarkTest {
         var rows = 0
         try {
             for (option in LlmModelCatalog.ALL) {
+                // An entry the run script did not fetch is skipped rather than failing the run: the
+                // catalog now carries deliverables no emulator or 8 GiB phone can hold (Ministral 3
+                // 8B, #287), and the script pushes only what the device under test can run.
+                if (!File(FIXTURE_DIR, "models/${Constants.LLM_MODELS_DIR}/${option.ggufFileName}").isFile) {
+                    Log.i(TAG, "TIMING_SKIPPED model=${option.id} reason=not_staged")
+                    continue
+                }
                 // One GGUF in filesDir at a time: staging all of them next to their /data/local/tmp
                 // copies can ENOSPC a small emulator partition.
                 val llmDir = stage(Constants.LLM_MODELS_DIR, listOf(option.ggufFileName))

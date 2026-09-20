@@ -80,7 +80,8 @@ open class LlamaBridge(private val context: Context?) : TextGenerationBridge {
         params: GenerationParams,
         maxTokens: Int,
         timeoutMs: Int,
-        grammar: String
+        grammar: String,
+        systemMessage: String
     ): GenerationResult {
         if (!isLoaded) {
             Log.w(TAG, "generate skipped model_not_loaded")
@@ -94,7 +95,8 @@ open class LlamaBridge(private val context: Context?) : TextGenerationBridge {
                 timeoutMs,
                 params.samplerArray(),
                 params.seed,
-                grammar
+                grammar,
+                systemMessage
             )
             val durationMs = System.currentTimeMillis() - startMs
             val text = decodeGenerated(result)
@@ -134,7 +136,8 @@ open class LlamaBridge(private val context: Context?) : TextGenerationBridge {
         timeoutMs: Int,
         samplerParams: FloatArray,
         seed: Int,
-        grammar: String
+        grammar: String,
+        systemMessage: String
     ): ByteArray?
     private external fun nativeSetAbortRequested(requested: Boolean)
     private external fun nativeLastStatus(): Int

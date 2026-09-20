@@ -30,9 +30,10 @@ static std::string guesser_prompt(const std::string &tmpl, const std::string &us
     return cat_prompt(user);
 }
 
-static std::string jinja_prompt(const std::string &tmpl, const char *bos, const char *eos, const std::string &user) {
+static std::string jinja_prompt(const std::string &tmpl, const char *bos, const char *eos, const std::string &user,
+                                const std::string &system = "") {
     auto templates = common_chat_templates_init(nullptr, tmpl, bos, eos);
-    return format_chat_prompt(templates.get(), user);
+    return format_chat_prompt(templates.get(), system, user);
 }
 
 int main() {
@@ -60,7 +61,22 @@ int main() {
     assert(qwen35.compare(qwen35.size() - thinking_off.size(), thinking_off.size(), thinking_off) == 0);
     assert(qwen35.find("<|im_start|>system") == std::string::npos);
 
+    // Ministral 3 (#287). With no system message its template injects Mistral's Le Chat assistant
+    // prompt; the catalog entry's own system message replaces it, rendered as [SYSTEM_PROMPT]…
+    // before the user turn. The 3B and 8B templates differ only in the name inside that default.
+    const std::string ministral = read_template("ministral-3-3b-instruct-2512.jinja");
+    const std::string translator = "You are a manga translator. You translate Japanese into natural English.";
+    const std::string with_system = jinja_prompt(ministral, "<s>", "</s>", user, translator);
+    assert(with_system.find("[SYSTEM_PROMPT]" + translator + "[/SYSTEM_PROMPT]") != std::string::npos);
+    assert(with_system.find("Le Chat") == std::string::npos);
+    assert(with_system.find("[INST]" + user + "[/INST]") != std::string::npos);
+
+    // An entry with no system message renders no system turn of Yomu's — and on this template that
+    // is exactly why every Ministral entry carries one.
+    assert(jinja_prompt(ministral, "<s>", "</s>", user).find("Le Chat") != std::string::npos);
+
     // No template, or one that fails at render time, keeps the CAT format.
-    assert(format_chat_prompt(nullptr, user) == cat_prompt(user));
+    assert(format_chat_prompt(nullptr, "", user) == cat_prompt(user));
+    assert(format_chat_prompt(nullptr, translator, user) == cat_prompt(user));
     assert(jinja_prompt("{{ raise_exception('unsupported') }}", "", "", user) == cat_prompt(user));
 }

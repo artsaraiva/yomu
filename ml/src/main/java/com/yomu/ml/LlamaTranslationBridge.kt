@@ -239,7 +239,8 @@ class LlamaTranslationBridge(
                 profile.generation.withinBounds(),
                 maxTokens,
                 timeoutMs,
-                grammar
+                grammar,
+                profile.systemMessage
             )
         } finally {
             abortOnCancel.dispose()

@@ -137,7 +137,9 @@ data class ModelProfile(
     val idKeyedBatch: Boolean,
     val promptMode: TranslationPromptMode,
     val generation: GenerationParams = GenerationParams(),
-    val runtime: RuntimeLimits = RuntimeLimits()
+    val runtime: RuntimeLimits = RuntimeLimits(),
+    /** The deliverable's own system turn (#287); empty sends none, which is what every pre-#287 entry does. */
+    val systemMessage: String = ""
 )
 
 /** How much of the device the loaded model may use (#79). Changing either means reloading the model. */
