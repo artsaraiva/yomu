@@ -44,8 +44,10 @@ data class SettingsUiState(
     val models: List<ModelEntity> = emptyList(),
     /** Percentage done of every download in progress, by model id. */
     val downloads: Map<String, Int> = emptyMap(),
-    /** The reader's global sampler profile (#192). */
+    /** The effective sampler profile: the selected model's maker defaults under the reader's fields (#192, ADR-0017). */
     val generation: GenerationParams = GenerationParams(),
+    /** The selected model's maker sampling — what the sliders label as the default and what Reset returns to. */
+    val generationDefaults: GenerationParams = GenerationParams(),
     /** The reader's bubble confidence threshold (#227). */
     val detectionThreshold: Float = DetectionThresholdStore.DEFAULT,
     /** The reader's caps on the translation model (#79). */
@@ -58,7 +60,7 @@ data class SettingsUiState(
     val recoveryWarning: String? = null
 ) {
     val generationOverridden: Boolean
-        get() = GenerationBound.entries.any { it.read(generation) != it.default }
+        get() = GenerationBound.entries.any { it.read(generation) != it.read(generationDefaults) }
 
     fun fits(deliverable: SlotDeliverable): Boolean = ModelSlotSelection.fits(
         deliverable.id,
@@ -102,7 +104,7 @@ class SettingsViewModel @Inject constructor(
             theme = sharedPreferences.getString(Constants.PREF_THEME, "system") ?: "system",
             detectionThreshold = detectionThresholdStore.load(),
             resourceLimits = storedResourceLimits()
-        ).withGenerationProfile().withSlots()
+        ).withSlots()
         // The warning is now on screen; forget the bad values so it does not return on every visit.
         if (_uiState.value.recoveryWarning != null) modelSelection.clearRecovered()
 
@@ -204,15 +206,21 @@ class SettingsViewModel @Inject constructor(
             if (modelSelection.storedLlmModelRecovered()) listOf("Model") else emptyList()
         return copy(
             generation = loaded.params,
+            generationDefaults = modelSelection.generationDefaults(),
             recoveryWarning = recovered.takeIf { it.isNotEmpty() }
                 ?.let { "Some saved settings were invalid and are using their defaults: ${it.joinToString()}." }
         )
     }
 
+    /**
+     * Which model sits in each slot — and, with it, the generation profile, because the selected
+     * deliverable is what the reader's saved fields lie on top of (ADR-0017). Resolved together so
+     * no path that commits a pick can leave the panel showing the previous model's defaults.
+     */
     private fun SettingsUiState.withSlots(): SettingsUiState = copy(
         selectedIds = ModelType.entries.mapNotNull { type -> slotSelection.selectedId(type)?.let { type to it } }.toMap(),
         pendingIds = ModelType.entries.mapNotNull { type -> slotSelection.pendingId(type)?.let { type to it } }.toMap()
-    )
+    ).withGenerationProfile()
 
     fun setFontSizeScale(scale: Float) {
         sharedPreferences.edit().putFloat(Constants.PREF_FONT_SIZE_SCALE, scale).apply()

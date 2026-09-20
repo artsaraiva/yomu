@@ -46,6 +46,7 @@ internal fun RecoveryWarning(message: String) {
 @Composable
 internal fun AdvancedGenerationPanel(
     generation: GenerationParams,
+    defaults: GenerationParams,
     overridden: Boolean,
     onChange: (GenerationBound, Float) -> Unit,
     onReset: () -> Unit
@@ -54,18 +55,19 @@ internal fun AdvancedGenerationPanel(
         Column(Modifier.padding(16.dp)) {
             Text("Generation", fontWeight = FontWeight.Medium)
             Text(
-                text = if (overridden) "Changed from the shipped defaults" else "Shipped defaults",
+                text = if (overridden) "Changed from this model's defaults" else "This model's defaults",
                 fontSize = 12.sp,
                 color = if (overridden) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
-                text = "Sampler settings for the on-device LLM, shared by every model. Applied on the next capture.",
+                text = "Sampler settings for the on-device LLM. A value you change applies to every model; " +
+                    "the rest follow what each model's maker recommends. Applied on the next capture.",
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             GenerationBound.entries.forEach { bound ->
                 Spacer(Modifier.height(12.dp))
-                GenerationSlider(bound, bound.read(generation), onChange)
+                GenerationSlider(bound, bound.read(generation), bound.read(defaults), onChange)
             }
             Spacer(Modifier.height(12.dp))
             PaperButton("Reset to defaults", onReset, enabled = overridden)
@@ -74,12 +76,17 @@ internal fun AdvancedGenerationPanel(
 }
 
 @Composable
-private fun GenerationSlider(bound: GenerationBound, stored: Float, onChange: (GenerationBound, Float) -> Unit) {
+private fun GenerationSlider(
+    bound: GenerationBound,
+    stored: Float,
+    default: Float,
+    onChange: (GenerationBound, Float) -> Unit
+) {
     // Local while dragging; saved once on release so a drag does not queue a profile swap per frame.
     var value by remember(stored) { mutableFloatStateOf(stored) }
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(bound.label, fontSize = 14.sp, modifier = Modifier.weight(1f))
-        Text("${bound.format(value)} (default ${bound.format(bound.default)})", fontSize = 14.sp)
+        Text("${bound.format(value)} (default ${bound.format(default)})", fontSize = 14.sp)
     }
     Slider(
         value = value,

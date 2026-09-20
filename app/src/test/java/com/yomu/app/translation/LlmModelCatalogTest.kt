@@ -4,6 +4,7 @@ import com.yomu.core.Constants
 import com.yomu.core.GenerationParams
 import com.yomu.core.RuntimeLimits
 import com.yomu.core.TranslationPromptMode
+import com.yomu.core.withinBounds
 import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -108,6 +109,26 @@ class LlmModelCatalogTest {
     fun `the low-storage floor still fits a 4GB device`() {
         val floor = LlmModelCatalog.fromId(Constants.CAT_TRANSLATION_MODEL_ID)!!
         assertTrue(LlmModelCatalog.canRunOnDevice(floor, fit(fourGb)))
+    }
+
+    @Test
+    fun `the entries curated before ADR-0017 keep today's global sampling`() {
+        // AC of #283: a reader already on one of these sees no change when maker defaults arrive.
+        listOf(Constants.QWEN25_15B_MODEL_ID, Constants.CAT_TRANSLATION_MODEL_ID, Constants.CAT_TRANSLATION_14B_MODEL_ID)
+            .forEach { id ->
+                val option = LlmModelCatalog.fromId(id)!!
+                assertEquals(option.displayName, GenerationParams(), option.generationDefaults)
+            }
+    }
+
+    @Test
+    fun `every entry's maker sampling survives the inference boundary`() {
+        // LlamaTranslationBridge re-checks the profile through withinBounds(), which replaces a
+        // reader-facing field outside its bound with the shipped default. A maker value outside a
+        // bound would be dropped there without a word, so it must not reach the catalog.
+        LlmModelCatalog.ALL.forEach {
+            assertEquals(it.displayName, it.generationDefaults, it.generationDefaults.withinBounds())
+        }
     }
 
     @Test
