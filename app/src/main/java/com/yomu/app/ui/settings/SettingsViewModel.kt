@@ -60,13 +60,15 @@ data class SettingsUiState(
     val generationOverridden: Boolean
         get() = GenerationBound.entries.any { it.read(generation) != it.read(generationDefaults) }
 
-    fun fits(deliverable: SlotDeliverable): Boolean = ModelSlotSelection.fits(
-        deliverable.id,
-        FitBudget(
-            deviceTotalMemBytes,
-            resourceLimits.getValue(ResourceLimit.FIT_BUDGET_PERCENT),
-            resourceLimits.getValue(ResourceLimit.CONTEXT_TOKENS)
-        )
+    fun fits(deliverable: SlotDeliverable): Boolean = ModelSlotSelection.fits(deliverable.id, fitBudget())
+
+    fun needsSlowWarning(deliverable: SlotDeliverable): Boolean =
+        ModelSlotSelection.needsSlowWarning(deliverable, fitBudget())
+
+    private fun fitBudget() = FitBudget(
+        deviceTotalMemBytes,
+        resourceLimits.getValue(ResourceLimit.FIT_BUDGET_PERCENT),
+        resourceLimits.getValue(ResourceLimit.CONTEXT_TOKENS)
     )
 }
 

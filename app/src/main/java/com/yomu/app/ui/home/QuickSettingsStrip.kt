@@ -12,12 +12,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.yomu.app.db.entities.ModelType
+import com.yomu.app.ui.settings.SlowDeliverableDialog
 import com.yomu.app.ui.settings.deliverableStatus
 import com.yomu.core.toFileSizeString
 
 @Composable
 internal fun QuickSettingsStrip(state: HomeUiState, onPickTranslationModel: (String) -> Unit) {
     var open by rememberSaveable { mutableStateOf(false) }
+    var confirmSlow by rememberSaveable { mutableStateOf<String?>(null) }
     val statuses = state.models.associate { it.id to it.status }
     // One row always: the model chip shrinks and ellipsizes so the language chip never wraps (#273).
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -36,13 +38,14 @@ internal fun QuickSettingsStrip(state: HomeUiState, onPickTranslationModel: (Str
                         text = {
                             Column {
                                 Text(deliverable.name, style = MaterialTheme.typography.titleSmall)
-                                val detail = "$status · ${deliverable.sizeBytes.toFileSizeString()}"
+                                val detail = "$status · ${deliverable.sizeBytes.toFileSizeString()} · ${deliverable.speed}"
                                 Text(if (fits) detail else "$detail · Needs more memory", style = MaterialTheme.typography.bodySmall)
                             }
                         },
                         onClick = {
                             open = false
-                            onPickTranslationModel(deliverable.id)
+                            if (state.needsSlowWarning(deliverable)) confirmSlow = deliverable.id
+                            else onPickTranslationModel(deliverable.id)
                         },
                         enabled = fits,
                         leadingIcon = {
@@ -53,5 +56,14 @@ internal fun QuickSettingsStrip(state: HomeUiState, onPickTranslationModel: (Str
             }
         }
         AssistChip(onClick = {}, label = { Text("Japanese → English") }, enabled = false)
+    }
+    confirmSlow?.let { id ->
+        SlowDeliverableDialog(
+            onConfirm = {
+                confirmSlow = null
+                onPickTranslationModel(id)
+            },
+            onDismiss = { confirmSlow = null }
+        )
     }
 }

@@ -28,12 +28,14 @@ internal fun SlotPicker(
     statuses: Map<String, ModelStatus>,
     downloads: Map<String, Int>,
     fits: (SlotDeliverable) -> Boolean,
+    needsSlowWarning: (SlotDeliverable) -> Boolean,
     onPick: (String) -> Unit,
     onCancel: (String) -> Unit,
     onDelete: (String) -> Unit
 ) {
     var open by rememberSaveable { mutableStateOf(false) }
     var confirmDelete by rememberSaveable { mutableStateOf<String?>(null) }
+    var confirmSlow by rememberSaveable { mutableStateOf<String?>(null) }
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     PaperSurface(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp)) {
@@ -66,7 +68,7 @@ internal fun SlotPicker(
                     status = statuses[deliverable.id],
                     progress = downloads[deliverable.id],
                     fits = fits(deliverable),
-                    onPick = { onPick(deliverable.id) },
+                    onPick = { if (needsSlowWarning(deliverable)) confirmSlow = deliverable.id else onPick(deliverable.id) },
                     onCancel = { onCancel(deliverable.id) },
                     onDelete = { if (deliverable.id == selectedId) confirmDelete = deliverable.id else onDelete(deliverable.id) }
                 )
@@ -87,6 +89,27 @@ internal fun SlotPicker(
             dismissButton = { TextButton(onClick = { confirmDelete = null }) { Text("Keep") } }
         )
     }
+    confirmSlow?.let { id ->
+        SlowDeliverableDialog(
+            onConfirm = {
+                confirmSlow = null
+                onPick(id)
+            },
+            onDismiss = { confirmSlow = null }
+        )
+    }
+}
+
+/** Every surface that picks a model asks the same thing, so a Slow pick reads the same wherever it starts. */
+@Composable
+internal fun SlowDeliverableDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("This model is slow") },
+        text = { Text("It is a large model and takes longer to translate each page. Pick it anyway?") },
+        confirmButton = { TextButton(onClick = onConfirm) { Text("Pick it") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
 }
 
 internal fun deliverableStatus(status: ModelStatus?, progress: Int?, selected: Boolean, pending: Boolean): String = when {
@@ -116,7 +139,7 @@ private fun DeliverableRow(
             Column(Modifier.weight(1f)) {
                 Text(deliverable.name, style = MaterialTheme.typography.titleSmall, color = if (fits) LocalContentColor.current else muted)
                 Text(
-                    "${deliverable.sizeBytes.toFileSizeString()} · ${deliverable.licence}${if (deliverable.experimental) " · Experimental" else ""} · ${if (fits) "Fits this device" else "Needs more memory"}",
+                    "${deliverable.sizeBytes.toFileSizeString()} · ${deliverable.speed} · ${deliverable.licence}${if (deliverable.experimental) " · Experimental" else ""} · ${if (fits) "Fits this device" else "Needs more memory"}",
                     style = MaterialTheme.typography.bodySmall,
                     color = muted
                 )

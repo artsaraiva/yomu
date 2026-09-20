@@ -30,6 +30,10 @@ _Avoid_: RAM gate, memory limit, device tier
 The set of deliverables that are the same model at different quantizations. Grouped only so device fit can offer the largest one that fits; a family is never itself selectable.
 _Avoid_: quant matrix, model group, variant set
 
+**Speed label**:
+Fast, Medium or Slow, read off a [[deliverable]]'s download size alone (Fast up to 1.5 GB, Medium up to 3.5 GB, Slow above it), so the picker warns a reader how slow a model will feel before gigabytes are downloaded. The same thresholds on every device; how much RAM a deliverable needs is the [[fit budget]], a separate question.
+_Avoid_: performance tier, speed rating, device tier
+
 **Translation slot**:
 The selected component that accepts one geometry-free page and owns every model-specific translation decision. Exactly one LLM deliverable fills it at a time; there is no non-LLM translator (ADR-0016).
 _Avoid_: translation bridge, selected engine wrapper, translation engine

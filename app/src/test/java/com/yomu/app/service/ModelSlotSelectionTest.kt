@@ -385,4 +385,40 @@ class ModelSlotSelectionTest {
         prefs.values[ResourceLimit.FIT_BUDGET_PERCENT.key] = 60
         assertTrue(selection.pick(ModelType.LLM, Constants.CAT_TRANSLATION_14B_MODEL_ID, ModelStatus.READY, fourGb))
     }
+
+    @Test
+    fun `the speed label switches exactly at 1_5 GB and 3_5 GB`() {
+        val oneAndAHalfGb = 3L * 1024 * 1024 * 1024 / 2
+        val threeAndAHalfGb = 7L * 1024 * 1024 * 1024 / 2
+
+        assertEquals("Fast", deliverableOf(oneAndAHalfGb).speed)
+        assertEquals("Medium", deliverableOf(oneAndAHalfGb + 1).speed)
+        assertEquals("Medium", deliverableOf(threeAndAHalfGb).speed)
+        assertEquals("Slow", deliverableOf(threeAndAHalfGb + 1).speed)
+        assertFalse(deliverableOf(threeAndAHalfGb).slow)
+        assertTrue(deliverableOf(threeAndAHalfGb + 1).slow)
+    }
+
+    @Test
+    fun `only a Slow deliverable that fits needs the warning`() {
+        val id = LlmModelCatalog.DEFAULT.id
+        val fast = SlotDeliverable(id, "Fits and fast", oneGb, "MIT")
+        val slow = SlotDeliverable(id, "Fits and slow", 4L * 1024 * 1024 * 1024, "MIT")
+
+        assertTrue(ModelSlotSelection.fits(id, selection.fitBudget(eightGb)))
+        assertTrue(ModelSlotSelection.needsSlowWarning(slow, selection.fitBudget(eightGb)))
+        assertFalse(ModelSlotSelection.needsSlowWarning(fast, selection.fitBudget(eightGb)))
+    }
+
+    @Test
+    fun `a Slow deliverable that does not fit never asks`() {
+        // No curated deliverable is Slow yet, so the id of one outside the budget carries a Slow size here.
+        val tooBig = SlotDeliverable(Constants.CAT_TRANSLATION_14B_MODEL_ID, "Too big", 4L * 1024 * 1024 * 1024, "MIT")
+
+        assertTrue(tooBig.slow)
+        assertFalse(ModelSlotSelection.fits(tooBig.id, selection.fitBudget(oneGb)))
+        assertFalse(ModelSlotSelection.needsSlowWarning(tooBig, selection.fitBudget(oneGb)))
+    }
+
+    private fun deliverableOf(sizeBytes: Long) = SlotDeliverable("size-only", "Size only", sizeBytes, "MIT")
 }
