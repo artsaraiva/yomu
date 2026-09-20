@@ -113,9 +113,11 @@ class LlmModelCatalogTest {
 
     @Test
     fun `every shortlist model but the 12GB tier fits an 8GB device`() {
-        // Gemma 4 E4B (5.1GB GGUF) is the first entry the 8GB gate turns away; everything else is
-        // well under the 7B footprint that OOMs on 8GB (#84).
-        LlmModelCatalog.ALL.filter { it.id != Constants.GEMMA4_E4B_MODEL_ID }.forEach { option ->
+        // None of the rest reach the 7B footprint that OOMs on 8GB (#84). Ministral 3 8B (#287) and
+        // Gemma 4 E4B (#286) are curated above that line on purpose: they are offered to 12GB phones
+        // and gated out below, which is the gate doing its job rather than a mis-sized entry.
+        val twelveGbTier = setOf(Constants.MINISTRAL3_8B_MODEL_ID, Constants.GEMMA4_E4B_MODEL_ID)
+        LlmModelCatalog.ALL.filterNot { it.id in twelveGbTier }.forEach { option ->
             assertTrue(option.displayName, LlmModelCatalog.canRunOnDevice(option, fit(eightGb)))
         }
     }
@@ -201,6 +203,66 @@ class LlmModelCatalogTest {
         val redistributable = setOf("MIT", "Apache-2.0")
         LlmModelCatalog.ALL.forEach {
             assertTrue("${it.displayName}: ${it.licence}", it.licence in redistributable)
+        }
+    }
+
+    @Test
+    fun `Ministral 3 3B and 8B are experimental page-batch entries`() {
+        listOf(Constants.MINISTRAL3_3B_MODEL_ID, Constants.MINISTRAL3_8B_MODEL_ID).forEach { id ->
+            val option = LlmModelCatalog.fromId(id)!!
+            assertTrue(option.displayName, option.experimental)
+            assertTrue(option.displayName, option.idKeyedBatch)
+            assertEquals(option.displayName, TranslationPromptMode.TRANSLATION_ONLY, option.promptMode)
+            assertEquals(option.displayName, "Apache-2.0", option.licence)
+        }
+    }
+
+    @Test
+    fun `Ministral 3 carries the card's sub-0_1 temperature`() {
+        // The card's only "Recommended Settings" line. Above 0.1 and the entry no longer states what
+        // its maker asked for.
+        listOf(Constants.MINISTRAL3_3B_MODEL_ID, Constants.MINISTRAL3_8B_MODEL_ID).forEach { id ->
+            val option = LlmModelCatalog.fromId(id)!!
+            assertTrue(option.displayName, option.generationDefaults.temperature < 0.1f)
+        }
+    }
+
+    @Test
+    fun `Ministral 3 8B is gated off an 8GB phone and fits a 12GB one`() {
+        // Its 174,080 B/token KV is what decides it: weights alone would fit either.
+        val ministral8b = LlmModelCatalog.fromId(Constants.MINISTRAL3_8B_MODEL_ID)!!
+
+        assertFalse(LlmModelCatalog.canRunOnDevice(ministral8b, fit(eightGb)))
+        assertTrue(LlmModelCatalog.canRunOnDevice(ministral8b, fit(twelveGb)))
+    }
+
+    @Test
+    fun `Ministral 3 states its own role instead of Mistral's default assistant prompt`() {
+        // Ministral's template injects Mistral's Le Chat assistant prompt when no system message is
+        // sent, so an empty one here would silently send the model to work as a chat assistant (#287).
+        listOf(Constants.MINISTRAL3_3B_MODEL_ID, Constants.MINISTRAL3_8B_MODEL_ID).forEach { id ->
+            val option = LlmModelCatalog.fromId(id)!!
+            assertTrue(option.displayName, option.systemMessage.isNotBlank())
+        }
+    }
+
+    @Test
+    fun `the entries curated before per-entry system messages send no system turn`() {
+        listOf(
+            Constants.QWEN25_15B_MODEL_ID,
+            Constants.CAT_TRANSLATION_MODEL_ID,
+            Constants.CAT_TRANSLATION_14B_MODEL_ID,
+            Constants.QWEN35_2B_MODEL_ID
+        ).forEach { id ->
+            assertEquals(id, "", LlmModelCatalog.fromId(id)!!.systemMessage)
+        }
+    }
+
+    @Test
+    fun `profileFor carries the entry's system message onto every entry`() {
+        LlmModelCatalog.ALL.forEach { option ->
+            val profile = LlmModelCatalog.profileFor(option, File("m"), GenerationParams(), RuntimeLimits())
+            assertEquals(option.displayName, option.systemMessage, profile.systemMessage)
         }
     }
 }
