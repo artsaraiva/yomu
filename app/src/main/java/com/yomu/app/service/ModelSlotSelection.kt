@@ -19,7 +19,7 @@ import kotlinx.coroutines.job
 import javax.inject.Singleton
 
 data class SlotDeliverable(val id: String, val name: String, val sizeBytes: Long, val licence: String, val experimental: Boolean = false) {
-    /** How fast a page will feel, read off the download size alone, so every device labels a deliverable the same. */
+    /** Read off the download size alone, so a reader is told the same thing on every device. */
     val speed: String
         get() = when {
             sizeBytes <= FAST_MAX_BYTES -> "Fast"

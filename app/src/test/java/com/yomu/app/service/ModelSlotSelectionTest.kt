@@ -401,9 +401,11 @@ class ModelSlotSelectionTest {
 
     @Test
     fun `only a Slow deliverable that fits needs the warning`() {
-        val fast = deliverableOf(oneGb)
-        val slow = deliverableOf(4L * 1024 * 1024 * 1024)
+        val id = LlmModelCatalog.DEFAULT.id
+        val fast = SlotDeliverable(id, "Fits and fast", oneGb, "MIT")
+        val slow = SlotDeliverable(id, "Fits and slow", 4L * 1024 * 1024 * 1024, "MIT")
 
+        assertTrue(ModelSlotSelection.fits(id, selection.fitBudget(eightGb)))
         assertTrue(ModelSlotSelection.needsSlowWarning(slow, selection.fitBudget(eightGb)))
         assertFalse(ModelSlotSelection.needsSlowWarning(fast, selection.fitBudget(eightGb)))
     }

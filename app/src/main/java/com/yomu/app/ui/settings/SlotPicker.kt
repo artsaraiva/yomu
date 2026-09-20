@@ -90,19 +90,26 @@ internal fun SlotPicker(
         )
     }
     confirmSlow?.let { id ->
-        AlertDialog(
-            onDismissRequest = { confirmSlow = null },
-            title = { Text("This model is slow on this device") },
-            text = { Text("It is a large download and takes longer to translate each page. Pick it anyway?") },
-            confirmButton = {
-                TextButton(onClick = {
-                    confirmSlow = null
-                    onPick(id)
-                }) { Text("Pick it") }
+        SlowDeliverableDialog(
+            onConfirm = {
+                confirmSlow = null
+                onPick(id)
             },
-            dismissButton = { TextButton(onClick = { confirmSlow = null }) { Text("Cancel") } }
+            onDismiss = { confirmSlow = null }
         )
     }
+}
+
+/** Every surface that picks a model asks the same thing, so a Slow pick reads the same wherever it starts. */
+@Composable
+internal fun SlowDeliverableDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("This model is slow") },
+        text = { Text("It is a large model and takes longer to translate each page. Pick it anyway?") },
+        confirmButton = { TextButton(onClick = onConfirm) { Text("Pick it") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
 }
 
 internal fun deliverableStatus(status: ModelStatus?, progress: Int?, selected: Boolean, pending: Boolean): String = when {
