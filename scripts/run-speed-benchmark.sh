@@ -69,8 +69,10 @@ MODELS=(
   "llm/qwen35_2b_q4_k_m.gguf|https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/f6d5376be1edb4d416d56da11e5397a961aca8ae/Qwen3.5-2B-Q4_K_M.gguf"
   "llm/qwen35_4b_q4_k_m.gguf|https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/e87f176479d0855a907a41277aca2f8ee7a09523/Qwen3.5-4B-Q4_K_M.gguf"
   "llm/qwen3_4b_instruct_2507_q4_k_m.gguf|https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF/resolve/a06e946bb6b655725eafa393f4a9745d460374c9/Qwen3-4B-Instruct-2507-Q4_K_M.gguf"
-  # Qwen3.5 9B is deliberately absent: it needs a 12 GB+ phone (ADR-0017), and SpeedBenchmarkTest
-  # skips a catalog entry whose GGUF was not pushed. Add its line by hand to time it on one.
+  "llm/ministral3_3b_instruct_2512_q4_k_m.gguf|https://huggingface.co/mistralai/Ministral-3-3B-Instruct-2512-GGUF/resolve/eb599d408350ea2bb60452cb86be7c7b2fc28227/Ministral-3-3B-Instruct-2512-Q4_K_M.gguf"
+  # The 12 GB tier is deliberately absent: Qwen3.5 9B and Ministral 3 8B need such a phone
+  # (ADR-0017), and SpeedBenchmarkTest skips a catalog entry whose GGUF was not pushed. Add their
+  # lines by hand to time them on one.
 )
 for entry in "${MODELS[@]}"; do
   rel="${entry%%|*}"; url="${entry#*|}"; file="$FIXTURES/models/$rel"

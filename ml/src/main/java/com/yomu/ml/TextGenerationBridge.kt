@@ -47,13 +47,17 @@ interface TextGenerationBridge {
     val isModelLoaded: Boolean
 
     fun loadModel(modelPath: String, nCtx: Int = 2048, nGpuLayers: Int = 0): Boolean
-    /** [grammar] is GBNF constraining the sampler; empty means unconstrained. */
+    /**
+     * [grammar] is GBNF constraining the sampler; empty means unconstrained.
+     * [systemMessage] is the deliverable's own system turn (#287); empty sends none.
+     */
     fun generate(
         prompt: String,
         params: GenerationParams = GenerationParams(),
         maxTokens: Int = params.maxTokens,
         timeoutMs: Int = DEFAULT_TIMEOUT_MS,
-        grammar: String = ""
+        grammar: String = "",
+        systemMessage: String = ""
     ): GenerationResult
     fun release()
 }

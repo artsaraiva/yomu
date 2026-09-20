@@ -24,7 +24,8 @@ data class LlmModelOption(
      * model through the pinned-URL [ModelManager] flow (ADR-0014). Checked 2026-08-19:
      * Qwen2.5 = Apache-2.0; CAT-Translate 0.8b/1.4b = MIT (cyberagent, finetunes of sbintuitions
      * sarashina2.2, both declared MIT). Qwen3.5 = Apache-2.0 on the card and the unsloth GGUF repo
-     * (checked 2026-09-16). Also the "governed by its own licence" notice ADR-0009 asks
+     * (checked 2026-09-16). Ministral 3 3B/8B Instruct 2512 = Apache-2.0 on the card and the
+     * first-party GGUF repo (checked 2026-09-18). Also the "governed by its own licence" notice ADR-0009 asks
      * Yomu to surface.
      */
     val licence: String,
@@ -47,7 +48,15 @@ data class LlmModelOption(
      */
     val generationDefaults: GenerationParams,
     /** Added on desk research and not yet run on the reference phone; the picker tags it (ADR-0017). */
-    val experimental: Boolean = false
+    val experimental: Boolean = false,
+    /**
+     * The system turn this entry is rendered with (#287). Empty — the default, and what every entry
+     * curated before #287 carries — sends no system turn at all, which is what CAT-Translate needs
+     * (#68) and what Qwen's template already handles on its own. It exists because Ministral 3's
+     * template injects Mistral's Le Chat assistant prompt when no system message is sent, so an
+     * entry rendered through it must state its own role or be told it is a chat assistant.
+     */
+    val systemMessage: String = ""
 )
 
 /** The RAM a translation model must fit inside on this device: [percent] of [totalMemBytes], at [contextTokens]. */
@@ -82,6 +91,14 @@ object LlmModelCatalog {
         kvCacheBytesPerToken = 28L * 2 * 2 * 128 * 2,
         generationDefaults = GenerationParams()
     )
+
+    /**
+     * Ministral's replacement for the Le Chat default: the role, and nothing about the reply's shape.
+     * What to translate and how to lay the answer out stays in the user turn, which is the one the
+     * batch grammar and the per-line prompts are written against (ADR-0013).
+     */
+    private const val MINISTRAL_SYSTEM_MESSAGE =
+        "You are a manga translator. You translate Japanese into natural English."
 
     /**
      * The curated selectable shortlist. Every entry is redistributable and hosted.
@@ -189,6 +206,42 @@ object LlmModelCatalog {
             // Card and generation_config.json agree. It is non-thinking only, so no presence penalty is asked for.
             generationDefaults = GenerationParams(temperature = 0.7f, topK = 20, topP = 0.8f),
             experimental = true
+        ),
+        // Ministral 3 Instruct 2512, first-party Q4_K_M (research addendum pins, checked 2026-09-18).
+        // Both carry the same template up to the model name inside its default system prompt, so both
+        // need MINISTRAL_SYSTEM_MESSAGE: with no system turn the template renders Mistral's Le Chat
+        // assistant prompt instead of any translation instruction.
+        LlmModelOption(
+            id = Constants.MINISTRAL3_3B_MODEL_ID,
+            displayName = "Ministral 3 3B Instruct",
+            ggufFileName = Constants.MINISTRAL3_3B_MODEL,
+            sizeBytes = Constants.MINISTRAL3_3B_SIZE,
+            licence = "Apache-2.0",
+            idKeyedBatch = true,
+            promptMode = TranslationPromptMode.TRANSLATION_ONLY,
+            // 26 layers, 8 KV heads, head dim 128: 106,496 B/token, the heaviest of the sub-4B entries.
+            kvCacheBytesPerToken = 26L * 2 * 8 * 128 * 2,
+            // The card's only "Recommended Settings" line is temperature below 0.1; every other knob
+            // stays on the shipped floor.
+            generationDefaults = GenerationParams(temperature = 0.05f),
+            experimental = true,
+            systemMessage = MINISTRAL_SYSTEM_MESSAGE
+        ),
+        LlmModelOption(
+            id = Constants.MINISTRAL3_8B_MODEL_ID,
+            displayName = "Ministral 3 8B Instruct",
+            ggufFileName = Constants.MINISTRAL3_8B_MODEL,
+            sizeBytes = Constants.MINISTRAL3_8B_SIZE,
+            licence = "Apache-2.0",
+            idKeyedBatch = true,
+            promptMode = TranslationPromptMode.TRANSLATION_ONLY,
+            // 34 layers, 8 KV heads, head dim 160 (hidden 5120 / 32 heads). The addendum's shortlist
+            // row mistypes the head dim as 128; 174,080 is the figure its fit verdicts were computed
+            // from, and it is what keeps this entry off an 8 GiB phone.
+            kvCacheBytesPerToken = 34L * 2 * 8 * 160 * 2,
+            generationDefaults = GenerationParams(temperature = 0.05f),
+            experimental = true,
+            systemMessage = MINISTRAL_SYSTEM_MESSAGE
         )
     )
 
@@ -206,7 +259,8 @@ object LlmModelCatalog {
             // (ADR-0017, reversing #139's "no per-model values before a measurement"); resolved by
             // the caller, which is the layer that owns the store.
             generation = generation,
-            runtime = runtime
+            runtime = runtime,
+            systemMessage = option.systemMessage
         )
 
     /**

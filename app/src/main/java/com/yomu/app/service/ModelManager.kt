@@ -183,6 +183,30 @@ class ModelManager @Inject constructor(
                 status = ModelStatus.AVAILABLE,
                 version = "1.0",
                 isRequired = false
+            ),
+            ModelEntity(
+                id = Constants.MINISTRAL3_3B_MODEL_ID,
+                name = "Ministral 3 3B Instruct 2512 (Q4_K_M)",
+                type = ModelType.LLM,
+                fileName = Constants.MINISTRAL3_3B_MODEL,
+                fileSize = Constants.MINISTRAL3_3B_SIZE,
+                downloadUrl = "https://huggingface.co/mistralai/Ministral-3-3B-Instruct-2512-GGUF/resolve/eb599d408350ea2bb60452cb86be7c7b2fc28227/Ministral-3-3B-Instruct-2512-Q4_K_M.gguf",
+                checksum = "9ed150d4367e68df0ac8e1540f6ddc65b42d0ee26378329d1ecbca60f93fc5f8",
+                status = ModelStatus.AVAILABLE,
+                version = "1.0",
+                isRequired = false
+            ),
+            ModelEntity(
+                id = Constants.MINISTRAL3_8B_MODEL_ID,
+                name = "Ministral 3 8B Instruct 2512 (Q4_K_M)",
+                type = ModelType.LLM,
+                fileName = Constants.MINISTRAL3_8B_MODEL,
+                fileSize = Constants.MINISTRAL3_8B_SIZE,
+                downloadUrl = "https://huggingface.co/mistralai/Ministral-3-8B-Instruct-2512-GGUF/resolve/0102285ad796bd99af90f58de616092e5630e970/Ministral-3-8B-Instruct-2512-Q4_K_M.gguf",
+                checksum = "33e7a72cf5e6e2cfc2f2847075acc013d68bba023e35310cef86b5cf8fdca761",
+                status = ModelStatus.AVAILABLE,
+                version = "1.0",
+                isRequired = false
             )
         )
 

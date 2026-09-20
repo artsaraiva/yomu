@@ -309,6 +309,34 @@ class LlamaTranslationBridgeTest {
         assertTrue(native.prompts.isEmpty())
     }
 
+    @Test
+    fun translatePage_sendsTheProfilesSystemMessageWithEveryCall() = runTest {
+        val model = File.createTempFile("model", ".gguf")
+        val native = FakeLlamaBridge { GenerationResult.Success("Hello", 1L) }
+        val system = "You are a manga translator."
+        val slot = LlamaTranslationBridge(
+            native,
+            profile(model).copy(systemMessage = system)
+        )
+
+        slot.translatePage(page(1 to "\u3053\u3093\u306b\u3061\u306f", 2 to "\u3055\u3088\u3046\u306a\u3089"))
+
+        assertEquals(listOf(system, system), native.systemMessages)
+        model.delete()
+    }
+
+    @Test
+    fun translatePage_sendsNoSystemMessageWhenTheProfileCarriesNone() = runTest {
+        val model = File.createTempFile("model", ".gguf")
+        val native = FakeLlamaBridge { GenerationResult.Success("Hello", 1L) }
+        val slot = LlamaTranslationBridge(native, profile(model))
+
+        slot.translatePage(page(1 to "\u3053\u3093\u306b\u3061\u306f"))
+
+        assertEquals(listOf(""), native.systemMessages)
+        model.delete()
+    }
+
     private fun profile(
         model: File,
         promptMode: TranslationPromptMode = TranslationPromptMode.MODEL_CARD,

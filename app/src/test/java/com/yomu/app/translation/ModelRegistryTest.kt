@@ -83,6 +83,27 @@ class ModelRegistryTest {
     }
 
     @Test
+    fun `Ministral 3 downloads the pinned first-party Q4_K_M`() {
+        val threeB = registry.single { it.id == Constants.MINISTRAL3_3B_MODEL_ID }
+        assertEquals(
+            "https://huggingface.co/mistralai/Ministral-3-3B-Instruct-2512-GGUF/resolve/" +
+                "eb599d408350ea2bb60452cb86be7c7b2fc28227/Ministral-3-3B-Instruct-2512-Q4_K_M.gguf",
+            threeB.downloadUrl
+        )
+        assertEquals("9ed150d4367e68df0ac8e1540f6ddc65b42d0ee26378329d1ecbca60f93fc5f8", threeB.checksum)
+        assertEquals(2_147_023_008L, threeB.fileSize)
+
+        val eightB = registry.single { it.id == Constants.MINISTRAL3_8B_MODEL_ID }
+        assertEquals(
+            "https://huggingface.co/mistralai/Ministral-3-8B-Instruct-2512-GGUF/resolve/" +
+                "0102285ad796bd99af90f58de616092e5630e970/Ministral-3-8B-Instruct-2512-Q4_K_M.gguf",
+            eightB.downloadUrl
+        )
+        assertEquals("33e7a72cf5e6e2cfc2f2847075acc013d68bba023e35310cef86b5cf8fdca761", eightB.checksum)
+        assertEquals(5_198_911_904L, eightB.fileSize)
+    }
+
+    @Test
     fun `every slot has exactly one curated default of its own type`() {
         assertEquals(ModelType.entries.toSet(), ModelManager.SLOT_DEFAULTS.keys)
         ModelManager.SLOT_DEFAULTS.forEach { (type, id) ->
