@@ -2,6 +2,7 @@ package com.yomu.app.translation
 
 import com.yomu.app.db.entities.ModelType
 import com.yomu.app.service.ModelManager
+import com.yomu.core.Constants
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -38,6 +39,18 @@ class ModelRegistryTest {
     fun `llm rows are exactly the catalog entries`() {
         val llmRowIds = registry.filter { it.type == ModelType.LLM }.map { it.id }.toSet()
         assertEquals(LlmModelCatalog.ALL.map { it.id }.toSet(), llmRowIds)
+    }
+
+    @Test
+    fun `Qwen3_5 2B downloads the pinned unsloth Q4_K_M`() {
+        val row = registry.single { it.id == Constants.QWEN35_2B_MODEL_ID }
+
+        assertEquals(
+            "https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/f6d5376be1edb4d416d56da11e5397a961aca8ae/Qwen3.5-2B-Q4_K_M.gguf",
+            row.downloadUrl
+        )
+        assertEquals("aaf42c8b7c3cab2bf3d69c355048d4a0ee9973d48f16c731c0520ee914699223", row.checksum)
+        assertEquals(1_280_835_840L, row.fileSize)
     }
 
     @Test

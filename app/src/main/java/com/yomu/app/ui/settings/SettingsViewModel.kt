@@ -19,9 +19,7 @@ import com.yomu.core.GenerationBound
 import com.yomu.core.GenerationParams
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -117,6 +115,10 @@ class SettingsViewModel @Inject constructor(
                 slotSelection.commitPending(models.associate { it.id to it.status })
                 _uiState.update { it.copy(models = models).withSlots() }
             }
+        }
+
+        viewModelScope.launch {
+            slotSelection.progress.collect { progress -> _uiState.update { it.copy(downloads = progress) } }
         }
     }
 
@@ -227,32 +229,16 @@ class SettingsViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(fontSizeScale = scale)
     }
 
-    private val downloadJobs = mutableMapOf<String, Job>()
-
     fun downloadModel(modelId: String) {
-        if (modelId in downloadJobs) return
-        // Lazy so the job is registered before it can finish and unregister itself.
-        val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
-            try {
-                setDownloadProgress(modelId, 0)
-                slotSelection.download(modelId) { setDownloadProgress(modelId, it) }
-            } finally {
-                downloadJobs.remove(modelId)
-                _uiState.update { it.copy(downloads = it.downloads - modelId).withSlots() }
-            }
+        viewModelScope.launch {
+            slotSelection.download(modelId)
+            _uiState.update { it.withSlots() }
         }
-        downloadJobs[modelId] = job
-        job.start()
     }
 
     fun cancelDownload(modelId: String) {
-        slotSelection.dropPending(modelId)
+        slotSelection.cancel(modelId)
         _uiState.update { it.withSlots() }
-        downloadJobs[modelId]?.cancel()
-    }
-
-    private fun setDownloadProgress(modelId: String, percentage: Int) {
-        _uiState.update { it.copy(downloads = it.downloads + (modelId to percentage.coerceIn(0, 100))) }
     }
 
     fun deleteModel(modelId: String) {

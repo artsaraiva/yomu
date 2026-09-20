@@ -23,7 +23,8 @@ data class LlmModelOption(
      * Confirmed licence — the evidence an entry may be redistributed, since Yomu hosts every curated
      * model through the pinned-URL [ModelManager] flow (ADR-0014). Checked 2026-08-19:
      * Qwen2.5 = Apache-2.0; CAT-Translate 0.8b/1.4b = MIT (cyberagent, finetunes of sbintuitions
-     * sarashina2.2, both declared MIT). Also the "governed by its own licence" notice ADR-0009 asks
+     * sarashina2.2, both declared MIT). Qwen3.5 = Apache-2.0 on the card and the unsloth GGUF repo
+     * (checked 2026-09-16). Also the "governed by its own licence" notice ADR-0009 asks
      * Yomu to surface.
      */
     val licence: String,
@@ -44,7 +45,9 @@ data class LlmModelOption(
      * gets the maker's values and one who moved a slider keeps it across models. The three entries
      * curated before ADR-0017 carry the shipped values, so nothing changes for a reader on them.
      */
-    val generationDefaults: GenerationParams
+    val generationDefaults: GenerationParams,
+    /** Added on desk research and not yet run on the reference phone; the picker tags it (ADR-0017). */
+    val experimental: Boolean = false
 )
 
 /** The RAM a translation model must fit inside on this device: [percent] of [totalMemBytes], at [contextTokens]. */
@@ -114,6 +117,23 @@ object LlmModelCatalog {
             promptMode = TranslationPromptMode.MODEL_CARD,
             kvCacheBytesPerToken = 24L * 2 * 8 * 112 * 2,
             generationDefaults = GenerationParams()
+        ),
+        LlmModelOption(
+            id = Constants.QWEN35_2B_MODEL_ID,
+            displayName = "Qwen3.5 2B",
+            ggufFileName = Constants.QWEN35_2B_MODEL,
+            sizeBytes = Constants.QWEN35_2B_SIZE,
+            licence = "Apache-2.0",
+            idKeyedBatch = true,
+            promptMode = TranslationPromptMode.TRANSLATION_ONLY,
+            // Only its 6 full-attention layers hold a KV cache; the 18 DeltaNet layers keep a fixed ~19 MiB state instead.
+            kvCacheBytesPerToken = 6L * 2 * 2 * 256 * 2,
+            // The card's "Non-thinking mode for text tasks" values, from the research document's
+            // sampling table: temperature 1.0, top-p 1.00, top-k 20, presence 2.0, repetition 1.0.
+            // The first entry whose sampling differs from the shipped floor, which is what ADR-0017
+            // reversed #139 for.
+            generationDefaults = GenerationParams(temperature = 1.0f, topK = 20, topP = 1.0f, penaltyPresent = 2.0f),
+            experimental = true
         )
     )
 

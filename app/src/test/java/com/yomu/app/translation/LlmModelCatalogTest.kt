@@ -29,6 +29,27 @@ class LlmModelCatalogTest {
     }
 
     @Test
+    fun `default is not experimental`() {
+        assertFalse(LlmModelCatalog.DEFAULT.experimental)
+    }
+
+    @Test
+    fun `Qwen3_5 2B is an experimental page-batch entry`() {
+        val qwen35 = LlmModelCatalog.fromId(Constants.QWEN35_2B_MODEL_ID)!!
+
+        assertTrue(qwen35.experimental)
+        assertTrue(qwen35.idKeyedBatch)
+        assertEquals(TranslationPromptMode.TRANSLATION_ONLY, qwen35.promptMode)
+        assertEquals("Apache-2.0", qwen35.licence)
+    }
+
+    @Test
+    fun `the entries phone-checked before the Experimental tier are not experimental`() {
+        val checked = listOf(Constants.QWEN25_15B_MODEL_ID, Constants.CAT_TRANSLATION_MODEL_ID, Constants.CAT_TRANSLATION_14B_MODEL_ID)
+        checked.forEach { assertFalse(it, LlmModelCatalog.fromId(it)!!.experimental) }
+    }
+
+    @Test
     fun `selectedOrDefault falls back to default for null or unknown id`() {
         assertEquals(LlmModelCatalog.DEFAULT, LlmModelCatalog.selectedOrDefault(null))
         assertEquals(LlmModelCatalog.DEFAULT, LlmModelCatalog.selectedOrDefault("no-such-model"))
@@ -119,6 +140,16 @@ class LlmModelCatalogTest {
                 val option = LlmModelCatalog.fromId(id)!!
                 assertEquals(option.displayName, GenerationParams(), option.generationDefaults)
             }
+    }
+
+    @Test
+    fun `Qwen3_5 2B carries its card's sampling, not the shipped floor`() {
+        val qwen35 = LlmModelCatalog.fromId(Constants.QWEN35_2B_MODEL_ID)!!
+
+        assertEquals(
+            GenerationParams(temperature = 1.0f, topK = 20, topP = 1.0f, penaltyPresent = 2.0f),
+            qwen35.generationDefaults
+        )
     }
 
     @Test
