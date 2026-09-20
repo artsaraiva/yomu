@@ -35,13 +35,22 @@ class LlmModelCatalogTest {
     }
 
     @Test
-    fun `Qwen3_5 2B is an experimental page-batch entry`() {
-        val qwen35 = LlmModelCatalog.fromId(Constants.QWEN35_2B_MODEL_ID)!!
+    fun `every Qwen experimental entry is an Apache-2_0 page-batch entry`() {
+        val qwen = listOf(
+            Constants.QWEN35_08B_MODEL_ID,
+            Constants.QWEN35_2B_MODEL_ID,
+            Constants.QWEN35_4B_MODEL_ID,
+            Constants.QWEN35_9B_MODEL_ID,
+            Constants.QWEN3_4B_2507_MODEL_ID
+        )
 
-        assertTrue(qwen35.experimental)
-        assertTrue(qwen35.idKeyedBatch)
-        assertEquals(TranslationPromptMode.TRANSLATION_ONLY, qwen35.promptMode)
-        assertEquals("Apache-2.0", qwen35.licence)
+        qwen.forEach { id ->
+            val option = LlmModelCatalog.fromId(id)!!
+            assertTrue(id, option.experimental)
+            assertTrue(id, option.idKeyedBatch)
+            assertEquals(id, TranslationPromptMode.TRANSLATION_ONLY, option.promptMode)
+            assertEquals(id, "Apache-2.0", option.licence)
+        }
     }
 
     @Test
@@ -113,13 +122,27 @@ class LlmModelCatalogTest {
 
     @Test
     fun `every shortlist model but the 12GB tier fits an 8GB device`() {
-        // None of the rest reach the 7B footprint that OOMs on 8GB (#84). Ministral 3 8B (#287) and
-        // Gemma 4 E4B (#286) are curated above that line on purpose: they are offered to 12GB phones
-        // and gated out below, which is the gate doing its job rather than a mis-sized entry.
-        val twelveGbTier = setOf(Constants.MINISTRAL3_8B_MODEL_ID, Constants.GEMMA4_E4B_MODEL_ID)
+        // None of the rest reach the 7B footprint that OOMs on 8GB (#84). Ministral 3 8B (#287),
+        // Gemma 4 E4B (#286) and Qwen3.5 9B (#285) are curated above that line on purpose: they are
+        // offered to 12GB phones and gated out below, which is the gate doing its job rather than a
+        // mis-sized entry.
+        val twelveGbTier = setOf(
+            Constants.MINISTRAL3_8B_MODEL_ID,
+            Constants.GEMMA4_E4B_MODEL_ID,
+            Constants.QWEN35_9B_MODEL_ID
+        )
         LlmModelCatalog.ALL.filterNot { it.id in twelveGbTier }.forEach { option ->
             assertTrue(option.displayName, LlmModelCatalog.canRunOnDevice(option, fit(eightGb)))
         }
+    }
+
+    @Test
+    fun `Qwen3_5 9B is gated out on 8GB and offered on 12GB`() {
+        // ADR-0017's ~9B ceiling: the existing fit gate is what keeps the tier off an 8GB phone.
+        val nineB = LlmModelCatalog.fromId(Constants.QWEN35_9B_MODEL_ID)!!
+
+        assertFalse(LlmModelCatalog.canRunOnDevice(nineB, fit(eightGb)))
+        assertTrue(LlmModelCatalog.canRunOnDevice(nineB, fit(twelveGb)))
     }
 
     @Test
@@ -177,13 +200,20 @@ class LlmModelCatalogTest {
     }
 
     @Test
-    fun `Qwen3_5 2B carries its card's sampling, not the shipped floor`() {
-        val qwen35 = LlmModelCatalog.fromId(Constants.QWEN35_2B_MODEL_ID)!!
-
-        assertEquals(
-            GenerationParams(temperature = 1.0f, topK = 20, topP = 1.0f, penaltyPresent = 2.0f),
-            qwen35.generationDefaults
+    fun `each Qwen entry carries its card's sampling, not the shipped floor`() {
+        // The card's non-thinking values, from the research addendum's vendor sampling table: the
+        // small pair share one row, the 4B/9B pair another, and Qwen3-4B-2507 asks for no presence.
+        val expected = mapOf(
+            Constants.QWEN35_08B_MODEL_ID to GenerationParams(temperature = 1.0f, topK = 20, topP = 1.0f, penaltyPresent = 2.0f),
+            Constants.QWEN35_2B_MODEL_ID to GenerationParams(temperature = 1.0f, topK = 20, topP = 1.0f, penaltyPresent = 2.0f),
+            Constants.QWEN35_4B_MODEL_ID to GenerationParams(temperature = 0.7f, topK = 20, topP = 0.8f, penaltyPresent = 1.5f),
+            Constants.QWEN35_9B_MODEL_ID to GenerationParams(temperature = 0.7f, topK = 20, topP = 0.8f, penaltyPresent = 1.5f),
+            Constants.QWEN3_4B_2507_MODEL_ID to GenerationParams(temperature = 0.7f, topK = 20, topP = 0.8f)
         )
+
+        expected.forEach { (id, sampling) ->
+            assertEquals(id, sampling, LlmModelCatalog.fromId(id)!!.generationDefaults)
+        }
     }
 
     @Test

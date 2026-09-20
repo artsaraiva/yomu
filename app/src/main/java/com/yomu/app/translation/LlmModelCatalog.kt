@@ -144,6 +144,19 @@ object LlmModelCatalog {
             generationDefaults = GenerationParams()
         ),
         LlmModelOption(
+            id = Constants.QWEN35_08B_MODEL_ID,
+            displayName = "Qwen3.5 0.8B",
+            ggufFileName = Constants.QWEN35_08B_MODEL,
+            sizeBytes = Constants.QWEN35_08B_SIZE,
+            licence = "Apache-2.0",
+            idKeyedBatch = true,
+            promptMode = TranslationPromptMode.TRANSLATION_ONLY,
+            // 6 of its 24 layers hold a KV cache; the 18 DeltaNet layers keep a fixed ~19 MiB state instead.
+            kvCacheBytesPerToken = 6L * 2 * 2 * 256 * 2,
+            generationDefaults = GenerationParams(temperature = 1.0f, topK = 20, topP = 1.0f, penaltyPresent = 2.0f),
+            experimental = true
+        ),
+        LlmModelOption(
             id = Constants.QWEN35_2B_MODEL_ID,
             displayName = "Qwen3.5 2B",
             ggufFileName = Constants.QWEN35_2B_MODEL,
@@ -158,6 +171,48 @@ object LlmModelCatalog {
             // The first entry whose sampling differs from the shipped floor, which is what ADR-0017
             // reversed #139 for.
             generationDefaults = GenerationParams(temperature = 1.0f, topK = 20, topP = 1.0f, penaltyPresent = 2.0f),
+            experimental = true
+        ),
+        LlmModelOption(
+            id = Constants.QWEN35_4B_MODEL_ID,
+            displayName = "Qwen3.5 4B",
+            ggufFileName = Constants.QWEN35_4B_MODEL,
+            sizeBytes = Constants.QWEN35_4B_SIZE,
+            licence = "Apache-2.0",
+            idKeyedBatch = true,
+            promptMode = TranslationPromptMode.TRANSLATION_ONLY,
+            // 8 of its 32 layers hold a KV cache; the DeltaNet layers keep a fixed ~50 MiB state instead.
+            kvCacheBytesPerToken = 8L * 2 * 4 * 256 * 2,
+            // The card's "Instruct (or non-thinking) mode for general tasks" values, shared with the 9B.
+            generationDefaults = GenerationParams(temperature = 0.7f, topK = 20, topP = 0.8f, penaltyPresent = 1.5f),
+            experimental = true
+        ),
+        LlmModelOption(
+            id = Constants.QWEN35_9B_MODEL_ID,
+            displayName = "Qwen3.5 9B",
+            ggufFileName = Constants.QWEN35_9B_MODEL,
+            sizeBytes = Constants.QWEN35_9B_SIZE,
+            licence = "Apache-2.0",
+            idKeyedBatch = true,
+            promptMode = TranslationPromptMode.TRANSLATION_ONLY,
+            // 8 of its 32 layers hold a KV cache; the DeltaNet layers keep a fixed ~50 MiB state instead.
+            // At 6.2 GiB it is the first entry the fit gate keeps off an 8 GB phone (ADR-0017's ~9B ceiling).
+            kvCacheBytesPerToken = 8L * 2 * 4 * 256 * 2,
+            generationDefaults = GenerationParams(temperature = 0.7f, topK = 20, topP = 0.8f, penaltyPresent = 1.5f),
+            experimental = true
+        ),
+        LlmModelOption(
+            id = Constants.QWEN3_4B_2507_MODEL_ID,
+            displayName = "Qwen3 4B Instruct 2507",
+            ggufFileName = Constants.QWEN3_4B_2507_MODEL,
+            sizeBytes = Constants.QWEN3_4B_2507_SIZE,
+            licence = "Apache-2.0",
+            idKeyedBatch = true,
+            promptMode = TranslationPromptMode.TRANSLATION_ONLY,
+            // Plain GQA over all 36 layers, so every one holds a KV cache — the heaviest of the Qwen line.
+            kvCacheBytesPerToken = 36L * 2 * 8 * 128 * 2,
+            // Card and generation_config.json agree. It is non-thinking only, so no presence penalty is asked for.
+            generationDefaults = GenerationParams(temperature = 0.7f, topK = 20, topP = 0.8f),
             experimental = true
         ),
         // Ministral 3 Instruct 2512, first-party Q4_K_M (research addendum pins, checked 2026-09-18).

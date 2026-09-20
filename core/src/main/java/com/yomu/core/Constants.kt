@@ -12,7 +12,11 @@ object Constants {
     const val CAT_TRANSLATION_MODEL_ID = "cat_translate_0.8b_v1"
     const val CAT_TRANSLATION_14B_MODEL_ID = "cat_translate_1.4b_v1"
     const val QWEN25_15B_MODEL_ID = "qwen25_1.5b_instruct_v1"
+    const val QWEN35_08B_MODEL_ID = "qwen35_0.8b_v1"
     const val QWEN35_2B_MODEL_ID = "qwen35_2b_v1"
+    const val QWEN35_4B_MODEL_ID = "qwen35_4b_v1"
+    const val QWEN35_9B_MODEL_ID = "qwen35_9b_v1"
+    const val QWEN3_4B_2507_MODEL_ID = "qwen3_4b_instruct_2507_v1"
     const val MINISTRAL3_3B_MODEL_ID = "ministral3_3b_v1"
     const val MINISTRAL3_8B_MODEL_ID = "ministral3_8b_v1"
     const val GEMMA4_E2B_MODEL_ID = "gemma4_e2b_v1"
@@ -34,7 +38,11 @@ object Constants {
     // Same-range alternatives to CAT-1.4b.
     const val TRANSLATEGEMMA_4B_MODEL = "translategemma_4b_q4_k_m.gguf"
     const val QWEN25_15B_MODEL = "qwen25_1.5b_instruct_q4_k_m.gguf"
+    const val QWEN35_08B_MODEL = "qwen35_0.8b_q4_k_m.gguf"
     const val QWEN35_2B_MODEL = "qwen35_2b_q4_k_m.gguf"
+    const val QWEN35_4B_MODEL = "qwen35_4b_q4_k_m.gguf"
+    const val QWEN35_9B_MODEL = "qwen35_9b_q4_k_m.gguf"
+    const val QWEN3_4B_2507_MODEL = "qwen3_4b_instruct_2507_q4_k_m.gguf"
     const val MINISTRAL3_3B_MODEL = "ministral3_3b_instruct_2512_q4_k_m.gguf"
     const val MINISTRAL3_8B_MODEL = "ministral3_8b_instruct_2512_q4_k_m.gguf"
     // Google's own QAT quants, so Q4_0 rather than the Q4_K_M tier the other entries use.
@@ -50,7 +58,11 @@ object Constants {
     // Single source of truth: both the ModelManager download registry (fileSize) and the LlmModelCatalog
     // device-fit gate (sizeBytes) read these, so the two can never drift out of sync (#90).
     const val QWEN25_15B_SIZE = 986_048_768L
+    const val QWEN35_08B_SIZE = 532_517_120L
     const val QWEN35_2B_SIZE = 1_280_835_840L
+    const val QWEN35_4B_SIZE = 2_740_937_888L
+    const val QWEN35_9B_SIZE = 5_680_522_464L
+    const val QWEN3_4B_2507_SIZE = 2_497_281_120L
     const val MINISTRAL3_3B_SIZE = 2_147_023_008L
     const val MINISTRAL3_8B_SIZE = 5_198_911_904L
     const val GEMMA4_E2B_SIZE = 3_349_516_256L
