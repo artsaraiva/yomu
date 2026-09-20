@@ -9,7 +9,7 @@ TAG="SpeedBenchmark"
 
 usage() {
   cat <<EOF
-Usage: $0 [--skip-build]
+Usage: $0 [--skip-build] [--only=<substring>]
 
 Report-only speed benchmark (#230). Builds and installs the app, pushes the fixture pages and the
 shipped models, times every LlmModelCatalog entry through the real pipeline, and prints a table of
@@ -26,13 +26,17 @@ Fixtures (gitignored, never committed):
 BatchOverflowFallbackTest reads the default GGUF from $DEVICE_DIR, so run this once before it.
 
   --skip-build   Reuse the installed APKs.
+  --only=<sub>   Fetch and push only the GGUFs whose file name contains <sub>; the run then times
+                 those entries and skips the rest. For one big model on a device short of space.
 EOF
 }
 
 SKIP_BUILD=0
+ONLY=""
 for arg in "$@"; do
   case "$arg" in
     --skip-build) SKIP_BUILD=1 ;;
+    --only=*) ONLY="${arg#--only=}" ;;
     -h|--help) usage; exit 0 ;;
     *) printf 'Unknown flag: %s\n' "$arg" >&2; usage >&2; exit 2 ;;
   esac
@@ -72,6 +76,7 @@ MODELS=(
 # it on a 12 GB+ device; SpeedBenchmarkTest skips any entry whose GGUF is not pushed.
 for entry in "${MODELS[@]}"; do
   rel="${entry%%|*}"; url="${entry#*|}"; file="$FIXTURES/models/$rel"
+  case "$rel" in llm/*) [ -n "$ONLY" ] && [ "${rel#*"$ONLY"}" = "$rel" ] && continue ;; esac
   [ -f "$file" ] && continue
   echo "Fetching $rel..."
   mkdir -p "$(dirname "$file")"
@@ -90,7 +95,11 @@ push() {
 }
 adb shell "rm -rf '$DEVICE_DIR/pages' && mkdir -p '$DEVICE_DIR/pages' '$DEVICE_DIR/models/vision' '$DEVICE_DIR/models/llm'"
 for page in "$FIXTURES"/pages/*.jpg; do push "$page" "$DEVICE_DIR/pages/$(basename "$page")"; done
-for entry in "${MODELS[@]}"; do rel="${entry%%|*}"; push "$FIXTURES/models/$rel" "$DEVICE_DIR/models/$rel"; done
+for entry in "${MODELS[@]}"; do
+  rel="${entry%%|*}"
+  case "$rel" in llm/*) [ -n "$ONLY" ] && [ "${rel#*"$ONLY"}" = "$rel" ] && continue ;; esac
+  push "$FIXTURES/models/$rel" "$DEVICE_DIR/models/$rel"
+done
 adb shell chmod -R 755 "$DEVICE_DIR"
 
 if [ "$SKIP_BUILD" -eq 0 ]; then
