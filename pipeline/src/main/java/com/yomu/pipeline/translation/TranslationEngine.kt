@@ -1,5 +1,6 @@
 package com.yomu.pipeline.translation
 
+import com.yomu.core.ERROR_MODEL_MISSING
 import com.yomu.core.PageTranslation
 import com.yomu.core.TranslatableBubble
 import com.yomu.core.TranslatablePage
@@ -64,6 +65,17 @@ data class TranslationResult(
     val outcome: TranslationOutcome = TranslationOutcome.SUCCESS,
     val errorCode: String? = null
 )
+
+/**
+ * What to tell the reader when the page came back untranslated because the slot could not load,
+ * or null when the model ran. A NOT_LOADED page still renders every bubble's source text, which
+ * reads as a capture that silently did nothing (#308) — the caller shows this instead.
+ */
+fun TranslationResult.readerFailure(): String? = when {
+    outcome != TranslationOutcome.NOT_LOADED -> null
+    errorCode == ERROR_MODEL_MISSING -> "Translation model is missing — download it again in Settings"
+    else -> "Translation model could not be loaded (${errorCode ?: "not_ready"})"
+}
 
 class TranslationEngine(
     private val slotProvider: () -> TranslationSlot,
