@@ -171,7 +171,11 @@ class OnnxRuntime(private val context: Context) {
         return tensorInfo.shape
     }
 
-    fun runBitmapInference(modelName: String, bitmap: Bitmap): List<Detection> {
+    fun runBitmapInference(
+        modelName: String,
+        bitmap: Bitmap,
+        confidenceThreshold: Float
+    ): List<Detection> {
         val session = loadedModels[modelName] ?: return emptyList()
         val env = ortEnv ?: return emptyList()
 
@@ -207,7 +211,7 @@ class OnnxRuntime(private val context: Context) {
                             }
                             emptyList()
                         } else {
-                            val detections = parseYoloDetections(outputArray, YOLO_FIELDS_PER_DETECTION, 0.25f)
+                            val detections = parseYoloDetections(outputArray, YOLO_FIELDS_PER_DETECTION, confidenceThreshold)
                             if (detections.isEmpty()) {
                                 Log.d(TAG, "YOLO inference produced zero detections above threshold")
                             }
