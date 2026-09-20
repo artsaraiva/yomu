@@ -19,6 +19,7 @@ fun TranslationSettings(viewModel: SettingsViewModel, onBack: () -> Unit) {
         state.recoveryWarning?.let { RecoveryWarning(it) }
         AdvancedGenerationPanel(
             generation = state.generation,
+            defaults = state.generationDefaults,
             overridden = state.generationOverridden,
             onChange = viewModel::setGeneration,
             onReset = viewModel::resetGeneration

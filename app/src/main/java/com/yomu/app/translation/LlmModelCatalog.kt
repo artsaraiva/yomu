@@ -39,6 +39,13 @@ data class LlmModelOption(
      * config.json (checked 2026-09-15). Counted against the fit budget so a larger context can gate a model out (#79).
      */
     val kvCacheBytesPerToken: Long,
+    /**
+     * The sampling this model's maker recommends (ADR-0017): the floor the reader's Advanced
+     * settings overlay field by field in [GenerationProfileStore], so a reader who changed nothing
+     * gets the maker's values and one who moved a slider keeps it across models. The three entries
+     * curated before ADR-0017 carry the shipped values, so nothing changes for a reader on them.
+     */
+    val generationDefaults: GenerationParams,
     /** Added on desk research and not yet run on the reference phone; the picker tags it (ADR-0017). */
     val experimental: Boolean = false
 )
@@ -72,7 +79,8 @@ object LlmModelCatalog {
         licence = "Apache-2.0",
         idKeyedBatch = true,
         promptMode = TranslationPromptMode.TRANSLATION_ONLY,
-        kvCacheBytesPerToken = 28L * 2 * 2 * 128 * 2
+        kvCacheBytesPerToken = 28L * 2 * 2 * 128 * 2,
+        generationDefaults = GenerationParams()
     )
 
     /**
@@ -96,7 +104,8 @@ object LlmModelCatalog {
             licence = "MIT",
             idKeyedBatch = false,
             promptMode = TranslationPromptMode.MODEL_CARD,
-            kvCacheBytesPerToken = 24L * 2 * 8 * 80 * 2
+            kvCacheBytesPerToken = 24L * 2 * 8 * 80 * 2,
+            generationDefaults = GenerationParams()
         ),
         LlmModelOption(
             id = Constants.CAT_TRANSLATION_14B_MODEL_ID,
@@ -106,7 +115,8 @@ object LlmModelCatalog {
             licence = "MIT",
             idKeyedBatch = true,
             promptMode = TranslationPromptMode.MODEL_CARD,
-            kvCacheBytesPerToken = 24L * 2 * 8 * 112 * 2
+            kvCacheBytesPerToken = 24L * 2 * 8 * 112 * 2,
+            generationDefaults = GenerationParams()
         ),
         LlmModelOption(
             id = Constants.QWEN35_2B_MODEL_ID,
@@ -118,6 +128,11 @@ object LlmModelCatalog {
             promptMode = TranslationPromptMode.TRANSLATION_ONLY,
             // Only its 6 full-attention layers hold a KV cache; the 18 DeltaNet layers keep a fixed ~19 MiB state instead.
             kvCacheBytesPerToken = 6L * 2 * 2 * 256 * 2,
+            // The card's "Non-thinking mode for text tasks" values, from the research document's
+            // sampling table: temperature 1.0, top-p 1.00, top-k 20, presence 2.0, repetition 1.0.
+            // The first entry whose sampling differs from the shipped floor, which is what ADR-0017
+            // reversed #139 for.
+            generationDefaults = GenerationParams(temperature = 1.0f, topK = 20, topP = 1.0f, penaltyPresent = 2.0f),
             experimental = true
         )
     )
@@ -132,8 +147,9 @@ object LlmModelCatalog {
             modelPath = File(modelsDir, option.ggufFileName).absolutePath,
             idKeyedBatch = option.idKeyedBatch,
             promptMode = option.promptMode,
-            // The reader's global profile, identical for every option (#192). A per-model override
-            // is added when a measurement forces two models apart, not before (#139).
+            // The option's maker sampling with the reader's global Advanced settings over it
+            // (ADR-0017, reversing #139's "no per-model values before a measurement"); resolved by
+            // the caller, which is the layer that owns the store.
             generation = generation,
             runtime = runtime
         )

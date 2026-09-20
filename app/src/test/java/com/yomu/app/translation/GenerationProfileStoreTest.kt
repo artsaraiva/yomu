@@ -13,13 +13,16 @@ class GenerationProfileStoreTest {
     private val prefs = MapSharedPreferences()
     private val store = GenerationProfileStore(prefs)
 
+    /** A maker profile that differs from the shipped defaults in every reader-facing field (ADR-0017). */
+    private val maker = GenerationParams(temperature = 0.7f, topK = 20, topP = 0.8f, penaltyPresent = 1.5f)
+
     @Test
     fun `a saved in-range profile loads back identically`() {
         assertTrue(store.save(GenerationBound.TEMPERATURE, 0.7f))
         assertTrue(store.save(GenerationBound.TOP_K, 12f))
         assertTrue(store.save(GenerationBound.TOP_P, 0.5f))
 
-        val loaded = GenerationProfileStore(prefs).load()
+        val loaded = GenerationProfileStore(prefs).load(GenerationParams())
 
         assertEquals(GenerationParams(temperature = 0.7f, topK = 12, topP = 0.5f), loaded.params)
         assertTrue(loaded.recovered.isEmpty())
@@ -41,7 +44,7 @@ class GenerationProfileStoreTest {
 
     @Test
     fun `a missing value loads as the default without a recovery report`() {
-        val loaded = store.load()
+        val loaded = store.load(GenerationParams())
 
         assertEquals(GenerationParams(), loaded.params)
         assertTrue(loaded.recovered.isEmpty())
@@ -51,7 +54,7 @@ class GenerationProfileStoreTest {
     fun `a stored out-of-range value loads as the default and is reported`() {
         prefs.values[GenerationProfileStore.key(GenerationBound.TOP_K)] = 500f
 
-        val loaded = store.load()
+        val loaded = store.load(GenerationParams())
 
         assertEquals(GenerationParams(), loaded.params)
         assertEquals(listOf(GenerationBound.TOP_K), loaded.recovered)
@@ -62,7 +65,7 @@ class GenerationProfileStoreTest {
         prefs.values[GenerationProfileStore.key(GenerationBound.TEMPERATURE)] = Float.NaN
         prefs.values[GenerationProfileStore.key(GenerationBound.TOP_P)] = "corrupt"
 
-        val loaded = store.load()
+        val loaded = store.load(GenerationParams())
 
         assertEquals(GenerationParams(), loaded.params)
         assertEquals(listOf(GenerationBound.TEMPERATURE, GenerationBound.TOP_P), loaded.recovered)
@@ -73,10 +76,55 @@ class GenerationProfileStoreTest {
         store.save(GenerationBound.TOP_P, 0.5f)
         prefs.values[GenerationProfileStore.key(GenerationBound.TEMPERATURE)] = -1f
 
-        val loaded = store.load()
+        val loaded = store.load(GenerationParams())
 
         assertEquals(GenerationParams(topP = 0.5f), loaded.params)
         assertEquals(listOf(GenerationBound.TEMPERATURE), loaded.recovered)
+    }
+
+    @Test
+    fun `with nothing saved the profile is the deliverable's maker defaults`() {
+        val loaded = store.load(maker)
+
+        assertEquals(maker, loaded.params)
+        assertTrue(loaded.recovered.isEmpty())
+    }
+
+    @Test
+    fun `a saved field overrides the maker default on every deliverable`() {
+        assertTrue(store.save(GenerationBound.TEMPERATURE, 0.4f))
+
+        assertEquals(GenerationParams(temperature = 0.4f), store.load(GenerationParams()).params)
+        assertEquals(maker.copy(temperature = 0.4f), store.load(maker).params)
+    }
+
+    @Test
+    fun `a recovered field falls back to the maker default, not the shipped one`() {
+        prefs.values[GenerationProfileStore.key(GenerationBound.TOP_K)] = 500f
+
+        val loaded = store.load(maker)
+
+        assertEquals(maker, loaded.params)
+        assertEquals(listOf(GenerationBound.TOP_K), loaded.recovered)
+    }
+
+    @Test
+    fun `reset returns to the maker defaults`() {
+        store.save(GenerationBound.TEMPERATURE, 0.4f)
+        store.save(GenerationBound.TOP_P, 0.5f)
+
+        store.reset()
+
+        assertEquals(maker, store.load(maker).params)
+    }
+
+    @Test
+    fun `a maker's presence penalty survives a load the reader has written to`() {
+        // It is not reader-facing, so no saved field may drop it. GenerationParamsTest covers its
+        // place in the sampler array.
+        store.save(GenerationBound.TOP_K, 12f)
+
+        assertEquals(1.5f, store.load(GenerationParams(penaltyPresent = 1.5f)).params.penaltyPresent, 0f)
     }
 
     @Test
@@ -87,7 +135,7 @@ class GenerationProfileStoreTest {
 
         store.reset()
 
-        assertEquals(GenerationProfileStore.Loaded(GenerationParams(), emptyList()), store.load())
+        assertEquals(GenerationProfileStore.Loaded(GenerationParams(), emptyList()), store.load(GenerationParams()))
     }
 }
 

@@ -71,7 +71,7 @@ object PipelineModule {
         sharedPreferences: SharedPreferences
     ): LlamaTranslationBridge {
         val selected = LlmModelCatalog.selectedOrDefault(sharedPreferences.storedLlmModelId())
-        val generation = GenerationProfileStore(sharedPreferences).load().params
+        val generation = GenerationProfileStore(sharedPreferences).load(selected.generationDefaults).params
         val runtime = ResourceLimitsStore(sharedPreferences).runtime()
         return LlamaTranslationBridge(llamaBridge, LlmModelCatalog.profileFor(selected, llmModelsDir(context), generation, runtime))
     }

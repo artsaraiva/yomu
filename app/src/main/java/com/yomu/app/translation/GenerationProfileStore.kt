@@ -9,17 +9,19 @@ import com.yomu.core.GenerationParams
  * Save refuses anything the bounds reject, so nothing invalid reaches storage. Load recovers a
  * stored value that is non-finite, out of range or wrongly typed to the default and names it in
  * [Loaded.recovered], so the caller raises one warning. An absent value is simply the default: a
- * fresh install has nothing to warn about.
+ * fresh install has nothing to warn about. "The default" is whatever [load] is given — the selected
+ * deliverable's maker sampling ([LlmModelOption.generationDefaults], ADR-0017).
  */
 class GenerationProfileStore(private val prefs: SharedPreferences) {
 
     data class Loaded(val params: GenerationParams, val recovered: List<GenerationBound>)
 
-    fun load(): Loaded {
+    /** The reader's saved fields laid over [defaults]. Required, so no caller can silently ship the floor. */
+    fun load(defaults: GenerationParams): Loaded {
         val recovered = mutableListOf<GenerationBound>()
-        val params = GenerationBound.entries.fold(GenerationParams()) { params, bound ->
+        val params = GenerationBound.entries.fold(defaults) { params, bound ->
             if (!prefs.contains(key(bound))) return@fold params
-            val stored = runCatching { prefs.getFloat(key(bound), bound.default) }.getOrNull()
+            val stored = runCatching { prefs.getFloat(key(bound), bound.read(params)) }.getOrNull()
             if (stored != null && bound.accepts(stored)) {
                 bound.write(params, stored)
             } else {

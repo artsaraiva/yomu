@@ -27,8 +27,8 @@ data class TranslatablePage(val panels: List<List<TranslatableBubble>>)
  * is a measurement, not a refactor: #137 owns the control row every candidate value is scored
  * against.
  *
- * There is deliberately no per-model override. Two models get different parameters only when a
- * measurement forces them apart.
+ * The defaults below are the shipped floor; a deliverable may carry its maker's own values instead
+ * (`LlmModelOption.generationDefaults`, ADR-0017, which reverses #139's "no per-model values").
  */
 data class GenerationParams(
     /** Was `LlamaTranslationBridge.TEMPERATURE`. Low: translation wants the likely token. */
@@ -53,7 +53,7 @@ data class GenerationParams(
     val penaltyLastN: Int = 64,
     /** No proposed job. Present so a run can try it without another JNI change. */
     val penaltyFreq: Float = 0.0f,
-    /** No proposed job. Present so a run can try it without another JNI change. */
+    /** 0.0 disables it. Off for the entries curated before ADR-0017; some makers (Qwen3.5) ask for it. */
     val penaltyPresent: Float = 0.0f,
     /** Was `LlamaTranslationBridge.MAX_TOKENS`. Not a sampler knob; read by the decode loop. */
     val maxTokens: Int = 256,

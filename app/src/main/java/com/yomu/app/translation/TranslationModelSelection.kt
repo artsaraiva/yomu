@@ -3,6 +3,7 @@ package com.yomu.app.translation
 import android.content.SharedPreferences
 import com.yomu.core.Constants
 import com.yomu.core.GenerationBound
+import com.yomu.core.GenerationParams
 import com.yomu.core.TranslationSlot
 import com.yomu.ml.LlamaTranslationBridge
 import java.io.File
@@ -38,7 +39,7 @@ class TranslationModelSelection @Inject constructor(
     /** Drop the stored values that loaded as defaults, so their warning is shown once, not every visit. */
     fun clearRecovered() {
         if (storedLlmModelRecovered()) sharedPreferences.edit().remove(Constants.PREF_LLM_MODEL).apply()
-        generationStore.forget(generationStore.load().recovered)
+        generationStore.forget(generationProfile().recovered)
     }
 
     suspend fun selectLlmModel(option: LlmModelOption) {
@@ -46,7 +47,11 @@ class TranslationModelSelection @Inject constructor(
         applyLlmProfile(option)
     }
 
-    fun generationProfile(): GenerationProfileStore.Loaded = generationStore.load()
+    /** The effective profile: the selected deliverable's maker sampling under the reader's saved fields. */
+    fun generationProfile(): GenerationProfileStore.Loaded = generationStore.load(currentLlmModel().generationDefaults)
+
+    /** What "Reset to defaults" returns to — the selected deliverable's maker sampling (ADR-0017). */
+    fun generationDefaults(): GenerationParams = currentLlmModel().generationDefaults
 
     /**
      * Persist one reader-facing sampler value and hand the new profile to the slot, so the next
@@ -81,7 +86,9 @@ class TranslationModelSelection @Inject constructor(
 
     private suspend fun applyLlmProfile(option: LlmModelOption) {
         llamaSlot.selectModel(
-            LlmModelCatalog.profileFor(option, llmModelsDir, generationStore.load().params, limitsStore.runtime())
+            LlmModelCatalog.profileFor(
+                option, llmModelsDir, generationStore.load(option.generationDefaults).params, limitsStore.runtime()
+            )
         )
     }
 

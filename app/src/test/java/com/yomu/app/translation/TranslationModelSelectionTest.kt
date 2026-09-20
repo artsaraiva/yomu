@@ -77,6 +77,22 @@ class TranslationModelSelectionTest {
     }
 
     @Test
+    fun `switching deliverables re-resolves maker defaults under the reader's saved fields`() = runTest {
+        val llama = Mockito.mock(LlamaTranslationBridge::class.java)
+        val selection = selection(llama = llama)
+        val maker = GenerationParams(temperature = 0.7f, topK = 20, topP = 0.8f, penaltyPresent = 1.5f)
+        val option = LlmModelCatalog.DEFAULT.copy(id = "maker-tuned", generationDefaults = maker)
+        selection.saveGeneration(GenerationBound.TOP_K, 12f)
+        Mockito.clearInvocations(llama)
+
+        selection.selectLlmModel(option)
+        selection.selectLlmModel(LlmModelCatalog.DEFAULT)
+
+        val applied = Mockito.mockingDetails(llama).invocations.map { (it.arguments[0] as ModelProfile).generation }
+        assertEquals(listOf(maker.copy(topK = 12), GenerationParams(topK = 12)), applied)
+    }
+
+    @Test
     fun `saveGeneration applies an accepted value to the slot and refuses a bad one`() = runTest {
         val llama = Mockito.mock(LlamaTranslationBridge::class.java)
         val selection = selection(llama = llama)
