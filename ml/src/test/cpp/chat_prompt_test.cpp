@@ -53,7 +53,8 @@ int main() {
     assert(cat_prompt(user) == "<|user|>" + user + "</s><|assistant|>");
 
     // Qwen3.5 thinks unless told not to; its template closes an empty think block when enable_thinking is false.
-    const std::string qwen35 = jinja_prompt(read_template("qwen3.5-0.8b.jinja"), "", "<|im_end|>", user);
+    // The 0.8B and the shipped 2B (unsloth pin f6d5376) carry the same template, byte for byte.
+    const std::string qwen35 = jinja_prompt(read_template("qwen3.5.jinja"), "", "<|im_end|>", user);
     const std::string thinking_off = "<|im_start|>assistant\n<think>\n\n</think>\n\n";
     assert(qwen35.size() > thinking_off.size());
     assert(qwen35.compare(qwen35.size() - thinking_off.size(), thinking_off.size(), thinking_off) == 0);

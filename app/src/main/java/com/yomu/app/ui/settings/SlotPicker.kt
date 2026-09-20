@@ -116,7 +116,7 @@ private fun DeliverableRow(
             Column(Modifier.weight(1f)) {
                 Text(deliverable.name, style = MaterialTheme.typography.titleSmall, color = if (fits) LocalContentColor.current else muted)
                 Text(
-                    "${deliverable.sizeBytes.toFileSizeString()} · ${deliverable.licence} · ${if (fits) "Fits this device" else "Needs more memory"}",
+                    "${deliverable.sizeBytes.toFileSizeString()} · ${deliverable.licence}${if (deliverable.experimental) " · Experimental" else ""} · ${if (fits) "Fits this device" else "Needs more memory"}",
                     style = MaterialTheme.typography.bodySmall,
                     color = muted
                 )
