@@ -65,6 +65,28 @@ class OnnxRuntimeTest {
     }
 
     @Test
+    fun parseYoloDetections_keepsCandidatesBelowTheDefaultThreshold() {
+        val output = floatArrayOf(
+            0f, 0f, 10f, 10f, 0.18f, 0f
+        )
+
+        val lowered = parseYoloDetections(
+            output = output,
+            fieldsPerDetection = 6,
+            confidenceThreshold = 0.10f
+        )
+        val atDefault = parseYoloDetections(
+            output = output,
+            fieldsPerDetection = 6,
+            confidenceThreshold = 0.25f
+        )
+
+        assertEquals(1, lowered.size)
+        assertEquals(0.18f, lowered[0].confidence, 1e-6f)
+        assertTrue(atDefault.isEmpty())
+    }
+
+    @Test
     fun parseYoloDetections_returnsEmptyForInvalidFieldLayout() {
         val invalidFields = parseYoloDetections(
             output = floatArrayOf(1f, 2f, 3f, 4f, 0.5f, 0f),

@@ -49,7 +49,7 @@ class BubbleDetector(private val onnxRuntime: OnnxRuntime) {
         val origWidth = bitmap.width
         val origHeight = bitmap.height
 
-        val rawDetections = onnxRuntime.runBitmapInference(path, bitmap)
+        val rawDetections = onnxRuntime.runBitmapInference(path, bitmap, confidenceThreshold)
         val detections = keptDetections(rawDetections, confidenceThreshold)
         Log.d(
             TAG,
