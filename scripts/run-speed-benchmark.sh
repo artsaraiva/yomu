@@ -9,7 +9,7 @@ TAG="SpeedBenchmark"
 
 usage() {
   cat <<EOF
-Usage: $0 [--skip-build]
+Usage: $0 [--skip-build] [--only=<substring>]
 
 Report-only speed benchmark (#230). Builds and installs the app, pushes the fixture pages and the
 shipped models, times every LlmModelCatalog entry through the real pipeline, and prints a table of
@@ -26,13 +26,17 @@ Fixtures (gitignored, never committed):
 BatchOverflowFallbackTest reads the default GGUF from $DEVICE_DIR, so run this once before it.
 
   --skip-build   Reuse the installed APKs.
+  --only=<sub>   Fetch and push only the GGUFs whose file name contains <sub>; the run then times
+                 those entries and skips the rest. For one big model on a device short of space.
 EOF
 }
 
 SKIP_BUILD=0
+ONLY=""
 for arg in "$@"; do
   case "$arg" in
     --skip-build) SKIP_BUILD=1 ;;
+    --only=*) ONLY="${arg#--only=}" ;;
     -h|--help) usage; exit 0 ;;
     *) printf 'Unknown flag: %s\n' "$arg" >&2; usage >&2; exit 2 ;;
   esac
@@ -67,9 +71,14 @@ MODELS=(
   "llm/cat_translate_1.4b_q4_k_m.gguf|https://huggingface.co/mradermacher/CAT-Translate-1.4b-GGUF/resolve/2eb35647e57b5981c14611e67b9ad205329b498d/CAT-Translate-1.4b.Q4_K_M.gguf"
   "llm/qwen35_2b_q4_k_m.gguf|https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/f6d5376be1edb4d416d56da11e5397a961aca8ae/Qwen3.5-2B-Q4_K_M.gguf"
   "llm/ministral3_3b_instruct_2512_q4_k_m.gguf|https://huggingface.co/mistralai/Ministral-3-3B-Instruct-2512-GGUF/resolve/eb599d408350ea2bb60452cb86be7c7b2fc28227/Ministral-3-3B-Instruct-2512-Q4_K_M.gguf"
+  "llm/gemma4_e2b_it_q4_0.gguf|https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-gguf/resolve/675cff42a74c774d6cb76f76d8eacb49b48c9b93/gemma-4-E2B_q4_0-it.gguf"
 )
+# The 12 GiB-tier entries (Gemma 4 E4B, Ministral 3 8B) are left out on purpose: gigabytes the 8 GiB
+# fit gate hides anyway. Add a row here to time one on a 12 GiB+ device; SpeedBenchmarkTest skips any
+# entry whose GGUF is not pushed.
 for entry in "${MODELS[@]}"; do
   rel="${entry%%|*}"; url="${entry#*|}"; file="$FIXTURES/models/$rel"
+  case "$rel" in llm/*) [ -n "$ONLY" ] && [ "${rel#*"$ONLY"}" = "$rel" ] && continue ;; esac
   [ -f "$file" ] && continue
   echo "Fetching $rel..."
   mkdir -p "$(dirname "$file")"
@@ -88,7 +97,11 @@ push() {
 }
 adb shell "rm -rf '$DEVICE_DIR/pages' && mkdir -p '$DEVICE_DIR/pages' '$DEVICE_DIR/models/vision' '$DEVICE_DIR/models/llm'"
 for page in "$FIXTURES"/pages/*.jpg; do push "$page" "$DEVICE_DIR/pages/$(basename "$page")"; done
-for entry in "${MODELS[@]}"; do rel="${entry%%|*}"; push "$FIXTURES/models/$rel" "$DEVICE_DIR/models/$rel"; done
+for entry in "${MODELS[@]}"; do
+  rel="${entry%%|*}"
+  case "$rel" in llm/*) [ -n "$ONLY" ] && [ "${rel#*"$ONLY"}" = "$rel" ] && continue ;; esac
+  push "$FIXTURES/models/$rel" "$DEVICE_DIR/models/$rel"
+done
 adb shell chmod -R 755 "$DEVICE_DIR"
 
 if [ "$SKIP_BUILD" -eq 0 ]; then
