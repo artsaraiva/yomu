@@ -167,6 +167,9 @@ data class RuntimeLimits(
  */
 enum class TranslationOutcome { SUCCESS, BLANK, TIMEOUT, OVERFLOW, ERROR, NOT_LOADED }
 
+/** The slot could not be made ready because its weights are not on disk (#308). */
+const val ERROR_MODEL_MISSING = "model_missing"
+
 data class PageTranslation(
     val byId: Map<Int, String>,
     val rawResponse: String,

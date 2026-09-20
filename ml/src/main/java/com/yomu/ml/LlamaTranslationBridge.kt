@@ -1,6 +1,7 @@
 package com.yomu.ml
 
 import android.util.Log
+import com.yomu.core.ERROR_MODEL_MISSING
 import com.yomu.core.ModelProfile
 import com.yomu.core.PageTranslation
 import com.yomu.core.TranslatableBubble
@@ -87,7 +88,7 @@ class LlamaTranslationBridge(
             return@withLock true
         }
         if (!File(profile.modelPath).exists()) {
-            status = TranslationStatus.Error("model_missing")
+            status = TranslationStatus.Error(ERROR_MODEL_MISSING)
             return@withLock false
         }
         val runtime = profile.runtime
