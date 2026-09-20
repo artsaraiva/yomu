@@ -179,6 +179,11 @@ class ModelManager @Inject constructor(
             if (existing == null) {
                 modelDao.insertModel(model)
             } else {
+                // A READY row whose files left without going through deleteModel — benchmark
+                // staging, storage pressure, a restore that missed filesDir — otherwise keeps
+                // being selected and translates nothing in silence (#308).
+                val lostItsFiles = existing.status == ModelStatus.READY &&
+                    modelFiles(model).any { !it.exists() }
                 modelDao.insertModel(
                     existing.copy(
                         name = model.name,
@@ -188,7 +193,9 @@ class ModelManager @Inject constructor(
                         downloadUrl = model.downloadUrl,
                         checksum = model.checksum,
                         version = model.version,
-                        isRequired = model.isRequired
+                        isRequired = model.isRequired,
+                        status = if (lostItsFiles) ModelStatus.AVAILABLE else existing.status,
+                        downloadProgress = if (lostItsFiles) 0 else existing.downloadProgress
                     )
                 )
             }

@@ -57,6 +57,37 @@ class ModelManagerRefreshTest {
     }
 
     @Test
+    fun `refresh returns a READY row whose file is gone to AVAILABLE`() = runTest {
+        val filesDir = tmp.newFolder()
+        val context = mock(Context::class.java)
+        `when`(context.filesDir).thenReturn(filesDir)
+        val dao = FakeModelDao()
+        val llm = ModelManager.REGISTRY.first { it.type == ModelType.LLM }
+        dao.insertModel(llm.copy(status = ModelStatus.READY, downloadProgress = 100))
+
+        ModelManager(context, dao, OkHttpClient()).refreshModelList()
+
+        assertEquals(ModelStatus.AVAILABLE, dao.rows.value.getValue(llm.id).status)
+        assertEquals(0, dao.rows.value.getValue(llm.id).downloadProgress)
+    }
+
+    @Test
+    fun `refresh leaves a READY row whose file is on disk alone`() = runTest {
+        val filesDir = tmp.newFolder()
+        val context = mock(Context::class.java)
+        `when`(context.filesDir).thenReturn(filesDir)
+        val dao = FakeModelDao()
+        val llm = ModelManager.REGISTRY.first { it.type == ModelType.LLM }
+        dao.insertModel(llm.copy(status = ModelStatus.READY, downloadProgress = 100))
+        File(filesDir, "${Constants.MODELS_DIR}/${Constants.LLM_MODELS_DIR}").apply { mkdirs() }
+            .resolve(llm.fileName).writeText("weights")
+
+        ModelManager(context, dao, OkHttpClient()).refreshModelList()
+
+        assertEquals(ModelStatus.READY, dao.rows.value.getValue(llm.id).status)
+    }
+
+    @Test
     fun `model files list the main file then its additional files in the vision directory`() {
         val filesDir = tmp.newFolder()
         val context = mock(Context::class.java)
