@@ -104,6 +104,26 @@ class ModelRegistryTest {
     }
 
     @Test
+    fun `Gemma 4 downloads Google's own QAT Q4_0 GGUFs`() {
+        val e2b = registry.single { it.id == Constants.GEMMA4_E2B_MODEL_ID }
+        val e4b = registry.single { it.id == Constants.GEMMA4_E4B_MODEL_ID }
+
+        assertEquals(
+            "https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-gguf/resolve/675cff42a74c774d6cb76f76d8eacb49b48c9b93/gemma-4-E2B_q4_0-it.gguf",
+            e2b.downloadUrl
+        )
+        assertEquals("fa401b55b07ee70a54c6dae3903c783a6e65064312529ea57175cb5f8dec6634", e2b.checksum)
+        assertEquals(3_349_516_256L, e2b.fileSize)
+
+        assertEquals(
+            "https://huggingface.co/google/gemma-4-E4B-it-qat-q4_0-gguf/resolve/4b4a2c1d584be7264f87aac328a1bc739ce81b6c/gemma-4-E4B_q4_0-it.gguf",
+            e4b.downloadUrl
+        )
+        assertEquals("676c35070db6dbe52f93e9c864ee0fba4eddea94b9c875d9cb10daff453fbaee", e4b.checksum)
+        assertEquals(5_154_941_280L, e4b.fileSize)
+    }
+
+    @Test
     fun `every slot has exactly one curated default of its own type`() {
         assertEquals(ModelType.entries.toSet(), ModelManager.SLOT_DEFAULTS.keys)
         ModelManager.SLOT_DEFAULTS.forEach { (type, id) ->

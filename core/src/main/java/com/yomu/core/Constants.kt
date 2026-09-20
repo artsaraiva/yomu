@@ -19,6 +19,8 @@ object Constants {
     const val QWEN3_4B_2507_MODEL_ID = "qwen3_4b_instruct_2507_v1"
     const val MINISTRAL3_3B_MODEL_ID = "ministral3_3b_v1"
     const val MINISTRAL3_8B_MODEL_ID = "ministral3_8b_v1"
+    const val GEMMA4_E2B_MODEL_ID = "gemma4_e2b_v1"
+    const val GEMMA4_E4B_MODEL_ID = "gemma4_e4b_v1"
 
     const val BUBBLE_DETECTION_MODEL = "bubble_detection.onnx"
     const val OCR_ENCODER_MODEL = "manga_ocr_encoder.onnx"
@@ -43,6 +45,9 @@ object Constants {
     const val QWEN3_4B_2507_MODEL = "qwen3_4b_instruct_2507_q4_k_m.gguf"
     const val MINISTRAL3_3B_MODEL = "ministral3_3b_instruct_2512_q4_k_m.gguf"
     const val MINISTRAL3_8B_MODEL = "ministral3_8b_instruct_2512_q4_k_m.gguf"
+    // Google's own QAT quants, so Q4_0 rather than the Q4_K_M tier the other entries use.
+    const val GEMMA4_E2B_MODEL = "gemma4_e2b_it_q4_0.gguf"
+    const val GEMMA4_E4B_MODEL = "gemma4_e4b_it_q4_0.gguf"
     const val GEMMA2_2B_MODEL = "gemma2_2b_it_q4_k_m.gguf"
     const val QWEN3_MODEL = "qwen3_4b_q4_k_m.gguf"
     // Q3_K_M, not Q4: the 7B Q4 (4.6GB) OOM-kills on load on an 8GB device (#84 bake-off). Q3_K_M
@@ -60,6 +65,8 @@ object Constants {
     const val QWEN3_4B_2507_SIZE = 2_497_281_120L
     const val MINISTRAL3_3B_SIZE = 2_147_023_008L
     const val MINISTRAL3_8B_SIZE = 5_198_911_904L
+    const val GEMMA4_E2B_SIZE = 3_349_516_256L
+    const val GEMMA4_E4B_SIZE = 5_154_941_280L
     const val TRANSLATION_MODEL_4BIT_SIZE = 528_205_184L
     const val CAT_TRANSLATION_14B_SIZE = 931_179_904L
     const val GEMMA2_2B_SIZE = 1_708_582_752L

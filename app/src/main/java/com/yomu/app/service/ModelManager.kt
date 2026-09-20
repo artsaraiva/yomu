@@ -207,6 +207,31 @@ class ModelManager @Inject constructor(
                 status = ModelStatus.AVAILABLE,
                 version = "1.0",
                 isRequired = false
+            ),
+            // Google publishes its own QAT GGUFs for Gemma 4, so both pins are first-party.
+            ModelEntity(
+                id = Constants.GEMMA4_E2B_MODEL_ID,
+                name = "Gemma 4 E2B (QAT Q4_0)",
+                type = ModelType.LLM,
+                fileName = Constants.GEMMA4_E2B_MODEL,
+                fileSize = Constants.GEMMA4_E2B_SIZE,
+                downloadUrl = "https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-gguf/resolve/675cff42a74c774d6cb76f76d8eacb49b48c9b93/gemma-4-E2B_q4_0-it.gguf",
+                checksum = "fa401b55b07ee70a54c6dae3903c783a6e65064312529ea57175cb5f8dec6634",
+                status = ModelStatus.AVAILABLE,
+                version = "1.0",
+                isRequired = false
+            ),
+            ModelEntity(
+                id = Constants.GEMMA4_E4B_MODEL_ID,
+                name = "Gemma 4 E4B (QAT Q4_0)",
+                type = ModelType.LLM,
+                fileName = Constants.GEMMA4_E4B_MODEL,
+                fileSize = Constants.GEMMA4_E4B_SIZE,
+                downloadUrl = "https://huggingface.co/google/gemma-4-E4B-it-qat-q4_0-gguf/resolve/4b4a2c1d584be7264f87aac328a1bc739ce81b6c/gemma-4-E4B_q4_0-it.gguf",
+                checksum = "676c35070db6dbe52f93e9c864ee0fba4eddea94b9c875d9cb10daff453fbaee",
+                status = ModelStatus.AVAILABLE,
+                version = "1.0",
+                isRequired = false
             )
         )
 

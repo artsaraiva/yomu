@@ -9,7 +9,7 @@ TAG="SpeedBenchmark"
 
 usage() {
   cat <<EOF
-Usage: $0 [--skip-build]
+Usage: $0 [--skip-build] [--only=<substring>]
 
 Report-only speed benchmark (#230). Builds and installs the app, pushes the fixture pages and the
 shipped models, times every LlmModelCatalog entry through the real pipeline, and prints a table of
@@ -26,13 +26,17 @@ Fixtures (gitignored, never committed):
 BatchOverflowFallbackTest reads the default GGUF from $DEVICE_DIR, so run this once before it.
 
   --skip-build   Reuse the installed APKs.
+  --only=<sub>   Fetch and push only the GGUFs whose file name contains <sub>; the run then times
+                 those entries and skips the rest. For one big model on a device short of space.
 EOF
 }
 
 SKIP_BUILD=0
+ONLY=""
 for arg in "$@"; do
   case "$arg" in
     --skip-build) SKIP_BUILD=1 ;;
+    --only=*) ONLY="${arg#--only=}" ;;
     -h|--help) usage; exit 0 ;;
     *) printf 'Unknown flag: %s\n' "$arg" >&2; usage >&2; exit 2 ;;
   esac
@@ -70,12 +74,14 @@ MODELS=(
   "llm/qwen35_4b_q4_k_m.gguf|https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/e87f176479d0855a907a41277aca2f8ee7a09523/Qwen3.5-4B-Q4_K_M.gguf"
   "llm/qwen3_4b_instruct_2507_q4_k_m.gguf|https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF/resolve/a06e946bb6b655725eafa393f4a9745d460374c9/Qwen3-4B-Instruct-2507-Q4_K_M.gguf"
   "llm/ministral3_3b_instruct_2512_q4_k_m.gguf|https://huggingface.co/mistralai/Ministral-3-3B-Instruct-2512-GGUF/resolve/eb599d408350ea2bb60452cb86be7c7b2fc28227/Ministral-3-3B-Instruct-2512-Q4_K_M.gguf"
-  # The 12 GB tier is deliberately absent: Qwen3.5 9B and Ministral 3 8B need such a phone
-  # (ADR-0017), and SpeedBenchmarkTest skips a catalog entry whose GGUF was not pushed. Add their
-  # lines by hand to time them on one.
+  "llm/gemma4_e2b_it_q4_0.gguf|https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-gguf/resolve/675cff42a74c774d6cb76f76d8eacb49b48c9b93/gemma-4-E2B_q4_0-it.gguf"
 )
+# The 12 GiB-tier entries (Gemma 4 E4B, Ministral 3 8B, Qwen3.5 9B) are left out on purpose: gigabytes the 8 GiB
+# fit gate hides anyway. Add a row here to time one on a 12 GiB+ device; SpeedBenchmarkTest skips any
+# entry whose GGUF is not pushed.
 for entry in "${MODELS[@]}"; do
   rel="${entry%%|*}"; url="${entry#*|}"; file="$FIXTURES/models/$rel"
+  case "$rel" in llm/*) [ -n "$ONLY" ] && [ "${rel#*"$ONLY"}" = "$rel" ] && continue ;; esac
   [ -f "$file" ] && continue
   echo "Fetching $rel..."
   mkdir -p "$(dirname "$file")"
@@ -94,7 +100,11 @@ push() {
 }
 adb shell "rm -rf '$DEVICE_DIR/pages' && mkdir -p '$DEVICE_DIR/pages' '$DEVICE_DIR/models/vision' '$DEVICE_DIR/models/llm'"
 for page in "$FIXTURES"/pages/*.jpg; do push "$page" "$DEVICE_DIR/pages/$(basename "$page")"; done
-for entry in "${MODELS[@]}"; do rel="${entry%%|*}"; push "$FIXTURES/models/$rel" "$DEVICE_DIR/models/$rel"; done
+for entry in "${MODELS[@]}"; do
+  rel="${entry%%|*}"
+  case "$rel" in llm/*) [ -n "$ONLY" ] && [ "${rel#*"$ONLY"}" = "$rel" ] && continue ;; esac
+  push "$FIXTURES/models/$rel" "$DEVICE_DIR/models/$rel"
+done
 adb shell chmod -R 755 "$DEVICE_DIR"
 
 if [ "$SKIP_BUILD" -eq 0 ]; then
