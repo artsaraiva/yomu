@@ -55,6 +55,12 @@ class SpeedBenchmarkTest {
         var rows = 0
         try {
             for (option in LlmModelCatalog.ALL) {
+                // A deliverable above this device's tier (the 9B, ADR-0017) is not among the GGUFs the
+                // script pushes, so time what is here rather than failing the whole run.
+                if (!File(FIXTURE_DIR, "models/${Constants.LLM_MODELS_DIR}/${option.ggufFileName}").isFile) {
+                    Log.i(TAG, "SKIP model=${option.id} reason=not-pushed")
+                    continue
+                }
                 // One GGUF in filesDir at a time: staging all of them next to their /data/local/tmp
                 // copies can ENOSPC a small emulator partition.
                 val llmDir = stage(Constants.LLM_MODELS_DIR, listOf(option.ggufFileName))

@@ -7,7 +7,8 @@
 #include "llama.h"
 
 // Built by ml/src/test/cpp/CMakeLists.txt, which points TEMPLATE_DIR at the fixtures: each is the
-// chat_template a pinned catalog GGUF carries (read from the HF GGUF metadata, 2026-09-18).
+// chat_template a pinned catalog GGUF carries (read from the HF GGUF metadata, 2026-09-18; the
+// Qwen3-4B-Instruct-2507 fixture 2026-09-20).
 
 static std::string read_template(const char *name) {
     std::ifstream in(std::string(TEMPLATE_DIR) + "/" + name);
@@ -53,12 +54,17 @@ int main() {
     assert(cat_prompt(user) == "<|user|>" + user + "</s><|assistant|>");
 
     // Qwen3.5 thinks unless told not to; its template closes an empty think block when enable_thinking is false.
-    // The 0.8B and the shipped 2B (unsloth pin f6d5376) carry the same template, byte for byte.
+    // All four unsloth pins — 0.8B (6ab4614), 2B (f6d5376), 4B (e87f176), 9B (3885219) — carry this
+    // template byte for byte, so one fixture covers the line.
     const std::string qwen35 = jinja_prompt(read_template("qwen3.5.jinja"), "", "<|im_end|>", user);
     const std::string thinking_off = "<|im_start|>assistant\n<think>\n\n</think>\n\n";
     assert(qwen35.size() > thinking_off.size());
     assert(qwen35.compare(qwen35.size() - thinking_off.size(), thinking_off.size(), thinking_off) == 0);
     assert(qwen35.find("<|im_start|>system") == std::string::npos);
+
+    // Qwen3-4B-Instruct-2507 is non-thinking only: its template emits no think block at all.
+    const std::string qwen3_2507 = jinja_prompt(read_template("qwen3-4b-instruct-2507.jinja"), "", "<|im_end|>", user);
+    assert(qwen3_2507 == "<|im_start|>user\n" + user + "<|im_end|>\n<|im_start|>assistant\n");
 
     // No template, or one that fails at render time, keeps the CAT format.
     assert(format_chat_prompt(nullptr, user) == cat_prompt(user));

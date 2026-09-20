@@ -125,6 +125,18 @@ class ModelManager @Inject constructor(
                 isRequired = false
             ),
             ModelEntity(
+                id = Constants.QWEN35_08B_MODEL_ID,
+                name = "Qwen3.5 0.8B (Q4_K_M)",
+                type = ModelType.LLM,
+                fileName = Constants.QWEN35_08B_MODEL,
+                fileSize = Constants.QWEN35_08B_SIZE,
+                downloadUrl = "https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF/resolve/6ab461498e2023f6e3c1baea90a8f0fe38ab64d0/Qwen3.5-0.8B-Q4_K_M.gguf",
+                checksum = "bd258782e35f7f458f8aced1adc053e6e92e89bc735ba3be89d38a06121dc517",
+                status = ModelStatus.AVAILABLE,
+                version = "1.0",
+                isRequired = false
+            ),
+            ModelEntity(
                 id = Constants.QWEN35_2B_MODEL_ID,
                 name = "Qwen3.5 2B (Q4_K_M)",
                 type = ModelType.LLM,
@@ -132,6 +144,42 @@ class ModelManager @Inject constructor(
                 fileSize = Constants.QWEN35_2B_SIZE,
                 downloadUrl = "https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/f6d5376be1edb4d416d56da11e5397a961aca8ae/Qwen3.5-2B-Q4_K_M.gguf",
                 checksum = "aaf42c8b7c3cab2bf3d69c355048d4a0ee9973d48f16c731c0520ee914699223",
+                status = ModelStatus.AVAILABLE,
+                version = "1.0",
+                isRequired = false
+            ),
+            ModelEntity(
+                id = Constants.QWEN35_4B_MODEL_ID,
+                name = "Qwen3.5 4B (Q4_K_M)",
+                type = ModelType.LLM,
+                fileName = Constants.QWEN35_4B_MODEL,
+                fileSize = Constants.QWEN35_4B_SIZE,
+                downloadUrl = "https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/e87f176479d0855a907a41277aca2f8ee7a09523/Qwen3.5-4B-Q4_K_M.gguf",
+                checksum = "00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4",
+                status = ModelStatus.AVAILABLE,
+                version = "1.0",
+                isRequired = false
+            ),
+            ModelEntity(
+                id = Constants.QWEN35_9B_MODEL_ID,
+                name = "Qwen3.5 9B (Q4_K_M)",
+                type = ModelType.LLM,
+                fileName = Constants.QWEN35_9B_MODEL,
+                fileSize = Constants.QWEN35_9B_SIZE,
+                downloadUrl = "https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/3885219b6810b007914f3a7950a8d1b469d598a5/Qwen3.5-9B-Q4_K_M.gguf",
+                checksum = "03b74727a860a56338e042c4420bb3f04b2fec5734175f4cb9fa853daf52b7e8",
+                status = ModelStatus.AVAILABLE,
+                version = "1.0",
+                isRequired = false
+            ),
+            ModelEntity(
+                id = Constants.QWEN3_4B_2507_MODEL_ID,
+                name = "Qwen3 4B Instruct 2507 (Q4_K_M)",
+                type = ModelType.LLM,
+                fileName = Constants.QWEN3_4B_2507_MODEL,
+                fileSize = Constants.QWEN3_4B_2507_SIZE,
+                downloadUrl = "https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF/resolve/a06e946bb6b655725eafa393f4a9745d460374c9/Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
+                checksum = "3605803b982cb64aead44f6c1b2ae36e3acdb41d8e46c8a94c6533bc4c67e597",
                 status = ModelStatus.AVAILABLE,
                 version = "1.0",
                 isRequired = false
