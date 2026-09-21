@@ -124,6 +124,19 @@ class ModelRegistryTest {
     }
 
     @Test
+    fun `Hy-MT2 1_8B downloads the pinned first-party Q4_K_M`() {
+        val row = registry.single { it.id == Constants.HY_MT2_18B_MODEL_ID }
+
+        assertEquals(
+            "https://huggingface.co/tencent/Hy-MT2-1.8B-GGUF/resolve/" +
+                "a0c709d9fac510f2c807aa3af52872340dc37a4a/Hy-MT2-1.8B-Q4_K_M.gguf",
+            row.downloadUrl
+        )
+        assertEquals("dc5f44fcf1fa496ee7ad725982c0c8c553a4de00259b53af84c4b89fb0c06699", row.checksum)
+        assertEquals(1_133_080_448L, row.fileSize)
+    }
+
+    @Test
     fun `every slot has exactly one curated default of its own type`() {
         assertEquals(ModelType.entries.toSet(), ModelManager.SLOT_DEFAULTS.keys)
         ModelManager.SLOT_DEFAULTS.forEach { (type, id) ->

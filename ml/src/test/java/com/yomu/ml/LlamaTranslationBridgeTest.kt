@@ -52,6 +52,23 @@ class LlamaTranslationBridgeTest {
     }
 
     @Test
+    fun translatePage_hyMt2PromptIsTencentsSingleTextTranslationPrompt() = runTest {
+        val model = File.createTempFile("model", ".gguf")
+        val native = FakeLlamaBridge { GenerationResult.Success("Hello", 1L) }
+        val slot = LlamaTranslationBridge(native, profile(model, TranslationPromptMode.HY_MT2))
+
+        slot.translatePage(page(1 to "\u3053\u3093\u306b\u3061\u306f", 2 to "\u3055\u3088\u3046\u306a\u3089"))
+
+        assertEquals(
+            "Translate the following text into English. Note that you should only output the " +
+                "translated result without any additional explanation:\n\n\u3053\u3093\u306b\u3061\u306f",
+            native.prompts.first()
+        )
+        assertEquals(listOf("", ""), native.systemMessages)
+        model.delete()
+    }
+
+    @Test
     fun translatePage_idKeyedBatchBuildsOnePagePromptAndParsesById() = runTest {
         val model = File.createTempFile("model", ".gguf")
         val native = FakeLlamaBridge {

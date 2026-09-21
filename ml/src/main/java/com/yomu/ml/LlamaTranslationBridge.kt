@@ -118,6 +118,7 @@ class LlamaTranslationBridge(
             val prompt = when (profile.promptMode) {
                 TranslationPromptMode.MODEL_CARD -> modelCardPrompt(bubble.sourceText)
                 TranslationPromptMode.TRANSLATION_ONLY -> translationOnlyPrompt(bubble.sourceText)
+                TranslationPromptMode.HY_MT2 -> hyMt2Prompt(bubble.sourceText)
             }
             bubble to generate(prompt, profile.generation.maxTokens, TIMEOUT_MS)
         }
@@ -176,6 +177,11 @@ class LlamaTranslationBridge(
         appendLine("Target text (translate this only):")
         append(target)
     }
+
+    /** Tencent's documented "Default Translation" prompt, verbatim, with the full target language name. */
+    private fun hyMt2Prompt(target: String): String =
+        "Translate the following text into English. Note that you should only output the " +
+            "translated result without any additional explanation:\n\n$target"
 
     private fun buildBatchPrompt(page: TranslatablePage): String = buildString {
         appendLine(
