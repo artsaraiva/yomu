@@ -75,6 +75,7 @@ MODELS=(
   "llm/qwen3_4b_instruct_2507_q4_k_m.gguf|https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF/resolve/a06e946bb6b655725eafa393f4a9745d460374c9/Qwen3-4B-Instruct-2507-Q4_K_M.gguf"
   "llm/ministral3_3b_instruct_2512_q4_k_m.gguf|https://huggingface.co/mistralai/Ministral-3-3B-Instruct-2512-GGUF/resolve/eb599d408350ea2bb60452cb86be7c7b2fc28227/Ministral-3-3B-Instruct-2512-Q4_K_M.gguf"
   "llm/gemma4_e2b_it_q4_0.gguf|https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-gguf/resolve/675cff42a74c774d6cb76f76d8eacb49b48c9b93/gemma-4-E2B_q4_0-it.gguf"
+  "llm/hy_mt2_1.8b_q4_k_m.gguf|https://huggingface.co/tencent/Hy-MT2-1.8B-GGUF/resolve/a0c709d9fac510f2c807aa3af52872340dc37a4a/Hy-MT2-1.8B-Q4_K_M.gguf"
 )
 # The 12 GiB-tier entries (Gemma 4 E4B, Ministral 3 8B, Qwen3.5 9B) are left out on purpose: gigabytes the 8 GiB
 # fit gate hides anyway. Add a row here to time one on a 12 GiB+ device; SpeedBenchmarkTest skips any

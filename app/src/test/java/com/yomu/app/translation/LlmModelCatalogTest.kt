@@ -54,6 +54,22 @@ class LlmModelCatalogTest {
     }
 
     @Test
+    fun `Hy-MT2 1_8B is a per-line experimental entry on Tencent's own prompt and sampling`() {
+        val hyMt2 = LlmModelCatalog.fromId(Constants.HY_MT2_18B_MODEL_ID)!!
+
+        assertTrue(hyMt2.experimental)
+        assertFalse(hyMt2.idKeyedBatch)
+        assertEquals(TranslationPromptMode.HY_MT2, hyMt2.promptMode)
+        assertEquals("Apache-2.0", hyMt2.licence)
+        assertEquals("", hyMt2.systemMessage)
+        assertEquals(65_536L, hyMt2.kvCacheBytesPerToken)
+        assertEquals(
+            GenerationParams(temperature = 0.7f, topK = 20, topP = 0.6f, penaltyRepeat = 1.05f),
+            hyMt2.generationDefaults
+        )
+    }
+
+    @Test
     fun `the entries phone-checked before the Experimental tier are not experimental`() {
         val checked = listOf(Constants.QWEN25_15B_MODEL_ID, Constants.CAT_TRANSLATION_MODEL_ID, Constants.CAT_TRANSLATION_14B_MODEL_ID)
         checked.forEach { assertFalse(it, LlmModelCatalog.fromId(it)!!.experimental) }

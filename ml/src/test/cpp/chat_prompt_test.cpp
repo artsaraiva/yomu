@@ -90,6 +90,19 @@ int main() {
     assert(gemma4.find("<|turn>system") == std::string::npos);
     assert(guesser_prompt(read_template("gemma4.jinja"), user) == cat_prompt(user));
 
+    // Hy-MT2 1.8B (#288). The heuristic guesser reads its <｜hy_begin▁of▁sentence｜> marker as
+    // hunyuan-vl and renders the prompt before the role marker, with no assistant cue at all; the
+    // Jinja engine renders Tencent's own format. The pinned GGUF (a0c709d) carries this template
+    // byte for byte identical to chat_template.jinja in the base repo.
+    const std::string hy_mt2_tmpl = read_template("hy-mt2-1.8b.jinja");
+    const std::string hy_mt2 = jinja_prompt(hy_mt2_tmpl, "", "", user);
+    assert(hy_mt2 == "<｜hy_begin▁of▁sentence｜><｜hy_User｜>" + user + "<｜hy_Assistant｜>");
+    assert(guesser_prompt(hy_mt2_tmpl, user) != hy_mt2);
+
+    // Tencent's card: "our models do not have a default system_prompt", so the entry sends none and
+    // the template opens straight on the user turn.
+    assert(hy_mt2.find("<｜hy_place▁holder▁no▁3｜>") == std::string::npos);
+
     // No template, or one that fails at render time, keeps the CAT format.
     assert(format_chat_prompt(nullptr, "", user) == cat_prompt(user));
     assert(format_chat_prompt(nullptr, translator, user) == cat_prompt(user));

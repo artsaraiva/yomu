@@ -27,7 +27,9 @@ data class LlmModelOption(
      * (checked 2026-09-16). Ministral 3 3B/8B Instruct 2512 = Apache-2.0 on the card and the
      * first-party GGUF repo (checked 2026-09-18). Gemma 4 = Apache-2.0 on the card and on Google's
      * QAT GGUF repos, a change from the Gemma Terms the older Gemma models carry (checked
-     * 2026-09-16). Also the "governed by its own licence" notice ADR-0009 asks
+     * 2026-09-16). Hy-MT2 1.8B = Apache-2.0 on the card, in the base repo's LICENSE.txt and on the
+     * first-party GGUF repo, unlike the earlier Hunyuan-MT's Tencent licence (checked 2026-09-21).
+     * Also the "governed by its own licence" notice ADR-0009 asks
      * Yomu to surface.
      */
     val licence: String,
@@ -277,6 +279,30 @@ object LlmModelCatalog {
             // 42 layers, 18 KV-shared, so 24 own a cache: 20 sliding (2 KV heads × 256) + 4 global (× 512).
             kvCacheBytesPerToken = 20L * 2 * 2 * 256 * 2 + 4L * 2 * 2 * 512 * 2,
             generationDefaults = GEMMA4_SAMPLING,
+            experimental = true
+        ),
+        // Tencent's translation-specialised 1.8B, first-party Q4_K_M (research addendum pin). The
+        // only entry outside the brief's model families, and the only one curated per-line: the
+        // card documents one source text per user turn and says nothing about emitting an id-keyed
+        // multi-segment reply, so it stays off the page-batch path until a run shows it holds the
+        // grammar.
+        LlmModelOption(
+            id = Constants.HY_MT2_18B_MODEL_ID,
+            displayName = "Hy-MT2 1.8B",
+            ggufFileName = Constants.HY_MT2_18B_MODEL,
+            sizeBytes = Constants.HY_MT2_18B_SIZE,
+            licence = "Apache-2.0",
+            idKeyedBatch = false,
+            promptMode = TranslationPromptMode.HY_MT2,
+            // 32 layers, 4 KV heads, head dim 128 — config.json and the GGUF header agree
+            // (block_count 32, attention.head_count_kv 4, key_length = value_length = 128). That is
+            // 65,536 B/token. The research addendum "corrects" this to 131,072 off the same
+            // multiplication, and #288 repeats it; the arithmetic, not the correction, is right, and
+            // the shortlist row's original 2.09 GiB at 4096 tokens is the fit this gives.
+            kvCacheBytesPerToken = 32L * 2 * 4 * 128 * 2,
+            // The card's values for the 1.8B and 7B. Its generation_config.json and the GGUF header
+            // both say top_p 0.8; the card wins, because the card is also where the prompt comes from.
+            generationDefaults = GenerationParams(temperature = 0.7f, topK = 20, topP = 0.6f, penaltyRepeat = 1.05f),
             experimental = true
         )
     )

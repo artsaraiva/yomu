@@ -232,6 +232,18 @@ class ModelManager @Inject constructor(
                 status = ModelStatus.AVAILABLE,
                 version = "1.0",
                 isRequired = false
+            ),
+            ModelEntity(
+                id = Constants.HY_MT2_18B_MODEL_ID,
+                name = "Hy-MT2 1.8B (Q4_K_M)",
+                type = ModelType.LLM,
+                fileName = Constants.HY_MT2_18B_MODEL,
+                fileSize = Constants.HY_MT2_18B_SIZE,
+                downloadUrl = "https://huggingface.co/tencent/Hy-MT2-1.8B-GGUF/resolve/a0c709d9fac510f2c807aa3af52872340dc37a4a/Hy-MT2-1.8B-Q4_K_M.gguf",
+                checksum = "dc5f44fcf1fa496ee7ad725982c0c8c553a4de00259b53af84c4b89fb0c06699",
+                status = ModelStatus.AVAILABLE,
+                version = "1.0",
+                isRequired = false
             )
         )
 
