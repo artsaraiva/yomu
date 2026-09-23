@@ -214,7 +214,6 @@ class LlmModelCatalogTest {
 
     @Test
     fun `each uncensored entry runs exactly like its base`() {
-        // Abliteration edits weights, not architecture or chat format, so every runtime knob is the base's.
         uncensoredToBase.forEach { (id, baseId) ->
             val option = LlmModelCatalog.fromId(id)!!
             val base = LlmModelCatalog.fromId(baseId)!!
