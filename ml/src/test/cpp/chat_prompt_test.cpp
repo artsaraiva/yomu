@@ -90,6 +90,17 @@ int main() {
     assert(gemma4.find("<|turn>system") == std::string::npos);
     assert(guesser_prompt(read_template("gemma4.jinja"), user) == cat_prompt(user));
 
+    // The Uncensored entries (#289) run on their base's settings, so each abliterated GGUF's own
+    // template must render the base's prompt with thinking off (fixtures read 2026-09-23).
+    // mradermacher's 4B (4a5daa6) and 9B (9f646d7) ship the official Qwen3.5 template, which thinks
+    // unless enable_thinking is false; the 2B (f36848f) ships the inverse, thinking only when it is true.
+    for (const char *name : {"huihui-qwen3.5-2b-abliterated.jinja", "huihui-qwen3.5-abliterated.jinja"}) {
+        assert(jinja_prompt(read_template(name), "", "<|im_end|>", user) == qwen35);
+    }
+    // huihui-ai's E2B (e38a3cd) and E4B (bc37dec) GGUFs share one template that differs from Google's
+    // by bytes but renders the same turns.
+    assert(jinja_prompt(read_template("huihui-gemma4-abliterated.jinja"), "<bos>", "<eos>", user) == gemma4);
+
     // Hy-MT2 1.8B (#288). The heuristic guesser reads its <｜hy_begin▁of▁sentence｜> marker as
     // hunyuan-vl and renders the prompt before the role marker, with no assistant cue at all; the
     // Jinja engine renders Tencent's own format. The pinned GGUF (a0c709d) carries this template
