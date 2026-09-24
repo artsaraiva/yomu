@@ -244,6 +244,68 @@ class ModelManager @Inject constructor(
                 status = ModelStatus.AVAILABLE,
                 version = "1.0",
                 isRequired = false
+            ),
+            // huihui-ai abliterations: its own GGUFs for the Gemma 4 QAT pair, mradermacher's static
+            // quants for Qwen3.5, where huihui-ai publishes none.
+            ModelEntity(
+                id = Constants.QWEN35_2B_UNCENSORED_MODEL_ID,
+                name = "Qwen3.5 2B Uncensored (Q4_K_M)",
+                type = ModelType.LLM,
+                fileName = Constants.QWEN35_2B_UNCENSORED_MODEL,
+                fileSize = Constants.QWEN35_2B_UNCENSORED_SIZE,
+                downloadUrl = "https://huggingface.co/mradermacher/Huihui-Qwen3.5-2B-abliterated-GGUF/resolve/f36848fead3fdda244cf60195c46993d23183d4c/Huihui-Qwen3.5-2B-abliterated.Q4_K_M.gguf",
+                checksum = "aa25eea787afe56a097268f7ed3460cb623e1901d2e89cd2b654cabb42f80636",
+                status = ModelStatus.AVAILABLE,
+                version = "1.0",
+                isRequired = false
+            ),
+            ModelEntity(
+                id = Constants.QWEN35_4B_UNCENSORED_MODEL_ID,
+                name = "Qwen3.5 4B Uncensored (Q4_K_M)",
+                type = ModelType.LLM,
+                fileName = Constants.QWEN35_4B_UNCENSORED_MODEL,
+                fileSize = Constants.QWEN35_4B_UNCENSORED_SIZE,
+                downloadUrl = "https://huggingface.co/mradermacher/Huihui-Qwen3.5-4B-abliterated-GGUF/resolve/4a5daa6fbefca5fe822dc65fcb95cc4576fa9720/Huihui-Qwen3.5-4B-abliterated.Q4_K_M.gguf",
+                checksum = "423f10b6ec2d99c3378143d7cd3b80eb4887b3ed92103103ac59173b404f4f7c",
+                status = ModelStatus.AVAILABLE,
+                version = "1.0",
+                isRequired = false
+            ),
+            ModelEntity(
+                id = Constants.QWEN35_9B_UNCENSORED_MODEL_ID,
+                name = "Qwen3.5 9B Uncensored (Q4_K_M)",
+                type = ModelType.LLM,
+                fileName = Constants.QWEN35_9B_UNCENSORED_MODEL,
+                fileSize = Constants.QWEN35_9B_UNCENSORED_SIZE,
+                downloadUrl = "https://huggingface.co/mradermacher/Huihui-Qwen3.5-9B-abliterated-GGUF/resolve/9f646d7eda193ddf2348134f3bff3d49eed7a2c6/Huihui-Qwen3.5-9B-abliterated.Q4_K_M.gguf",
+                checksum = "ea1858ef4dc4b648b8dbb44612962a0333e945060dd0545ac0f28d7c4416e4b3",
+                status = ModelStatus.AVAILABLE,
+                version = "1.0",
+                isRequired = false
+            ),
+            ModelEntity(
+                id = Constants.GEMMA4_E2B_UNCENSORED_MODEL_ID,
+                name = "Gemma 4 E2B Uncensored (QAT Q4_K_M)",
+                type = ModelType.LLM,
+                fileName = Constants.GEMMA4_E2B_UNCENSORED_MODEL,
+                fileSize = Constants.GEMMA4_E2B_UNCENSORED_SIZE,
+                downloadUrl = "https://huggingface.co/huihui-ai/Huihui-gemma-4-E2B-it-qat-q4_0-unquantized-abliterated-GGUF/resolve/e38a3cdcf55879424c971d0961ea70b82870b989/Huihui-gemma-4-E2B-it-qat-q4_0-unquantized-abliterated-Q4_K.gguf",
+                checksum = "6bc1f421ba870b01a2efbb6904a28bda0ae3ccde57b18eb5e9203c3db05effe9",
+                status = ModelStatus.AVAILABLE,
+                version = "1.0",
+                isRequired = false
+            ),
+            ModelEntity(
+                id = Constants.GEMMA4_E4B_UNCENSORED_MODEL_ID,
+                name = "Gemma 4 E4B Uncensored (QAT Q4_K_M)",
+                type = ModelType.LLM,
+                fileName = Constants.GEMMA4_E4B_UNCENSORED_MODEL,
+                fileSize = Constants.GEMMA4_E4B_UNCENSORED_SIZE,
+                downloadUrl = "https://huggingface.co/huihui-ai/Huihui-gemma-4-E4B-it-qat-q4_0-unquantized-abliterated-GGUF/resolve/bc37dec4db35ea0fcad97be7a8c6b3f6a499616b/Huihui-gemma-4-E4B-it-qat-q4_0-unquantized-abliterated-Q4_K.gguf",
+                checksum = "64434f2da081f912729e5c4732def7303eb5244d3fee493b9675bc4e9af52d4c",
+                status = ModelStatus.AVAILABLE,
+                version = "1.0",
+                isRequired = false
             )
         )
 

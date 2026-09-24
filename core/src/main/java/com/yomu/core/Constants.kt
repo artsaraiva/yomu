@@ -22,6 +22,11 @@ object Constants {
     const val GEMMA4_E2B_MODEL_ID = "gemma4_e2b_v1"
     const val GEMMA4_E4B_MODEL_ID = "gemma4_e4b_v1"
     const val HY_MT2_18B_MODEL_ID = "hy_mt2_1.8b_v1"
+    const val QWEN35_2B_UNCENSORED_MODEL_ID = "qwen35_2b_uncensored_v1"
+    const val QWEN35_4B_UNCENSORED_MODEL_ID = "qwen35_4b_uncensored_v1"
+    const val QWEN35_9B_UNCENSORED_MODEL_ID = "qwen35_9b_uncensored_v1"
+    const val GEMMA4_E2B_UNCENSORED_MODEL_ID = "gemma4_e2b_uncensored_v1"
+    const val GEMMA4_E4B_UNCENSORED_MODEL_ID = "gemma4_e4b_uncensored_v1"
 
     const val BUBBLE_DETECTION_MODEL = "bubble_detection.onnx"
     const val OCR_ENCODER_MODEL = "manga_ocr_encoder.onnx"
@@ -50,6 +55,12 @@ object Constants {
     const val GEMMA4_E2B_MODEL = "gemma4_e2b_it_q4_0.gguf"
     const val GEMMA4_E4B_MODEL = "gemma4_e4b_it_q4_0.gguf"
     const val HY_MT2_18B_MODEL = "hy_mt2_1.8b_q4_k_m.gguf"
+    // huihui-ai abliterations. The Gemma 4 ones are Q4_K_M quants of the QAT weights, not Q4_0.
+    const val QWEN35_2B_UNCENSORED_MODEL = "qwen35_2b_uncensored_q4_k_m.gguf"
+    const val QWEN35_4B_UNCENSORED_MODEL = "qwen35_4b_uncensored_q4_k_m.gguf"
+    const val QWEN35_9B_UNCENSORED_MODEL = "qwen35_9b_uncensored_q4_k_m.gguf"
+    const val GEMMA4_E2B_UNCENSORED_MODEL = "gemma4_e2b_it_uncensored_q4_k_m.gguf"
+    const val GEMMA4_E4B_UNCENSORED_MODEL = "gemma4_e4b_it_uncensored_q4_k_m.gguf"
     const val GEMMA2_2B_MODEL = "gemma2_2b_it_q4_k_m.gguf"
     const val QWEN3_MODEL = "qwen3_4b_q4_k_m.gguf"
     // Q3_K_M, not Q4: the 7B Q4 (4.6GB) OOM-kills on load on an 8GB device (#84 bake-off). Q3_K_M
@@ -70,6 +81,11 @@ object Constants {
     const val GEMMA4_E2B_SIZE = 3_349_516_256L
     const val GEMMA4_E4B_SIZE = 5_154_941_280L
     const val HY_MT2_18B_SIZE = 1_133_080_448L
+    const val QWEN35_2B_UNCENSORED_SIZE = 1_270_809_024L
+    const val QWEN35_4B_UNCENSORED_SIZE = 2_707_514_688L
+    const val QWEN35_9B_UNCENSORED_SIZE = 5_627_045_248L
+    const val GEMMA4_E2B_UNCENSORED_SIZE = 3_416_118_240L
+    const val GEMMA4_E4B_UNCENSORED_SIZE = 5_302_272_352L
     const val TRANSLATION_MODEL_4BIT_SIZE = 528_205_184L
     const val CAT_TRANSLATION_14B_SIZE = 931_179_904L
     const val GEMMA2_2B_SIZE = 1_708_582_752L

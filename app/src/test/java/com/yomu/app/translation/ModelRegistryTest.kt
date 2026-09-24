@@ -137,6 +137,53 @@ class ModelRegistryTest {
     }
 
     @Test
+    fun `every uncensored entry downloads the pinned huihui-ai abliteration`() {
+        // huihui-ai publishes its own GGUF only for the Gemma 4 QAT abliterations; the Qwen3.5 ones
+        // come from mradermacher's static quants. Repo, commit, bytes and sha256 as the research
+        // addendum pins them.
+        val pins = mapOf(
+            Constants.QWEN35_2B_UNCENSORED_MODEL_ID to Triple(
+                "https://huggingface.co/mradermacher/Huihui-Qwen3.5-2B-abliterated-GGUF/resolve/" +
+                    "f36848fead3fdda244cf60195c46993d23183d4c/Huihui-Qwen3.5-2B-abliterated.Q4_K_M.gguf",
+                "aa25eea787afe56a097268f7ed3460cb623e1901d2e89cd2b654cabb42f80636",
+                1_270_809_024L
+            ),
+            Constants.QWEN35_4B_UNCENSORED_MODEL_ID to Triple(
+                "https://huggingface.co/mradermacher/Huihui-Qwen3.5-4B-abliterated-GGUF/resolve/" +
+                    "4a5daa6fbefca5fe822dc65fcb95cc4576fa9720/Huihui-Qwen3.5-4B-abliterated.Q4_K_M.gguf",
+                "423f10b6ec2d99c3378143d7cd3b80eb4887b3ed92103103ac59173b404f4f7c",
+                2_707_514_688L
+            ),
+            Constants.QWEN35_9B_UNCENSORED_MODEL_ID to Triple(
+                "https://huggingface.co/mradermacher/Huihui-Qwen3.5-9B-abliterated-GGUF/resolve/" +
+                    "9f646d7eda193ddf2348134f3bff3d49eed7a2c6/Huihui-Qwen3.5-9B-abliterated.Q4_K_M.gguf",
+                "ea1858ef4dc4b648b8dbb44612962a0333e945060dd0545ac0f28d7c4416e4b3",
+                5_627_045_248L
+            ),
+            Constants.GEMMA4_E2B_UNCENSORED_MODEL_ID to Triple(
+                "https://huggingface.co/huihui-ai/Huihui-gemma-4-E2B-it-qat-q4_0-unquantized-abliterated-GGUF/resolve/" +
+                    "e38a3cdcf55879424c971d0961ea70b82870b989/Huihui-gemma-4-E2B-it-qat-q4_0-unquantized-abliterated-Q4_K.gguf",
+                "6bc1f421ba870b01a2efbb6904a28bda0ae3ccde57b18eb5e9203c3db05effe9",
+                3_416_118_240L
+            ),
+            Constants.GEMMA4_E4B_UNCENSORED_MODEL_ID to Triple(
+                "https://huggingface.co/huihui-ai/Huihui-gemma-4-E4B-it-qat-q4_0-unquantized-abliterated-GGUF/resolve/" +
+                    "bc37dec4db35ea0fcad97be7a8c6b3f6a499616b/Huihui-gemma-4-E4B-it-qat-q4_0-unquantized-abliterated-Q4_K.gguf",
+                "64434f2da081f912729e5c4732def7303eb5244d3fee493b9675bc4e9af52d4c",
+                5_302_272_352L
+            )
+        )
+
+        pins.forEach { (id, pin) ->
+            val row = registry.single { it.id == id }
+            val (url, checksum, size) = pin
+            assertEquals(id, url, row.downloadUrl)
+            assertEquals(id, checksum, row.checksum)
+            assertEquals(id, size, row.fileSize)
+        }
+    }
+
+    @Test
     fun `every slot has exactly one curated default of its own type`() {
         assertEquals(ModelType.entries.toSet(), ModelManager.SLOT_DEFAULTS.keys)
         ModelManager.SLOT_DEFAULTS.forEach { (type, id) ->

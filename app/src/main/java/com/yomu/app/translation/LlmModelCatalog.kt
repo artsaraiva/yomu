@@ -121,7 +121,7 @@ object LlmModelCatalog {
      * deleted (#187; ADR-0014 names the commit to revive it from). The open "Custom — unsupported"
      * slot (ADR-0001) is a separate hatch.
      */
-    val ALL: List<LlmModelOption> = listOf(
+    private val CURATED: List<LlmModelOption> = listOf(
         DEFAULT,
         LlmModelOption(
             id = Constants.CAT_TRANSLATION_MODEL_ID,
@@ -305,6 +305,25 @@ object LlmModelCatalog {
             generationDefaults = GenerationParams(temperature = 0.7f, topK = 20, topP = 0.6f, penaltyRepeat = 1.05f),
             experimental = true
         )
+    )
+
+    /**
+     * A huihui-ai abliteration of the curated [baseId], for readers of mature manga (#289). Abliteration
+     * edits the weights only, so the architecture, chat template and card sampling are the base's and
+     * the entry runs exactly as its base does. The cards call the method "crude, proof-of-concept" and
+     * report no translation quality, hence Experimental like every base it copies.
+     */
+    private fun uncensored(baseId: String, id: String, ggufFileName: String, sizeBytes: Long): LlmModelOption {
+        val base = CURATED.single { it.id == baseId }
+        return base.copy(id = id, displayName = "${base.displayName} Uncensored", ggufFileName = ggufFileName, sizeBytes = sizeBytes)
+    }
+
+    val ALL: List<LlmModelOption> = CURATED + listOf(
+        uncensored(Constants.QWEN35_2B_MODEL_ID, Constants.QWEN35_2B_UNCENSORED_MODEL_ID, Constants.QWEN35_2B_UNCENSORED_MODEL, Constants.QWEN35_2B_UNCENSORED_SIZE),
+        uncensored(Constants.QWEN35_4B_MODEL_ID, Constants.QWEN35_4B_UNCENSORED_MODEL_ID, Constants.QWEN35_4B_UNCENSORED_MODEL, Constants.QWEN35_4B_UNCENSORED_SIZE),
+        uncensored(Constants.QWEN35_9B_MODEL_ID, Constants.QWEN35_9B_UNCENSORED_MODEL_ID, Constants.QWEN35_9B_UNCENSORED_MODEL, Constants.QWEN35_9B_UNCENSORED_SIZE),
+        uncensored(Constants.GEMMA4_E2B_MODEL_ID, Constants.GEMMA4_E2B_UNCENSORED_MODEL_ID, Constants.GEMMA4_E2B_UNCENSORED_MODEL, Constants.GEMMA4_E2B_UNCENSORED_SIZE),
+        uncensored(Constants.GEMMA4_E4B_MODEL_ID, Constants.GEMMA4_E4B_UNCENSORED_MODEL_ID, Constants.GEMMA4_E4B_UNCENSORED_MODEL, Constants.GEMMA4_E4B_UNCENSORED_SIZE)
     )
 
     fun fromId(id: String?): LlmModelOption? = id?.let { key -> ALL.firstOrNull { it.id == key } }

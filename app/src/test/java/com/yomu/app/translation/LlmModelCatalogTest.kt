@@ -145,7 +145,9 @@ class LlmModelCatalogTest {
         val twelveGbTier = setOf(
             Constants.MINISTRAL3_8B_MODEL_ID,
             Constants.GEMMA4_E4B_MODEL_ID,
-            Constants.QWEN35_9B_MODEL_ID
+            Constants.QWEN35_9B_MODEL_ID,
+            Constants.QWEN35_9B_UNCENSORED_MODEL_ID,
+            Constants.GEMMA4_E4B_UNCENSORED_MODEL_ID
         )
         LlmModelCatalog.ALL.filterNot { it.id in twelveGbTier }.forEach { option ->
             assertTrue(option.displayName, LlmModelCatalog.canRunOnDevice(option, fit(eightGb)))
@@ -189,6 +191,49 @@ class LlmModelCatalogTest {
         // 86,016 B/token) would gate both out on RAM they never spend.
         assertEquals(18_432L, LlmModelCatalog.fromId(Constants.GEMMA4_E2B_MODEL_ID)!!.kvCacheBytesPerToken)
         assertEquals(57_344L, LlmModelCatalog.fromId(Constants.GEMMA4_E4B_MODEL_ID)!!.kvCacheBytesPerToken)
+    }
+
+    private val uncensoredToBase = mapOf(
+        Constants.QWEN35_2B_UNCENSORED_MODEL_ID to Constants.QWEN35_2B_MODEL_ID,
+        Constants.QWEN35_4B_UNCENSORED_MODEL_ID to Constants.QWEN35_4B_MODEL_ID,
+        Constants.QWEN35_9B_UNCENSORED_MODEL_ID to Constants.QWEN35_9B_MODEL_ID,
+        Constants.GEMMA4_E2B_UNCENSORED_MODEL_ID to Constants.GEMMA4_E2B_MODEL_ID,
+        Constants.GEMMA4_E4B_UNCENSORED_MODEL_ID to Constants.GEMMA4_E4B_MODEL_ID
+    )
+
+    @Test
+    fun `each uncensored entry is an experimental Apache-2_0 entry named Uncensored`() {
+        uncensoredToBase.keys.forEach { id ->
+            val option = LlmModelCatalog.fromId(id)!!
+
+            assertTrue(id, option.experimental)
+            assertEquals(id, "Apache-2.0", option.licence)
+            assertTrue(option.displayName, option.displayName.endsWith("Uncensored"))
+        }
+    }
+
+    @Test
+    fun `each uncensored entry runs exactly like its base`() {
+        uncensoredToBase.forEach { (id, baseId) ->
+            val option = LlmModelCatalog.fromId(id)!!
+            val base = LlmModelCatalog.fromId(baseId)!!
+
+            assertEquals(id, base.promptMode, option.promptMode)
+            assertEquals(id, base.idKeyedBatch, option.idKeyedBatch)
+            assertEquals(id, base.kvCacheBytesPerToken, option.kvCacheBytesPerToken)
+            assertEquals(id, base.generationDefaults, option.generationDefaults)
+            assertEquals(id, base.systemMessage, option.systemMessage)
+        }
+    }
+
+    @Test
+    fun `the uncensored 9B and E4B are gated out on 8GB and offered on 12GB`() {
+        listOf(Constants.QWEN35_9B_UNCENSORED_MODEL_ID, Constants.GEMMA4_E4B_UNCENSORED_MODEL_ID).forEach { id ->
+            val option = LlmModelCatalog.fromId(id)!!
+
+            assertFalse(id, LlmModelCatalog.canRunOnDevice(option, fit(eightGb)))
+            assertTrue(id, LlmModelCatalog.canRunOnDevice(option, fit(twelveGb)))
+        }
     }
 
     @Test
