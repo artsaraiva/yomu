@@ -37,7 +37,11 @@ android {
 
     composeOptions { kotlinCompilerExtensionVersion = "1.5.5" }
 
-    packaging { resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" } }
+    packaging {
+        resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" }
+        // ggml finds its CPU backend variants by listing the native lib dir, which is empty unless extracted.
+        jniLibs { useLegacyPackaging = true }
+    }
 }
 
 dependencies {

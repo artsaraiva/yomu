@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.22.1)
 project("yomu_ml")
 
-set(LLAMA_STATIC ON CACHE BOOL "" FORCE)
 # common supplies the Jinja chat-template engine (#281); its HTTP/subprocess parts stay off.
 set(LLAMA_BUILD_COMMON ON CACHE BOOL "" FORCE)
 set(LLAMA_OPENSSL OFF CACHE BOOL "" FORCE)
@@ -13,8 +12,14 @@ set(LLAMA_BLAS OFF CACHE BOOL "" FORCE)
 set(GGML_CUDA OFF CACHE BOOL "" FORCE)
 set(GGML_METAL OFF CACHE BOOL "" FORCE)
 set(GGML_NATIVE OFF CACHE BOOL "" FORCE)
-set(GGML_CPU_ARM_ARCH "armv8.2-a+dotprod" CACHE STRING "" FORCE)
-set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+# The CPU backend is a set of shared libraries, one per ARM feature level; llama_jni.cpp loads the
+# best one the phone supports (#290). Backend DL requires shared libs.
+set(BUILD_SHARED_LIBS ON CACHE BOOL "" FORCE)
+set(GGML_BACKEND_DL ON CACHE BOOL "" FORCE)
+if(ANDROID_ABI STREQUAL "arm64-v8a")
+    set(GGML_CPU_ALL_VARIANTS ON CACHE BOOL "" FORCE)
+    set(GGML_CPU_KLEIDIAI ON CACHE BOOL "" FORCE)
+endif()
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../../llama.cpp llama.cpp)
 
