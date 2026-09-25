@@ -65,8 +65,14 @@ data class LlmModelOption(
     /** The attribution a maker's NOTICE asks for, shown beside [licence] wherever the app lists it (ADR-0017). */
     val credit: String = "",
     /** Replaces the size-derived speed label where a measurement contradicts it (ADR-0017); null keeps the size rule. */
-    val speedLabel: String? = null
-)
+    val speed: DeliverableSpeed? = null
+) {
+    /** The licence as the picker lists it, with any [credit] beside it. */
+    val licenceWithCredit: String get() = if (credit.isEmpty()) licence else "$licence ($credit)"
+}
+
+/** The speed label a deliverable shows in the picker (ADR-0017). */
+enum class DeliverableSpeed(val label: String) { FAST("Fast"), MEDIUM("Medium"), SLOW("Slow") }
 
 /** The RAM a translation model must fit inside on this device: [percent] of [totalMemBytes], at [contextTokens]. */
 data class FitBudget(val totalMemBytes: Long, val percent: Int, val contextTokens: Int)
@@ -132,7 +138,7 @@ object LlmModelCatalog {
         generationDefaults = GenerationParams(temperature = 0.5f, topK = 20, topP = 0.85f),
         experimental = true,
         credit = "Created using Bonsai by Prism ML",
-        speedLabel = "Medium"
+        speed = DeliverableSpeed.MEDIUM
     )
 
     /**

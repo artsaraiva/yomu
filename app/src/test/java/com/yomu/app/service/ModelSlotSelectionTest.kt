@@ -2,6 +2,7 @@ package com.yomu.app.service
 
 import com.yomu.app.db.entities.ModelStatus
 import com.yomu.app.db.entities.ModelType
+import com.yomu.app.translation.DeliverableSpeed
 import com.yomu.app.translation.FitBudget
 import com.yomu.app.translation.LlmModelCatalog
 import com.yomu.app.translation.MapSharedPreferences
@@ -399,22 +400,20 @@ class ModelSlotSelectionTest {
         val oneAndAHalfGb = 3L * 1024 * 1024 * 1024 / 2
         val threeAndAHalfGb = 7L * 1024 * 1024 * 1024 / 2
 
-        assertEquals("Fast", deliverableOf(oneAndAHalfGb).speed)
-        assertEquals("Medium", deliverableOf(oneAndAHalfGb + 1).speed)
-        assertEquals("Medium", deliverableOf(threeAndAHalfGb).speed)
-        assertEquals("Slow", deliverableOf(threeAndAHalfGb + 1).speed)
+        assertEquals(DeliverableSpeed.FAST, deliverableOf(oneAndAHalfGb).speed)
+        assertEquals(DeliverableSpeed.MEDIUM, deliverableOf(oneAndAHalfGb + 1).speed)
+        assertEquals(DeliverableSpeed.MEDIUM, deliverableOf(threeAndAHalfGb).speed)
+        assertEquals(DeliverableSpeed.SLOW, deliverableOf(threeAndAHalfGb + 1).speed)
         assertFalse(deliverableOf(threeAndAHalfGb).slow)
         assertTrue(deliverableOf(threeAndAHalfGb + 1).slow)
     }
 
     @Test
     fun `Ternary-Bonsai is never labelled Fast, whatever its size`() {
-        // 1.1 GB would read Fast, but Q2_0 has no repacked ARM kernel: on the spike's desktop run the
-        // 4B was slower than the 2.5 GB Qwen3-4B-2507, which the size rule calls Medium.
         val llm = selection.deliverables(ModelType.LLM)
 
-        assertEquals("Medium", llm.single { it.id == Constants.TERNARY_BONSAI_4B_MODEL_ID }.speed)
-        assertEquals("Medium", llm.single { it.id == Constants.TERNARY_BONSAI_8B_MODEL_ID }.speed)
+        assertEquals(DeliverableSpeed.MEDIUM, llm.single { it.id == Constants.TERNARY_BONSAI_4B_MODEL_ID }.speed)
+        assertEquals(DeliverableSpeed.MEDIUM, llm.single { it.id == Constants.TERNARY_BONSAI_8B_MODEL_ID }.speed)
     }
 
     @Test

@@ -38,7 +38,7 @@ internal fun QuickSettingsStrip(state: HomeUiState, onPickTranslationModel: (Str
                         text = {
                             Column {
                                 Text(deliverable.name, style = MaterialTheme.typography.titleSmall)
-                                val detail = "$status · ${deliverable.sizeBytes.toFileSizeString()} · ${deliverable.speed}"
+                                val detail = "$status · ${deliverable.sizeBytes.toFileSizeString()} · ${deliverable.speed.label}"
                                 Text(if (fits) detail else "$detail · Needs more memory", style = MaterialTheme.typography.bodySmall)
                             }
                         },

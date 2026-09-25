@@ -38,7 +38,7 @@ A curated deliverable must be Apache-2.0 or MIT. This is stricter than ADR-0014'
 
 This is what rules out Llama 3.2, GLM-Edge and TranslateGemma, and it is what lets **Gemma back in**: Gemma 4 is released under Apache-2.0, not the Gemma Terms of Use that excluded every earlier Gemma.
 
-"A Notice file" means a licence term that obliges Yomu to display a notice. It does not cover the NOTICE file an Apache-2.0 repo may ship. Apache-2.0 §4(d) only asks a redistributor to carry that file's attributions along, so a NOTICE whose text *asks* for credit does not disqualify a deliverable. Ternary-Bonsai is the first case ([#301](https://github.com/artsaraiva/yomu/issues/301)). Its NOTICE asks for "Created using Bonsai by Prism ML", and Yomu shows that credit next to the licence wherever it lists model licences.
+"A Notice file" means a licence term that obliges Yomu to display a notice. It does not cover the NOTICE file an Apache-2.0 repo may ship. Apache-2.0 §4(d) requires a redistributor to carry that file's attributions along, which is a condition of the licence Yomu already accepts, not an extra term. A NOTICE whose own text only *asks* for credit therefore does not disqualify a deliverable. Ternary-Bonsai is the first case ([#301](https://github.com/artsaraiva/yomu/issues/301)). Its NOTICE asks for "Created using Bonsai by Prism ML", and Yomu shows that credit next to the licence wherever it lists model licences.
 
 ## Uncensored deliverables are curated, labelled, and listed normally
 
