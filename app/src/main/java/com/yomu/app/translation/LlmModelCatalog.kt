@@ -331,7 +331,13 @@ object LlmModelCatalog {
     /** The selected option, or the default when nothing (or an unknown id) is persisted. */
     fun selectedOrDefault(id: String?): LlmModelOption = fromId(id) ?: DEFAULT
 
-    fun profileFor(option: LlmModelOption, modelsDir: File, generation: GenerationParams, runtime: RuntimeLimits): ModelProfile =
+    fun profileFor(
+        option: LlmModelOption,
+        modelsDir: File,
+        generation: GenerationParams,
+        runtime: RuntimeLimits,
+        budget: FitBudget
+    ): ModelProfile =
         ModelProfile(
             modelPath = File(modelsDir, option.ggufFileName).absolutePath,
             idKeyedBatch = option.idKeyedBatch,
@@ -341,7 +347,8 @@ object LlmModelCatalog {
             // the caller, which is the layer that owns the store.
             generation = generation,
             runtime = runtime,
-            systemMessage = option.systemMessage
+            systemMessage = option.systemMessage,
+            repackWeights = neededBytes(option, budget) + option.sizeBytes <= budgetBytes(budget)
         )
 
     /**
@@ -350,7 +357,11 @@ object LlmModelCatalog {
      */
     fun canRunOnDevice(option: LlmModelOption, budget: FitBudget): Boolean {
         if (option.id == DEFAULT.id) return true
-        val needed = option.sizeBytes + RESIDENT_OVERHEAD_BYTES + option.kvCacheBytesPerToken * budget.contextTokens
-        return needed <= budget.totalMemBytes / 100 * budget.percent
+        return neededBytes(option, budget) <= budgetBytes(budget)
     }
+
+    private fun neededBytes(option: LlmModelOption, budget: FitBudget): Long =
+        option.sizeBytes + RESIDENT_OVERHEAD_BYTES + option.kvCacheBytesPerToken * budget.contextTokens
+
+    private fun budgetBytes(budget: FitBudget): Long = budget.totalMemBytes / 100 * budget.percent
 }

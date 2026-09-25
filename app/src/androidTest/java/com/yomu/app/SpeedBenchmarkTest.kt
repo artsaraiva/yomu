@@ -1,10 +1,12 @@
 package com.yomu.app
 
+import android.app.ActivityManager
 import android.graphics.BitmapFactory
 import android.os.Debug
 import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.yomu.app.translation.FitBudget
 import com.yomu.app.translation.LlmModelCatalog
 import com.yomu.core.Constants
 import com.yomu.core.RuntimeLimits
@@ -52,6 +54,12 @@ class SpeedBenchmarkTest {
         val sampler = PssSampler().also { it.start() }
         // Shared across entries: its ORT environment is a process singleton, so one per model would leak.
         val onnx = OnnxRuntime(context)
+        // The shipped fit budget, so each entry repacks its weights exactly when the app would (#319).
+        val fitBudget = FitBudget(
+            ActivityManager.MemoryInfo().also { context.getSystemService(ActivityManager::class.java).getMemoryInfo(it) }.totalMem,
+            LlmModelCatalog.DEFAULT_FIT_BUDGET_PERCENT,
+            RuntimeLimits.DEFAULT_CONTEXT_TOKENS
+        )
         var rows = 0
         try {
             for (option in LlmModelCatalog.ALL) {
@@ -70,7 +78,7 @@ class SpeedBenchmarkTest {
                 // Rebuilt per entry, on the call shape the catalog ships for it (batch or per-line).
                 // The pipeline's confidenceThreshold is never set here, so detection runs at the
                 // default, not the reader's stored value (#227).
-                val slot = LlamaTranslationBridge(native, LlmModelCatalog.profileFor(option, llmDir, option.generationDefaults, RuntimeLimits()))
+                val slot = LlamaTranslationBridge(native, LlmModelCatalog.profileFor(option, llmDir, option.generationDefaults, RuntimeLimits(), fitBudget))
                 val pipeline = TranslationPipeline(
                     BubbleDetector(onnx),
                     OcrEngine(onnx),

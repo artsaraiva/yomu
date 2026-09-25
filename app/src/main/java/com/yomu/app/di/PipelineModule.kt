@@ -6,6 +6,7 @@ import com.yomu.core.Constants
 import com.yomu.ml.LlamaBridge
 import com.yomu.ml.LlamaTranslationBridge
 import com.yomu.ml.OnnxRuntime
+import com.yomu.app.service.ModelManager
 import com.yomu.app.translation.TranslationModelSelection
 import com.yomu.pipeline.TranslationPipeline
 import com.yomu.pipeline.bubble.BubbleDetector
@@ -68,12 +69,16 @@ object PipelineModule {
     fun provideLlamaTranslationBridge(
         llamaBridge: LlamaBridge,
         @ApplicationContext context: Context,
-        sharedPreferences: SharedPreferences
+        sharedPreferences: SharedPreferences,
+        modelManager: ModelManager
     ): LlamaTranslationBridge {
         val selected = LlmModelCatalog.selectedOrDefault(sharedPreferences.storedLlmModelId())
         val generation = GenerationProfileStore(sharedPreferences).load(selected.generationDefaults).params
-        val runtime = ResourceLimitsStore(sharedPreferences).runtime()
-        return LlamaTranslationBridge(llamaBridge, LlmModelCatalog.profileFor(selected, llmModelsDir(context), generation, runtime))
+        val limits = ResourceLimitsStore(sharedPreferences)
+        val profile = LlmModelCatalog.profileFor(
+            selected, llmModelsDir(context), generation, limits.runtime(), limits.fitBudget(modelManager.deviceTotalMemBytes())
+        )
+        return LlamaTranslationBridge(llamaBridge, profile)
     }
 
     @Provides
@@ -81,9 +86,10 @@ object PipelineModule {
     fun provideTranslationModelSelection(
         llamaBridge: LlamaTranslationBridge,
         sharedPreferences: SharedPreferences,
-        @ApplicationContext context: Context
+        @ApplicationContext context: Context,
+        modelManager: ModelManager
     ): TranslationModelSelection {
-        return TranslationModelSelection(llamaBridge, sharedPreferences, llmModelsDir(context))
+        return TranslationModelSelection(llamaBridge, sharedPreferences, llmModelsDir(context), modelManager.deviceTotalMemBytes())
     }
 
     @Provides

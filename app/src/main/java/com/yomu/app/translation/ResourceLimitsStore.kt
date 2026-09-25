@@ -27,4 +27,7 @@ class ResourceLimitsStore(private val prefs: SharedPreferences) {
     }
 
     fun runtime(): RuntimeLimits = RuntimeLimits(load(ResourceLimit.THREADS), load(ResourceLimit.CONTEXT_TOKENS))
+
+    fun fitBudget(totalMemBytes: Long): FitBudget =
+        FitBudget(totalMemBytes, load(ResourceLimit.FIT_BUDGET_PERCENT), load(ResourceLimit.CONTEXT_TOKENS))
 }

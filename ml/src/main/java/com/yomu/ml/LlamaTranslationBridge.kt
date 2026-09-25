@@ -38,7 +38,10 @@ class LlamaTranslationBridge(
 
     suspend fun selectModel(newProfile: ModelProfile) = readinessMutex.withLock {
         if (newProfile == profile) return@withLock
-        if (newProfile.modelPath != profile.modelPath || newProfile.runtime != profile.runtime) {
+        if (newProfile.modelPath != profile.modelPath ||
+            newProfile.runtime != profile.runtime ||
+            newProfile.repackWeights != profile.repackWeights
+        ) {
             llamaBridge.release()
             status = TranslationStatus.NotReady
         }
@@ -92,7 +95,7 @@ class LlamaTranslationBridge(
             return@withLock false
         }
         val runtime = profile.runtime
-        val loaded = llamaBridge.loadModel(profile.modelPath, runtime.contextTokens, N_GPU_LAYERS, runtime.threads)
+        val loaded = llamaBridge.loadModel(profile.modelPath, runtime.contextTokens, N_GPU_LAYERS, runtime.threads, profile.repackWeights)
         status = if (loaded) TranslationStatus.Ready else TranslationStatus.Error("load_failed")
         loaded
     }
