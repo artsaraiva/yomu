@@ -16,6 +16,7 @@ class LlmModelCatalogTest {
     private val twelveGb = 12L * 1024 * 1024 * 1024
     private val eightGb = 8L * 1024 * 1024 * 1024
     private val fourGb = 4L * 1024 * 1024 * 1024
+    private val galaxyS23 = 7_242_452L * 1024
 
     private fun fit(
         totalMemBytes: Long,
@@ -93,7 +94,7 @@ class LlmModelCatalogTest {
         val generation = GenerationParams(temperature = 0.7f, topK = 12, topP = 0.5f)
 
         LlmModelCatalog.ALL.forEach { option ->
-            assertEquals(option.displayName, generation, LlmModelCatalog.profileFor(option, File("m"), generation, RuntimeLimits()).generation)
+            assertEquals(option.displayName, generation, LlmModelCatalog.profileFor(option, File("m"), generation, RuntimeLimits(), fit(twelveGb)).generation)
         }
     }
 
@@ -101,7 +102,7 @@ class LlmModelCatalogTest {
     fun `profileFor carries the supplied runtime limits onto the profile`() {
         val runtime = RuntimeLimits(threads = 2, contextTokens = 1024)
 
-        assertEquals(runtime, LlmModelCatalog.profileFor(LlmModelCatalog.DEFAULT, File("m"), GenerationParams(), runtime).runtime)
+        assertEquals(runtime, LlmModelCatalog.profileFor(LlmModelCatalog.DEFAULT, File("m"), GenerationParams(), runtime, fit(twelveGb)).runtime)
     }
 
     @Test
@@ -352,8 +353,54 @@ class LlmModelCatalogTest {
     @Test
     fun `profileFor carries the entry's system message onto every entry`() {
         LlmModelCatalog.ALL.forEach { option ->
-            val profile = LlmModelCatalog.profileFor(option, File("m"), GenerationParams(), RuntimeLimits())
+            val profile = LlmModelCatalog.profileFor(option, File("m"), GenerationParams(), RuntimeLimits(), fit(twelveGb))
             assertEquals(option.displayName, option.systemMessage, profile.systemMessage)
+        }
+    }
+
+    @Test
+    fun `profileFor repacks weights only when a second copy of them still fits the budget`() {
+        listOf(
+            Constants.QWEN25_15B_MODEL_ID,
+            Constants.QWEN35_2B_MODEL_ID,
+            Constants.HY_MT2_18B_MODEL_ID
+        ).forEach { id ->
+            val profile = LlmModelCatalog.profileFor(LlmModelCatalog.fromId(id)!!, File("m"), GenerationParams(), RuntimeLimits(), fit(galaxyS23))
+            assertTrue(id, profile.repackWeights)
+        }
+        listOf(
+            Constants.QWEN35_4B_MODEL_ID,
+            Constants.QWEN3_4B_2507_MODEL_ID,
+            Constants.MINISTRAL3_3B_MODEL_ID,
+            Constants.QWEN35_4B_UNCENSORED_MODEL_ID
+        ).forEach { id ->
+            val profile = LlmModelCatalog.profileFor(LlmModelCatalog.fromId(id)!!, File("m"), GenerationParams(), RuntimeLimits(), fit(galaxyS23))
+            assertFalse(id, profile.repackWeights)
+        }
+    }
+
+    @Test
+    fun `profileFor counts the reader's context size against the repacked copy`() {
+        val qwen2b = LlmModelCatalog.fromId(Constants.QWEN35_2B_MODEL_ID)!!
+        val twiceAt1536 = qwen2b.sizeBytes * 2 + LlmModelCatalog.RESIDENT_OVERHEAD_BYTES + qwen2b.kvCacheBytesPerToken * 1536
+        val percent = LlmModelCatalog.DEFAULT_FIT_BUDGET_PERCENT
+        val budget = fit((twiceAt1536 + percent - 1) / percent * 100, contextTokens = 1536)
+
+        assertTrue(LlmModelCatalog.profileFor(qwen2b, File("m"), GenerationParams(), RuntimeLimits(contextTokens = 1536), budget).repackWeights)
+        assertFalse(LlmModelCatalog.profileFor(qwen2b, File("m"), GenerationParams(), RuntimeLimits(contextTokens = 2048), budget.copy(contextTokens = 2048)).repackWeights)
+    }
+
+    @Test
+    fun `profileFor keeps a 4B entry unrepacked when the reader raises the fit budget`() {
+        val qwen4b = LlmModelCatalog.fromId(Constants.QWEN35_4B_MODEL_ID)!!
+
+        assertFalse(LlmModelCatalog.profileFor(qwen4b, File("m"), GenerationParams(), RuntimeLimits(), fit(galaxyS23, percent = 90)).repackWeights)
+    }
+
+    @Test
+    fun `profileFor repacks when the device memory is unknown`() {
+        LlmModelCatalog.ALL.forEach { option ->
+            assertTrue(option.displayName, LlmModelCatalog.profileFor(option, File("m"), GenerationParams(), RuntimeLimits(), fit(0L)).repackWeights)
         }
     }
 }

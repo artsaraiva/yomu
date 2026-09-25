@@ -14,7 +14,8 @@ import javax.inject.Singleton
 class TranslationModelSelection @Inject constructor(
     private val llamaSlot: LlamaTranslationBridge,
     private val sharedPreferences: SharedPreferences,
-    private val llmModelsDir: File = File("")
+    private val llmModelsDir: File = File(""),
+    private val totalMemBytes: Long = 0L
 ) {
     private val generationStore = GenerationProfileStore(sharedPreferences)
     private val limitsStore = ResourceLimitsStore(sharedPreferences)
@@ -87,7 +88,7 @@ class TranslationModelSelection @Inject constructor(
     private suspend fun applyLlmProfile(option: LlmModelOption) {
         llamaSlot.selectModel(
             LlmModelCatalog.profileFor(
-                option, llmModelsDir, generationStore.load(option.generationDefaults).params, limitsStore.runtime()
+                option, llmModelsDir, generationStore.load(option.generationDefaults).params, limitsStore.runtime(), limitsStore.fitBudget(totalMemBytes)
             )
         )
     }

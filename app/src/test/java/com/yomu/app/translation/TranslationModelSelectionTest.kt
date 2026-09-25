@@ -134,6 +134,21 @@ class TranslationModelSelectionTest {
     }
 
     @Test
+    fun `the applied profile repacks weights only while the fit budget holds a second copy`() = runTest {
+        val llama = Mockito.mock(LlamaTranslationBridge::class.java)
+        val selection = selection(llama = llama, totalMemBytes = 7_242_452L * 1024)
+        val qwen2b = LlmModelCatalog.fromId(Constants.QWEN35_2B_MODEL_ID)!!
+
+        selection.selectLlmModel(qwen2b)
+        val atDefault = Mockito.mockingDetails(llama).invocations.last().arguments[0] as ModelProfile
+        selection.saveResourceLimit(ResourceLimit.FIT_BUDGET_PERCENT, 30)
+        val atThirty = Mockito.mockingDetails(llama).invocations.last().arguments[0] as ModelProfile
+
+        assertTrue(atDefault.repackWeights)
+        assertFalse(atThirty.repackWeights)
+    }
+
+    @Test
     fun `resetResourceLimits restores and applies the shipped limits`() = runTest {
         val llama = Mockito.mock(LlamaTranslationBridge::class.java)
         val selection = selection(llama = llama)
@@ -202,8 +217,9 @@ class TranslationModelSelectionTest {
 
     private fun selection(
         llama: LlamaTranslationBridge = Mockito.mock(LlamaTranslationBridge::class.java),
-        prefs: SharedPreferences = MapSharedPreferences()
-    ): TranslationModelSelection = TranslationModelSelection(llama, prefs, File("models"))
+        prefs: SharedPreferences = MapSharedPreferences(),
+        totalMemBytes: Long = 0L
+    ): TranslationModelSelection = TranslationModelSelection(llama, prefs, File("models"), totalMemBytes)
 
     private fun editor(): SharedPreferences.Editor =
         Mockito.mock(SharedPreferences.Editor::class.java).also { editor ->

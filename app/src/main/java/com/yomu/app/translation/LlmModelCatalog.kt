@@ -331,7 +331,13 @@ object LlmModelCatalog {
     /** The selected option, or the default when nothing (or an unknown id) is persisted. */
     fun selectedOrDefault(id: String?): LlmModelOption = fromId(id) ?: DEFAULT
 
-    fun profileFor(option: LlmModelOption, modelsDir: File, generation: GenerationParams, runtime: RuntimeLimits): ModelProfile =
+    fun profileFor(
+        option: LlmModelOption,
+        modelsDir: File,
+        generation: GenerationParams,
+        runtime: RuntimeLimits,
+        budget: FitBudget
+    ): ModelProfile =
         ModelProfile(
             modelPath = File(modelsDir, option.ggufFileName).absolutePath,
             idKeyedBatch = option.idKeyedBatch,
@@ -341,8 +347,18 @@ object LlmModelCatalog {
             // the caller, which is the layer that owns the store.
             generation = generation,
             runtime = runtime,
-            systemMessage = option.systemMessage
+            systemMessage = option.systemMessage,
+            repackWeights = repacksWeights(option, budget)
         )
+
+    // The repacked copy is anonymous memory lmkd counts against the app, so repack only when a second
+    // copy of the weights fits (#319). Capped at the shipped percent: raising the budget shows more
+    // entries, but the S23 kills that measured this threshold do not move with it.
+    private fun repacksWeights(option: LlmModelOption, budget: FitBudget): Boolean {
+        if (budget.totalMemBytes <= 0L) return true
+        val capped = budget.copy(percent = minOf(budget.percent, DEFAULT_FIT_BUDGET_PERCENT))
+        return neededBytes(option, capped) + option.sizeBytes <= budgetBytes(capped)
+    }
 
     /**
      * Whether [option] — weights, resident overhead and its KV cache at the budget's context size — fits inside
@@ -350,7 +366,11 @@ object LlmModelCatalog {
      */
     fun canRunOnDevice(option: LlmModelOption, budget: FitBudget): Boolean {
         if (option.id == DEFAULT.id) return true
-        val needed = option.sizeBytes + RESIDENT_OVERHEAD_BYTES + option.kvCacheBytesPerToken * budget.contextTokens
-        return needed <= budget.totalMemBytes / 100 * budget.percent
+        return neededBytes(option, budget) <= budgetBytes(budget)
     }
+
+    private fun neededBytes(option: LlmModelOption, budget: FitBudget): Long =
+        option.sizeBytes + RESIDENT_OVERHEAD_BYTES + option.kvCacheBytesPerToken * budget.contextTokens
+
+    private fun budgetBytes(budget: FitBudget): Long = budget.totalMemBytes / 100 * budget.percent
 }

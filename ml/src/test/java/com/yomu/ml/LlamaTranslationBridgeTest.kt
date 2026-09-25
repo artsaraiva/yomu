@@ -251,6 +251,21 @@ class LlamaTranslationBridgeTest {
     }
 
     @Test
+    fun selectModel_aRepackChangeReloadsTheModelWithIt() = runTest {
+        val model = File.createTempFile("model", ".gguf")
+        val native = FakeLlamaBridge { GenerationResult.Success("x", 1L) }
+        val slot = LlamaTranslationBridge(native, profile(model))
+        assertTrue(slot.ensureReady())
+
+        slot.selectModel(profile(model).copy(repackWeights = false))
+        slot.translatePage(page(1 to "こんにちは"))
+
+        assertEquals(1, native.releaseCalls)
+        assertEquals(listOf(false), native.repacks)
+        model.delete()
+    }
+
+    @Test
     fun translatePage_recordsTheLastPageDuration() = runTest {
         val model = File.createTempFile("model", ".gguf")
         val native = FakeLlamaBridge { GenerationResult.Success("x", 10L) }

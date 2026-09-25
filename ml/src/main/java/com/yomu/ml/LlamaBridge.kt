@@ -37,10 +37,10 @@ open class LlamaBridge(private val context: Context?) : TextGenerationBridge {
     }
 
     override fun loadModel(modelPath: String, nCtx: Int, nGpuLayers: Int): Boolean {
-        return loadModel(modelPath, nCtx, nGpuLayers, DEFAULT_N_THREADS)
+        return loadModel(modelPath, nCtx, nGpuLayers, DEFAULT_N_THREADS, repackWeights = true)
     }
 
-    open fun loadModel(modelPath: String, nCtx: Int, nGpuLayers: Int, nThreads: Int): Boolean {
+    open fun loadModel(modelPath: String, nCtx: Int, nGpuLayers: Int, nThreads: Int, repackWeights: Boolean): Boolean {
         if (!nativeLoaded) {
             Log.w(TAG, "loadModel skipped native_unavailable")
             return false
@@ -56,9 +56,10 @@ open class LlamaBridge(private val context: Context?) : TextGenerationBridge {
             modelFile.absolutePath,
             nCtx,
             nGpuLayers,
-            nThreads
+            nThreads,
+            repackWeights
         )
-        Log.i(TAG, "loadModel completed loaded=$isLoaded")
+        Log.i(TAG, "loadModel completed loaded=$isLoaded repackWeights=$repackWeights")
         return isLoaded
     }
 
@@ -127,7 +128,7 @@ open class LlamaBridge(private val context: Context?) : TextGenerationBridge {
         Log.i(TAG, "release completed")
     }
 
-    private external fun nativeLoadModel(path: String, nCtx: Int, nGpuLayers: Int, nThreads: Int): Boolean
+    private external fun nativeLoadModel(path: String, nCtx: Int, nGpuLayers: Int, nThreads: Int, repackWeights: Boolean): Boolean
     // samplerParams carries the sampler knobs in GenerationParams.SAMPLER_INDEX order; seed is a
     // separate Int because 0xFFFFFFFF (LLAMA_DEFAULT_SEED) has no exact Float representation.
     private external fun nativeGenerate(

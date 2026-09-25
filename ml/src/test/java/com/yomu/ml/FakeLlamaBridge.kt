@@ -15,13 +15,16 @@ internal class FakeLlamaBridge(
     val abortRequests = mutableListOf<Boolean>()
     /** Context tokens and threads of every native load, in order. */
     val loads = mutableListOf<Pair<Int, Int>>()
+    /** Whether each native load was allowed to repack the weights, in order. */
+    val repacks = mutableListOf<Boolean>()
     private var loaded = true
 
     override val isNativeAvailable: Boolean get() = true
     override val isModelLoaded: Boolean get() = loaded
     override fun loadModel(modelPath: String, nCtx: Int, nGpuLayers: Int): Boolean = true
-    override fun loadModel(modelPath: String, nCtx: Int, nGpuLayers: Int, nThreads: Int): Boolean {
+    override fun loadModel(modelPath: String, nCtx: Int, nGpuLayers: Int, nThreads: Int, repackWeights: Boolean): Boolean {
         loads += nCtx to nThreads
+        repacks += repackWeights
         loaded = true
         return true
     }

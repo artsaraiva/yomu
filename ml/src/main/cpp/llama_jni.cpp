@@ -155,7 +155,8 @@ Java_com_yomu_ml_LlamaBridge_nativeLoadModel(
     jstring model_path,
     jint n_ctx,
     jint n_gpu_layers,
-    jint n_threads) {
+    jint n_threads,
+    jboolean repack_weights) {
 
     const char *path = env->GetStringUTFChars(model_path, nullptr);
     LOGI("Loading model from: %s", path);
@@ -164,6 +165,7 @@ Java_com_yomu_ml_LlamaBridge_nativeLoadModel(
 
     llama_model_params model_params = llama_model_default_params();
     model_params.n_gpu_layers = n_gpu_layers;
+    model_params.use_extra_bufts = repack_weights == JNI_TRUE;
 
     g_model = llama_model_load_from_file(path, model_params);
     env->ReleaseStringUTFChars(model_path, path);
@@ -198,7 +200,7 @@ Java_com_yomu_ml_LlamaBridge_nativeLoadModel(
     g_vocab = llama_model_get_vocab(g_model);
     g_chat_templates = load_chat_templates();
 
-    LOGI("Model loaded: n_ctx=%d n_threads=%d n_gpu_layers=%d", n_ctx, threads, n_gpu_layers);
+    LOGI("Model loaded: n_ctx=%d n_threads=%d n_gpu_layers=%d repack=%d", n_ctx, threads, n_gpu_layers, repack_weights == JNI_TRUE);
     LOGI("Model loaded successfully");
     return JNI_TRUE;
 }
