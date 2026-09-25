@@ -408,6 +408,27 @@ class ModelSlotSelectionTest {
     }
 
     @Test
+    fun `Ternary-Bonsai is never labelled Fast, whatever its size`() {
+        // 1.1 GB would read Fast, but Q2_0 has no repacked ARM kernel: on the spike's desktop run the
+        // 4B was slower than the 2.5 GB Qwen3-4B-2507, which the size rule calls Medium.
+        val llm = selection.deliverables(ModelType.LLM)
+
+        assertEquals("Medium", llm.single { it.id == Constants.TERNARY_BONSAI_4B_MODEL_ID }.speed)
+        assertEquals("Medium", llm.single { it.id == Constants.TERNARY_BONSAI_8B_MODEL_ID }.speed)
+    }
+
+    @Test
+    fun `a deliverable's licence carries the credit its maker asks for`() {
+        val llm = selection.deliverables(ModelType.LLM)
+
+        assertEquals(
+            "Apache-2.0 (Created using Bonsai by Prism ML)",
+            llm.single { it.id == Constants.TERNARY_BONSAI_4B_MODEL_ID }.licence
+        )
+        assertEquals("Apache-2.0", llm.single { it.id == LlmModelCatalog.DEFAULT.id }.licence)
+    }
+
+    @Test
     fun `only a Slow deliverable that fits needs the warning`() {
         val id = LlmModelCatalog.DEFAULT.id
         val fast = SlotDeliverable(id, "Fits and fast", oneGb, "MIT")

@@ -137,6 +137,28 @@ class ModelRegistryTest {
     }
 
     @Test
+    fun `Ternary-Bonsai downloads the group-64 Q2_0 files the pinned llama_cpp loads`() {
+        val fourB = registry.single { it.id == Constants.TERNARY_BONSAI_4B_MODEL_ID }
+        val eightB = registry.single { it.id == Constants.TERNARY_BONSAI_8B_MODEL_ID }
+
+        assertEquals(
+            "https://huggingface.co/prism-ml/Ternary-Bonsai-4B-gguf/resolve/" +
+                "a3eb42bafe873f9686bc97486c43b72ef7d75ec8/Ternary-Bonsai-4B-Q2_0_g64.gguf",
+            fourB.downloadUrl
+        )
+        assertEquals("9d968b04a3c9a794897bcc744c8072fb6a061c0e42efd03c989401ddf8baef0c", fourB.checksum)
+        assertEquals(1_137_806_656L, fourB.fileSize)
+
+        assertEquals(
+            "https://huggingface.co/prism-ml/Ternary-Bonsai-8B-gguf/resolve/" +
+                "c2aefbeb4b24469cd11579c3384b990404c17a30/Ternary-Bonsai-8B-Q2_0_g64.gguf",
+            eightB.downloadUrl
+        )
+        assertEquals("e17b298d84ee78797916ae5c2ecc8211469cc65cccfe3080cd9a9bb503fbc55e", eightB.checksum)
+        assertEquals(2_310_125_920L, eightB.fileSize)
+    }
+
+    @Test
     fun `every uncensored entry downloads the pinned huihui-ai abliteration`() {
         // huihui-ai publishes its own GGUF only for the Gemma 4 QAT abliterations; the Qwen3.5 ones
         // come from mradermacher's static quants. Repo, commit, bytes and sha256 as the research

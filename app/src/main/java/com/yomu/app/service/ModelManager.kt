@@ -245,6 +245,30 @@ class ModelManager @Inject constructor(
                 version = "1.0",
                 isRequired = false
             ),
+            ModelEntity(
+                id = Constants.TERNARY_BONSAI_4B_MODEL_ID,
+                name = "Ternary-Bonsai 4B (Q2_0)",
+                type = ModelType.LLM,
+                fileName = Constants.TERNARY_BONSAI_4B_MODEL,
+                fileSize = Constants.TERNARY_BONSAI_4B_SIZE,
+                downloadUrl = "https://huggingface.co/prism-ml/Ternary-Bonsai-4B-gguf/resolve/a3eb42bafe873f9686bc97486c43b72ef7d75ec8/Ternary-Bonsai-4B-Q2_0_g64.gguf",
+                checksum = "9d968b04a3c9a794897bcc744c8072fb6a061c0e42efd03c989401ddf8baef0c",
+                status = ModelStatus.AVAILABLE,
+                version = "1.0",
+                isRequired = false
+            ),
+            ModelEntity(
+                id = Constants.TERNARY_BONSAI_8B_MODEL_ID,
+                name = "Ternary-Bonsai 8B (Q2_0)",
+                type = ModelType.LLM,
+                fileName = Constants.TERNARY_BONSAI_8B_MODEL,
+                fileSize = Constants.TERNARY_BONSAI_8B_SIZE,
+                downloadUrl = "https://huggingface.co/prism-ml/Ternary-Bonsai-8B-gguf/resolve/c2aefbeb4b24469cd11579c3384b990404c17a30/Ternary-Bonsai-8B-Q2_0_g64.gguf",
+                checksum = "e17b298d84ee78797916ae5c2ecc8211469cc65cccfe3080cd9a9bb503fbc55e",
+                status = ModelStatus.AVAILABLE,
+                version = "1.0",
+                isRequired = false
+            ),
             // huihui-ai abliterations: its own GGUFs for the Gemma 4 QAT pair, mradermacher's static
             // quants for Qwen3.5, where huihui-ai publishes none.
             ModelEntity(

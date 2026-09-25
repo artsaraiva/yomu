@@ -71,6 +71,20 @@ class LlmModelCatalogTest {
     }
 
     @Test
+    fun `Ternary-Bonsai 4B and 8B are experimental page-batch entries on PrismML's sampling`() {
+        listOf(Constants.TERNARY_BONSAI_4B_MODEL_ID, Constants.TERNARY_BONSAI_8B_MODEL_ID).forEach { id ->
+            val option = LlmModelCatalog.fromId(id)!!
+            assertTrue(id, option.experimental)
+            assertTrue(id, option.idKeyedBatch)
+            assertEquals(id, TranslationPromptMode.TRANSLATION_ONLY, option.promptMode)
+            assertEquals(id, "Apache-2.0", option.licence)
+            assertEquals(id, "Created using Bonsai by Prism ML", option.credit)
+            assertEquals(id, 147_456L, option.kvCacheBytesPerToken)
+            assertEquals(id, GenerationParams(temperature = 0.5f, topK = 20, topP = 0.85f), option.generationDefaults)
+        }
+    }
+
+    @Test
     fun `the entries phone-checked before the Experimental tier are not experimental`() {
         val checked = listOf(Constants.QWEN25_15B_MODEL_ID, Constants.CAT_TRANSLATION_MODEL_ID, Constants.CAT_TRANSLATION_14B_MODEL_ID)
         checked.forEach { assertFalse(it, LlmModelCatalog.fromId(it)!!.experimental) }

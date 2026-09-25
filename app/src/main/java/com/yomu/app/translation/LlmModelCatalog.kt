@@ -29,6 +29,7 @@ data class LlmModelOption(
      * QAT GGUF repos, a change from the Gemma Terms the older Gemma models carry (checked
      * 2026-09-16). Hy-MT2 1.8B = Apache-2.0 on the card, in the base repo's LICENSE.txt and on the
      * first-party GGUF repo, unlike the earlier Hunyuan-MT's Tencent licence (checked 2026-09-21).
+     * Ternary-Bonsai 4B/8B = Apache-2.0 on the cards and in the GGUF headers (checked 2026-09-18).
      * Also the "governed by its own licence" notice ADR-0009 asks
      * Yomu to surface.
      */
@@ -60,7 +61,11 @@ data class LlmModelOption(
      * template injects Mistral's Le Chat assistant prompt when no system message is sent, so an
      * entry rendered through it must state its own role or be told it is a chat assistant.
      */
-    val systemMessage: String = ""
+    val systemMessage: String = "",
+    /** The attribution a maker's NOTICE asks for, shown beside [licence] wherever the app lists it (ADR-0017). */
+    val credit: String = "",
+    /** Replaces the size-derived speed label where a measurement contradicts it (ADR-0017); null keeps the size rule. */
+    val speedLabel: String? = null
 )
 
 /** The RAM a translation model must fit inside on this device: [percent] of [totalMemBytes], at [contextTokens]. */
@@ -106,6 +111,29 @@ object LlmModelCatalog {
      */
     private const val MINISTRAL_SYSTEM_MESSAGE =
         "You are a manga translator. You translate Japanese into natural English."
+
+    /**
+     * PrismML's ternary Qwen3-4B and Qwen3-8B (#301, spike #299): 2.25 bits a weight, so a bigger model
+     * in the same memory. The template always closes an empty think block, so they never think. The
+     * cards give no sampling; the GGUF headers carry PrismML's own, not Qwen3's. Q2_0 has no repacked
+     * ARM kernel, so the 4B ran slower than the 2.5 GB Qwen3-4B-2507 on the spike's desktop run and is
+     * labelled Medium rather than the Fast its size reads as.
+     */
+    private fun ternaryBonsai(id: String, displayName: String, ggufFileName: String, sizeBytes: Long) = LlmModelOption(
+        id = id,
+        displayName = displayName,
+        ggufFileName = ggufFileName,
+        sizeBytes = sizeBytes,
+        licence = "Apache-2.0",
+        idKeyedBatch = true,
+        promptMode = TranslationPromptMode.TRANSLATION_ONLY,
+        // Both are plain Qwen3 GQA: 36 layers, 8 KV heads, head dim 128.
+        kvCacheBytesPerToken = 36L * 2 * 8 * 128 * 2,
+        generationDefaults = GenerationParams(temperature = 0.5f, topK = 20, topP = 0.85f),
+        experimental = true,
+        credit = "Created using Bonsai by Prism ML",
+        speedLabel = "Medium"
+    )
 
     /**
      * The curated selectable shortlist. Every entry is redistributable and hosted.
@@ -304,7 +332,9 @@ object LlmModelCatalog {
             // both say top_p 0.8; the card wins, because the card is also where the prompt comes from.
             generationDefaults = GenerationParams(temperature = 0.7f, topK = 20, topP = 0.6f, penaltyRepeat = 1.05f),
             experimental = true
-        )
+        ),
+        ternaryBonsai(Constants.TERNARY_BONSAI_4B_MODEL_ID, "Ternary-Bonsai 4B", Constants.TERNARY_BONSAI_4B_MODEL, Constants.TERNARY_BONSAI_4B_SIZE),
+        ternaryBonsai(Constants.TERNARY_BONSAI_8B_MODEL_ID, "Ternary-Bonsai 8B", Constants.TERNARY_BONSAI_8B_MODEL, Constants.TERNARY_BONSAI_8B_SIZE)
     )
 
     /**
