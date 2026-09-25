@@ -9,6 +9,7 @@
 #include <atomic>
 #include <algorithm>
 #include <android/log.h>
+#include <dlfcn.h>
 #include "llama.h"
 
 #define LOG_TAG "LlamaJNI"
@@ -135,6 +136,15 @@ static common_chat_templates_ptr load_chat_templates() {
 extern "C" JNIEXPORT jint JNICALL
 JNI_OnLoad(JavaVM *vm, void *reserved) {
     g_jvm = vm;
+    // The CPU backend variants sit beside this library in the app's extracted native lib dir.
+    Dl_info info;
+    if (dladdr(reinterpret_cast<void *>(&JNI_OnLoad), &info) && info.dli_fname) {
+        const std::string lib_path(info.dli_fname);
+        ggml_backend_load_all_from_path(lib_path.substr(0, lib_path.rfind('/')).c_str());
+    }
+    if (ggml_backend_reg_count() == 0) {
+        LOGE("No ggml backend loaded; are native libs extracted?");
+    }
     return JNI_VERSION_1_6;
 }
 
