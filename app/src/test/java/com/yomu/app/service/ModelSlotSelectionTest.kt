@@ -327,11 +327,19 @@ class ModelSlotSelectionTest {
     }
 
     @Test
-    fun `fit is judged by the translation budget and an unknown memory size fits`() {
+    fun `fit is judged by the translation budget`() {
         assertFalse(ModelSlotSelection.fits(Constants.CAT_TRANSLATION_14B_MODEL_ID, selection.fitBudget(oneGb)))
-        assertTrue(ModelSlotSelection.fits(Constants.CAT_TRANSLATION_14B_MODEL_ID, selection.fitBudget(0L)))
         assertTrue(ModelSlotSelection.fits(LlmModelCatalog.DEFAULT.id, selection.fitBudget(oneGb)))
         assertTrue(ModelSlotSelection.fits(Constants.MANGA_OCR_MODEL_ID, selection.fitBudget(oneGb)))
+    }
+
+    @Test
+    fun `an unknown memory size fits only the default translation model`() {
+        assertTrue(ModelSlotSelection.fits(Constants.QWEN35_08B_MODEL_ID, selection.fitBudget(eightGb)))
+        assertFalse(ModelSlotSelection.fits(Constants.QWEN35_08B_MODEL_ID, selection.fitBudget(0L)))
+        assertFalse(ModelSlotSelection.fits(Constants.QWEN35_9B_MODEL_ID, selection.fitBudget(0L)))
+        assertTrue(ModelSlotSelection.fits(LlmModelCatalog.DEFAULT.id, selection.fitBudget(0L)))
+        assertTrue(ModelSlotSelection.fits(Constants.MANGA_OCR_MODEL_ID, selection.fitBudget(0L)))
     }
 
     @Test

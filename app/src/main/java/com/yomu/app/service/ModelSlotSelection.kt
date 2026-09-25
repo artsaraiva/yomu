@@ -192,10 +192,10 @@ class ModelSlotSelection @Inject constructor(
         fun needsSlowWarning(deliverable: SlotDeliverable, budget: FitBudget): Boolean =
             deliverable.slow && fits(deliverable.id, budget)
 
-        // Only translation models have a fit budget; 0 bytes means the device RAM couldn't be read.
+        // Only translation models have a fit budget. Unreadable RAM (0 bytes) leaves only the exempt default (#298).
         fun fits(id: String, budget: FitBudget): Boolean {
             val option = LlmModelCatalog.fromId(id) ?: return true
-            return budget.totalMemBytes <= 0L || LlmModelCatalog.canRunOnDevice(option, budget)
+            return LlmModelCatalog.canRunOnDevice(option, budget)
         }
     }
 }
