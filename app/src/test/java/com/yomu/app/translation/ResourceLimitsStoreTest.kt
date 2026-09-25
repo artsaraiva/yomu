@@ -66,4 +66,12 @@ class ResourceLimitsStoreTest {
 
         ResourceLimit.entries.forEach { assertEquals(it.default, store.load(it)) }
     }
+
+    @Test
+    fun `fitBudget carries the stored percent and context size`() {
+        store.save(ResourceLimit.FIT_BUDGET_PERCENT, 45)
+        store.save(ResourceLimit.CONTEXT_TOKENS, 1536)
+
+        assertEquals(FitBudget(8L, 45, 1536), store.fitBudget(8L))
+    }
 }

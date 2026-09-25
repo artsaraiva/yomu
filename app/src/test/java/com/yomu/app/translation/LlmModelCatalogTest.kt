@@ -383,9 +383,24 @@ class LlmModelCatalogTest {
     fun `profileFor counts the reader's context size against the repacked copy`() {
         val qwen2b = LlmModelCatalog.fromId(Constants.QWEN35_2B_MODEL_ID)!!
         val twiceAt1536 = qwen2b.sizeBytes * 2 + LlmModelCatalog.RESIDENT_OVERHEAD_BYTES + qwen2b.kvCacheBytesPerToken * 1536
-        val budget = fit((twiceAt1536 + 99) / 100 * 100, percent = 100, contextTokens = 1536)
+        val percent = LlmModelCatalog.DEFAULT_FIT_BUDGET_PERCENT
+        val budget = fit((twiceAt1536 + percent - 1) / percent * 100, contextTokens = 1536)
 
         assertTrue(LlmModelCatalog.profileFor(qwen2b, File("m"), GenerationParams(), RuntimeLimits(contextTokens = 1536), budget).repackWeights)
         assertFalse(LlmModelCatalog.profileFor(qwen2b, File("m"), GenerationParams(), RuntimeLimits(contextTokens = 2048), budget.copy(contextTokens = 2048)).repackWeights)
+    }
+
+    @Test
+    fun `profileFor keeps a 4B entry unrepacked when the reader raises the fit budget`() {
+        val qwen4b = LlmModelCatalog.fromId(Constants.QWEN35_4B_MODEL_ID)!!
+
+        assertFalse(LlmModelCatalog.profileFor(qwen4b, File("m"), GenerationParams(), RuntimeLimits(), fit(galaxyS23, percent = 90)).repackWeights)
+    }
+
+    @Test
+    fun `profileFor repacks when the device memory is unknown`() {
+        LlmModelCatalog.ALL.forEach { option ->
+            assertTrue(option.displayName, LlmModelCatalog.profileFor(option, File("m"), GenerationParams(), RuntimeLimits(), fit(0L)).repackWeights)
+        }
     }
 }
