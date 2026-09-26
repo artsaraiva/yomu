@@ -38,6 +38,8 @@ A curated deliverable must be Apache-2.0 or MIT. This is stricter than ADR-0014'
 
 This is what rules out Llama 3.2, GLM-Edge and TranslateGemma, and it is what lets **Gemma back in**: Gemma 4 is released under Apache-2.0, not the Gemma Terms of Use that excluded every earlier Gemma.
 
+"A Notice file" means a licence term that obliges Yomu to display a notice. It does not cover the NOTICE file an Apache-2.0 repo may ship. Apache-2.0 §4(d) requires a redistributor to carry that file's attributions along, which is a condition of the licence Yomu already accepts, not an extra term. A NOTICE whose own text only *asks* for credit therefore does not disqualify a deliverable. Ternary-Bonsai is the first case ([#301](https://github.com/artsaraiva/yomu/issues/301)). Its NOTICE asks for "Created using Bonsai by Prism ML", and Yomu shows that credit next to the licence wherever it lists model licences.
+
 ## Uncensored deliverables are curated, labelled, and listed normally
 
 Five huihui-ai abliterated deliverables (Qwen3.5 2B/4B/9B, Gemma 4 E2B/E4B) join the catalog labelled "Uncensored". They appear in the normal picker, not behind a switch or a warning dialog.
@@ -55,6 +57,8 @@ The thresholds are the same on every device, and the label is derived rather tha
 Rejected: no label until the phone checks measure one. That leaves the reader with nothing on the decision that costs them the most, and the checks are per-deliverable tickets that land over time.
 
 The warning is a confirmation, not a block. A reader may always continue.
+
+A deliverable may override its label when a measurement shows the size is wrong. Ternary-Bonsai 4B is 1.1 GB, but its `Q2_0` weights have no repacked ARM kernel, and on the spike's desktop run it was slower than the 2.5 GB Qwen3-4B-2507. It is labelled Medium ([#301](https://github.com/artsaraiva/yomu/issues/301)).
 
 ## Sampling defaults belong to the deliverable; the reader's changes are global and win
 

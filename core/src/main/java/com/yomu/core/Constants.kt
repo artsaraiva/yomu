@@ -22,6 +22,8 @@ object Constants {
     const val GEMMA4_E2B_MODEL_ID = "gemma4_e2b_v1"
     const val GEMMA4_E4B_MODEL_ID = "gemma4_e4b_v1"
     const val HY_MT2_18B_MODEL_ID = "hy_mt2_1.8b_v1"
+    const val TERNARY_BONSAI_4B_MODEL_ID = "ternary_bonsai_4b_v1"
+    const val TERNARY_BONSAI_8B_MODEL_ID = "ternary_bonsai_8b_v1"
     const val QWEN35_2B_UNCENSORED_MODEL_ID = "qwen35_2b_uncensored_v1"
     const val QWEN35_4B_UNCENSORED_MODEL_ID = "qwen35_4b_uncensored_v1"
     const val QWEN35_9B_UNCENSORED_MODEL_ID = "qwen35_9b_uncensored_v1"
@@ -55,6 +57,9 @@ object Constants {
     const val GEMMA4_E2B_MODEL = "gemma4_e2b_it_q4_0.gguf"
     const val GEMMA4_E4B_MODEL = "gemma4_e4b_it_q4_0.gguf"
     const val HY_MT2_18B_MODEL = "hy_mt2_1.8b_q4_k_m.gguf"
+    // Group-64 Q2_0: the cards' recommended group-128 file does not load in the pinned llama.cpp (#299).
+    const val TERNARY_BONSAI_4B_MODEL = "ternary_bonsai_4b_q2_0_g64.gguf"
+    const val TERNARY_BONSAI_8B_MODEL = "ternary_bonsai_8b_q2_0_g64.gguf"
     // huihui-ai abliterations. The Gemma 4 ones are Q4_K_M quants of the QAT weights, not Q4_0.
     const val QWEN35_2B_UNCENSORED_MODEL = "qwen35_2b_uncensored_q4_k_m.gguf"
     const val QWEN35_4B_UNCENSORED_MODEL = "qwen35_4b_uncensored_q4_k_m.gguf"
@@ -81,6 +86,8 @@ object Constants {
     const val GEMMA4_E2B_SIZE = 3_349_516_256L
     const val GEMMA4_E4B_SIZE = 5_154_941_280L
     const val HY_MT2_18B_SIZE = 1_133_080_448L
+    const val TERNARY_BONSAI_4B_SIZE = 1_137_806_656L
+    const val TERNARY_BONSAI_8B_SIZE = 2_310_125_920L
     const val QWEN35_2B_UNCENSORED_SIZE = 1_270_809_024L
     const val QWEN35_4B_UNCENSORED_SIZE = 2_707_514_688L
     const val QWEN35_9B_UNCENSORED_SIZE = 5_627_045_248L

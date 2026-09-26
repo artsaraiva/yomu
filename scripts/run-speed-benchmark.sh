@@ -76,6 +76,8 @@ MODELS=(
   "llm/ministral3_3b_instruct_2512_q4_k_m.gguf|https://huggingface.co/mistralai/Ministral-3-3B-Instruct-2512-GGUF/resolve/eb599d408350ea2bb60452cb86be7c7b2fc28227/Ministral-3-3B-Instruct-2512-Q4_K_M.gguf"
   "llm/gemma4_e2b_it_q4_0.gguf|https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-gguf/resolve/675cff42a74c774d6cb76f76d8eacb49b48c9b93/gemma-4-E2B_q4_0-it.gguf"
   "llm/hy_mt2_1.8b_q4_k_m.gguf|https://huggingface.co/tencent/Hy-MT2-1.8B-GGUF/resolve/a0c709d9fac510f2c807aa3af52872340dc37a4a/Hy-MT2-1.8B-Q4_K_M.gguf"
+  "llm/ternary_bonsai_4b_q2_0_g64.gguf|https://huggingface.co/prism-ml/Ternary-Bonsai-4B-gguf/resolve/a3eb42bafe873f9686bc97486c43b72ef7d75ec8/Ternary-Bonsai-4B-Q2_0_g64.gguf"
+  "llm/ternary_bonsai_8b_q2_0_g64.gguf|https://huggingface.co/prism-ml/Ternary-Bonsai-8B-gguf/resolve/c2aefbeb4b24469cd11579c3384b990404c17a30/Ternary-Bonsai-8B-Q2_0_g64.gguf"
   "llm/qwen35_2b_uncensored_q4_k_m.gguf|https://huggingface.co/mradermacher/Huihui-Qwen3.5-2B-abliterated-GGUF/resolve/f36848fead3fdda244cf60195c46993d23183d4c/Huihui-Qwen3.5-2B-abliterated.Q4_K_M.gguf"
   "llm/qwen35_4b_uncensored_q4_k_m.gguf|https://huggingface.co/mradermacher/Huihui-Qwen3.5-4B-abliterated-GGUF/resolve/4a5daa6fbefca5fe822dc65fcb95cc4576fa9720/Huihui-Qwen3.5-4B-abliterated.Q4_K_M.gguf"
   "llm/gemma4_e2b_it_uncensored_q4_k_m.gguf|https://huggingface.co/huihui-ai/Huihui-gemma-4-E2B-it-qat-q4_0-unquantized-abliterated-GGUF/resolve/e38a3cdcf55879424c971d0961ea70b82870b989/Huihui-gemma-4-E2B-it-qat-q4_0-unquantized-abliterated-Q4_K.gguf"

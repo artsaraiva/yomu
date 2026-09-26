@@ -2,6 +2,7 @@ package com.yomu.app.service
 
 import com.yomu.app.db.entities.ModelStatus
 import com.yomu.app.db.entities.ModelType
+import com.yomu.app.translation.DeliverableSpeed
 import com.yomu.app.translation.FitBudget
 import com.yomu.app.translation.LlmModelCatalog
 import com.yomu.app.translation.ResourceLimit
@@ -18,16 +19,23 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.job
 import javax.inject.Singleton
 
-data class SlotDeliverable(val id: String, val name: String, val sizeBytes: Long, val licence: String, val experimental: Boolean = false) {
-    /** Read off the download size alone, so a reader is told the same thing on every device. */
-    val speed: String
-        get() = when {
-            sizeBytes <= FAST_MAX_BYTES -> "Fast"
-            sizeBytes <= MEDIUM_MAX_BYTES -> "Medium"
-            else -> "Slow"
+data class SlotDeliverable(
+    val id: String,
+    val name: String,
+    val sizeBytes: Long,
+    val licence: String,
+    val experimental: Boolean = false,
+    val speedOverride: DeliverableSpeed? = null
+) {
+    /** Read off the download size unless the entry states its own, so a reader is told the same thing on every device. */
+    val speed: DeliverableSpeed
+        get() = speedOverride ?: when {
+            sizeBytes <= FAST_MAX_BYTES -> DeliverableSpeed.FAST
+            sizeBytes <= MEDIUM_MAX_BYTES -> DeliverableSpeed.MEDIUM
+            else -> DeliverableSpeed.SLOW
         }
 
-    val slow: Boolean get() = sizeBytes > MEDIUM_MAX_BYTES
+    val slow: Boolean get() = speed == DeliverableSpeed.SLOW
 
     companion object {
         private const val GB = 1024L * 1024 * 1024
@@ -56,7 +64,9 @@ class ModelSlotSelection @Inject constructor(
     val progress: StateFlow<Map<String, Int>> = _progress.asStateFlow()
 
     fun deliverables(type: ModelType): List<SlotDeliverable> = when (type) {
-        ModelType.LLM -> LlmModelCatalog.ALL.map { SlotDeliverable(it.id, it.displayName, it.sizeBytes, it.licence, it.experimental) }
+        ModelType.LLM -> LlmModelCatalog.ALL.map {
+            SlotDeliverable(it.id, it.displayName, it.sizeBytes, it.licenceWithCredit, it.experimental, it.speed)
+        }
         else -> ModelManager.REGISTRY.filter { it.type == type }.map {
             SlotDeliverable(
                 it.id,

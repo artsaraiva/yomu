@@ -2,6 +2,7 @@ package com.yomu.app.service
 
 import com.yomu.app.db.entities.ModelStatus
 import com.yomu.app.db.entities.ModelType
+import com.yomu.app.translation.DeliverableSpeed
 import com.yomu.app.translation.FitBudget
 import com.yomu.app.translation.LlmModelCatalog
 import com.yomu.app.translation.MapSharedPreferences
@@ -399,12 +400,31 @@ class ModelSlotSelectionTest {
         val oneAndAHalfGb = 3L * 1024 * 1024 * 1024 / 2
         val threeAndAHalfGb = 7L * 1024 * 1024 * 1024 / 2
 
-        assertEquals("Fast", deliverableOf(oneAndAHalfGb).speed)
-        assertEquals("Medium", deliverableOf(oneAndAHalfGb + 1).speed)
-        assertEquals("Medium", deliverableOf(threeAndAHalfGb).speed)
-        assertEquals("Slow", deliverableOf(threeAndAHalfGb + 1).speed)
+        assertEquals(DeliverableSpeed.FAST, deliverableOf(oneAndAHalfGb).speed)
+        assertEquals(DeliverableSpeed.MEDIUM, deliverableOf(oneAndAHalfGb + 1).speed)
+        assertEquals(DeliverableSpeed.MEDIUM, deliverableOf(threeAndAHalfGb).speed)
+        assertEquals(DeliverableSpeed.SLOW, deliverableOf(threeAndAHalfGb + 1).speed)
         assertFalse(deliverableOf(threeAndAHalfGb).slow)
         assertTrue(deliverableOf(threeAndAHalfGb + 1).slow)
+    }
+
+    @Test
+    fun `Ternary-Bonsai is never labelled Fast, whatever its size`() {
+        val llm = selection.deliverables(ModelType.LLM)
+
+        assertEquals(DeliverableSpeed.MEDIUM, llm.single { it.id == Constants.TERNARY_BONSAI_4B_MODEL_ID }.speed)
+        assertEquals(DeliverableSpeed.MEDIUM, llm.single { it.id == Constants.TERNARY_BONSAI_8B_MODEL_ID }.speed)
+    }
+
+    @Test
+    fun `a deliverable's licence carries the credit its maker asks for`() {
+        val llm = selection.deliverables(ModelType.LLM)
+
+        assertEquals(
+            "Apache-2.0 (Created using Bonsai by Prism ML)",
+            llm.single { it.id == Constants.TERNARY_BONSAI_4B_MODEL_ID }.licence
+        )
+        assertEquals("Apache-2.0", llm.single { it.id == LlmModelCatalog.DEFAULT.id }.licence)
     }
 
     @Test

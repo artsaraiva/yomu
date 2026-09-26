@@ -67,6 +67,14 @@ int main() {
     const std::string qwen3_2507 = jinja_prompt(read_template("qwen3-4b-instruct-2507.jinja"), "", "<|im_end|>", user);
     assert(qwen3_2507 == "<|im_start|>user\n" + user + "<|im_end|>\n<|im_start|>assistant\n");
 
+    // Ternary-Bonsai 4B and 8B (#301) ship one template (both Q2_0_g64 pins, read 2026-09-26). It
+    // never reads enable_thinking and always closes an empty think block, so it renders Qwen3.5's
+    // non-thinking prompt; the pre-#281 guesser took it for plain ChatML and dropped the block.
+    const std::string bonsai_tmpl = read_template("ternary-bonsai.jinja");
+    const std::string bonsai = jinja_prompt(bonsai_tmpl, "", "<|im_end|>", user);
+    assert(bonsai == "<|im_start|>user\n" + user + "<|im_end|>\n" + thinking_off);
+    assert(guesser_prompt(bonsai_tmpl, user).find("<think>") == std::string::npos);
+
     // Ministral 3 (#287). With no system message its template injects Mistral's Le Chat assistant
     // prompt; the catalog entry's own system message replaces it, rendered as [SYSTEM_PROMPT]…
     // before the user turn. The 3B and 8B templates differ only in the name inside that default.
