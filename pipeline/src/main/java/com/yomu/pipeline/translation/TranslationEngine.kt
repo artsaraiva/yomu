@@ -48,14 +48,14 @@ fun deadTranslationReason(text: String?): String? = when {
 // asking a model to translate it invites a request for the missing text instead (#120).
 private fun TranslatableBubble.carriesText(): Boolean = sourceText.any { it.isLetterOrDigit() }
 
-private fun String?.usableTranslation(): String? =
-    this?.takeIf { it.isNotBlank() && !looksLikeNonTranslation(it) }
+private fun String?.usableTranslation(): String? = this?.takeIf { deadTranslationReason(it) == null }
 
+/** [answered] is false when the model gave this bubble nothing usable; [translatedText] is then its source. */
 data class TranslatedBubble(
     val bubbleId: Int,
     val originalText: String,
     val translatedText: String,
-    val confidence: Float
+    val answered: Boolean
 )
 
 data class TranslationResult(
@@ -77,6 +77,10 @@ fun TranslationResult.readerFailure(): String? = when {
     else -> "Translation model could not be loaded (${errorCode ?: "not_ready"})"
 }
 
+/** The status line for a page the model only partly answered, or null when every bubble was answered. */
+fun TranslationResult.untranslatedNotice(): String? =
+    translations.count { !it.answered }.takeIf { it > 0 }?.let { "$it of ${translations.size} bubbles not translated" }
+
 class TranslationEngine(
     private val slotProvider: () -> TranslationSlot,
     private val closeSlots: () -> Unit
@@ -89,8 +93,6 @@ class TranslationEngine(
 
     companion object {
         private const val MAX_SOURCE_CHARS = 300
-        private const val TRANSLATED_CONFIDENCE = 0.8f
-        private const val FALLBACK_CONFIDENCE = 0.1f
     }
 
     suspend fun translate(blocks: List<ConversationBlock>): TranslationResult {
@@ -116,7 +118,7 @@ class TranslationEngine(
                 bubbleId = bubble.bubbleId,
                 originalText = bubble.sourceText,
                 translatedText = translated ?: bubble.sourceText,
-                confidence = if (translated == null) FALLBACK_CONFIDENCE else TRANSLATED_CONFIDENCE
+                answered = translated != null
             )
         }
         return TranslationResult(

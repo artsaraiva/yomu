@@ -20,7 +20,7 @@ class TypesetterTest {
         bubbleId = id,
         originalText = "",
         translatedText = text,
-        confidence = 1f
+        answered = true
     )
 
     @Test

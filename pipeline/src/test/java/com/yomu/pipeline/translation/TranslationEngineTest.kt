@@ -27,20 +27,59 @@ class TranslationEngineTest {
         val result = TranslationEngine { slot }.translate(listOf(block(1 to "こんにちは")))
 
         assertEquals("Hello", result.translations.single().translatedText)
-        assertEquals(0.8f, result.translations.single().confidence)
+        assertTrue(result.translations.single().answered)
         assertEquals("raw model output", result.rawResponse)
         assertEquals(55L, result.translationTimeMs)
     }
 
     @Test
-    fun translate_missingIdFallsBackToThatBubbleOnly() = runTest {
+    fun translate_missingIdLeavesThatBubbleOnlyUnanswered() = runTest {
         val slot = FakeTranslationSlot(PageTranslation(mapOf(1 to "Hello"), "", 1L))
 
         val result = TranslationEngine { slot }
             .translate(listOf(block(1 to "こんにちは", 2 to "さようなら")))
 
         assertEquals(listOf("Hello", "さようなら"), result.translations.map { it.translatedText })
-        assertEquals(listOf(0.8f, 0.1f), result.translations.map { it.confidence })
+        assertEquals(listOf(true, false), result.translations.map { it.answered })
+    }
+
+    @Test
+    fun translate_unusableRepliesLeaveTheirBubblesUnanswered() = runTest {
+        val slot = FakeTranslationSlot(
+            PageTranslation(
+                mapOf(1 to "I'm sorry, but I can't help with that.", 2 to "おはよう, everyone", 3 to "Goodbye"),
+                "",
+                1L
+            )
+        )
+
+        val result = TranslationEngine { slot }
+            .translate(listOf(block(1 to "こんにちは", 2 to "おはよう", 3 to "さようなら")))
+
+        assertEquals(listOf("こんにちは", "おはよう", "Goodbye"), result.translations.map { it.translatedText })
+        assertEquals(listOf(false, false, true), result.translations.map { it.answered })
+    }
+
+    @Test
+    fun translate_timedOutPageLeavesTheBubblesPastTheDeadlineUnanswered() = runTest {
+        val slot = FakeTranslationSlot(
+            PageTranslation(mapOf(1 to "Hello"), "[1] Hello", 60_000L, TranslationOutcome.TIMEOUT, "deadline")
+        )
+
+        val result = TranslationEngine { slot }
+            .translate(listOf(block(1 to "こんにちは", 2 to "さようなら", 3 to "またね")))
+
+        assertEquals(listOf(true, false, false), result.translations.map { it.answered })
+        assertEquals("2 of 3 bubbles not translated", result.untranslatedNotice())
+    }
+
+    @Test
+    fun untranslatedNotice_isNullWhenEveryBubbleWasAnswered() = runTest {
+        val slot = FakeTranslationSlot(PageTranslation(mapOf(1 to "Hello"), "", 1L))
+
+        val result = TranslationEngine { slot }.translate(listOf(block(1 to "こんにちは", 2 to "!?")))
+
+        assertNull(result.untranslatedNotice())
     }
 
     @Test
@@ -54,7 +93,7 @@ class TranslationEngineTest {
 
         assertEquals(listOf(1, 2), result.translations.map { it.bubbleId })
         assertEquals(listOf("Hello", "さようなら"), result.translations.map { it.translatedText })
-        assertEquals(listOf(0.8f, 0.1f), result.translations.map { it.confidence })
+        assertEquals(listOf(true, false), result.translations.map { it.answered })
     }
 
     @Test
@@ -124,6 +163,7 @@ class TranslationEngineTest {
 
         assertEquals(listOf(listOf(1 to "こんにちは")), slot.pagePairs())
         assertEquals(listOf("Hello", "?", "……"), result.translations.map { it.translatedText })
+        assertEquals(listOf(true, true, true), result.translations.map { it.answered })
     }
 
     @Test
