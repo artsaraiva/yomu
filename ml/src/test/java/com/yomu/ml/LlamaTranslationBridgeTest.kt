@@ -138,6 +138,50 @@ class LlamaTranslationBridgeTest {
     }
 
     @Test
+    fun translatePage_perLineReportsEachBubbleWhenItsCallReturnsInReadingOrder() = runTest {
+        val model = File.createTempFile("model", ".gguf")
+        val events = mutableListOf<String>()
+        val native = FakeLlamaBridge { prompt ->
+            val source = if (prompt.endsWith("こんにちは")) "こんにちは" else "さようなら"
+            events += "generate $source"
+            GenerationResult.Success(if (source == "こんにちは") "Hello" else "Goodbye", 1L)
+        }
+        val slot = LlamaTranslationBridge(native, profile(model))
+
+        val result = slot.translatePage(page(1 to "こんにちは", 2 to "さようなら")) { id, text ->
+            events += "report $id $text"
+        }
+
+        assertEquals(
+            listOf("generate こんにちは", "report 1 Hello", "generate さようなら", "report 2 Goodbye"),
+            events
+        )
+        assertEquals(mapOf(1 to "Hello", 2 to "Goodbye"), result.byId)
+        model.delete()
+    }
+
+    @Test
+    fun translatePage_perLineReportsOnlyTheBubblesInTheFinalResultOnceEach() = runTest {
+        val model = File.createTempFile("model", ".gguf")
+        val results = ArrayDeque<GenerationResult>().apply {
+            add(GenerationResult.Success("One", 1L))
+            add(GenerationResult.Blank(1L))
+            add(GenerationResult.Timeout(1L))
+            add(GenerationResult.Success("Four", 1L))
+        }
+        val slot = LlamaTranslationBridge(FakeLlamaBridge { results.removeFirst() }, profile(model))
+        val reported = mutableListOf<Pair<Int, String>>()
+
+        val result = slot.translatePage(page(1 to "一", 2 to "二", 3 to "三", 4 to "四")) { id, text ->
+            reported += id to text
+        }
+
+        assertEquals(listOf(1 to "One", 4 to "Four"), reported)
+        assertEquals(result.byId.toList(), reported)
+        model.delete()
+    }
+
+    @Test
     fun translatePage_batchPinsTheReplyShapeWithAGrammarPerId() = runTest {
         val model = File.createTempFile("model", ".gguf")
         val native = FakeLlamaBridge { GenerationResult.Success("[1] Hello\n[2] Bye", 1L) }

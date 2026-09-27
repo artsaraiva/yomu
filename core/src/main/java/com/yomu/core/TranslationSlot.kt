@@ -207,7 +207,15 @@ interface TranslationSlot {
     val status: TranslationStatus
 
     suspend fun ensureReady(): Boolean
-    suspend fun translatePage(page: TranslatablePage): PageTranslation
+
+    /**
+     * [onBubble] hears each bubble at most once, as soon as its text is final, and never with text
+     * that contradicts the returned [PageTranslation.byId].
+     */
+    suspend fun translatePage(
+        page: TranslatablePage,
+        onBubble: (bubbleId: Int, text: String) -> Unit = { _, _ -> }
+    ): PageTranslation
 
     fun endSession()
     fun close()

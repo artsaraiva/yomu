@@ -290,7 +290,8 @@ class TranslationEngineTest {
     }
 
     private class FakeTranslationSlot(
-        private val result: PageTranslation
+        private val result: PageTranslation,
+        private val reports: List<Pair<Int, String>> = emptyList()
     ) : TranslationSlot {
         override var status: TranslationStatus = TranslationStatus.Ready
         val pages = mutableListOf<TranslatablePage>()
@@ -298,8 +299,12 @@ class TranslationEngineTest {
 
         override suspend fun ensureReady(): Boolean = true
 
-        override suspend fun translatePage(page: TranslatablePage): PageTranslation {
+        override suspend fun translatePage(
+            page: TranslatablePage,
+            onBubble: (bubbleId: Int, text: String) -> Unit
+        ): PageTranslation {
             pages += page
+            reports.forEach { (id, text) -> onBubble(id, text) }
             return result
         }
 

@@ -38,6 +38,25 @@ class LlamaTranslationBridgeOverflowTest {
     }
 
     @Test
+    fun translatePage_batchOverflowFallbackStreamsEachBubble() = runTest {
+        val model = File.createTempFile("model", ".gguf")
+        val native = FakeLlamaBridge { prompt ->
+            when {
+                prompt.contains("Panels are separated") -> GenerationResult.Overflow(5L)
+                prompt.endsWith("こんにちは") -> GenerationResult.Success("Hello", 10L)
+                else -> GenerationResult.Success("Goodbye", 10L)
+            }
+        }
+        val slot = LlamaTranslationBridge(native, batchProfile(model))
+        val reported = mutableListOf<Pair<Int, String>>()
+
+        slot.translatePage(page(1 to "こんにちは", 2 to "さようなら")) { id, text -> reported += id to text }
+
+        assertEquals(listOf(1 to "Hello", 2 to "Goodbye"), reported)
+        model.delete()
+    }
+
+    @Test
     fun translatePage_batchOverflowThenPerLineFailureReportsBoth() = runTest {
         val model = File.createTempFile("model", ".gguf")
         val native = FakeLlamaBridge { prompt ->
