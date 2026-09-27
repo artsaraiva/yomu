@@ -9,6 +9,7 @@ import com.yomu.pipeline.context.ContextAssembler
 import com.yomu.pipeline.ocr.OcrEngine
 import com.yomu.pipeline.translation.TranslationEngine
 import com.yomu.pipeline.translation.TranslationResult
+import com.yomu.pipeline.translation.TranslatedBubble
 import com.yomu.pipeline.typesetting.TypesetBubble
 import com.yomu.pipeline.typesetting.Typesetter
 import kotlin.coroutines.coroutineContext
@@ -208,10 +209,7 @@ class TranslationPipeline(
             )
             typesetter.fontSizeScale = fontSizeScale
             // An unanswered bubble gets no box, so the reader sees the art under it (#330).
-            val typesetBubbles = typesetter.typeset(
-                translationResult.translations.filter { it.answered },
-                bubbleBounds
-            )
+            val typesetBubbles = typesetAnsweredBubbles(typesetter, translationResult.translations, bubbleBounds)
             callback?.onStageProgress(Stage.TYPESETTING, 1.0f)
 
             currentStage = Stage.DONE
@@ -248,4 +246,16 @@ class TranslationPipeline(
         contextAssembler.reset()
         translationEngine.close()
     }
+}
+
+internal fun typesetAnsweredBubbles(
+    typesetter: Typesetter,
+    translations: List<TranslatedBubble>,
+    renderBoxes: Map<Int, FloatArray>
+): List<TypesetBubble> = typesetter.typeset(translations.filter { it.answered }, renderBoxes).map { bubble ->
+    val renderBox = renderBoxes[bubble.bubbleId] ?: return@map bubble
+    val box = bubble.boundingBox
+    if (box[0] < renderBox[0] || box[1] < renderBox[1] ||
+        box[2] > renderBox[2] || box[3] > renderBox[3]
+    ) bubble.copy(boundingBox = renderBox) else bubble
 }
