@@ -83,6 +83,84 @@ class TranslationEngineTest {
     }
 
     @Test
+    fun translate_forwardsReportedBubblesAsTheyArrive() = runTest {
+        val slot = FakeTranslationSlot(
+            PageTranslation(mapOf(1 to "Hello", 2 to "Goodbye"), "", 1L),
+            reports = listOf(1 to "Hello", 2 to "Goodbye")
+        )
+        val forwarded = mutableListOf<TranslatedBubble>()
+
+        TranslationEngine { slot }
+            .translate(listOf(block(1 to "こんにちは", 2 to "さようなら"))) { forwarded += it }
+
+        assertEquals(
+            listOf(
+                TranslatedBubble(1, "こんにちは", "Hello", answered = true),
+                TranslatedBubble(2, "さようなら", "Goodbye", answered = true)
+            ),
+            forwarded
+        )
+    }
+
+    @Test
+    fun translate_neverForwardsAnUnusableReply() = runTest {
+        val slot = FakeTranslationSlot(
+            PageTranslation(mapOf(3 to "Goodbye"), "", 1L),
+            reports = listOf(1 to "I'm sorry, but I can't help with that.", 2 to "おはよう, everyone", 3 to "Goodbye")
+        )
+        val forwarded = mutableListOf<TranslatedBubble>()
+
+        TranslationEngine { slot }
+            .translate(listOf(block(1 to "こんにちは", 2 to "おはよう", 3 to "さようなら"))) { forwarded += it }
+
+        assertEquals(listOf(3 to "Goodbye"), forwarded.map { it.bubbleId to it.translatedText })
+    }
+
+    @Test
+    fun translate_forwardsABubbleOnceAndNeverOneOffThePage() = runTest {
+        val slot = FakeTranslationSlot(
+            PageTranslation(mapOf(1 to "Hello"), "", 1L),
+            reports = listOf(1 to "Hello", 99 to "Invented", 1 to "Hi there")
+        )
+        val forwarded = mutableListOf<TranslatedBubble>()
+
+        val result = TranslationEngine { slot }
+            .translate(listOf(block(1 to "こんにちは", 2 to "さようなら"))) { forwarded += it }
+
+        assertEquals(listOf(1 to "Hello"), forwarded.map { it.bubbleId to it.translatedText })
+        assertEquals("Hello", result.translations.first().translatedText)
+    }
+
+    @Test
+    fun translate_forwardsTheUnreportedAnsweredBubblesWhenThePageEnds() = runTest {
+        val slot = FakeTranslationSlot(
+            PageTranslation(mapOf(1 to "Hello", 3 to "Bye"), "", 1L),
+            reports = listOf(3 to "Bye")
+        )
+        val forwarded = mutableListOf<TranslatedBubble>()
+
+        TranslationEngine { slot }
+            .translate(listOf(block(1 to "こんにちは", 2 to "?", 3 to "またね", 4 to "さようなら"))) { forwarded += it }
+
+        assertEquals(listOf(3, 1, 2), forwarded.map { it.bubbleId })
+    }
+
+    @Test
+    fun translate_finishedPageHoldsExactlyTheForwardedBubbles() = runTest {
+        val slot = FakeTranslationSlot(
+            PageTranslation(mapOf(1 to "Hello"), "", 1L),
+            reports = listOf(2 to "Goodbye")
+        )
+        val forwarded = mutableListOf<TranslatedBubble>()
+
+        val result = TranslationEngine { slot }
+            .translate(listOf(block(1 to "こんにちは", 2 to "さようなら", 3 to "またね"))) { forwarded += it }
+
+        assertEquals(result.translations.filter { it.answered }.toSet(), forwarded.toSet())
+        assertEquals(listOf(true, true, false), result.translations.map { it.answered })
+    }
+
+    @Test
     fun translate_idNotOnThePageNeverReachesABubble() = runTest {
         val slot = FakeTranslationSlot(
             PageTranslation(mapOf(1 to "Hello", 99 to "Invented", -1 to "Out of range"), "", 1L)

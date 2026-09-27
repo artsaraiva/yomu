@@ -97,7 +97,15 @@ class TranslationEngine(
         private const val MAX_SOURCE_CHARS = 300
     }
 
-    suspend fun translate(blocks: List<ConversationBlock>): TranslationResult {
+    /**
+     * [onBubble] hears every answered bubble exactly once: a reported bubble as it arrives, once it
+     * passes the same check as the final result, and the rest when the page ends. The returned
+     * page's answered bubbles are exactly the forwarded ones.
+     */
+    suspend fun translate(
+        blocks: List<ConversationBlock>,
+        onBubble: (TranslatedBubble) -> Unit = {}
+    ): TranslationResult {
         val page = project(blocks)
         val bubbles = page.panels.flatten()
         if (bubbles.isEmpty()) return TranslationResult(emptyList(), "", 0L)
@@ -105,14 +113,22 @@ class TranslationEngine(
         val translatable = TranslatablePage(
             page.panels.mapNotNull { panel -> panel.filter { it.carriesText() }.ifEmpty { null } }
         )
+        val sourceById = translatable.panels.flatten().associate { it.bubbleId to it.sourceText }
+        val forwarded = mutableMapOf<Int, String>()
         val output = if (translatable.panels.isEmpty()) {
             PageTranslation(emptyMap(), "", 0L)
         } else {
-            slotProvider().translatePage(translatable)
+            slotProvider().translatePage(translatable) { bubbleId, text ->
+                val source = sourceById[bubbleId] ?: return@translatePage
+                val usable = text.usableTranslation() ?: return@translatePage
+                if (forwarded.putIfAbsent(bubbleId, usable) == null) {
+                    onBubble(TranslatedBubble(bubbleId, source, usable, answered = true))
+                }
+            }
         }
         val translations = bubbles.map { bubble ->
             val translated = if (bubble.carriesText()) {
-                output.byId[bubble.bubbleId].usableTranslation()
+                forwarded[bubble.bubbleId] ?: output.byId[bubble.bubbleId].usableTranslation()
             } else {
                 bubble.sourceText
             }
@@ -123,6 +139,7 @@ class TranslationEngine(
                 answered = translated != null
             )
         }
+        translations.filter { it.answered && it.bubbleId !in forwarded }.forEach(onBubble)
         return TranslationResult(
             translations = translations,
             rawResponse = output.rawResponse,
