@@ -9,11 +9,12 @@ class TranslatedPageGesturesTest {
 
     private val speech = OverlayBounds(100f, 100f, 300f, 200f)
     private val narration = OverlayBounds(250f, 150f, 400f, 300f)
+    private val card = OverlayBounds(16f, 1000f, 1064f, 1400f)
 
-    private fun tap(x: Float, y: Float, bubbles: List<OverlayBounds>, cardOpen: Boolean = false): Outcome {
+    private fun tap(x: Float, y: Float, bubbles: List<OverlayBounds>, openCard: OverlayBounds? = null): Outcome {
         val gestures = TranslatedPageGestures(touchSlop = 12f)
-        gestures.onTouch(MotionEvent.ACTION_DOWN, x, y, bubbles, cardOpen)
-        return gestures.onTouch(MotionEvent.ACTION_UP, x + 2f, y + 2f, bubbles, cardOpen)
+        gestures.onTouch(MotionEvent.ACTION_DOWN, x, y, bubbles, openCard)
+        return gestures.onTouch(MotionEvent.ACTION_UP, x + 2f, y + 2f, bubbles, openCard)
     }
 
     @Test
@@ -32,26 +33,40 @@ class TranslatedPageGesturesTest {
     }
 
     @Test
-    fun `tap while a card is open closes only the card`() {
-        assertEquals(Outcome.CloseCard, tap(150f, 150f, listOf(speech), cardOpen = true))
-        assertEquals(Outcome.CloseCard, tap(50f, 500f, listOf(speech), cardOpen = true))
+    fun `tap outside an open card closes only the card`() {
+        assertEquals(Outcome.CloseCard, tap(150f, 150f, listOf(speech), openCard = card))
+        assertEquals(Outcome.CloseCard, tap(50f, 500f, listOf(speech), openCard = card))
+    }
+
+    @Test
+    fun `tap on an open card keeps it open`() {
+        assertEquals(Outcome.None, tap(500f, 1200f, listOf(speech), openCard = card))
+    }
+
+    @Test
+    fun `swipe that starts on an open card dismisses the page`() {
+        val gestures = TranslatedPageGestures(touchSlop = 12f)
+
+        gestures.onTouch(MotionEvent.ACTION_DOWN, 500f, 1200f, listOf(speech), card)
+
+        assertEquals(Outcome.DismissPage, gestures.onTouch(MotionEvent.ACTION_MOVE, 500f, 1100f, listOf(speech), card))
     }
 
     @Test
     fun `swipe dismisses the page as soon as it passes the touch slop`() {
         val gestures = TranslatedPageGestures(touchSlop = 12f)
 
-        assertEquals(Outcome.None, gestures.onTouch(MotionEvent.ACTION_DOWN, 150f, 150f, listOf(speech), false))
-        assertEquals(Outcome.None, gestures.onTouch(MotionEvent.ACTION_MOVE, 155f, 155f, listOf(speech), false))
-        assertEquals(Outcome.DismissPage, gestures.onTouch(MotionEvent.ACTION_MOVE, 150f, 180f, listOf(speech), false))
+        assertEquals(Outcome.None, gestures.onTouch(MotionEvent.ACTION_DOWN, 150f, 150f, listOf(speech), null))
+        assertEquals(Outcome.None, gestures.onTouch(MotionEvent.ACTION_MOVE, 155f, 155f, listOf(speech), null))
+        assertEquals(Outcome.DismissPage, gestures.onTouch(MotionEvent.ACTION_MOVE, 150f, 180f, listOf(speech), null))
     }
 
     @Test
     fun `swipe that starts on a bubble still dismisses the page`() {
         val gestures = TranslatedPageGestures(touchSlop = 12f)
 
-        gestures.onTouch(MotionEvent.ACTION_DOWN, 150f, 150f, listOf(speech), true)
+        gestures.onTouch(MotionEvent.ACTION_DOWN, 150f, 150f, listOf(speech), card)
 
-        assertEquals(Outcome.DismissPage, gestures.onTouch(MotionEvent.ACTION_UP, 150f, 400f, listOf(speech), true))
+        assertEquals(Outcome.DismissPage, gestures.onTouch(MotionEvent.ACTION_UP, 150f, 400f, listOf(speech), card))
     }
 }

@@ -15,7 +15,6 @@ import com.yomu.app.ui.theme.paperBackground
 import com.yomu.app.ui.theme.paperColors
 import com.yomu.pipeline.typesetting.TypesetBubble
 
-/** Sits in the half of the page away from the bubble, so the reader still sees what they tapped. */
 internal fun bubbleCard(context: Context, bubble: TypesetBubble, atTop: Boolean): View {
     val density = context.resources.displayMetrics.density
     val margin = (16 * density).toInt()
@@ -24,8 +23,6 @@ internal fun bubbleCard(context: Context, bubble: TypesetBubble, atTop: Boolean)
         background = context.paperBackground()
         elevation = density
         setPadding(margin, margin / 2, margin, margin)
-        // Taps on the card's text must not reach the page, which would close the card.
-        isClickable = true
         addCardSection(context, "Japanese", bubble.originalText, 18f)
         addCardSection(context, "English", bubble.translatedText, 16f)
         layoutParams = FrameLayout.LayoutParams(

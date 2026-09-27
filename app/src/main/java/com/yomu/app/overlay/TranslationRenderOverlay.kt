@@ -75,7 +75,8 @@ class TranslationRenderOverlay(
             setBackgroundColor(Color.TRANSPARENT)
             setOnClickListener { remove() }
             setOnTouchListener { page, event ->
-                when (val outcome = gestures.onTouch(event.actionMasked, event.x, event.y, drawnBounds, card != null)) {
+                val openCard = card?.let { OverlayBounds(it.left.toFloat(), it.top.toFloat(), it.right.toFloat(), it.bottom.toFloat()) }
+                when (val outcome = gestures.onTouch(event.actionMasked, event.x, event.y, drawnBounds, openCard)) {
                     TranslatedPageGestures.Outcome.None -> Unit
                     TranslatedPageGestures.Outcome.DismissPage ->
                         if (event.actionMasked == MotionEvent.ACTION_UP) page.performClick() else remove()
@@ -85,8 +86,9 @@ class TranslationRenderOverlay(
                     }
                     is TranslatedPageGestures.Outcome.OpenCard -> {
                         val tapped = drawnBounds[outcome.bubbleIndex]
-                        val atTop = (tapped.top + tapped.bottom) / 2 > height / 2
-                        card = bubbleCard(context, bubbles[outcome.bubbleIndex], atTop).also(::addView)
+                        // The card takes the half of the page away from the bubble, so the reader still sees it.
+                        val cardAtTop = (tapped.top + tapped.bottom) / 2 > height / 2
+                        card = bubbleCard(context, bubbles[outcome.bubbleIndex], cardAtTop).also(::addView)
                     }
                 }
                 true
