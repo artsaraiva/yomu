@@ -224,6 +224,12 @@ class TranslationEngineTest {
     }
 
     @Test
+    fun deadTranslationReason_acceptsKatakanaPunctuationInAnEnglishLine() {
+        assertEquals(null, deadTranslationReason("Wait・・・"))
+        assertEquals(null, deadTranslationReason("Nooー!"))
+    }
+
+    @Test
     fun deadTranslationReason_namesEmptyNonTranslationAndResidue() {
         assertEquals("empty", deadTranslationReason(null))
         assertEquals("empty", deadTranslationReason("  "))

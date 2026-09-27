@@ -31,7 +31,8 @@ internal fun looksLikeNonTranslation(text: String): Boolean {
     return tokens.map { it.lowercase() }.toSet().size * LOOP_UNIQUE_DIVISOR <= tokens.size
 }
 
-private val CJK = Regex("[぀-ヿ㐀-䶿一-鿿豈-﫿ｦ-ﾟ]")
+// ・ and ー stand in for ellipses and long vowels in otherwise English lines, so they are not residue.
+private val CJK = Regex("[぀-ヺヽ-ヿ㐀-䶿一-鿿豈-﫿ｦ-ﾟ]")
 
 /**
  * Why [text] cannot be a live translation, or null when it can: empty, a non-translation, or
@@ -77,9 +78,10 @@ fun TranslationResult.readerFailure(): String? = when {
     else -> "Translation model could not be loaded (${errorCode ?: "not_ready"})"
 }
 
-/** The status line for a page the model only partly answered, or null when every bubble was answered. */
-fun TranslationResult.untranslatedNotice(): String? =
-    translations.count { !it.answered }.takeIf { it > 0 }?.let { "$it of ${translations.size} bubbles not translated" }
+fun TranslationResult.untranslatedNotice(): String? {
+    val unanswered = translations.count { !it.answered }
+    return if (unanswered == 0) null else "$unanswered of ${translations.size} bubbles not translated"
+}
 
 class TranslationEngine(
     private val slotProvider: () -> TranslationSlot,
