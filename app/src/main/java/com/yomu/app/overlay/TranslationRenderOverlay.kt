@@ -8,9 +8,6 @@ import android.graphics.PixelFormat
 import android.graphics.Typeface
 import android.os.Build
 import android.util.Log
-import android.view.MotionEvent
-import android.view.View
-import android.view.ViewConfiguration
 import android.view.WindowManager
 import android.widget.FrameLayout
 import com.yomu.pipeline.typesetting.TypesetBubble
@@ -41,10 +38,7 @@ class TranslationRenderOverlay(
         remove()
 
         val params = createLayoutParams()
-        val gestures = TranslatedPageGestures(ViewConfiguration.get(context).scaledTouchSlop.toFloat())
-        var drawnBounds = emptyList<OverlayBounds>()
-        var card: View? = null
-        overlayView = object : FrameLayout(context) {
+        overlayView = object : TranslatedPageLayout(context) {
             private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
             private val screenLocation = IntArray(2)
 
@@ -74,12 +68,10 @@ class TranslationRenderOverlay(
             setWillNotDraw(false)
             setBackgroundColor(Color.TRANSPARENT)
             setOnClickListener { remove() }
-            setOnTouchListener { page, event ->
-                val openCard = card?.let { OverlayBounds(it.left.toFloat(), it.top.toFloat(), it.right.toFloat(), it.bottom.toFloat()) }
-                when (val outcome = gestures.onTouch(event.actionMasked, event.x, event.y, drawnBounds, openCard)) {
+            onGesture = { outcome ->
+                when (outcome) {
                     TranslatedPageGestures.Outcome.None -> Unit
-                    TranslatedPageGestures.Outcome.DismissPage ->
-                        if (event.actionMasked == MotionEvent.ACTION_UP) page.performClick() else remove()
+                    TranslatedPageGestures.Outcome.DismissPage -> performClick()
                     TranslatedPageGestures.Outcome.CloseCard -> {
                         card?.let(::removeView)
                         card = null
@@ -91,7 +83,6 @@ class TranslationRenderOverlay(
                         card = bubbleCard(context, bubbles[outcome.bubbleIndex], cardAtTop).also(::addView)
                     }
                 }
-                true
             }
         }
 

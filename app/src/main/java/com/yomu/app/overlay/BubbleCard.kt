@@ -9,6 +9,7 @@ import android.view.View
 import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import com.yomu.app.ui.theme.paperBackground
@@ -18,13 +19,15 @@ import com.yomu.pipeline.typesetting.TypesetBubble
 internal fun bubbleCard(context: Context, bubble: TypesetBubble, atTop: Boolean): View {
     val density = context.resources.displayMetrics.density
     val margin = (16 * density).toInt()
-    return LinearLayout(context).apply {
-        orientation = LinearLayout.VERTICAL
+    return ScrollView(context).apply {
         background = context.paperBackground()
         elevation = density
         setPadding(margin, margin / 2, margin, margin)
-        addCardSection(context, "Japanese", bubble.originalText, 18f)
-        addCardSection(context, "English", bubble.translatedText, 16f)
+        addView(LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            addCardSection(context, "Japanese", bubble.originalText, 18f)
+            addCardSection(context, "English", bubble.translatedText, 16f)
+        })
         layoutParams = FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT,
             FrameLayout.LayoutParams.WRAP_CONTENT,

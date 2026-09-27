@@ -33,6 +33,8 @@ android {
 
     kotlinOptions { jvmTarget = "17" }
 
+    testOptions { unitTests.isIncludeAndroidResources = true }
+
     buildFeatures { compose = true }
 
     composeOptions { kotlinCompilerExtensionVersion = "1.5.5" }
@@ -77,6 +79,7 @@ dependencies {
     implementation("io.coil-kt:coil-compose:2.5.0")
 
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.11.1")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
     testImplementation("org.mockito:mockito-core:5.8.0")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
