@@ -398,7 +398,13 @@ class OverlayService : Service() {
                         )
                     }
                     statusOverlay.remove()
-                    result.translationResult.untranslatedNotice()?.let(::showTranslationFailedToast)
+                    // Not a toast: Android drops toasts from a background app without notification permission.
+                    // Re-adding the status line after the page keeps it above the drawn bubbles.
+                    result.translationResult.untranslatedNotice()?.let { notice ->
+                        statusOverlay.showOrUpdate(notice)
+                        delay(1500)
+                        statusOverlay.remove()
+                    }
                 } else {
                     // The OCR pass may already have drawn its bubbles, and that overlay is
                     // untouchable — without this the reader is left with pinned Japanese (#308).
