@@ -13,7 +13,7 @@ Usage: $0 [--skip-build] [--only=<substring>]
 
 Report-only speed benchmark (#230). Builds and installs the app, pushes the fixture pages and the
 shipped models, times every LlmModelCatalog entry through the real pipeline, and prints a table of
-per-stage ms and peak PSS. Asserts nothing about the numbers; fails only if the pipeline errors.
+per-stage ms, time to first bubble and peak PSS. Asserts nothing about the numbers; fails only if the pipeline errors.
 
 Works on a physical phone or an Android Studio emulator. With more than one device attached, pick
 one with ANDROID_SERIAL=<serial> (see 'adb devices').
@@ -137,10 +137,10 @@ timing="$(grep -o 'TIMING model=.*' "$log_file" || true)"
 expected_rows="$(grep -o 'TIMING_ROWS n=[0-9]*' "$log_file" | cut -d= -f2 || true)"
 
 if [ -n "$timing" ]; then
-  printf '\n| model | page | stage | ms | peak PSS (MB) |\n|---|---|---|---|---|\n'
+  printf '\n| model | page | stage | ms | first bubble (ms) | peak PSS (MB) |\n|---|---|---|---|---|---|\n'
   printf '%s\n' "$timing" | awk '{
     for (i = 2; i <= NF; i++) { split($i, kv, "="); v[kv[1]] = kv[2] }
-    printf "| %s | %s | %s | %s | %d |\n", v["model"], v["page"], v["stage"], v["ms"], v["peakPssKb"] / 1024
+    printf "| %s | %s | %s | %s | %s | %d |\n", v["model"], v["page"], v["stage"], v["ms"], v["firstBubbleMs"], v["peakPssKb"] / 1024
   }'
 fi
 

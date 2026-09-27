@@ -30,8 +30,8 @@ import java.util.concurrent.atomic.AtomicLong
 import kotlin.concurrent.thread
 
 /**
- * Report-only speed benchmark (#230): per-stage milliseconds and peak PSS of the real
- * [TranslationPipeline.processPage] for every [LlmModelCatalog] entry. Nothing about accuracy or the
+ * Report-only speed benchmark (#230): per-stage milliseconds, time to first bubble and peak PSS of the
+ * real [TranslationPipeline.processPage] for every [LlmModelCatalog] entry. Nothing about accuracy or the
  * numbers is asserted; it fails only when the pipeline errors. Run via scripts/run-speed-benchmark.sh,
  * which pushes the pages and weights to [FIXTURE_DIR] and turns the TIMING lines into a table.
  */
@@ -92,11 +92,12 @@ class SpeedBenchmarkTest {
                     runPage(pipeline, pages.first(), sampler)
                     pipeline.release()
                     for ((index, page) in pages.withIndex()) {
-                        val timings = runPage(pipeline, page, sampler)
-                        timings.forEach { (stage, ms, pssKb) ->
-                            Log.i(TAG, "TIMING model=${option.id} page=${index + 1} stage=${stage.name.lowercase()} ms=$ms peakPssKb=$pssKb")
+                        val timing = runPage(pipeline, page, sampler)
+                        val firstBubbleMs = timing.firstBubbleMs?.toString() ?: "-"
+                        timing.stages.forEach { (stage, ms, pssKb) ->
+                            Log.i(TAG, "TIMING model=${option.id} page=${index + 1} stage=${stage.name.lowercase()} ms=$ms firstBubbleMs=$firstBubbleMs peakPssKb=$pssKb")
                         }
-                        rows += timings.size
+                        rows += timing.stages.size
                     }
                 } finally {
                     pipeline.close()
@@ -114,12 +115,14 @@ class SpeedBenchmarkTest {
 
     private data class StageTiming(val stage: Stage, val ms: Long, val peakPssKb: Long)
 
+    private data class PageTiming(val stages: List<StageTiming>, val firstBubbleMs: Long?)
+
     /**
      * Times one page by stamping the pipeline's own progress callback where the stage changes. Each
-     * stage runs from its first callback to the next stage's first callback; typesetting ends at
-     * onComplete. The callback does no sampling itself, so no stage pays for [Debug.getPss].
+     * stage runs from its first callback to the next stage's first callback; translation ends at
+     * onComplete. Time to first bubble is the pipeline's own stamp, as `CONTEXT.md` defines it. The callback does no sampling itself, so no stage pays for [Debug.getPss].
      */
-    private suspend fun runPage(pipeline: TranslationPipeline, page: File, sampler: PssSampler): List<StageTiming> {
+    private suspend fun runPage(pipeline: TranslationPipeline, page: File, sampler: PssSampler): PageTiming {
         val bitmap = checkNotNull(BitmapFactory.decodeFile(page.absolutePath)) { "Cannot decode $page" }
         val timings = mutableListOf<StageTiming>()
         var current: Stage? = null
@@ -150,7 +153,7 @@ class SpeedBenchmarkTest {
             bitmap.recycle()
         }
         check(result != null) { "Pipeline failed on ${page.name}: $error" }
-        return timings
+        return PageTiming(timings, result.timeToFirstBubbleMs)
     }
 
     /** Copies pushed fixtures into filesDir/models/<subdir>, where the app's native loaders can read them. */
