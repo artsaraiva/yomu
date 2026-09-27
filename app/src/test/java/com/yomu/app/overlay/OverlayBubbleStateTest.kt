@@ -1,95 +1,46 @@
 package com.yomu.app.overlay
 
+import com.yomu.pipeline.typesetting.TypesetBubble
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class OverlayBubbleStateTest {
 
-    @Test
-    fun `isTranslated is false when only ocrText is set`() {
-        val state = OverlayBubbleState(
-            bubbleId = 1,
-            bounds = OverlayBounds(left = 10f, top = 20f, right = 110f, bottom = 70f),
-            ocrText = "こんにちは",
-            translatedText = null
-        )
+    private fun ocr(bubbleId: Int, text: String) = OverlayBubbleState(
+        bubbleId = bubbleId,
+        bounds = OverlayBounds(left = 0f, top = 0f, right = 100f, bottom = 50f),
+        ocrText = text
+    )
 
-        assertFalse(state.isTranslated)
-        assertEquals("こんにちは", state.ocrText)
-        assertEquals(null, state.translatedText)
+    private fun typeset(bubbleId: Int, text: String) = TypesetBubble(
+        bubbleId = bubbleId,
+        translatedText = text,
+        originalText = "",
+        fontSize = 12f,
+        textLines = listOf(text),
+        boundingBox = floatArrayOf(0f, 0f, 120f, 60f)
+    )
+
+    @Test
+    fun `a preview bubble starts with no typeset text`() {
+        assertNull(ocr(1, "こんにちは").typeset)
     }
 
     @Test
-    fun `isTranslated is true when translatedText is set`() {
-        val state = OverlayBubbleState(
-            bubbleId = 2,
-            bounds = OverlayBounds(left = 10f, top = 20f, right = 110f, bottom = 70f),
-            ocrText = "こんにちは",
-            translatedText = "Hello"
-        )
+    fun `an arriving bubble switches only the preview with its id`() {
+        val hello = typeset(1, "Hello")
 
-        assertTrue(state.isTranslated)
-        assertEquals("Hello", state.translatedText)
+        val states = listOf(ocr(1, "こんにちは"), ocr(2, "さようなら")).withTypeset(hello)
+
+        assertEquals(listOf(hello, null), states.map { it.typeset })
+        assertEquals(listOf("こんにちは", "さようなら"), states.map { it.ocrText })
     }
 
     @Test
-    fun `states with same content are equal`() {
-        val first = OverlayBubbleState(
-            bubbleId = 3,
-            bounds = OverlayBounds(left = 0f, top = 0f, right = 100f, bottom = 50f),
-            ocrText = "テスト",
-            translatedText = "Test"
-        )
-        val second = OverlayBubbleState(
-            bubbleId = 3,
-            bounds = OverlayBounds(left = 0f, top = 0f, right = 100f, bottom = 50f),
-            ocrText = "テスト",
-            translatedText = "Test"
-        )
+    fun `a bubble with no preview changes nothing`() {
+        val states = listOf(ocr(1, "こんにちは"))
 
-        assertEquals(first, second)
-    }
-
-    @Test
-    fun `list updates replace existing state by bubbleId`() {
-        val states = mutableListOf(
-            OverlayBubbleState(
-                bubbleId = 1,
-                bounds = OverlayBounds(left = 0f, top = 0f, right = 100f, bottom = 50f),
-                ocrText = "元のテキスト",
-                translatedText = null
-            ),
-            OverlayBubbleState(
-                bubbleId = 2,
-                bounds = OverlayBounds(left = 200f, top = 0f, right = 300f, bottom = 50f),
-                ocrText = "別のテキスト",
-                translatedText = null
-            )
-        )
-
-        states[0] = states[0].copy(translatedText = "Original text")
-
-        assertEquals(2, states.size)
-        assertTrue(states[0].isTranslated)
-        assertEquals("Original text", states[0].translatedText)
-        assertFalse(states[1].isTranslated)
-    }
-
-    @Test
-    fun `copy preserves bubbleId and bounds`() {
-        val original = OverlayBubbleState(
-            bubbleId = 5,
-            bounds = OverlayBounds(left = 10f, top = 10f, right = 100f, bottom = 100f),
-            ocrText = "日本語",
-            translatedText = null
-        )
-        val updated = original.copy(translatedText = "Japanese")
-
-        assertEquals(original.bubbleId, updated.bubbleId)
-        assertEquals(original.bounds, updated.bounds)
-        assertEquals(original.ocrText, updated.ocrText)
-        assertTrue(updated.isTranslated)
+        assertEquals(states, states.withTypeset(typeset(9, "Stray")))
     }
 }

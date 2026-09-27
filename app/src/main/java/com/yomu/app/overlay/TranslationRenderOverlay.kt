@@ -21,14 +21,12 @@ class TranslationRenderOverlay(
         private const val OCR_BACKGROUND_ALPHA = 0xAA
         private const val OCR_TEXT_SIZE_DP = 14f
         private const val OCR_LINE_SPACING = 1.2f
-        private const val TRANSLATED_TEXT_SIZE_DP = 16f
-        private const val TRANSLATED_LINE_SPACING = 1.3f
     }
 
     private var overlayView: FrameLayout? = null
     private var pageWidth: Int = 0
     private var pageHeight: Int = 0
-    private val bubbleStates = mutableListOf<OverlayBubbleState>()
+    private var bubbleStates: List<OverlayBubbleState> = emptyList()
 
     fun show(
         bubbles: List<TypesetBubble>,
@@ -53,13 +51,7 @@ class TranslationRenderOverlay(
                     overlayScreenX = screenLocation[0],
                     overlayScreenY = screenLocation[1]
                 )
-                drawnBounds = bubbles.map { bubble ->
-                    OverlayCoordinateMapper.clampToCanvas(
-                        OverlayCoordinateMapper.map(bubble.boundingBox, mapParams),
-                        canvas.width.toFloat(),
-                        canvas.height.toFloat()
-                    )
-                }
+                drawnBounds = bubbles.map { drawnBounds(it, mapParams, canvas) }
                 bubbles.forEachIndexed { index, bubble ->
                     drawTypesetBubble(canvas, bubble, drawnBounds[index], paint, mapParams)
                 }
@@ -96,8 +88,7 @@ class TranslationRenderOverlay(
     ) {
         this.pageWidth = pageWidth
         this.pageHeight = pageHeight
-        bubbleStates.clear()
-        bubbleStates.addAll(states)
+        bubbleStates = states.toList()
 
         val existingView = overlayView
         if (existingView != null) {
@@ -141,17 +132,27 @@ class TranslationRenderOverlay(
         windowManager.addView(overlayView, params)
     }
 
-    fun updateTranslations(states: List<OverlayBubbleState>) {
-        bubbleStates.clear()
-        bubbleStates.addAll(states)
+    /** Switches one preview box to its typeset bubble; the preview stays untouchable while bubbles arrive. */
+    fun showTypesetBubble(bubble: TypesetBubble) {
+        bubbleStates = bubbleStates.withTypeset(bubble)
         overlayView?.invalidate()
     }
 
     fun remove() {
         overlayView?.let { windowManager.removeView(it) }
         overlayView = null
-        bubbleStates.clear()
+        bubbleStates = emptyList()
     }
+
+    private fun drawnBounds(
+        bubble: TypesetBubble,
+        params: OverlayCoordinateMapper.MapParams,
+        canvas: Canvas
+    ): OverlayBounds = OverlayCoordinateMapper.clampToCanvas(
+        OverlayCoordinateMapper.map(bubble.boundingBox, params),
+        canvas.width.toFloat(),
+        canvas.height.toFloat()
+    )
 
     private fun createLayoutParams(): WindowManager.LayoutParams {
         return WindowManager.LayoutParams(
@@ -215,6 +216,11 @@ class TranslationRenderOverlay(
         paint: Paint,
         params: OverlayCoordinateMapper.MapParams
     ) {
+        // Drawn exactly as the finished page will draw it, so nothing moves when the page completes.
+        state.typeset?.let { typeset ->
+            drawTypesetBubble(canvas, typeset, drawnBounds(typeset, params, canvas), paint, params)
+            return
+        }
         val bounds = state.bounds
         val sourceBounds = floatArrayOf(bounds.left, bounds.top, bounds.right, bounds.bottom)
         val mappedBounds = OverlayCoordinateMapper.map(sourceBounds, params)
@@ -225,32 +231,18 @@ class TranslationRenderOverlay(
         val radius = minOf(bw, bh) * 0.12f
 
         paint.isAntiAlias = true
-        paint.color = if (state.isTranslated) {
-            Color.WHITE
-        } else {
-            Color.argb(OCR_BACKGROUND_ALPHA, 0, 0, 0)
-        }
+        paint.color = Color.argb(OCR_BACKGROUND_ALPHA, 0, 0, 0)
         canvas.drawRoundRect(bx, by, bx + bw, by + bh, radius, radius, paint)
 
         val saveCount = canvas.save()
         canvas.clipRect(bx, by, bx + bw, by + bh)
 
-        val text = if (state.isTranslated) {
-            state.translatedText.orEmpty()
-        } else {
-            state.ocrText
-        }
-        val textSize = if (state.isTranslated) {
-            dpToPx(TRANSLATED_TEXT_SIZE_DP)
-        } else {
-            dpToPx(OCR_TEXT_SIZE_DP)
-        }
-        paint.color = if (state.isTranslated) Color.BLACK else Color.WHITE
-        paint.textSize = textSize
-        paint.typeface = if (state.isTranslated) Typeface.DEFAULT else Typeface.DEFAULT_BOLD
+        paint.color = Color.WHITE
+        paint.textSize = dpToPx(OCR_TEXT_SIZE_DP)
+        paint.typeface = Typeface.DEFAULT_BOLD
 
-        val lines = wrapText(text, bw * 0.9f, paint)
-        val lineHeight = paint.fontSpacing * if (state.isTranslated) TRANSLATED_LINE_SPACING else OCR_LINE_SPACING
+        val lines = wrapText(state.ocrText, bw * 0.9f, paint)
+        val lineHeight = paint.fontSpacing * OCR_LINE_SPACING
         val totalTextHeight = lineHeight * lines.size
         val blockTop = by + (bh - totalTextHeight) / 2f
         var textY = blockTop - paint.fontMetrics.ascent

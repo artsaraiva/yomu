@@ -375,7 +375,12 @@ class OverlayService : Service() {
             val result = translationPipeline.processPage(
                 bitmap,
                 callback = callback,
-                onOcrComplete = onOcrComplete
+                onOcrComplete = onOcrComplete,
+                onBubble = { bubble ->
+                    mainScope.launch {
+                        if (job.isActive) translationRenderOverlay.showTypesetBubble(bubble)
+                    }
+                }
             )
             val failure = result?.translationResult?.readerFailure()
             if (result != null && failure == null && result.translationResult.translations.isNotEmpty()) {

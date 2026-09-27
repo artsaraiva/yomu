@@ -68,7 +68,6 @@ class TranslationStatusOverlay(
             TranslationPipeline.Stage.OCR -> "Reading Japanese text"
             TranslationPipeline.Stage.CONTEXT_ASSEMBLY -> "Preparing context"
             TranslationPipeline.Stage.TRANSLATION -> "Translating"
-            TranslationPipeline.Stage.TYPESETTING -> "Drawing translation"
             TranslationPipeline.Stage.DONE -> "Drawing translation"
             TranslationPipeline.Stage.ERROR -> "Failed"
         }
