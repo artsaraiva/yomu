@@ -8,6 +8,9 @@ import android.graphics.PixelFormat
 import android.graphics.Typeface
 import android.os.Build
 import android.util.Log
+import android.view.MotionEvent
+import android.view.View
+import android.view.ViewConfiguration
 import android.view.WindowManager
 import android.widget.FrameLayout
 import com.yomu.pipeline.typesetting.TypesetBubble
@@ -38,6 +41,9 @@ class TranslationRenderOverlay(
         remove()
 
         val params = createLayoutParams()
+        val gestures = TranslatedPageGestures(ViewConfiguration.get(context).scaledTouchSlop.toFloat())
+        var drawnBounds = emptyList<OverlayBounds>()
+        var card: View? = null
         overlayView = object : FrameLayout(context) {
             private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
             private val screenLocation = IntArray(2)
@@ -53,14 +59,38 @@ class TranslationRenderOverlay(
                     overlayScreenX = screenLocation[0],
                     overlayScreenY = screenLocation[1]
                 )
-                for (bubble in bubbles) {
-                    drawTypesetBubble(canvas, bubble, paint, mapParams)
+                drawnBounds = bubbles.map { bubble ->
+                    OverlayCoordinateMapper.clampToCanvas(
+                        OverlayCoordinateMapper.map(bubble.boundingBox, mapParams),
+                        canvas.width.toFloat(),
+                        canvas.height.toFloat()
+                    )
+                }
+                bubbles.forEachIndexed { index, bubble ->
+                    drawTypesetBubble(canvas, bubble, drawnBounds[index], paint, mapParams)
                 }
             }
         }.apply {
             setWillNotDraw(false)
             setBackgroundColor(Color.TRANSPARENT)
             setOnClickListener { remove() }
+            setOnTouchListener { page, event ->
+                when (val outcome = gestures.onTouch(event.actionMasked, event.x, event.y, drawnBounds, card != null)) {
+                    TranslatedPageGestures.Outcome.None -> Unit
+                    TranslatedPageGestures.Outcome.DismissPage ->
+                        if (event.actionMasked == MotionEvent.ACTION_UP) page.performClick() else remove()
+                    TranslatedPageGestures.Outcome.CloseCard -> {
+                        card?.let(::removeView)
+                        card = null
+                    }
+                    is TranslatedPageGestures.Outcome.OpenCard -> {
+                        val tapped = drawnBounds[outcome.bubbleIndex]
+                        val atTop = (tapped.top + tapped.bottom) / 2 > height / 2
+                        card = bubbleCard(context, bubbles[outcome.bubbleIndex], atTop).also(::addView)
+                    }
+                }
+                true
+            }
         }
 
         windowManager.addView(overlayView, params)
@@ -147,14 +177,10 @@ class TranslationRenderOverlay(
     private fun drawTypesetBubble(
         canvas: Canvas,
         bubble: TypesetBubble,
+        mappedBounds: OverlayBounds,
         paint: Paint,
         params: OverlayCoordinateMapper.MapParams
     ) {
-        val mappedBounds = OverlayCoordinateMapper.clampToCanvas(
-            OverlayCoordinateMapper.map(bubble.boundingBox, params),
-            canvas.width.toFloat(),
-            canvas.height.toFloat()
-        )
         val bx = mappedBounds.left
         val by = mappedBounds.top
         val bw = mappedBounds.width()

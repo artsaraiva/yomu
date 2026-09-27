@@ -1,5 +1,7 @@
 package com.yomu.app.overlay
 
+import android.view.MotionEvent
+
 class TranslatedPageGestures(touchSlop: Float) {
 
     sealed interface Outcome {
@@ -11,13 +13,16 @@ class TranslatedPageGestures(touchSlop: Float) {
 
     private val classifier = TouchGestureClassifier(touchSlop)
 
-    fun onDown(x: Float, y: Float) = classifier.onActionDown(x, y)
-
-    fun onMove(x: Float, y: Float): Outcome =
-        if (classifier.onActionMove(x, y)) Outcome.DismissPage else Outcome.None
-
     /** [drawnBubbles] in draw order, so a later bubble covers an earlier one. */
-    fun onUp(x: Float, y: Float, drawnBubbles: List<OverlayBounds>, cardOpen: Boolean): Outcome {
+    fun onTouch(action: Int, x: Float, y: Float, drawnBubbles: List<OverlayBounds>, cardOpen: Boolean): Outcome =
+        when (action) {
+            MotionEvent.ACTION_DOWN -> Outcome.None.also { classifier.onActionDown(x, y) }
+            MotionEvent.ACTION_MOVE -> if (classifier.onActionMove(x, y)) Outcome.DismissPage else Outcome.None
+            MotionEvent.ACTION_UP -> onUp(x, y, drawnBubbles, cardOpen)
+            else -> Outcome.None
+        }
+
+    private fun onUp(x: Float, y: Float, drawnBubbles: List<OverlayBounds>, cardOpen: Boolean): Outcome {
         if (classifier.onActionUp(x, y) == TouchGestureClassifier.Gesture.DRAG) return Outcome.DismissPage
         if (cardOpen) return Outcome.CloseCard
         val hit = drawnBubbles.indexOfLast { x in it.left..it.right && y in it.top..it.bottom }

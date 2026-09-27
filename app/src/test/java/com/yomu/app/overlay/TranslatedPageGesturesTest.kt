@@ -1,5 +1,6 @@
 package com.yomu.app.overlay
 
+import android.view.MotionEvent
 import com.yomu.app.overlay.TranslatedPageGestures.Outcome
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -11,8 +12,8 @@ class TranslatedPageGesturesTest {
 
     private fun tap(x: Float, y: Float, bubbles: List<OverlayBounds>, cardOpen: Boolean = false): Outcome {
         val gestures = TranslatedPageGestures(touchSlop = 12f)
-        gestures.onDown(x, y)
-        return gestures.onUp(x + 2f, y + 2f, bubbles, cardOpen)
+        gestures.onTouch(MotionEvent.ACTION_DOWN, x, y, bubbles, cardOpen)
+        return gestures.onTouch(MotionEvent.ACTION_UP, x + 2f, y + 2f, bubbles, cardOpen)
     }
 
     @Test
@@ -40,18 +41,17 @@ class TranslatedPageGesturesTest {
     fun `swipe dismisses the page as soon as it passes the touch slop`() {
         val gestures = TranslatedPageGestures(touchSlop = 12f)
 
-        gestures.onDown(150f, 150f)
-
-        assertEquals(Outcome.None, gestures.onMove(155f, 155f))
-        assertEquals(Outcome.DismissPage, gestures.onMove(150f, 180f))
+        assertEquals(Outcome.None, gestures.onTouch(MotionEvent.ACTION_DOWN, 150f, 150f, listOf(speech), false))
+        assertEquals(Outcome.None, gestures.onTouch(MotionEvent.ACTION_MOVE, 155f, 155f, listOf(speech), false))
+        assertEquals(Outcome.DismissPage, gestures.onTouch(MotionEvent.ACTION_MOVE, 150f, 180f, listOf(speech), false))
     }
 
     @Test
     fun `swipe that starts on a bubble still dismisses the page`() {
         val gestures = TranslatedPageGestures(touchSlop = 12f)
 
-        gestures.onDown(150f, 150f)
+        gestures.onTouch(MotionEvent.ACTION_DOWN, 150f, 150f, listOf(speech), true)
 
-        assertEquals(Outcome.DismissPage, gestures.onUp(150f, 400f, listOf(speech), cardOpen = true))
+        assertEquals(Outcome.DismissPage, gestures.onTouch(MotionEvent.ACTION_UP, 150f, 400f, listOf(speech), true))
     }
 }
