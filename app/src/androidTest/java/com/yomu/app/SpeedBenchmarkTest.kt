@@ -120,7 +120,8 @@ class SpeedBenchmarkTest {
     /**
      * Times one page by stamping the pipeline's own progress callback where the stage changes. Each
      * stage runs from its first callback to the next stage's first callback; translation ends at
-     * onComplete. Time to first bubble is the pipeline's own stamp, as `CONTEXT.md` defines it. The callback does no sampling itself, so no stage pays for [Debug.getPss].
+     * onComplete. Time to first bubble is the pipeline's own stamp: from the page reaching the
+     * pipeline to its first bubble being ready to draw. The callback does no sampling itself, so no stage pays for [Debug.getPss].
      */
     private suspend fun runPage(pipeline: TranslationPipeline, page: File, sampler: PssSampler): PageTiming {
         val bitmap = checkNotNull(BitmapFactory.decodeFile(page.absolutePath)) { "Cannot decode $page" }

@@ -205,16 +205,19 @@ class TranslationPipeline(
 
             currentStage = Stage.TRANSLATION
             callback?.onStageProgress(Stage.TRANSLATION, 0.6f)
-            // Only answered bubbles arrive, so an unanswered one gets no box and the reader sees the art under it (#330).
-            val typesetBubbles = mutableListOf<TypesetBubble>()
+            // Only answered bubbles arrive, so an unanswered one gets no box and the reader sees
+            // the art under it (#330).
+            val arrived = mutableMapOf<Int, TypesetBubble>()
             var firstBubbleAt: Long? = null
             val translationResult = translationEngine.translate(pageContext.blocks) { translated ->
                 val typeset = typesetter.typeset(listOf(translated), bubbleBounds).single()
                 if (firstBubbleAt == null) firstBubbleAt = System.currentTimeMillis()
-                typesetBubbles += typeset
+                arrived[typeset.bubbleId] = typeset
                 onBubble?.invoke(typeset)
             }
             coroutineContext.ensureActive()
+            // Detection order, as the preview stacks them, so overlapping boxes keep their stacking.
+            val typesetBubbles = bubbles.mapNotNull { arrived[it.id] }
             callback?.onStageProgress(Stage.TRANSLATION, 1.0f)
 
             currentStage = Stage.DONE

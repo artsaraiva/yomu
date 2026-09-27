@@ -51,7 +51,7 @@ class TranslationRenderOverlay(
                     overlayScreenX = screenLocation[0],
                     overlayScreenY = screenLocation[1]
                 )
-                drawnBounds = bubbles.map { drawnBounds(it, mapParams, canvas) }
+                drawnBounds = bubbles.map { canvasBounds(it, mapParams, canvas) }
                 bubbles.forEachIndexed { index, bubble ->
                     drawTypesetBubble(canvas, bubble, drawnBounds[index], paint, mapParams)
                 }
@@ -144,7 +144,7 @@ class TranslationRenderOverlay(
         bubbleStates = emptyList()
     }
 
-    private fun drawnBounds(
+    private fun canvasBounds(
         bubble: TypesetBubble,
         params: OverlayCoordinateMapper.MapParams,
         canvas: Canvas
@@ -218,7 +218,7 @@ class TranslationRenderOverlay(
     ) {
         // Drawn exactly as the finished page will draw it, so nothing moves when the page completes.
         state.typeset?.let { typeset ->
-            drawTypesetBubble(canvas, typeset, drawnBounds(typeset, params, canvas), paint, params)
+            drawTypesetBubble(canvas, typeset, canvasBounds(typeset, params, canvas), paint, params)
             return
         }
         val bounds = state.bounds
