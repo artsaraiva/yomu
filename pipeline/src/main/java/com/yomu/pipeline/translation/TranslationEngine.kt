@@ -31,7 +31,8 @@ internal fun looksLikeNonTranslation(text: String): Boolean {
     return tokens.map { it.lowercase() }.toSet().size * LOOP_UNIQUE_DIVISOR <= tokens.size
 }
 
-private val CJK = Regex("[぀-ヿ㐀-䶿一-鿿豈-﫿ｦ-ﾟ]")
+// ・ and ー stand in for ellipses and long vowels in otherwise English lines, so they are not residue.
+private val CJK = Regex("[぀-ヺヽ-ヿ㐀-䶿一-鿿豈-﫿ｦ-ﾟ]")
 
 /**
  * Why [text] cannot be a live translation, or null when it can: empty, a non-translation, or
@@ -48,14 +49,14 @@ fun deadTranslationReason(text: String?): String? = when {
 // asking a model to translate it invites a request for the missing text instead (#120).
 private fun TranslatableBubble.carriesText(): Boolean = sourceText.any { it.isLetterOrDigit() }
 
-private fun String?.usableTranslation(): String? =
-    this?.takeIf { it.isNotBlank() && !looksLikeNonTranslation(it) }
+private fun String?.usableTranslation(): String? = this?.takeIf { deadTranslationReason(it) == null }
 
+/** [answered] is false when the model gave this bubble nothing usable; [translatedText] is then its source. */
 data class TranslatedBubble(
     val bubbleId: Int,
     val originalText: String,
     val translatedText: String,
-    val confidence: Float
+    val answered: Boolean
 )
 
 data class TranslationResult(
@@ -77,6 +78,11 @@ fun TranslationResult.readerFailure(): String? = when {
     else -> "Translation model could not be loaded (${errorCode ?: "not_ready"})"
 }
 
+fun TranslationResult.untranslatedNotice(): String? {
+    val unanswered = translations.count { !it.answered }
+    return if (unanswered == 0) null else "$unanswered of ${translations.size} bubbles not translated"
+}
+
 class TranslationEngine(
     private val slotProvider: () -> TranslationSlot,
     private val closeSlots: () -> Unit
@@ -89,8 +95,6 @@ class TranslationEngine(
 
     companion object {
         private const val MAX_SOURCE_CHARS = 300
-        private const val TRANSLATED_CONFIDENCE = 0.8f
-        private const val FALLBACK_CONFIDENCE = 0.1f
     }
 
     suspend fun translate(blocks: List<ConversationBlock>): TranslationResult {
@@ -116,7 +120,7 @@ class TranslationEngine(
                 bubbleId = bubble.bubbleId,
                 originalText = bubble.sourceText,
                 translatedText = translated ?: bubble.sourceText,
-                confidence = if (translated == null) FALLBACK_CONFIDENCE else TRANSLATED_CONFIDENCE
+                answered = translated != null
             )
         }
         return TranslationResult(
