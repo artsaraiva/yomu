@@ -207,8 +207,9 @@ class TranslationPipeline(
                 }
             )
             typesetter.fontSizeScale = fontSizeScale
+            // An unanswered bubble gets no box, so the reader sees the art under it (#330).
             val typesetBubbles = typesetter.typeset(
-                translationResult.translations,
+                translationResult.translations.filter { it.answered },
                 bubbleBounds
             )
             callback?.onStageProgress(Stage.TYPESETTING, 1.0f)

@@ -32,6 +32,7 @@ import com.yomu.pipeline.ModelPaths
 import com.yomu.pipeline.PipelineResult
 import com.yomu.pipeline.TranslationPipeline
 import com.yomu.pipeline.translation.readerFailure
+import com.yomu.pipeline.translation.untranslatedNotice
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -377,7 +378,7 @@ class OverlayService : Service() {
                 onOcrComplete = onOcrComplete
             )
             val failure = result?.translationResult?.readerFailure()
-            if (result != null && failure == null && result.typesetBubbles.isNotEmpty()) {
+            if (result != null && failure == null && result.translationResult.translations.isNotEmpty()) {
                 saveSessionResult(session, result)
             }
             if (failure != null) {
@@ -387,12 +388,17 @@ class OverlayService : Service() {
             }
             withContext(Dispatchers.Main) {
                 if (result != null && failure == null) {
-                    translationRenderOverlay.show(
-                        result.typesetBubbles,
-                        result.pageWidth,
-                        result.pageHeight
-                    )
+                    if (result.typesetBubbles.isEmpty()) {
+                        translationRenderOverlay.remove()
+                    } else {
+                        translationRenderOverlay.show(
+                            result.typesetBubbles,
+                            result.pageWidth,
+                            result.pageHeight
+                        )
+                    }
                     statusOverlay.remove()
+                    result.translationResult.untranslatedNotice()?.let(::showTranslationFailedToast)
                 } else {
                     // The OCR pass may already have drawn its bubbles, and that overlay is
                     // untouchable — without this the reader is left with pinned Japanese (#308).
@@ -425,7 +431,7 @@ class OverlayService : Service() {
             translatedText = translatedText,
             sourceLanguage = Constants.DEFAULT_SOURCE_LANGUAGE,
             targetLanguage = Constants.DEFAULT_TARGET_LANGUAGE,
-            bubbleCount = result.typesetBubbles.size,
+            bubbleCount = result.translationResult.translations.size,
             translationTimeMs = result.totalTimeMs
         )
     }
