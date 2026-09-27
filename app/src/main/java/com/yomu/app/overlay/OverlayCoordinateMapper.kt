@@ -8,6 +8,7 @@ data class OverlayBounds(
 ) {
     fun width(): Float = right - left
     fun height(): Float = bottom - top
+    fun contains(x: Float, y: Float): Boolean = x in left..right && y in top..bottom
 }
 
 object OverlayCoordinateMapper {

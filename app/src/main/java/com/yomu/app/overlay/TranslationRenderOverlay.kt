@@ -38,7 +38,7 @@ class TranslationRenderOverlay(
         remove()
 
         val params = createLayoutParams()
-        overlayView = object : FrameLayout(context) {
+        overlayView = object : TranslatedPageLayout(context) {
             private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
             private val screenLocation = IntArray(2)
 
@@ -53,14 +53,37 @@ class TranslationRenderOverlay(
                     overlayScreenX = screenLocation[0],
                     overlayScreenY = screenLocation[1]
                 )
-                for (bubble in bubbles) {
-                    drawTypesetBubble(canvas, bubble, paint, mapParams)
+                drawnBounds = bubbles.map { bubble ->
+                    OverlayCoordinateMapper.clampToCanvas(
+                        OverlayCoordinateMapper.map(bubble.boundingBox, mapParams),
+                        canvas.width.toFloat(),
+                        canvas.height.toFloat()
+                    )
+                }
+                bubbles.forEachIndexed { index, bubble ->
+                    drawTypesetBubble(canvas, bubble, drawnBounds[index], paint, mapParams)
                 }
             }
         }.apply {
             setWillNotDraw(false)
             setBackgroundColor(Color.TRANSPARENT)
             setOnClickListener { remove() }
+            onGesture = { outcome ->
+                when (outcome) {
+                    TranslatedPageGestures.Outcome.None -> Unit
+                    TranslatedPageGestures.Outcome.DismissPage -> performClick()
+                    TranslatedPageGestures.Outcome.CloseCard -> {
+                        card?.let(::removeView)
+                        card = null
+                    }
+                    is TranslatedPageGestures.Outcome.OpenCard -> {
+                        val tapped = drawnBounds[outcome.bubbleIndex]
+                        // The card takes the half of the page away from the bubble, so the reader still sees it.
+                        val cardAtTop = (tapped.top + tapped.bottom) / 2 > height / 2
+                        card = bubbleCard(context, bubbles[outcome.bubbleIndex], cardAtTop).also(::addView)
+                    }
+                }
+            }
         }
 
         windowManager.addView(overlayView, params)
@@ -147,14 +170,10 @@ class TranslationRenderOverlay(
     private fun drawTypesetBubble(
         canvas: Canvas,
         bubble: TypesetBubble,
+        mappedBounds: OverlayBounds,
         paint: Paint,
         params: OverlayCoordinateMapper.MapParams
     ) {
-        val mappedBounds = OverlayCoordinateMapper.clampToCanvas(
-            OverlayCoordinateMapper.map(bubble.boundingBox, params),
-            canvas.width.toFloat(),
-            canvas.height.toFloat()
-        )
         val bx = mappedBounds.left
         val by = mappedBounds.top
         val bw = mappedBounds.width()
