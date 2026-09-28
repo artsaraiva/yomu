@@ -72,7 +72,7 @@ class LlamaTranslationBridgeTest {
     fun translatePage_idKeyedBatchBuildsOnePagePromptAndParsesById() = runTest {
         val model = File.createTempFile("model", ".gguf")
         val native = FakeLlamaBridge {
-            GenerationResult.Success("Here are the translations:\n[2] Goodbye\nignored\n[1] Hello", 100L)
+            GenerationResult.Success("Here are the translations:\n[2] Goodbye\nignored\n[1] Hello\n", 100L)
         }
         val slot = LlamaTranslationBridge(native, profile(model, idKeyedBatch = true))
         val page = TranslatablePage(
@@ -95,7 +95,7 @@ class LlamaTranslationBridgeTest {
     fun translatePage_idKeyedBatchOmitsMissingIds() = runTest {
         val model = File.createTempFile("model", ".gguf")
         val slot = LlamaTranslationBridge(
-            FakeLlamaBridge { GenerationResult.Success("[1] Hello", 1L) },
+            FakeLlamaBridge { GenerationResult.Success("[1] Hello\n", 1L) },
             profile(model, idKeyedBatch = true)
         )
 
@@ -105,17 +105,20 @@ class LlamaTranslationBridgeTest {
         model.delete()
     }
 
+    /** A shown bubble cannot be taken back, so a repeated id keeps its first line; the grammar makes repeats unreachable. */
     @Test
-    fun translatePage_idKeyedBatchDuplicateIdKeepsTheLastLine() = runTest {
+    fun translatePage_idKeyedBatchDuplicateIdKeepsTheFirstLine() = runTest {
         val model = File.createTempFile("model", ".gguf")
         val slot = LlamaTranslationBridge(
-            FakeLlamaBridge { GenerationResult.Success("[1] Hello\n[2] Goodbye\n[1] Hi there", 1L) },
+            FakeLlamaBridge { GenerationResult.Success("[1] Hello\n[2] Goodbye\n[1] Hi there\n", 1L) },
             profile(model, idKeyedBatch = true)
         )
+        val reported = mutableListOf<Pair<Int, String>>()
 
-        val result = slot.translatePage(page(1 to "こんにちは", 2 to "さようなら"))
+        val result = slot.translatePage(page(1 to "こんにちは", 2 to "さようなら")) { id, text -> reported += id to text }
 
-        assertEquals(mapOf(1 to "Hi there", 2 to "Goodbye"), result.byId)
+        assertEquals(listOf(1 to "Hello", 2 to "Goodbye"), reported)
+        assertEquals(mapOf(1 to "Hello", 2 to "Goodbye"), result.byId)
         model.delete()
     }
 
@@ -188,7 +191,7 @@ class LlamaTranslationBridgeTest {
     @Test
     fun translatePage_batchPinsTheReplyShapeWithAGrammarPerId() = runTest {
         val model = File.createTempFile("model", ".gguf")
-        val native = FakeLlamaBridge { GenerationResult.Success("[1] Hello\n[2] Bye", 1L) }
+        val native = FakeLlamaBridge { GenerationResult.Success("[1] Hello\n[2] Bye\n", 1L) }
         val slot = LlamaTranslationBridge(native, profile(model, idKeyedBatch = true))
 
         slot.translatePage(page(1 to "こんにちは", 2 to "さようなら"))

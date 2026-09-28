@@ -70,6 +70,8 @@ class LlamaTranslationBridge(
          */
         private const val MAX_LINE_CHARS = 160
 
+        private val ID_KEYED_LINE = "^\\s*\\[(\\d+)]\\s*(.*)$".toRegex()
+
         private const val TIMEOUT_MS = 15_000
         private const val BATCH_TIMEOUT_MS = 120_000
     }
@@ -107,7 +109,7 @@ class LlamaTranslationBridge(
 
     /**
      * Prepares the model and translates with its configured call shape, recording the page duration.
-     * [onBubble] receives successful per-line results, including overflow fallback; batch replies are returned together.
+     * [onBubble] receives each successful per-line result, including overflow fallback, and each finished batch line.
      */
     override suspend fun translatePage(
         page: TranslatablePage,
@@ -159,16 +161,30 @@ class LlamaTranslationBridge(
         )
     }
 
-    /** Generates one ID-keyed batch reply; on prompt overflow, retries per line and streams through [onBubble]. */
+    /**
+     * Generates one ID-keyed batch reply, reporting each finished `[id] text` line to [onBubble] as it
+     * is decoded; on prompt overflow, retries per line and streams through [onBubble].
+     *
+     * The page is the reported lines, read only through the partial-output listener: a shown bubble
+     * cannot be taken back, so an id repeated later keeps its first line, and a line the deadline cut
+     * off never ends, so it stays unanswered.
+     */
     private suspend fun translateBatch(
         page: TranslatablePage,
         onBubble: (bubbleId: Int, text: String) -> Unit
     ): PageTranslation {
+        val pageIds = page.panels.flatten().mapTo(mutableSetOf()) { it.bubbleId }
+        val byId = linkedMapOf<Int, String>()
+        val splitter = ReplyLineSplitter { line ->
+            val (id, text) = parseIdKeyedLine(line) ?: return@ReplyLineSplitter
+            if (id in pageIds && byId.putIfAbsent(id, text) == null) onBubble(id, text)
+        }
         val output = generate(
             buildBatchPrompt(page),
             MAX_BATCH_OUTPUT,
             BATCH_TIMEOUT_MS,
-            buildBatchGrammar(page)
+            buildBatchGrammar(page),
+            splitter::feed
         )
         if (output.outcome == TranslationOutcome.OVERFLOW) {
             // Loud, and typed: the old behaviour was an empty PageTranslation and a silently
@@ -177,13 +193,13 @@ class LlamaTranslationBridge(
             // from a log line (#142/#165) — hence the marker on the result.
             Log.w(
                 TAG,
-                "translateBatch overflow bubbles=${page.panels.flatten().size} " +
+                "translateBatch overflow bubbles=${pageIds.size} " +
                     "falling back to per-line"
             )
             return translatePerLine(page, onBubble).copy(batchOverflowFallback = true)
         }
         return PageTranslation(
-            byId = parseIdKeyedTranslations(output.text),
+            byId = byId,
             rawResponse = output.text,
             durationMs = output.durationMs,
             outcome = output.outcome,
@@ -221,7 +237,7 @@ class LlamaTranslationBridge(
      * GBNF pinning the reply to exactly one `[id] text` line per bubble, in prompt order, with the
      * ids as literals. Two rules regardless of bubble count. Preamble, refusal, a dropped id, a
      * merged pair and a re-ordered reply are all structurally unreachable — which is what
-     * [parseIdKeyedTranslations] and the post-hoc guards were catching after the fact.
+     * [parseIdKeyedLine] and the post-hoc guards were catching after the fact.
      *
      * Structural only: nothing here forbids Japanese characters or constrains content, so a model
      * that fails to translate still shows it rather than having the grammar hide it.
@@ -232,13 +248,10 @@ class LlamaTranslationBridge(
         return "root ::= $root\nline ::= [^$excluded]{1,$MAX_LINE_CHARS}\n"
     }
 
-    private fun parseIdKeyedTranslations(response: String): Map<Int, String> {
-        val regex = "^\\s*\\[(\\d+)]\\s*(.*)$".toRegex()
-        return response.lineSequence().mapNotNull { line ->
-            val match = regex.matchEntire(line) ?: return@mapNotNull null
-            val id = match.groupValues[1].toIntOrNull() ?: return@mapNotNull null
-            id to match.groupValues[2].trim()
-        }.toMap()
+    private fun parseIdKeyedLine(line: String): Pair<Int, String>? {
+        val match = ID_KEYED_LINE.matchEntire(line) ?: return null
+        val id = match.groupValues[1].toIntOrNull() ?: return null
+        return id to match.groupValues[2].trim()
     }
 
     /**
@@ -251,7 +264,8 @@ class LlamaTranslationBridge(
         prompt: String,
         maxTokens: Int,
         timeoutMs: Int,
-        grammar: String = ""
+        grammar: String = "",
+        onPartial: ((ByteArray) -> Unit)? = null
     ): GeneratedText = readinessMutex.withLock {
         // Cancelling the page cannot interrupt the blocking JNI call, so it raises the native abort
         // flag instead (#76). Cleared first: the handler runs at once if the job is already cancelling.
@@ -269,7 +283,8 @@ class LlamaTranslationBridge(
                 maxTokens,
                 timeoutMs,
                 grammar,
-                profile.systemMessage
+                profile.systemMessage,
+                onPartial
             )
         } finally {
             abortOnCancel.dispose()
