@@ -3,7 +3,9 @@ package com.yomu.app.service
 import com.yomu.app.overlay.OverlayBounds
 import com.yomu.core.GenerationParams
 import com.yomu.core.RuntimeLimits
+import com.yomu.core.TranslationOutcome
 import com.yomu.pipeline.PipelineResult
+import com.yomu.pipeline.translation.TranslatedBubble
 import com.yomu.pipeline.translation.TranslationResult
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -145,6 +147,30 @@ class PageRecallTest {
         for (number in listOf(0) + (2..30)) {
             assertEquals(result("page $number"), recall.recall(fingerprint(page(number)), settings))
         }
+    }
+
+    @Test
+    fun `a page with bubbles left untranslated is not recalled, so capturing it again retries it`() {
+        val recall = PageRecall()
+        val partial = result("page 0").copy(
+            translationResult = TranslationResult(
+                translations = listOf(
+                    TranslatedBubble(0, "こんにちは", "Hello", answered = true),
+                    TranslatedBubble(1, "やっちょっと…!", "やっちょっと…!", answered = false)
+                ),
+                rawResponse = "[0] Hello",
+                translationTimeMs = 0L
+            )
+        )
+        val timedOut = result("page 1").copy(
+            translationResult = TranslationResult(emptyList(), "", 0L, outcome = TranslationOutcome.TIMEOUT)
+        )
+
+        recall.remember(fingerprint(page(0)), settings, partial)
+        recall.remember(fingerprint(page(1)), settings, timedOut)
+
+        assertNull(recall.recall(fingerprint(page(0)), settings))
+        assertNull(recall.recall(fingerprint(page(1)), settings))
     }
 
     @Test

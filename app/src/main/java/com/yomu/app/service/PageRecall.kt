@@ -2,7 +2,9 @@ package com.yomu.app.service
 
 import com.yomu.core.GenerationParams
 import com.yomu.core.RuntimeLimits
+import com.yomu.core.TranslationOutcome
 import com.yomu.pipeline.PipelineResult
+import com.yomu.pipeline.translation.untranslatedNotice
 
 /** Every setting that shapes a translated page: a change to any of them makes the next capture a fresh translation. */
 data class PageSettings(
@@ -31,8 +33,11 @@ class PageRecall {
     fun recall(fingerprint: PageFingerprint, settings: PageSettings): PipelineResult? =
         pages.keys.firstOrNull { it.settings == settings && it.fingerprint.matches(fingerprint) }?.let(pages::get)
 
+    /** Keeps only a page the model answered in full: capturing an incomplete one again is how the reader retries it. */
     @Synchronized
     fun remember(fingerprint: PageFingerprint, settings: PageSettings, page: PipelineResult) {
+        val translation = page.translationResult
+        if (translation.outcome != TranslationOutcome.SUCCESS || translation.untranslatedNotice() != null) return
         pages[Key(fingerprint, settings)] = page
     }
 
