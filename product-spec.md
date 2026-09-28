@@ -10,11 +10,7 @@ Yomu is a local-first AI-powered manga translation application that enables user
 
 Unlike traditional OCR-based translators, Yomu is designed specifically for manga. It understands panel structure, conversation flow, character interactions, and speech bubble context before generating translations.
 
-The core philosophy is:
-
-> Local when possible. Cloud when needed.
-
-Users with capable devices can perform all processing on-device, while users with lower-end phones can optionally consume cloud credits for higher-quality translations.
+Every stage runs on the reader's phone; the network is used only to download models ([ADR-0018](docs/adr/0018-translation-stays-on-the-phone.md)). Cloud translation and paid tiers are parked, not planned. The Cloud Boost, cloud models and pricing sections that used to be here now live, verbatim, in [#324](https://github.com/artsaraiva/yomu/issues/324).
 
 ---
 
@@ -127,27 +123,7 @@ Benefits:
 
 ---
 
-## 3. Cloud Boost
-
-When device resources are insufficient, users can optionally use cloud credits.
-
-Modes:
-
-### Local Only
-
-All processing on device.
-
-### Hybrid
-
-Local processing with cloud translation fallback.
-
-### Best Quality
-
-All translation performed using premium cloud models.
-
----
-
-## 4. Manga-Aware Typesetting
+## 3. Manga-Aware Typesetting
 
 Yomu automatically re-renders translated text inside speech bubbles.
 
@@ -162,7 +138,7 @@ Features:
 
 ---
 
-## 5. One-Tap Translation
+## 4. One-Tap Translation
 
 User flow:
 
@@ -400,16 +376,6 @@ Benefits:
 
 ---
 
-## Future Models
-
-### Cloud Models
-
-* CAT-Translate 1.8B
-* Gemma 3 12B
-* Custom Yomu 14B Translator
-
----
-
 # Text Removal Engine
 
 ### Purpose
@@ -467,49 +433,6 @@ Technologies:
 
 * SwiftUI
 * CoreML
-
----
-
-# Pricing
-
-The paywall is **cloud credits only**. Local translation is free and unrestricted on every tier, and the translation model you get is identical across all tiers — model choice is never gated by subscription.
-
-## Translation Model (all tiers)
-
-* One curated **default**: Qwen2.5-1.5B-Instruct — free, local, phone-confirmed as the on-device quality-and-speed winner. No per-tier model ladder.
-* A small curated **selectable shortlist** of other vetted models (e.g. gemma-2-2b-it for best quality where the user accepts higher latency), gated on device capability, never on tier.
-* **Low-storage floor**: CAT-Translate-0.8b, the smaller LLM for devices that cannot fit the default — selectable, not the default, not a paid tier.
-* A **custom-model sideload slot** (permitted, unsupported, labelled) for enthusiasts who bring their own GGUF.
-
-See ADR-0001, ADR-0008, ADR-0009, ADR-0010, and ADR-0016 for the full policy.
-
-## Free Tier
-
-* Unlimited local translation.
-* Limited cloud credits.
-
----
-
-## Pro
-
-€4.99/month
-
-Includes:
-
-* Unlimited local translation.
-* 500 cloud credits.
-
----
-
-## Power Reader
-
-€9.99/month
-
-Includes:
-
-* Unlimited local translation.
-* 5000 cloud credits.
-* Early access features.
 
 ---
 
@@ -621,7 +544,6 @@ This distinction creates a defensible product position and enables a significant
 
 * Monthly active readers.
 * Pages translated per day.
-* Cloud credit consumption.
 * Subscription conversion rate.
 
 ---
