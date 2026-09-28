@@ -352,13 +352,17 @@ class OverlayService : Service() {
             }
 
             val ignored = withContext(Dispatchers.Main) { recallIgnoredRegions(bitmap.width) }
+            val fingerprintStart = System.currentTimeMillis()
             val fingerprint = PageFingerprint.of(bitmap, ignored)
             val settings = pageSettings()
-            pageRecall.recall(fingerprint, settings)?.let { page ->
+            val recalled = pageRecall.recall(fingerprint, settings)
+            Log.i(TAG, "Page recall hit=${recalled != null} ms=${System.currentTimeMillis() - fingerprintStart} ignored=$ignored")
+            recalled?.let { page ->
                 withContext(Dispatchers.Main) {
                     // Idle before the notice: a recall is instant, so a spinning button would read as a stall.
                     floatingButton?.setState(FloatingButtonView.State.IDLE)
-                    showFinishedPage(page, "Already translated")
+                    val notices = listOfNotNull("Already translated", page.translationResult.untranslatedNotice())
+                    showFinishedPage(page, notices.joinToString(" · "))
                 }
                 return@launch
             }

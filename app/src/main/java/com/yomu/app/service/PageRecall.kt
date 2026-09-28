@@ -4,7 +4,6 @@ import com.yomu.core.GenerationParams
 import com.yomu.core.RuntimeLimits
 import com.yomu.core.TranslationOutcome
 import com.yomu.pipeline.PipelineResult
-import com.yomu.pipeline.translation.untranslatedNotice
 
 /** Every setting that shapes a translated page: a change to any of them makes the next capture a fresh translation. */
 data class PageSettings(
@@ -33,11 +32,15 @@ class PageRecall {
     fun recall(fingerprint: PageFingerprint, settings: PageSettings): PipelineResult? =
         pages.keys.firstOrNull { it.settings == settings && it.fingerprint.matches(fingerprint) }?.let(pages::get)
 
-    /** Keeps only a page the model answered in full: capturing an incomplete one again is how the reader retries it. */
+    /**
+     * Keeps a page the model finished with at least one bubble answered. A timed-out or wholly
+     * unanswered page is left out, so capturing it again is how the reader retries it; a bubble the
+     * model could not answer on a finished page (a sound effect, app chrome) fails the same way again.
+     */
     @Synchronized
     fun remember(fingerprint: PageFingerprint, settings: PageSettings, page: PipelineResult) {
         val translation = page.translationResult
-        if (translation.outcome != TranslationOutcome.SUCCESS || translation.untranslatedNotice() != null) return
+        if (translation.outcome != TranslationOutcome.SUCCESS || translation.translations.none { it.answered }) return
         pages[Key(fingerprint, settings)] = page
     }
 

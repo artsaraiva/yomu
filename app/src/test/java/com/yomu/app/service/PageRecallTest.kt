@@ -45,13 +45,17 @@ class PageRecallTest {
     private fun fingerprint(pixels: IntArray, ignored: List<OverlayBounds> = listOf(statusBar, button)) =
         PageFingerprint.of(pixels, width, height, ignored)
 
-    private fun result(label: String) = PipelineResult(
+    private fun result(label: String, bubbles: List<TranslatedBubble> = listOf(answered(0, label))) = PipelineResult(
         typesetBubbles = emptyList(),
-        translationResult = TranslationResult(emptyList(), label, 0L),
+        translationResult = TranslationResult(bubbles, label, 0L),
         pageWidth = width,
         pageHeight = height,
         totalTimeMs = 0L
     )
+
+    private fun answered(id: Int, text: String) = TranslatedBubble(id, "こんにちは", text, answered = true)
+
+    private fun unanswered(id: Int) = TranslatedBubble(id, "やっちょっと…!", "やっちょっと…!", answered = false)
 
     @Test
     fun `a page captured again with the same settings is recalled`() {
@@ -150,24 +154,22 @@ class PageRecallTest {
     }
 
     @Test
-    fun `a page with bubbles left untranslated is not recalled, so capturing it again retries it`() {
+    fun `a page with a few bubbles the model could not answer is still recalled`() {
         val recall = PageRecall()
-        val partial = result("page 0").copy(
-            translationResult = TranslationResult(
-                translations = listOf(
-                    TranslatedBubble(0, "こんにちは", "Hello", answered = true),
-                    TranslatedBubble(1, "やっちょっと…!", "やっちょっと…!", answered = false)
-                ),
-                rawResponse = "[0] Hello",
-                translationTimeMs = 0L
-            )
-        )
-        val timedOut = result("page 1").copy(
-            translationResult = TranslationResult(emptyList(), "", 0L, outcome = TranslationOutcome.TIMEOUT)
-        )
-
+        val partial = result("page 0", listOf(answered(0, "Hello"), unanswered(1)))
         recall.remember(fingerprint(page(0)), settings, partial)
-        recall.remember(fingerprint(page(1)), settings, timedOut)
+
+        assertEquals(partial, recall.recall(fingerprint(page(0)), settings))
+    }
+
+    @Test
+    fun `a page the model did not finish or answered nowhere is not recalled, so capturing it again retries it`() {
+        val recall = PageRecall()
+        val timedOut = result("page 0").copy(
+            translationResult = TranslationResult(listOf(answered(0, "Hello")), "[0] Hello", 0L, outcome = TranslationOutcome.TIMEOUT)
+        )
+        recall.remember(fingerprint(page(0)), settings, timedOut)
+        recall.remember(fingerprint(page(1)), settings, result("page 1", listOf(unanswered(0), unanswered(1))))
 
         assertNull(recall.recall(fingerprint(page(0)), settings))
         assertNull(recall.recall(fingerprint(page(1)), settings))
