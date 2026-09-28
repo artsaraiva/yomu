@@ -28,7 +28,7 @@ _Avoid_: RAM gate, memory limit, device tier
 
 **Language label**:
 English only or Multilingual, shown beside a [[deliverable]]'s size and [[speed label]] so a reader knows before downloading whether it can translate into their [[target language]]. Multilingual means the model's own documentation covers every target language Yomu offers; anything less is English only.
-_Avoid_: language tier, multilingual flag, language support level
+_Avoid_: language tier, language support level
 
 **Model family**:
 The set of deliverables that are the same model at different quantizations. Grouped only so device fit can offer the largest one that fits; a family is never itself selectable.
@@ -37,10 +37,6 @@ _Avoid_: quant matrix, model group, variant set
 **Speed label**:
 Fast, Medium or Slow, read off a [[deliverable]]'s download size alone (Fast up to 1.5 GB, Medium up to 3.5 GB, Slow above it), so the picker warns a reader how slow a model will feel before gigabytes are downloaded. The same thresholds on every device; how much RAM a deliverable needs is the [[fit budget]], a separate question.
 _Avoid_: performance tier, speed rating, device tier
-
-**Target language**:
-The language the reader reads translations in. The source is always Japanese; English is the default and the only target an English-only [[deliverable]] can produce.
-_Avoid_: output language, destination language, locale
 
 **Translation slot**:
 The selected component that accepts one geometry-free page and owns every model-specific translation decision. Exactly one LLM deliverable fills it at a time; there is no non-LLM translator (ADR-0016).
@@ -59,12 +55,16 @@ _Avoid_: history, memory, conversation history
 ### Reading
 
 **Page recall**:
-Showing an already translated page again, instantly, when the reader captures the same page in the same overlay session with the same model, [[target language]] and generation settings. Keyed on the whole captured page, never on source lines.
+Showing an already translated page again, instantly, when the reader captures the same page in the same overlay session with the same [[deliverable]], [[target language]] and every other setting that shapes the result. Keyed on a fingerprint of the captured frame, with the status bar and the floating button left out, never on source lines.
 _Avoid_: page cache, translation cache, page memory
 
 **Page report**:
 One page's evidence for a bug report: its capture, each bubble's OCR text, the model's raw reply, the model and settings used, and per-stage timings. It leaves the phone only through the share sheet, when the reader sends it.
 _Avoid_: bug bundle, diagnostics dump, crash report
+
+**Target language**:
+The language the reader reads translations in. The source is always Japanese; English is the default and the only target an English-only [[deliverable]] can produce.
+_Avoid_: output language, destination language, locale
 
 **Time to first bubble**:
 How long a page takes from being handed to the pipeline until its first bubble's translation is ready to draw; capture time is excluded. Report-only, like every speed number (ADR-0015).

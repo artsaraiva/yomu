@@ -10,7 +10,7 @@ A reading-focused visual and interaction language for Yomu, inspired by Paper Ma
 The visual system governs two things and deliberately excludes a third:
 
 - **Governs — [Chrome](../../CONTEXT.md):** the Compose-rendered Home, History, and Settings screens.
-- **Governs — [Overlay controls](../../CONTEXT.md):** the floating button, quick-settings popup, close zone, and status toast drawn over live manga. The paper language applies, but legibility over arbitrary artwork is a hard constraint that outranks any cosmetic choice.
+- **Governs — [Overlay controls](../../CONTEXT.md):** the floating button, quick-settings popup and status toast drawn over live manga. The paper language applies, but legibility over arbitrary artwork is a hard constraint that outranks any cosmetic choice.
 - **Excludes — [Typeset bubble](../../CONTEXT.md):** the translated text laid into a bubble over the page. Its appearance answers only to readability against the artwork underneath (today dark ink on a light fill). The paper aesthetic never touches it, and this redesign does not change translation correctness or bubble legibility.
 
 Paper is expressed **procedurally** — through warm colour, shape, border, and offset shadow — never through photographic paper-texture image assets. See [ADR-0011](../adr/0011-procedural-paper-texture.md).

@@ -6,6 +6,8 @@
 
 > **The HuggingFace carve-out above is retracted by [ADR-0014](0014-quantization-deliverables-and-revision-pinning.md).** That path was deleted (no gated model it could serve, and its OAuth redirect was never registered), so the custom slot is local-file-picker-only again, as this ADR originally had it. A gated GGUF now reaches the device by manual sideload. Arbitrary-URL loading remains rejected on the original reasoning.
 
+> **Revised in part by [ADR-0018](0018-translation-stays-on-the-phone.md).** Cloud credits are no longer the monetized surface: cloud translation and its credits are parked, and Yomu has no paid surface today. The conclusion holds without them. Local translation is free, so an open local slot still costs no revenue.
+
 Yomu ships a curated translation model that it selects, downloads, and supports, and additionally lets users load their own GGUF from local storage via the Android file picker. Custom models are labelled "Custom — unsupported" in Settings and that label follows through to translation results, so a screenshot of a bad translation is self-diagnosing. The monetized surface is cloud credits, not local model quality, so an open local slot costs no revenue — which is what makes this permissiveness affordable at all.
 
 ## Considered Options
