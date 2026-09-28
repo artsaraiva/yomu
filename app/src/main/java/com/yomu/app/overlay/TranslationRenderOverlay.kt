@@ -96,7 +96,6 @@ class TranslationRenderOverlay(
             return
         }
 
-        remove()
         val params = createLayoutParams().apply {
             // A live preview sits above the floating button: taking touches would swallow the cancel tap (#76).
             flags = flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
