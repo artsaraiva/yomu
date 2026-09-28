@@ -206,9 +206,20 @@ data class PageTranslation(
 interface TranslationSlot {
     val status: TranslationStatus
 
+    /** Attempts to prepare the selected model for translation and returns whether the slot is ready. */
     suspend fun ensureReady(): Boolean
-    suspend fun translatePage(page: TranslatablePage): PageTranslation
 
+    /**
+     * [onBubble] hears each bubble at most once, as soon as its text is final, and never with text
+     * that contradicts the returned [PageTranslation.byId].
+     */
+    suspend fun translatePage(
+        page: TranslatablePage,
+        onBubble: (bubbleId: Int, text: String) -> Unit = { _, _ -> }
+    ): PageTranslation
+
+    /** Ends the current reading session so session-specific state can be cleared. */
     fun endSession()
+    /** Releases resources held by the translation slot. */
     fun close()
 }

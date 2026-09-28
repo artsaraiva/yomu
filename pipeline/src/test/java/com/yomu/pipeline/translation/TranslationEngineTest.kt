@@ -73,6 +73,7 @@ class TranslationEngineTest {
         assertEquals("2 of 3 bubbles not translated", result.untranslatedNotice())
     }
 
+    /** Verifies a fully answered page produces no untranslated-bubble notice. */
     @Test
     fun untranslatedNotice_isNullWhenEveryBubbleWasAnswered() = runTest {
         val slot = FakeTranslationSlot(PageTranslation(mapOf(1 to "Hello"), "", 1L))
@@ -82,6 +83,90 @@ class TranslationEngineTest {
         assertNull(result.untranslatedNotice())
     }
 
+    /** Verifies slot reports reach the listener in order with the correct source text and answered flag. */
+    @Test
+    fun translate_forwardsReportedBubblesAsTheyArrive() = runTest {
+        val slot = FakeTranslationSlot(
+            PageTranslation(mapOf(1 to "Hello", 2 to "Goodbye"), "", 1L),
+            reports = listOf(1 to "Hello", 2 to "Goodbye")
+        )
+        val forwarded = mutableListOf<TranslatedBubble>()
+
+        TranslationEngine { slot }
+            .translate(listOf(block(1 to "こんにちは", 2 to "さようなら"))) { forwarded += it }
+
+        assertEquals(
+            listOf(
+                TranslatedBubble(1, "こんにちは", "Hello", answered = true),
+                TranslatedBubble(2, "さようなら", "Goodbye", answered = true)
+            ),
+            forwarded
+        )
+    }
+
+    /** Verifies refusal text and replies containing Japanese are filtered before reaching the listener. */
+    @Test
+    fun translate_neverForwardsAnUnusableReply() = runTest {
+        val slot = FakeTranslationSlot(
+            PageTranslation(mapOf(3 to "Goodbye"), "", 1L),
+            reports = listOf(1 to "I'm sorry, but I can't help with that.", 2 to "おはよう, everyone", 3 to "Goodbye")
+        )
+        val forwarded = mutableListOf<TranslatedBubble>()
+
+        TranslationEngine { slot }
+            .translate(listOf(block(1 to "こんにちは", 2 to "おはよう", 3 to "さようなら"))) { forwarded += it }
+
+        assertEquals(listOf(3 to "Goodbye"), forwarded.map { it.bubbleId to it.translatedText })
+    }
+
+    /** Verifies duplicate and unknown IDs are ignored and the first usable report remains the final answer. */
+    @Test
+    fun translate_forwardsABubbleOnceAndNeverOneOffThePage() = runTest {
+        val slot = FakeTranslationSlot(
+            PageTranslation(mapOf(1 to "Hello"), "", 1L),
+            reports = listOf(1 to "Hello", 99 to "Invented", 1 to "Hi there")
+        )
+        val forwarded = mutableListOf<TranslatedBubble>()
+
+        val result = TranslationEngine { slot }
+            .translate(listOf(block(1 to "こんにちは", 2 to "さようなら"))) { forwarded += it }
+
+        assertEquals(listOf(1 to "Hello"), forwarded.map { it.bubbleId to it.translatedText })
+        assertEquals("Hello", result.translations.first().translatedText)
+    }
+
+    /** Verifies final-only answers and punctuation are flushed after streamed answers, omitting unanswered bubbles. */
+    @Test
+    fun translate_forwardsTheUnreportedAnsweredBubblesWhenThePageEnds() = runTest {
+        val slot = FakeTranslationSlot(
+            PageTranslation(mapOf(1 to "Hello", 3 to "Bye"), "", 1L),
+            reports = listOf(3 to "Bye")
+        )
+        val forwarded = mutableListOf<TranslatedBubble>()
+
+        TranslationEngine { slot }
+            .translate(listOf(block(1 to "こんにちは", 2 to "?", 3 to "またね", 4 to "さようなら"))) { forwarded += it }
+
+        assertEquals(listOf(3, 1, 2), forwarded.map { it.bubbleId })
+    }
+
+    /** Verifies the final answered set equals the listener output even when a streamed answer is absent from the reply map. */
+    @Test
+    fun translate_finishedPageHoldsExactlyTheForwardedBubbles() = runTest {
+        val slot = FakeTranslationSlot(
+            PageTranslation(mapOf(1 to "Hello"), "", 1L),
+            reports = listOf(2 to "Goodbye")
+        )
+        val forwarded = mutableListOf<TranslatedBubble>()
+
+        val result = TranslationEngine { slot }
+            .translate(listOf(block(1 to "こんにちは", 2 to "さようなら", 3 to "またね"))) { forwarded += it }
+
+        assertEquals(result.translations.filter { it.answered }.toSet(), forwarded.toSet())
+        assertEquals(listOf(true, true, false), result.translations.map { it.answered })
+    }
+
+    /** Verifies unknown reply IDs are discarded and missing answers retain their source text as unanswered. */
     @Test
     fun translate_idNotOnThePageNeverReachesABubble() = runTest {
         val slot = FakeTranslationSlot(
@@ -276,6 +361,7 @@ class TranslationEngineTest {
         assertNull(result.readerFailure())
     }
 
+    /** Builds a panel with synthetic bounds, OCR text keyed by bubble ID, and the requested reading order. */
     private fun block(
         vararg bubbleTexts: Pair<Int, String>,
         readingOrder: List<Int> = bubbleTexts.map { it.first }
@@ -290,16 +376,23 @@ class TranslationEngineTest {
     }
 
     private class FakeTranslationSlot(
-        private val result: PageTranslation
+        private val result: PageTranslation,
+        private val reports: List<Pair<Int, String>> = emptyList()
     ) : TranslationSlot {
         override var status: TranslationStatus = TranslationStatus.Ready
         val pages = mutableListOf<TranslatablePage>()
         var endSessionCalls = 0
 
+        /** Keeps the fake ready without loading model resources. */
         override suspend fun ensureReady(): Boolean = true
 
-        override suspend fun translatePage(page: TranslatablePage): PageTranslation {
+        /** Records the requested page, emits configured reports in order, and returns the canned final response. */
+        override suspend fun translatePage(
+            page: TranslatablePage,
+            onBubble: (bubbleId: Int, text: String) -> Unit
+        ): PageTranslation {
             pages += page
+            reports.forEach { (id, text) -> onBubble(id, text) }
             return result
         }
 

@@ -105,17 +105,31 @@ class LlamaTranslationBridge(
     var lastPageDurationMs: Long? = null
         private set
 
-    override suspend fun translatePage(page: TranslatablePage): PageTranslation {
+    /**
+     * Prepares the model and translates with its configured call shape, recording the page duration.
+     * [onBubble] receives successful per-line results, including overflow fallback; batch replies are returned together.
+     */
+    override suspend fun translatePage(
+        page: TranslatablePage,
+        onBubble: (bubbleId: Int, text: String) -> Unit
+    ): PageTranslation {
         if (page.panels.flatten().isEmpty()) return PageTranslation(emptyMap(), "", 0L)
         if (status !is TranslationStatus.Ready && !ensureReady()) {
             return PageTranslation.notLoaded(status)
         }
-        val result = if (profile.idKeyedBatch) translateBatch(page) else translatePerLine(page)
+        val result = if (profile.idKeyedBatch) translateBatch(page, onBubble) else translatePerLine(page, onBubble)
         lastPageDurationMs = result.durationMs
         return result
     }
 
-    private suspend fun translatePerLine(page: TranslatablePage): PageTranslation {
+    /**
+     * Generates in panel and bubble order, reporting each successful result before starting the next bubble.
+     * The returned page includes successes and records the first failure, if any.
+     */
+    private suspend fun translatePerLine(
+        page: TranslatablePage,
+        onBubble: (bubbleId: Int, text: String) -> Unit
+    ): PageTranslation {
         val bubbles = page.panels.flatten()
         val generated = bubbles.map { bubble ->
             val prompt = when (profile.promptMode) {
@@ -123,7 +137,9 @@ class LlamaTranslationBridge(
                 TranslationPromptMode.TRANSLATION_ONLY -> translationOnlyPrompt(bubble.sourceText)
                 TranslationPromptMode.HY_MT2 -> hyMt2Prompt(bubble.sourceText)
             }
-            bubble to generate(prompt, profile.generation.maxTokens, TIMEOUT_MS)
+            val output = generate(prompt, profile.generation.maxTokens, TIMEOUT_MS)
+            if (output.outcome == TranslationOutcome.SUCCESS) onBubble(bubble.bubbleId, output.text)
+            bubble to output
         }
         val outputs = generated.filter { it.second.outcome == TranslationOutcome.SUCCESS }
         // The page's outcome is the first bubble-level failure, or SUCCESS when none failed. A
@@ -143,7 +159,11 @@ class LlamaTranslationBridge(
         )
     }
 
-    private suspend fun translateBatch(page: TranslatablePage): PageTranslation {
+    /** Generates one ID-keyed batch reply; on prompt overflow, retries per line and streams through [onBubble]. */
+    private suspend fun translateBatch(
+        page: TranslatablePage,
+        onBubble: (bubbleId: Int, text: String) -> Unit
+    ): PageTranslation {
         val output = generate(
             buildBatchPrompt(page),
             MAX_BATCH_OUTPUT,
@@ -160,7 +180,7 @@ class LlamaTranslationBridge(
                 "translateBatch overflow bubbles=${page.panels.flatten().size} " +
                     "falling back to per-line"
             )
-            return translatePerLine(page).copy(batchOverflowFallback = true)
+            return translatePerLine(page, onBubble).copy(batchOverflowFallback = true)
         }
         return PageTranslation(
             byId = parseIdKeyedTranslations(output.text),

@@ -21,15 +21,14 @@ class TranslationRenderOverlay(
         private const val OCR_BACKGROUND_ALPHA = 0xAA
         private const val OCR_TEXT_SIZE_DP = 14f
         private const val OCR_LINE_SPACING = 1.2f
-        private const val TRANSLATED_TEXT_SIZE_DP = 16f
-        private const val TRANSLATED_LINE_SPACING = 1.3f
     }
 
     private var overlayView: FrameLayout? = null
     private var pageWidth: Int = 0
     private var pageHeight: Int = 0
-    private val bubbleStates = mutableListOf<OverlayBubbleState>()
+    private var bubbleStates: List<OverlayBubbleState> = emptyList()
 
+    /** Replaces the preview with the finished page in the supplied bubble order, enabling dismissal gestures. */
     fun show(
         bubbles: List<TypesetBubble>,
         pageWidth: Int,
@@ -42,6 +41,7 @@ class TranslationRenderOverlay(
             private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
             private val screenLocation = IntArray(2)
 
+            /** Maps finished bubbles into canvas coordinates and records their bounds for gesture hit testing. */
             override fun onDraw(canvas: Canvas) {
                 super.onDraw(canvas)
                 getLocationOnScreen(screenLocation)
@@ -53,13 +53,7 @@ class TranslationRenderOverlay(
                     overlayScreenX = screenLocation[0],
                     overlayScreenY = screenLocation[1]
                 )
-                drawnBounds = bubbles.map { bubble ->
-                    OverlayCoordinateMapper.clampToCanvas(
-                        OverlayCoordinateMapper.map(bubble.boundingBox, mapParams),
-                        canvas.width.toFloat(),
-                        canvas.height.toFloat()
-                    )
-                }
+                drawnBounds = bubbles.map { canvasBounds(it, mapParams, canvas) }
                 bubbles.forEachIndexed { index, bubble ->
                     drawTypesetBubble(canvas, bubble, drawnBounds[index], paint, mapParams)
                 }
@@ -89,6 +83,7 @@ class TranslationRenderOverlay(
         windowManager.addView(overlayView, params)
     }
 
+    /** Snapshots OCR states and refreshes the preview, creating an untouchable window when needed. */
     fun showOcrBubbles(
         states: List<OverlayBubbleState>,
         pageWidth: Int,
@@ -96,8 +91,7 @@ class TranslationRenderOverlay(
     ) {
         this.pageWidth = pageWidth
         this.pageHeight = pageHeight
-        bubbleStates.clear()
-        bubbleStates.addAll(states)
+        bubbleStates = states.toList()
 
         val existingView = overlayView
         if (existingView != null) {
@@ -105,7 +99,6 @@ class TranslationRenderOverlay(
             return
         }
 
-        remove()
         val params = createLayoutParams().apply {
             // A live preview sits above the floating button: taking touches would swallow the cancel tap (#76).
             flags = flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
@@ -141,18 +134,31 @@ class TranslationRenderOverlay(
         windowManager.addView(overlayView, params)
     }
 
-    fun updateTranslations(states: List<OverlayBubbleState>) {
-        bubbleStates.clear()
-        bubbleStates.addAll(states)
+    /** Switches one preview box to its typeset bubble; the preview stays untouchable while bubbles arrive. */
+    fun showTypesetBubble(bubble: TypesetBubble) {
+        bubbleStates = bubbleStates.withTypeset(bubble)
         overlayView?.invalidate()
     }
 
+    /** Detaches the current overlay and clears its preview states. */
     fun remove() {
         overlayView?.let { windowManager.removeView(it) }
         overlayView = null
-        bubbleStates.clear()
+        bubbleStates = emptyList()
     }
 
+    /** Maps a typeset bubble from capture coordinates and clips its bounds to the canvas. */
+    private fun canvasBounds(
+        bubble: TypesetBubble,
+        params: OverlayCoordinateMapper.MapParams,
+        canvas: Canvas
+    ): OverlayBounds = OverlayCoordinateMapper.clampToCanvas(
+        OverlayCoordinateMapper.map(bubble.boundingBox, params),
+        canvas.width.toFloat(),
+        canvas.height.toFloat()
+    )
+
+    /** Creates a transparent, full-screen overlay window that does not take input focus. */
     private fun createLayoutParams(): WindowManager.LayoutParams {
         return WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
@@ -209,12 +215,18 @@ class TranslationRenderOverlay(
         canvas.restoreToCount(saveCount)
     }
 
+    /** Draws the final typeset bubble when available, otherwise its dark OCR preview. */
     private fun drawOverlayBubbleState(
         canvas: Canvas,
         state: OverlayBubbleState,
         paint: Paint,
         params: OverlayCoordinateMapper.MapParams
     ) {
+        // Drawn exactly as the finished page will draw it, so nothing moves when the page completes.
+        state.typeset?.let { typeset ->
+            drawTypesetBubble(canvas, typeset, canvasBounds(typeset, params, canvas), paint, params)
+            return
+        }
         val bounds = state.bounds
         val sourceBounds = floatArrayOf(bounds.left, bounds.top, bounds.right, bounds.bottom)
         val mappedBounds = OverlayCoordinateMapper.map(sourceBounds, params)
@@ -225,32 +237,18 @@ class TranslationRenderOverlay(
         val radius = minOf(bw, bh) * 0.12f
 
         paint.isAntiAlias = true
-        paint.color = if (state.isTranslated) {
-            Color.WHITE
-        } else {
-            Color.argb(OCR_BACKGROUND_ALPHA, 0, 0, 0)
-        }
+        paint.color = Color.argb(OCR_BACKGROUND_ALPHA, 0, 0, 0)
         canvas.drawRoundRect(bx, by, bx + bw, by + bh, radius, radius, paint)
 
         val saveCount = canvas.save()
         canvas.clipRect(bx, by, bx + bw, by + bh)
 
-        val text = if (state.isTranslated) {
-            state.translatedText.orEmpty()
-        } else {
-            state.ocrText
-        }
-        val textSize = if (state.isTranslated) {
-            dpToPx(TRANSLATED_TEXT_SIZE_DP)
-        } else {
-            dpToPx(OCR_TEXT_SIZE_DP)
-        }
-        paint.color = if (state.isTranslated) Color.BLACK else Color.WHITE
-        paint.textSize = textSize
-        paint.typeface = if (state.isTranslated) Typeface.DEFAULT else Typeface.DEFAULT_BOLD
+        paint.color = Color.WHITE
+        paint.textSize = dpToPx(OCR_TEXT_SIZE_DP)
+        paint.typeface = Typeface.DEFAULT_BOLD
 
-        val lines = wrapText(text, bw * 0.9f, paint)
-        val lineHeight = paint.fontSpacing * if (state.isTranslated) TRANSLATED_LINE_SPACING else OCR_LINE_SPACING
+        val lines = wrapText(state.ocrText, bw * 0.9f, paint)
+        val lineHeight = paint.fontSpacing * OCR_LINE_SPACING
         val totalTextHeight = lineHeight * lines.size
         val blockTop = by + (bh - totalTextHeight) / 2f
         var textY = blockTop - paint.fontMetrics.ascent

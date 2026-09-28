@@ -31,7 +31,9 @@ data class PipelineResult(
     val translationResult: TranslationResult,
     val pageWidth: Int,
     val pageHeight: Int,
-    val totalTimeMs: Long
+    val totalTimeMs: Long,
+    /** From the page reaching the pipeline to its first bubble being ready to draw; null when none was. */
+    val timeToFirstBubbleMs: Long? = null
 )
 
 class TranslationPipeline(
@@ -51,7 +53,6 @@ class TranslationPipeline(
         OCR,
         CONTEXT_ASSEMBLY,
         TRANSLATION,
-        TYPESETTING,
         DONE,
         ERROR
     }
@@ -89,22 +90,34 @@ class TranslationPipeline(
     /** Held by a page run, so a model is never unloaded while a native session is still using it. */
     private val inference = Mutex()
 
+    /**
+     * Serializes page processing with model unloading and emits OCR previews followed by typeset bubbles.
+     * Callbacks run in the processing coroutine; UI callers must dispatch to the main thread.
+     * Returns null on processing failure and propagates cancellation.
+     */
     suspend fun processPage(
         bitmap: Bitmap,
         callback: PipelineCallback? = null,
-        onOcrComplete: ((bubbleId: Int, ocrText: String, bounds: RectF) -> Unit)? = null
-    ): PipelineResult? = inference.withLock { runPage(bitmap, callback, onOcrComplete) }
+        onOcrComplete: ((bubbleId: Int, ocrText: String, bounds: RectF) -> Unit)? = null,
+        onBubble: ((TypesetBubble) -> Unit)? = null
+    ): PipelineResult? = inference.withLock { runPage(bitmap, callback, onOcrComplete, onBubble) }
 
+    /** Releases the detector after any active page finishes using its native session. */
     suspend fun unloadDetection() = inference.withLock { bubbleDetector.release() }
 
     suspend fun unloadOcr() = inference.withLock { ocrEngine.release() }
 
     suspend fun unloadTranslation() = inference.withLock { translationEngine.close() }
 
+    /**
+     * Detects and reads a page, prepares render bounds, then typesets each answered bubble as it arrives.
+     * Records first-bubble latency and returns final bubbles in detection order; reports failures through [callback].
+     */
     private suspend fun runPage(
         bitmap: Bitmap,
         callback: PipelineCallback?,
-        onOcrComplete: ((bubbleId: Int, ocrText: String, bounds: RectF) -> Unit)?
+        onOcrComplete: ((bubbleId: Int, ocrText: String, bounds: RectF) -> Unit)?,
+        onBubble: ((TypesetBubble) -> Unit)?
     ): PipelineResult? {
         val startTime = System.currentTimeMillis()
         val pageWidth = bitmap.width
@@ -183,18 +196,9 @@ class TranslationPipeline(
                 pageWidth = pageWidth,
                 pageHeight = pageHeight
             )
-            callback?.onStageProgress(Stage.CONTEXT_ASSEMBLY, 0.6f)
-
-            currentStage = Stage.TRANSLATION
-            callback?.onStageProgress(Stage.TRANSLATION, 0.6f)
-            val translationResult = translationEngine.translate(pageContext.blocks)
-            coroutineContext.ensureActive()
-            callback?.onStageProgress(Stage.TRANSLATION, 0.8f)
-
-            currentStage = Stage.TYPESETTING
-            callback?.onStageProgress(Stage.TYPESETTING, 0.8f)
             // Typeset into the bubble interior; boundingBox stays the detector's glyph box, which
-            // OCR crops and panel grouping are tuned to.
+            // OCR crops and panel grouping are tuned to. Computed before translation so each bubble
+            // is typeset the moment it arrives.
             val bubbleBounds = bubbleRenderBoxes(
                 bitmap,
                 bubbles.associate { bubble ->
@@ -207,12 +211,24 @@ class TranslationPipeline(
                 }
             )
             typesetter.fontSizeScale = fontSizeScale
-            // An unanswered bubble gets no box, so the reader sees the art under it (#330).
-            val typesetBubbles = typesetter.typeset(
-                translationResult.translations.filter { it.answered },
-                bubbleBounds
-            )
-            callback?.onStageProgress(Stage.TYPESETTING, 1.0f)
+            callback?.onStageProgress(Stage.CONTEXT_ASSEMBLY, 0.6f)
+
+            currentStage = Stage.TRANSLATION
+            callback?.onStageProgress(Stage.TRANSLATION, 0.6f)
+            // Only answered bubbles arrive, so an unanswered one gets no box and the reader sees
+            // the art under it (#330).
+            val arrived = mutableMapOf<Int, TypesetBubble>()
+            var firstBubbleAt: Long? = null
+            val translationResult = translationEngine.translate(pageContext.blocks) { translated ->
+                val typeset = typesetter.typeset(listOf(translated), bubbleBounds).single()
+                if (firstBubbleAt == null) firstBubbleAt = System.currentTimeMillis()
+                arrived[typeset.bubbleId] = typeset
+                onBubble?.invoke(typeset)
+            }
+            coroutineContext.ensureActive()
+            // Detection order, as the preview stacks them, so overlapping boxes keep their stacking.
+            val typesetBubbles = bubbles.mapNotNull { arrived[it.id] }
+            callback?.onStageProgress(Stage.TRANSLATION, 1.0f)
 
             currentStage = Stage.DONE
 
@@ -221,7 +237,8 @@ class TranslationPipeline(
                 translationResult = translationResult,
                 pageWidth = pageWidth,
                 pageHeight = pageHeight,
-                totalTimeMs = System.currentTimeMillis() - startTime
+                totalTimeMs = System.currentTimeMillis() - startTime,
+                timeToFirstBubbleMs = firstBubbleAt?.let { it - startTime }
             )
 
             callback?.onComplete(result)

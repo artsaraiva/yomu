@@ -62,13 +62,13 @@ class TranslationStatusOverlay(
         statusView = null
     }
 
+    /** Returns the reader-facing status message for a pipeline stage. */
     fun messageForStage(stage: TranslationPipeline.Stage): String {
         return when (stage) {
             TranslationPipeline.Stage.BUBBLE_DETECTION -> "Finding text bubbles"
             TranslationPipeline.Stage.OCR -> "Reading Japanese text"
             TranslationPipeline.Stage.CONTEXT_ASSEMBLY -> "Preparing context"
             TranslationPipeline.Stage.TRANSLATION -> "Translating"
-            TranslationPipeline.Stage.TYPESETTING -> "Drawing translation"
             TranslationPipeline.Stage.DONE -> "Drawing translation"
             TranslationPipeline.Stage.ERROR -> "Failed"
         }
