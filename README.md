@@ -130,7 +130,7 @@ echo "sdk.dir=$HOME/Library/Android/sdk" > local.properties
 3. **Start the overlay** from the Home screen.
 4. **Open a manga page** in any app.
 5. **Tap the floating button.** Status appears while it runs, then English bubbles cover the Japanese ones.
-6. **Tap again** to cancel, or drag the button to the close zone to dismiss it.
+6. **Tap again** to cancel. To stop the overlay, hold the button and tap *Stop service*.
 
 Settings let you switch translation models, adjust the bubble confidence threshold and font scale, and cap the CPU and memory the model uses.
 

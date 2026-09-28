@@ -26,6 +26,10 @@ _Avoid_: beta model, preview model, untested model
 The RAM a deliverable must fit inside to be offered on a given device — its file size plus a fixed resident-overhead estimate, against a fraction of the device's total memory. Estimated from measurement, never from parsing a file Yomu has not downloaded.
 _Avoid_: RAM gate, memory limit, device tier
 
+**Language label**:
+English only or Multilingual, shown beside a [[deliverable]]'s size and [[speed label]] so a reader knows before downloading whether it can translate into their [[target language]]. Multilingual means the model's own documentation covers every target language Yomu offers; anything less is English only.
+_Avoid_: language tier, language support level
+
 **Model family**:
 The set of deliverables that are the same model at different quantizations. Grouped only so device fit can offer the largest one that fits; a family is never itself selectable.
 _Avoid_: quant matrix, model group, variant set
@@ -48,6 +52,24 @@ _Avoid_: conversation block, chunk, frame
 The previous page's source/translation pairs, carried into the next page's prompt so pronouns, names, and register stay consistent across a reading session. ADR-0013 withdrew it on measurement — the production-shaped payload overflowed the prompt cap on 4 of 17 pages and no arm showed a quality gain — and the plumbing is deleted, not dormant. The term is kept here because the ADRs that decided and undid it still use it; nothing in the code does.
 _Avoid_: history, memory, conversation history
 
+### Reading
+
+**Page recall**:
+Showing an already translated page again, instantly, when the reader captures the same page in the same overlay session with the same [[deliverable]], [[target language]] and every other setting that shapes the result. Keyed on a fingerprint of the captured frame, with the status bar and the floating button left out, never on source lines.
+_Avoid_: page cache, translation cache, page memory
+
+**Page report**:
+One page's evidence for a bug report: its capture, each bubble's OCR text, the model's raw reply, the model and settings used, and per-stage timings. It leaves the phone only through the share sheet, when the reader sends it.
+_Avoid_: bug bundle, diagnostics dump, crash report
+
+**Target language**:
+The language the reader reads translations in. The source is always Japanese; English is the default and the only target an English-only [[deliverable]] can produce.
+_Avoid_: output language, destination language, locale
+
+**Time to first bubble**:
+How long a page takes from being handed to the pipeline until its first bubble's translation is ready to draw; capture time is excluded. Report-only, like every speed number (ADR-0015).
+_Avoid_: latency, TTFB, first-token time
+
 ## Visual system
 
 **Chrome**:
@@ -55,7 +77,7 @@ The app's own managed screens — Home, History, Settings — rendered in Compos
 _Avoid_: main UI, app screens, the app
 
 **Overlay control**:
-An interactive element drawn over live manga to operate translation — floating button, quick-settings popup, close zone, status toast. Governed by the paper-mâché visual system, but its legibility over arbitrary artwork is a constraint, not a cosmetic choice.
+An interactive element drawn over live manga to operate translation — floating button, quick-settings popup, status toast. Governed by the paper-mâché visual system, but its legibility over arbitrary artwork is a constraint, not a cosmetic choice.
 _Avoid_: overlay UI, HUD, widget
 
 **Typeset bubble**:
