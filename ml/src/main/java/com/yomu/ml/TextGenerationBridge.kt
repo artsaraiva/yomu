@@ -50,6 +50,8 @@ interface TextGenerationBridge {
     /**
      * [grammar] is GBNF constraining the sampler; empty means unconstrained.
      * [systemMessage] is the deliverable's own system turn (#287); empty sends none.
+     * [onPartial] hears the reply's bytes as each token is decoded, so a chunk may end mid-character;
+     * the returned result is the same with or without it.
      */
     fun generate(
         prompt: String,
@@ -57,7 +59,8 @@ interface TextGenerationBridge {
         maxTokens: Int = params.maxTokens,
         timeoutMs: Int = DEFAULT_TIMEOUT_MS,
         grammar: String = "",
-        systemMessage: String = ""
+        systemMessage: String = "",
+        onPartial: ((ByteArray) -> Unit)? = null
     ): GenerationResult
     fun release()
 }

@@ -82,7 +82,8 @@ open class LlamaBridge(private val context: Context?) : TextGenerationBridge {
         maxTokens: Int,
         timeoutMs: Int,
         grammar: String,
-        systemMessage: String
+        systemMessage: String,
+        onPartial: ((ByteArray) -> Unit)?
     ): GenerationResult {
         if (!isLoaded) {
             Log.w(TAG, "generate skipped model_not_loaded")
@@ -97,7 +98,8 @@ open class LlamaBridge(private val context: Context?) : TextGenerationBridge {
                 params.samplerArray(),
                 params.seed,
                 grammar,
-                systemMessage
+                systemMessage,
+                onPartial
             )
             val durationMs = System.currentTimeMillis() - startMs
             val text = decodeGenerated(result)
@@ -138,7 +140,8 @@ open class LlamaBridge(private val context: Context?) : TextGenerationBridge {
         samplerParams: FloatArray,
         seed: Int,
         grammar: String,
-        systemMessage: String
+        systemMessage: String,
+        onPartial: ((ByteArray) -> Unit)?
     ): ByteArray?
     private external fun nativeSetAbortRequested(requested: Boolean)
     private external fun nativeLastStatus(): Int
@@ -148,3 +151,4 @@ open class LlamaBridge(private val context: Context?) : TextGenerationBridge {
 
 // Malformed or truncated UTF-8 from the model decodes to U+FFFD instead of aborting (#235).
 internal fun decodeGenerated(bytes: ByteArray?): String = bytes?.toString(Charsets.UTF_8).orEmpty()
+

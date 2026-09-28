@@ -48,7 +48,8 @@ class SelectedTranslationEngineTest {
                     Mockito.anyInt(),
                     Mockito.anyInt(),
                     Mockito.anyString(),
-                    Mockito.anyString()
+                    Mockito.anyString(),
+                    Mockito.any()
                 )
             )
                 .thenAnswer { call ->
@@ -56,7 +57,9 @@ class SelectedTranslationEngineTest {
                     tokens = call.getArgument(2)
                     timeout = call.getArgument(3)
                     grammar = call.getArgument(4)
-                    GenerationResult.Success("[1] Hello\n[2] Goodbye", 1L)
+                    val reply = "[1] Hello\n[2] Goodbye\n"
+                    call.getArgument<(ByteArray) -> Unit>(6).invoke(reply.toByteArray())
+                    GenerationResult.Success(reply, 1L)
                 }
             val texts = listOf("こんにちは", "さようなら").map {
                 OcrResult(it, 1f, floatArrayOf(0f, 0f, 1f, 1f))

@@ -50,6 +50,16 @@ static jbyteArray to_java_bytes(JNIEnv *env, const std::string &bytes) {
     return array;
 }
 
+// False when the listener threw (#332); its exception stays pending, so nativeGenerate throws it.
+static bool emit_partial(JNIEnv *env, jobject listener, jmethodID invoke, const char *piece, int n) {
+    jbyteArray chunk = to_java_bytes(env, std::string(piece, n));
+    if (chunk == nullptr) return false;
+    jobject unit = env->CallObjectMethod(listener, invoke, chunk);
+    env->DeleteLocalRef(chunk);
+    if (unit != nullptr) env->DeleteLocalRef(unit);
+    return !env->ExceptionCheck();
+}
+
 static int64_t now_ms() {
     return std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::steady_clock::now().time_since_epoch()
@@ -215,7 +225,8 @@ Java_com_yomu_ml_LlamaBridge_nativeGenerate(
     jfloatArray sampler_params,
     jint seed,
     jstring grammar,
-    jstring system_prompt) {
+    jstring system_prompt,
+    jobject on_partial) {
 
     const int64_t started_ms = now_ms();
     g_last_status.store(GENERATION_OK, std::memory_order_relaxed);
@@ -223,6 +234,15 @@ Java_com_yomu_ml_LlamaBridge_nativeGenerate(
     if (!g_ctx || !g_model || !g_vocab) {
         LOGE("Model not loaded");
         return to_java_bytes(env, "");
+    }
+
+    // The listener is a Kotlin (ByteArray) -> Unit, so it answers to Function1's erased invoke.
+    jmethodID invoke_partial = nullptr;
+    if (on_partial) {
+        jclass listener_class = env->GetObjectClass(on_partial);
+        invoke_partial = env->GetMethodID(listener_class, "invoke", "(Ljava/lang/Object;)Ljava/lang/Object;");
+        env->DeleteLocalRef(listener_class);
+        if (!invoke_partial) return nullptr;
     }
 
     auto *memory = llama_get_memory(g_ctx);
@@ -322,6 +342,7 @@ Java_com_yomu_ml_LlamaBridge_nativeGenerate(
 
     // Generation loop
     std::string result;
+    bool listener_threw = false;
     int n_len = 0;
     llama_token new_token_id;
     llama_token eos = llama_vocab_eos(g_vocab);
@@ -342,6 +363,10 @@ Java_com_yomu_ml_LlamaBridge_nativeGenerate(
         int n = llama_token_to_piece(g_vocab, new_token_id, buf, sizeof(buf), 0, false);
         if (n > 0) {
             result.append(buf, n);
+            if (on_partial && !emit_partial(env, on_partial, invoke_partial, buf, n)) {
+                listener_threw = true;
+                break;
+            }
         }
 
         // Feed token back
@@ -366,6 +391,10 @@ Java_com_yomu_ml_LlamaBridge_nativeGenerate(
          n_len, result.size(), (long long)elapsed_ms, g_grammar.rejections(), g_grammar.active() ? 1 : 0);
     g_grammar.reset();
     g_abort_deadline_ms.store(0, std::memory_order_relaxed);
+    if (listener_threw) {
+        LOGE("Partial-output listener threw generatedTokens=%d", n_len);
+        return nullptr;
+    }
     return to_java_bytes(env, result);
 }
 
