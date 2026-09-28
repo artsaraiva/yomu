@@ -310,6 +310,10 @@ class OverlayService : Service() {
         floatingButton?.setState(FloatingButtonView.State.IDLE)
     }
 
+    /**
+     * Starts a capture unless a translation is active, streams previews to the main thread, and saves successful results.
+     * Late preview updates are ignored after cancellation so they cannot restore a cleared overlay.
+     */
     private fun startTranslation() {
         // A cancelled job is no longer active; the new one queues behind it on the pipeline's lock.
         if (translationJob?.isActive == true) return

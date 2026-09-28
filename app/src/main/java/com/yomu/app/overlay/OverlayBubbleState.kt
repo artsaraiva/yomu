@@ -9,5 +9,6 @@ data class OverlayBubbleState(
     val typeset: TypesetBubble? = null
 )
 
+/** Returns preview states with [bubble] attached to its matching ID, preserving their order and OCR text. */
 fun List<OverlayBubbleState>.withTypeset(bubble: TypesetBubble): List<OverlayBubbleState> =
     map { if (it.bubbleId == bubble.bubbleId) it.copy(typeset = bubble) else it }

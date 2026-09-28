@@ -105,6 +105,10 @@ class LlamaTranslationBridge(
     var lastPageDurationMs: Long? = null
         private set
 
+    /**
+     * Prepares the model and translates with its configured call shape, recording the page duration.
+     * [onBubble] receives successful per-line results, including overflow fallback; batch replies are returned together.
+     */
     override suspend fun translatePage(
         page: TranslatablePage,
         onBubble: (bubbleId: Int, text: String) -> Unit
@@ -118,6 +122,10 @@ class LlamaTranslationBridge(
         return result
     }
 
+    /**
+     * Generates in panel and bubble order, reporting each successful result before starting the next bubble.
+     * The returned page includes successes and records the first failure, if any.
+     */
     private suspend fun translatePerLine(
         page: TranslatablePage,
         onBubble: (bubbleId: Int, text: String) -> Unit
@@ -151,6 +159,7 @@ class LlamaTranslationBridge(
         )
     }
 
+    /** Generates one ID-keyed batch reply; on prompt overflow, retries per line and streams through [onBubble]. */
     private suspend fun translateBatch(
         page: TranslatablePage,
         onBubble: (bubbleId: Int, text: String) -> Unit

@@ -22,6 +22,7 @@ import org.robolectric.annotation.GraphicsMode
 @Config(sdk = [28])
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class TranslationRenderOverlayTest {
+    /** Verifies the first OCR preview survives window creation and changes to the typeset background on arrival. */
     @Test
     fun firstPreviewCanBeTypesetOnSingleBubblePage() {
         val windowManager = mock(WindowManager::class.java)
@@ -46,6 +47,7 @@ class TranslationRenderOverlayTest {
         assertEquals(0xF0FFFFFF.toInt(), pixelAt(view, 20, 40))
     }
 
+    /** Draws the overlay into a fixed-size bitmap and returns the pixel used to check its bubble background. */
     private fun pixelAt(view: View, x: Int, y: Int): Int {
         val bitmap = Bitmap.createBitmap(120, 80, Bitmap.Config.ARGB_8888)
         view.draw(Canvas(bitmap))

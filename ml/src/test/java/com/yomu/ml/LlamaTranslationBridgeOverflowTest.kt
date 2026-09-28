@@ -15,6 +15,7 @@ import org.junit.Test
 
 class LlamaTranslationBridgeOverflowTest {
 
+    /** Verifies batch overflow retries each bubble and marks a successful fallback without an error code. */
     @Test
     fun translatePage_batchOverflowFallsBackToPerLine() = runTest {
         val model = File.createTempFile("model", ".gguf")
@@ -37,6 +38,7 @@ class LlamaTranslationBridgeOverflowTest {
         model.delete()
     }
 
+    /** Verifies the per-line fallback reports each translated bubble in page order. */
     @Test
     fun translatePage_batchOverflowFallbackStreamsEachBubble() = runTest {
         val model = File.createTempFile("model", ".gguf")
@@ -56,6 +58,7 @@ class LlamaTranslationBridgeOverflowTest {
         model.delete()
     }
 
+    /** Verifies a partial fallback retains successful text while reporting both overflow fallback and timeout. */
     @Test
     fun translatePage_batchOverflowThenPerLineFailureReportsBoth() = runTest {
         val model = File.createTempFile("model", ".gguf")

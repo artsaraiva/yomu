@@ -28,6 +28,7 @@ class TranslationRenderOverlay(
     private var pageHeight: Int = 0
     private var bubbleStates: List<OverlayBubbleState> = emptyList()
 
+    /** Replaces the preview with the finished page in the supplied bubble order, enabling dismissal gestures. */
     fun show(
         bubbles: List<TypesetBubble>,
         pageWidth: Int,
@@ -40,6 +41,7 @@ class TranslationRenderOverlay(
             private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
             private val screenLocation = IntArray(2)
 
+            /** Maps finished bubbles into canvas coordinates and records their bounds for gesture hit testing. */
             override fun onDraw(canvas: Canvas) {
                 super.onDraw(canvas)
                 getLocationOnScreen(screenLocation)
@@ -81,6 +83,7 @@ class TranslationRenderOverlay(
         windowManager.addView(overlayView, params)
     }
 
+    /** Snapshots OCR states and refreshes the preview, creating an untouchable window when needed. */
     fun showOcrBubbles(
         states: List<OverlayBubbleState>,
         pageWidth: Int,
@@ -137,12 +140,14 @@ class TranslationRenderOverlay(
         overlayView?.invalidate()
     }
 
+    /** Detaches the current overlay and clears its preview states. */
     fun remove() {
         overlayView?.let { windowManager.removeView(it) }
         overlayView = null
         bubbleStates = emptyList()
     }
 
+    /** Maps a typeset bubble from capture coordinates and clips its bounds to the canvas. */
     private fun canvasBounds(
         bubble: TypesetBubble,
         params: OverlayCoordinateMapper.MapParams,
@@ -153,6 +158,7 @@ class TranslationRenderOverlay(
         canvas.height.toFloat()
     )
 
+    /** Creates a transparent, full-screen overlay window that does not take input focus. */
     private fun createLayoutParams(): WindowManager.LayoutParams {
         return WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
@@ -209,6 +215,7 @@ class TranslationRenderOverlay(
         canvas.restoreToCount(saveCount)
     }
 
+    /** Draws the final typeset bubble when available, otherwise its dark OCR preview. */
     private fun drawOverlayBubbleState(
         canvas: Canvas,
         state: OverlayBubbleState,

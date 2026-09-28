@@ -119,6 +119,7 @@ class LlamaTranslationBridgeTest {
         model.delete()
     }
 
+    /** Verifies blank and failed per-line generations leave the returned translation map empty. */
     @Test
     fun translatePage_blankOrFailedLinesAreOmitted() = runTest {
         val model = File.createTempFile("model", ".gguf")
@@ -137,6 +138,7 @@ class LlamaTranslationBridgeTest {
         model.delete()
     }
 
+    /** Verifies each generation is followed by its callback before the next bubble is generated. */
     @Test
     fun translatePage_perLineReportsEachBubbleWhenItsCallReturnsInReadingOrder() = runTest {
         val model = File.createTempFile("model", ".gguf")
@@ -160,6 +162,7 @@ class LlamaTranslationBridgeTest {
         model.delete()
     }
 
+    /** Verifies blank and timed-out generations emit nothing and successful reports match the returned page. */
     @Test
     fun translatePage_perLineReportsOnlyTheBubblesInTheFinalResultOnceEach() = runTest {
         val model = File.createTempFile("model", ".gguf")
@@ -181,6 +184,7 @@ class LlamaTranslationBridgeTest {
         model.delete()
     }
 
+    /** Verifies batch generation receives a grammar containing one reply tag for each requested bubble ID. */
     @Test
     fun translatePage_batchPinsTheReplyShapeWithAGrammarPerId() = runTest {
         val model = File.createTempFile("model", ".gguf")

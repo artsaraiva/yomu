@@ -40,6 +40,7 @@ class SpeedBenchmarkTest {
 
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
 
+    /** Warms up each staged deliverable, then logs per-stage timings, first-bubble latency and peak PSS. */
     @Test
     fun timeEveryCatalogModel(): Unit = runBlocking {
         val pages = File(FIXTURE_DIR, "pages").listFiles { f -> f.extension == "jpg" }.orEmpty().sortedBy { it.name }

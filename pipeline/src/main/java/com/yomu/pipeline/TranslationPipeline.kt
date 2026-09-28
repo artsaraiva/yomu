@@ -90,6 +90,11 @@ class TranslationPipeline(
     /** Held by a page run, so a model is never unloaded while a native session is still using it. */
     private val inference = Mutex()
 
+    /**
+     * Serializes page processing with model unloading and emits OCR previews followed by typeset bubbles.
+     * Callbacks run in the processing coroutine; UI callers must dispatch to the main thread.
+     * Returns null on processing failure and propagates cancellation.
+     */
     suspend fun processPage(
         bitmap: Bitmap,
         callback: PipelineCallback? = null,
@@ -97,12 +102,17 @@ class TranslationPipeline(
         onBubble: ((TypesetBubble) -> Unit)? = null
     ): PipelineResult? = inference.withLock { runPage(bitmap, callback, onOcrComplete, onBubble) }
 
+    /** Releases the detector after any active page finishes using its native session. */
     suspend fun unloadDetection() = inference.withLock { bubbleDetector.release() }
 
     suspend fun unloadOcr() = inference.withLock { ocrEngine.release() }
 
     suspend fun unloadTranslation() = inference.withLock { translationEngine.close() }
 
+    /**
+     * Detects and reads a page, prepares render bounds, then typesets each answered bubble as it arrives.
+     * Records first-bubble latency and returns final bubbles in detection order; reports failures through [callback].
+     */
     private suspend fun runPage(
         bitmap: Bitmap,
         callback: PipelineCallback?,
