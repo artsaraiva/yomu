@@ -39,10 +39,8 @@ class PageFingerprint private constructor(
             for (y in 0 until height) {
                 val row = y * GRID / height * GRID
                 for (x in 0 until width) {
-                    val pixel = pixels[y * width + x]
                     val cell = row + x * GRID / width
-                    val luminance = (77 * (pixel shr 16 and 0xFF) + 150 * (pixel shr 8 and 0xFF) + 29 * (pixel and 0xFF)) shr 8
-                    sums[cell] += luminance.toLong()
+                    sums[cell] += luminance(pixels[y * width + x]).toLong()
                     counts[cell]++
                 }
             }
@@ -54,6 +52,10 @@ class PageFingerprint private constructor(
             }
             return PageFingerprint(width, height, cells)
         }
+
+        /** BT.601 luma of an ARGB pixel, 0–255, in integer weights summing to 256. */
+        private fun luminance(pixel: Int): Int =
+            (77 * (pixel shr 16 and 0xFF) + 150 * (pixel shr 8 and 0xFF) + 29 * (pixel and 0xFF)) shr 8
 
         private fun cellsCovering(start: Float, end: Float, size: Int): IntRange {
             val first = start.toInt().coerceAtLeast(0)

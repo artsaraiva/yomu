@@ -62,8 +62,7 @@ class TranslationStatusOverlay(
         statusView = null
     }
 
-    /** Where the status line ends on screen, or 0 when none is shown. */
-    fun bottomOnScreen(): Int = statusView?.let { view -> IntArray(2).also(view::getLocationOnScreen)[1] + view.height } ?: 0
+    fun boundsOnScreen(): OverlayBounds? = statusView?.boundsOnScreen()
 
     /** Returns the reader-facing status message for a pipeline stage. */
     fun messageForStage(stage: TranslationPipeline.Stage): String {

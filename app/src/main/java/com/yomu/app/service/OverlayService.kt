@@ -3,6 +3,7 @@ package com.yomu.app.service
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.annotation.SuppressLint
 import android.app.Service
 import android.content.Context
 import android.content.Intent
@@ -26,6 +27,7 @@ import com.yomu.app.overlay.OverlayBubbleState
 import com.yomu.app.overlay.QuickSettingsPopup
 import com.yomu.app.overlay.TranslationRenderOverlay
 import com.yomu.app.overlay.TranslationStatusOverlay
+import com.yomu.app.overlay.boundsOnScreen
 import com.yomu.app.db.entities.ModelType
 import com.yomu.app.db.entities.TranslationSessionEntity
 import com.yomu.app.translation.ResourceLimitsStore
@@ -354,8 +356,9 @@ class OverlayService : Service() {
             val settings = pageSettings()
             pageRecall.recall(fingerprint, settings)?.let { page ->
                 withContext(Dispatchers.Main) {
-                    showFinishedPage(page, "Already translated")
+                    // Idle before the notice: a recall is instant, so a spinning button would read as a stall.
                     floatingButton?.setState(FloatingButtonView.State.IDLE)
+                    showFinishedPage(page, "Already translated")
                 }
                 return@launch
             }
@@ -459,20 +462,20 @@ class OverlayService : Service() {
      * What differs between two captures of one page: the status bar clock, the status line under it
      * and the floating button, which may have moved. Read on the main thread once the capture is in.
      */
-    private fun recallIgnoredRegions(pageWidth: Int): List<OverlayBounds> {
-        val topBand = maxOf(statusBarHeight(), statusOverlay.bottomOnScreen()).toFloat()
-        val button = floatingButton?.let { view ->
-            val at = IntArray(2).also(view::getLocationOnScreen)
-            OverlayBounds(at[0].toFloat(), at[1].toFloat(), (at[0] + view.width).toFloat(), (at[1] + view.height).toFloat())
-        }
-        return listOfNotNull(OverlayBounds(0f, 0f, pageWidth.toFloat(), topBand), button)
-    }
+    private fun recallIgnoredRegions(pageWidth: Int): List<OverlayBounds> = listOfNotNull(
+        OverlayBounds(0f, 0f, pageWidth.toFloat(), statusBarHeight().toFloat()),
+        statusOverlay.boundsOnScreen(),
+        floatingButton?.boundsOnScreen()
+    )
 
-    // Before R the status line's band, which starts below the status bar, covers it.
+    // Before R nothing public reports the status bar to an overlay window laid out below it.
+    @SuppressLint("DiscouragedApi", "InternalInsetResource")
     private fun statusBarHeight(): Int = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
         windowManager.currentWindowMetrics.windowInsets.getInsetsIgnoringVisibility(WindowInsets.Type.statusBars()).top
     } else {
-        0
+        resources.getIdentifier("status_bar_height", "dimen", "android").let { id ->
+            if (id == 0) 0 else resources.getDimensionPixelSize(id)
+        }
     }
 
     private fun pageSettings() = PageSettings(
