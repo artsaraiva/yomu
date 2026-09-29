@@ -33,6 +33,17 @@ class TranslationEngineTest {
     }
 
     @Test
+    fun translate_reportsAPageAnsweredPerLineAfterABatchOverflow() = runTest {
+        val slot = FakeTranslationSlot(
+            PageTranslation(mapOf(1 to "Hello"), "Hello", 1L, batchOverflowFallback = true)
+        )
+
+        val result = TranslationEngine { slot }.translate(listOf(block(1 to "こんにちは")))
+
+        assertTrue(result.batchOverflowFallback)
+    }
+
+    @Test
     fun translate_missingIdLeavesThatBubbleOnlyUnanswered() = runTest {
         val slot = FakeTranslationSlot(PageTranslation(mapOf(1 to "Hello"), "", 1L))
 
