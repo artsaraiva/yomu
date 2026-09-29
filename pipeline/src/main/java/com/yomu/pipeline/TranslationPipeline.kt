@@ -34,7 +34,7 @@ data class PipelineResult(
     val totalTimeMs: Long,
     /** From the page reaching the pipeline to its first bubble being ready to draw; null when none was. */
     val timeToFirstBubbleMs: Long? = null,
-    /** Each stage that ran, in order, including any model load it waited for. */
+    /** Each stage that ran, in order. Loading the vision models is left out; a translation model load is in TRANSLATION. */
     val stageTimesMs: Map<TranslationPipeline.Stage, Long> = emptyMap(),
     /** Every detected bubble's glyph box as left, top, right, bottom, in detection order. */
     val bubbleBounds: Map<Int, FloatArray> = emptyMap()
@@ -157,6 +157,7 @@ class TranslationPipeline(
 
             currentStage = Stage.BUBBLE_DETECTION
             callback?.onStageProgress(Stage.BUBBLE_DETECTION, 0.0f)
+            stageStart = System.currentTimeMillis()
             val bubbles = bubbleDetector.detect(bitmap, confidenceThreshold)
             coroutineContext.ensureActive()
             endStage(Stage.BUBBLE_DETECTION)

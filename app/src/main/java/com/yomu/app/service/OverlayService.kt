@@ -315,7 +315,13 @@ class OverlayService : Service() {
                 .onFailure { Log.e(TAG, "Page report failed", it) }
                 .getOrNull()
             withContext(Dispatchers.Main) {
-                if (share == null) showTranslationFailedToast("Could not write the page report") else startActivity(share)
+                if (share != null) {
+                    startActivity(share)
+                } else {
+                    statusOverlay.showOrUpdate("Could not write the page report")
+                    delay(1500)
+                    statusOverlay.remove()
+                }
             }
         }
     }

@@ -81,14 +81,15 @@ class PageReportTest {
 
     @Test
     fun `a normal page records each bubble's bounds, OCR text, translation and answer`() {
-        val first = json(report(twoBubblePage)).bubble(0)
+        val recorded = json(report(twoBubblePage))
+        val first = recorded.bubble(0)
 
         assertEquals(0, first["id"].asInt)
         assertEquals(listOf(10f, 20f, 110f, 220f), first.getAsJsonArray("bounds").map { it.asFloat })
         assertEquals("こんにちは", first["ocrText"].asString)
         assertEquals("Hello", first["translation"].asString)
         assertTrue(first["answered"].asBoolean)
-        assertEquals(2, json(report(twoBubblePage)).getAsJsonArray("bubbles").size())
+        assertEquals(2, recorded.getAsJsonArray("bubbles").size())
     }
 
     @Test
