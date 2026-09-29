@@ -43,6 +43,7 @@ class PageRecall {
     fun remember(fingerprint: PageFingerprint, settings: PageSettings, page: PipelineResult) {
         val translation = page.translationResult
         if (translation.outcome != TranslationOutcome.SUCCESS || translation.translations.none { it.answered }) return
+        pages.keys.removeAll { it.settings == settings && it.fingerprint.matches(fingerprint) }
         pages[Key(fingerprint, settings)] = page
     }
 

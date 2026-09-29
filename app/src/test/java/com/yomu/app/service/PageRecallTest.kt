@@ -193,6 +193,15 @@ class PageRecallTest {
 
     /** Verifies clearing the session removes all previously remembered pages. */
     @Test
+    fun `remembering a page again replaces its earlier translation`() {
+        val recall = PageRecall()
+        recall.remember(fingerprint(page(0)), settings, result("first"))
+        recall.remember(fingerprint(page(0)), settings, result("second"))
+
+        assertEquals(result("second"), recall.recall(fingerprint(page(0)), settings))
+    }
+
+    @Test
     fun `clearing forgets every page`() {
         val recall = PageRecall()
         recall.remember(fingerprint(page(0)), settings, result("page 0"))

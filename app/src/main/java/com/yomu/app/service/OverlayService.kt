@@ -418,7 +418,8 @@ class OverlayService : Service() {
             val failure = result?.translationResult?.readerFailure()
             if (result != null && failure == null && result.translationResult.translations.isNotEmpty()) {
                 saveSessionResult(session, result)
-                pageRecall.remember(fingerprint, settings, result)
+                // A setting changed mid-page leaves a result made under neither snapshot.
+                if (pageSettings() == settings) pageRecall.remember(fingerprint, settings, result)
             }
             if (failure != null) {
                 // The row that said READY has no file behind it: put the picker right now, rather
