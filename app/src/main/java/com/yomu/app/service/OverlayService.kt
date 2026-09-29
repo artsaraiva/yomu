@@ -3,6 +3,7 @@ package com.yomu.app.service
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.annotation.SuppressLint
 import android.app.Service
 import android.content.Context
 import android.content.Intent
@@ -13,6 +14,7 @@ import android.os.Build
 import android.os.IBinder
 import android.provider.Settings
 import android.util.Log
+import android.view.WindowInsets
 import android.view.WindowManager
 import android.widget.Toast
 import com.yomu.app.MainActivity
@@ -25,8 +27,11 @@ import com.yomu.app.overlay.OverlayBubbleState
 import com.yomu.app.overlay.QuickSettingsPopup
 import com.yomu.app.overlay.TranslationRenderOverlay
 import com.yomu.app.overlay.TranslationStatusOverlay
+import com.yomu.app.overlay.boundsOnScreen
 import com.yomu.app.db.entities.ModelType
 import com.yomu.app.db.entities.TranslationSessionEntity
+import com.yomu.app.translation.ResourceLimitsStore
+import com.yomu.app.translation.TranslationModelSelection
 import com.yomu.core.Constants
 import com.yomu.pipeline.ModelPaths
 import com.yomu.pipeline.PipelineResult
@@ -61,8 +66,10 @@ class OverlayService : Service() {
     @Inject lateinit var modelManager: ModelManager
     @Inject lateinit var readingSelection: ReadingModelSelection
     @Inject lateinit var slotSelection: ModelSlotSelection
+    @Inject lateinit var translationSelection: TranslationModelSelection
 
     private var readingModelFiles: List<File> = emptyList()
+    private val pageRecall = PageRecall()
 
     private lateinit var windowManager: WindowManager
     private lateinit var floatingButtonOverlay: FloatingButtonOverlay
@@ -195,6 +202,7 @@ class OverlayService : Service() {
         statusOverlay.updateAppearance()
     }
 
+    /** Cancels translation, clears session page recall, and releases overlays, capture, and pipeline resources. */
     override fun onDestroy() {
         sharedPreferences.unregisterOnSharedPreferenceChangeListener(preferenceListener)
         translationJob?.let { job ->
@@ -202,6 +210,7 @@ class OverlayService : Service() {
             job.cancel()
             runBlocking { withTimeoutOrNull(RELEASE_WAIT_MS) { job.join() } }
         }
+        pageRecall.clear()
         removeQuickSettingsPopup()
         removeFloatingButton()
         translationRenderOverlay.remove()
@@ -312,6 +321,7 @@ class OverlayService : Service() {
 
     /**
      * Starts a capture unless a translation is active, streams previews to the main thread, and saves successful results.
+     * A page already translated this session with the same settings is shown at once, with no pipeline run or history row.
      * Late preview updates are ignored after cancellation so they cannot restore a cleared overlay.
      */
     private fun startTranslation() {
@@ -342,17 +352,36 @@ class OverlayService : Service() {
                 return@launch
             }
 
+            val ignored = withContext(Dispatchers.Main) { recallIgnoredRegions(bitmap.width) }
+            val fingerprintStart = System.currentTimeMillis()
+            val fingerprint = PageFingerprint.of(bitmap, ignored)
+            val settings = pageSettings()
+            val recalled = pageRecall.recall(fingerprint, settings)
+            Log.i(TAG, "Page recall hit=${recalled != null} ms=${System.currentTimeMillis() - fingerprintStart} ignored=$ignored")
+            recalled?.let { page ->
+                withContext(Dispatchers.Main) {
+                    // Idle before the notice: a recall is instant, so a spinning button would read as a stall.
+                    floatingButton?.setState(FloatingButtonView.State.IDLE)
+                    val notices = listOfNotNull("Already translated", page.translationResult.untranslatedNotice())
+                    showFinishedPage(page, notices.joinToString(" · "))
+                }
+                return@launch
+            }
+
             val callback = object : TranslationPipeline.PipelineCallback {
+                /** Logs pipeline progress and posts the stage message while the translation job is active. */
                 override fun onStageProgress(stage: TranslationPipeline.Stage, progress: Float) {
                     Log.i(TAG, "Pipeline progress stage=$stage progress=$progress")
                     updateStatus(job, statusOverlay.messageForStage(stage))
                 }
 
+                /** Logs a pipeline error and posts its message while the translation job is active. */
                 override fun onError(stage: TranslationPipeline.Stage, message: String) {
                     Log.e(TAG, "Pipeline error stage=$stage message=$message")
                     updateStatus(job, "Failed: $message")
                 }
 
+                /** Logs the completed page’s bubble count and timing, then posts the drawing status. */
                 override fun onComplete(result: PipelineResult) {
                     Log.i(TAG, "Pipeline complete bubbles=${result.typesetBubbles.size} timeMs=${result.totalTimeMs}")
                     updateStatus(job, "Drawing translation")
@@ -389,6 +418,8 @@ class OverlayService : Service() {
             val failure = result?.translationResult?.readerFailure()
             if (result != null && failure == null && result.translationResult.translations.isNotEmpty()) {
                 saveSessionResult(session, result)
+                // A setting changed mid-page leaves a result made under neither snapshot.
+                if (pageSettings() == settings) pageRecall.remember(fingerprint, settings, result)
             }
             if (failure != null) {
                 // The row that said READY has no file behind it: put the picker right now, rather
@@ -397,23 +428,7 @@ class OverlayService : Service() {
             }
             withContext(Dispatchers.Main) {
                 if (result != null && failure == null) {
-                    if (result.typesetBubbles.isEmpty()) {
-                        translationRenderOverlay.remove()
-                    } else {
-                        translationRenderOverlay.show(
-                            result.typesetBubbles,
-                            result.pageWidth,
-                            result.pageHeight
-                        )
-                    }
-                    statusOverlay.remove()
-                    // Not a toast: Android drops toasts from a background app without notification permission.
-                    // Re-adding the status line after the page keeps it above the drawn bubbles.
-                    result.translationResult.untranslatedNotice()?.let { notice ->
-                        statusOverlay.showOrUpdate(notice)
-                        delay(1500)
-                        statusOverlay.remove()
-                    }
+                    showFinishedPage(result, result.translationResult.untranslatedNotice())
                 } else {
                     // The OCR pass may already have drawn its bubbles, and that overlay is
                     // untouchable — without this the reader is left with pinned Japanese (#308).
@@ -434,6 +449,57 @@ class OverlayService : Service() {
             }
         }
     }
+
+    /** Draws a finished page on the main thread, then shows [notice] above it for a moment. */
+    private suspend fun showFinishedPage(page: PipelineResult, notice: String?) {
+        if (page.typesetBubbles.isEmpty()) {
+            translationRenderOverlay.remove()
+        } else {
+            translationRenderOverlay.show(page.typesetBubbles, page.pageWidth, page.pageHeight)
+        }
+        statusOverlay.remove()
+        // Not a toast: Android drops toasts from a background app without notification permission.
+        // Re-adding the status line after the page keeps it above the drawn bubbles.
+        notice?.let {
+            statusOverlay.showOrUpdate(it)
+            delay(1500)
+            statusOverlay.remove()
+        }
+    }
+
+    /**
+     * What differs between two captures of one page: the status bar clock, the status line under it
+     * and the floating button, which may have moved. Read on the main thread once the capture is in.
+     */
+    private fun recallIgnoredRegions(pageWidth: Int): List<OverlayBounds> = listOfNotNull(
+        OverlayBounds(0f, 0f, pageWidth.toFloat(), statusBarHeight().toFloat()),
+        statusOverlay.boundsOnScreen(),
+        floatingButton?.boundsOnScreen()
+    )
+
+    /**
+     * Returns the status bar height in pixels, or zero if the legacy dimension is unavailable.
+     * Before R nothing public reports the status bar to an overlay window laid out below it.
+     */
+    @SuppressLint("DiscouragedApi", "InternalInsetResource")
+    private fun statusBarHeight(): Int = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        windowManager.currentWindowMetrics.windowInsets.getInsetsIgnoringVisibility(WindowInsets.Type.statusBars()).top
+    } else {
+        resources.getIdentifier("status_bar_height", "dimen", "android").let { id ->
+            if (id == 0) 0 else resources.getDimensionPixelSize(id)
+        }
+    }
+
+    /** Snapshots the model choices, generation and runtime limits, and rendering settings used as the recall key. */
+    private fun pageSettings() = PageSettings(
+        translationModel = slotSelection.selectedId(ModelType.LLM),
+        detectionModel = slotSelection.selectedId(ModelType.DETECTION),
+        ocrModel = slotSelection.selectedId(ModelType.OCR),
+        generation = translationSelection.generationProfile().params,
+        runtime = ResourceLimitsStore(sharedPreferences).runtime(),
+        detectionThreshold = translationPipeline.confidenceThreshold,
+        fontScale = translationPipeline.fontSizeScale
+    )
 
     private suspend fun saveSessionResult(session: TranslationSessionEntity, result: PipelineResult) {
         val translatedText = result.translationResult.translations.joinToString("\n") { translation ->
