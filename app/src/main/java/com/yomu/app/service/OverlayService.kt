@@ -70,6 +70,7 @@ class OverlayService : Service() {
 
     private var readingModelFiles: List<File> = emptyList()
     private val pageRecall = PageRecall()
+    @Volatile private var lastPage: PageRecord? = null
 
     private lateinit var windowManager: WindowManager
     private lateinit var floatingButtonOverlay: FloatingButtonOverlay
@@ -202,7 +203,7 @@ class OverlayService : Service() {
         statusOverlay.updateAppearance()
     }
 
-    /** Cancels translation, clears session page recall, and releases overlays, capture, and pipeline resources. */
+    /** Cancels translation, clears session page recall and the last page, and releases overlays, capture, and pipeline resources. */
     override fun onDestroy() {
         sharedPreferences.unregisterOnSharedPreferenceChangeListener(preferenceListener)
         translationJob?.let { job ->
@@ -211,6 +212,7 @@ class OverlayService : Service() {
             runBlocking { withTimeoutOrNull(RELEASE_WAIT_MS) { job.join() } }
         }
         pageRecall.clear()
+        lastPage = null
         removeQuickSettingsPopup()
         removeFloatingButton()
         translationRenderOverlay.remove()
@@ -287,6 +289,8 @@ class OverlayService : Service() {
                 sharedPreferences.edit().putFloat(Constants.PREF_FONT_SIZE_SCALE, scale).apply()
             },
             onThresholdChanged = { thresholdStore.save(it) },
+            hasLastPage = { lastPage != null },
+            onReportRequested = ::reportLastPage,
             onOpenAppRequested = {
                 startActivity(
                     Intent(this, MainActivity::class.java)
@@ -301,6 +305,19 @@ class OverlayService : Service() {
         )
         popup.updateThreshold(thresholdStore.load())
         popup.show(buttonPositionX, buttonPositionY)
+    }
+
+    /** Shares the last page's report through the share sheet; writing it stays off the main thread. */
+    private fun reportLastPage() {
+        val record = lastPage ?: return
+        scope.launch {
+            val share = runCatching { pageReportShareIntent(record) }
+                .onFailure { Log.e(TAG, "Page report failed", it) }
+                .getOrNull()
+            withContext(Dispatchers.Main) {
+                if (share == null) showTranslationFailedToast("Could not write the page report") else startActivity(share)
+            }
+        }
     }
 
     private fun translationModelName(): String = slotSelection.selectedId(ModelType.LLM)
@@ -351,6 +368,8 @@ class OverlayService : Service() {
                 failTranslation(job, "Capture returned no frame")
                 return@launch
             }
+            // A page that ends without a result must not leave the one before it to be reported.
+            lastPage = null
 
             val ignored = withContext(Dispatchers.Main) { recallIgnoredRegions(bitmap.width) }
             val fingerprintStart = System.currentTimeMillis()
@@ -359,6 +378,7 @@ class OverlayService : Service() {
             val recalled = pageRecall.recall(fingerprint, settings)
             Log.i(TAG, "Page recall hit=${recalled != null} ms=${System.currentTimeMillis() - fingerprintStart} ignored=$ignored")
             recalled?.let { page ->
+                lastPage = PageRecord(bitmap, page, settings, recalled = true)
                 withContext(Dispatchers.Main) {
                     // Idle before the notice: a recall is instant, so a spinning button would read as a stall.
                     floatingButton?.setState(FloatingButtonView.State.IDLE)
@@ -415,6 +435,7 @@ class OverlayService : Service() {
                     }
                 }
             )
+            if (result != null) lastPage = PageRecord(bitmap, result, settings, recalled = false)
             val failure = result?.translationResult?.readerFailure()
             if (result != null && failure == null && result.translationResult.translations.isNotEmpty()) {
                 saveSessionResult(session, result)
