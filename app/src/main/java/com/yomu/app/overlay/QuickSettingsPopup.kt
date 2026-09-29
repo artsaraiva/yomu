@@ -41,6 +41,7 @@ class QuickSettingsPopup(
     private var thresholdLabel: TextView? = null
     private var fontSizeReset: Button? = null
     private var thresholdReset: Button? = null
+    private var reportButton: Button? = null
     private var fontSizeScale = Constants.DEFAULT_FONT_SIZE_SCALE
     private var threshold = DetectionThresholdStore.DEFAULT
     private val density = context.resources.displayMetrics.density
@@ -95,6 +96,7 @@ class QuickSettingsPopup(
         thresholdLabel = null
         fontSizeReset = null
         thresholdReset = null
+        reportButton = null
     }
 
     fun updateAppearance() {
@@ -120,6 +122,8 @@ class QuickSettingsPopup(
         fontSizeSeekBar?.progress = fontSizeProgress(fontSizeScale)
         refreshFontSize()
     }
+
+    fun refreshReportAvailability() { reportButton?.isEnabled = hasLastPage() }
 
     fun updateThreshold(value: Float) {
         threshold = DetectionThresholdStore.snap(value)
@@ -190,11 +194,9 @@ class QuickSettingsPopup(
             })
         })
         addView(textButton("Report last page") { remove(); onReportRequested() }.apply {
-            isEnabled = hasLastPage()
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { topMargin = dp(8) }
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) }
             dimmableButtons.add(this)
+            reportButton = this
         })
         addView(row().apply {
             addView(textButton("Open Yomu") { remove(); onOpenAppRequested() }.apply {
@@ -208,6 +210,7 @@ class QuickSettingsPopup(
         })
         refreshThreshold()
         refreshFontSize()
+        refreshReportAvailability()
     }
 
     private fun resetFontSize() {
@@ -260,9 +263,7 @@ class QuickSettingsPopup(
     private fun languageChip(): TextView = mutedLabel("Japanese → English").apply {
         background = context.paperBackground()
         setPadding(dp(12), dp(6), dp(12), dp(6))
-        layoutParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply { topMargin = dp(12) }
+        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(12) }
     }
 
     private fun mutedLabel(text: String): TextView = TextView(context).apply {

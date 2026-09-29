@@ -71,6 +71,10 @@ class OverlayService : Service() {
     private var readingModelFiles: List<File> = emptyList()
     private val pageRecall = PageRecall()
     @Volatile private var lastPage: PageRecord? = null
+        set(value) {
+            field = value
+            mainScope.launch { quickSettingsPopup?.refreshReportAvailability() }
+        }
 
     private lateinit var windowManager: WindowManager
     private lateinit var floatingButtonOverlay: FloatingButtonOverlay
