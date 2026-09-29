@@ -25,9 +25,11 @@ class PageRecall {
     private class Key(val fingerprint: PageFingerprint, val settings: PageSettings)
 
     private val pages = object : LinkedHashMap<Key, PipelineResult>(CAPACITY, 0.75f, true) {
+        /** Evicts the least recently used page when insertion exceeds the thirty-page capacity. */
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Key, PipelineResult>): Boolean = size > CAPACITY
     }
 
+    /** Returns a matching page and marks it most recently used, or null if no fingerprint and settings match. */
     @Synchronized
     fun recall(fingerprint: PageFingerprint, settings: PageSettings): PipelineResult? =
         pages.keys.firstOrNull { it.settings == settings && it.fingerprint.matches(fingerprint) }?.let(pages::get)
@@ -44,6 +46,7 @@ class PageRecall {
         pages[Key(fingerprint, settings)] = page
     }
 
+    /** Forgets every remembered page when the owning overlay session ends. */
     @Synchronized
     fun clear() = pages.clear()
 

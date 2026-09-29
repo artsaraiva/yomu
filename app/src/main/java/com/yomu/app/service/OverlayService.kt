@@ -202,6 +202,7 @@ class OverlayService : Service() {
         statusOverlay.updateAppearance()
     }
 
+    /** Cancels translation, clears session page recall, and releases overlays, capture, and pipeline resources. */
     override fun onDestroy() {
         sharedPreferences.unregisterOnSharedPreferenceChangeListener(preferenceListener)
         translationJob?.let { job ->
@@ -368,16 +369,19 @@ class OverlayService : Service() {
             }
 
             val callback = object : TranslationPipeline.PipelineCallback {
+                /** Logs pipeline progress and posts the stage message while the translation job is active. */
                 override fun onStageProgress(stage: TranslationPipeline.Stage, progress: Float) {
                     Log.i(TAG, "Pipeline progress stage=$stage progress=$progress")
                     updateStatus(job, statusOverlay.messageForStage(stage))
                 }
 
+                /** Logs a pipeline error and posts its message while the translation job is active. */
                 override fun onError(stage: TranslationPipeline.Stage, message: String) {
                     Log.e(TAG, "Pipeline error stage=$stage message=$message")
                     updateStatus(job, "Failed: $message")
                 }
 
+                /** Logs the completed page’s bubble count and timing, then posts the drawing status. */
                 override fun onComplete(result: PipelineResult) {
                     Log.i(TAG, "Pipeline complete bubbles=${result.typesetBubbles.size} timeMs=${result.totalTimeMs}")
                     updateStatus(job, "Drawing translation")
@@ -472,7 +476,10 @@ class OverlayService : Service() {
         floatingButton?.boundsOnScreen()
     )
 
-    // Before R nothing public reports the status bar to an overlay window laid out below it.
+    /**
+     * Returns the status bar height in pixels, or zero if the legacy dimension is unavailable.
+     * Before R nothing public reports the status bar to an overlay window laid out below it.
+     */
     @SuppressLint("DiscouragedApi", "InternalInsetResource")
     private fun statusBarHeight(): Int = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
         windowManager.currentWindowMetrics.windowInsets.getInsetsIgnoringVisibility(WindowInsets.Type.statusBars()).top
@@ -482,6 +489,7 @@ class OverlayService : Service() {
         }
     }
 
+    /** Snapshots the model choices, generation and runtime limits, and rendering settings used as the recall key. */
     private fun pageSettings() = PageSettings(
         translationModel = slotSelection.selectedId(ModelType.LLM),
         detectionModel = slotSelection.selectedId(ModelType.DETECTION),

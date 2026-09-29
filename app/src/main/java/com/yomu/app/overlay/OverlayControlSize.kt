@@ -7,6 +7,7 @@ import android.view.View
 import android.view.WindowInsets
 import android.view.WindowManager
 
+/** Returns this view’s bounds in screen pixels for excluding overlays from page fingerprints. */
 internal fun View.boundsOnScreen(): OverlayBounds {
     val at = IntArray(2).also(::getLocationOnScreen)
     return OverlayBounds(at[0].toFloat(), at[1].toFloat(), (at[0] + width).toFloat(), (at[1] + height).toFloat())

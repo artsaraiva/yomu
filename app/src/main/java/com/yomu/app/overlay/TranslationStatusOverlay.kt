@@ -62,6 +62,7 @@ class TranslationStatusOverlay(
         statusView = null
     }
 
+    /** Returns the status view’s bounds in screen pixels, or null when no status view is shown. */
     fun boundsOnScreen(): OverlayBounds? = statusView?.boundsOnScreen()
 
     /** Returns the reader-facing status message for a pipeline stage. */

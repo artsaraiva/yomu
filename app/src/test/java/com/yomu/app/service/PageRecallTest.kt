@@ -28,6 +28,7 @@ class PageRecallTest {
         fontScale = 1.0f
     )
 
+    /** Encodes a grayscale level as an opaque ARGB pixel for synthetic captures. */
     private fun gray(level: Int): Int = (0xFF shl 24) or (level shl 16) or (level shl 8) or level
 
     /** Page [number] is textured art with a bright square at its own place, clear of the status bar and button. */
@@ -39,12 +40,15 @@ class PageRecallTest {
             change(x, y, if (inMark) 255 else (x * 7 + y * 13) % 200)
         }.map(::gray).toIntArray()
 
+    /** Checks pixel membership in a region with exclusive right and bottom edges. */
     private fun inside(region: OverlayBounds, x: Int, y: Int) =
         x >= region.left && x < region.right && y >= region.top && y < region.bottom
 
+    /** Fingerprints a synthetic capture, ignoring the default status bar and button unless overridden. */
     private fun fingerprint(pixels: IntArray, ignored: List<OverlayBounds> = listOf(statusBar, button)) =
         PageFingerprint.of(pixels, width, height, ignored)
 
+    /** Builds a page result without rendered bubbles to isolate recall behavior from typesetting. */
     private fun result(label: String, bubbles: List<TranslatedBubble> = listOf(answered(0, label))) = PipelineResult(
         typesetBubbles = emptyList(),
         translationResult = TranslationResult(bubbles, label, 0L),
@@ -53,10 +57,13 @@ class PageRecallTest {
         totalTimeMs = 0L
     )
 
+    /** Creates a bubble whose translation was answered by the model. */
     private fun answered(id: Int, text: String) = TranslatedBubble(id, "こんにちは", text, answered = true)
 
+    /** Creates a bubble that retains its source text because the model did not answer it. */
     private fun unanswered(id: Int) = TranslatedBubble(id, "やっちょっと…!", "やっちょっと…!", answered = false)
 
+    /** Verifies an identical capture and settings retrieve the stored page result. */
     @Test
     fun `a page captured again with the same settings is recalled`() {
         val recall = PageRecall()
@@ -65,6 +72,7 @@ class PageRecallTest {
         assertEquals(result("page 0"), recall.recall(fingerprint(page(0)), settings))
     }
 
+    /** Verifies a two-level brightness shift stays within the fingerprint tolerance. */
     @Test
     fun `a page slightly brighter everywhere is still recalled`() {
         val recall = PageRecall()
@@ -75,6 +83,7 @@ class PageRecallTest {
         assertEquals(result("page 0"), recall.recall(fingerprint(brighter), settings))
     }
 
+    /** Verifies a localized contrast change prevents reuse of the earlier page. */
     @Test
     fun `a page with one bubble changed is not recalled`() {
         val recall = PageRecall()
@@ -85,6 +94,7 @@ class PageRecallTest {
         assertNull(recall.recall(fingerprint(changedBubble), settings))
     }
 
+    /** Verifies moving the synthetic page marker produces a recall miss. */
     @Test
     fun `a different page is not recalled`() {
         val recall = PageRecall()
@@ -93,6 +103,7 @@ class PageRecallTest {
         assertNull(recall.recall(fingerprint(page(1)), settings))
     }
 
+    /** Verifies overlay changes are ignored only when their regions are excluded from fingerprints. */
     @Test
     fun `the status bar and the floating button do not decide a match`() {
         val recall = PageRecall()
@@ -109,6 +120,7 @@ class PageRecallTest {
         assertNull(nothingIgnored.recall(fingerprint(newClockAndButton, ignored = emptyList()), settings))
     }
 
+    /** Verifies matching excludes both the old and new floating button positions. */
     @Test
     fun `a floating button moved between captures does not decide a match`() {
         val recall = PageRecall()
@@ -119,6 +131,7 @@ class PageRecallTest {
         assertEquals(result("page 0"), recall.recall(fingerprint(buttonMoved, listOf(statusBar, movedButton)), settings))
     }
 
+    /** Verifies each recall-key setting invalidates reuse while the original settings still match. */
     @Test
     fun `changing any setting that shapes the page makes it a fresh translation`() {
         val recall = PageRecall()
@@ -139,6 +152,7 @@ class PageRecallTest {
         assertEquals(result("page 0"), recall.recall(fingerprint(page(0)), settings))
     }
 
+    /** Verifies a recall refreshes recency and the thirty-first insertion evicts the oldest unused page. */
     @Test
     fun `the least recently used page is dropped past thirty pages`() {
         val recall = PageRecall()
@@ -153,6 +167,7 @@ class PageRecallTest {
         }
     }
 
+    /** Verifies a successful page remains reusable when at least one bubble was answered. */
     @Test
     fun `a page with a few bubbles the model could not answer is still recalled`() {
         val recall = PageRecall()
@@ -162,6 +177,7 @@ class PageRecallTest {
         assertEquals(partial, recall.recall(fingerprint(page(0)), settings))
     }
 
+    /** Verifies timed-out and wholly unanswered pages remain eligible for a fresh translation. */
     @Test
     fun `a page the model did not finish or answered nowhere is not recalled, so capturing it again retries it`() {
         val recall = PageRecall()
@@ -175,6 +191,7 @@ class PageRecallTest {
         assertNull(recall.recall(fingerprint(page(1)), settings))
     }
 
+    /** Verifies clearing the session removes all previously remembered pages. */
     @Test
     fun `clearing forgets every page`() {
         val recall = PageRecall()

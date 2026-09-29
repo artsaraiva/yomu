@@ -16,6 +16,7 @@ class PageFingerprint private constructor(
     private val cells: IntArray
 ) {
 
+    /** Requires equal frame dimensions and at most 4/255 luminance difference in each cell neither frame ignores. */
     fun matches(other: PageFingerprint): Boolean =
         width == other.width && height == other.height && cells.indices.all { cell ->
             cells[cell] == IGNORED || other.cells[cell] == IGNORED || abs(cells[cell] - other.cells[cell]) <= TOLERANCE
@@ -26,6 +27,7 @@ class PageFingerprint private constructor(
         private const val TOLERANCE = 4
         private const val IGNORED = -1
 
+        /** Builds a fingerprint from [bitmap], excluding cells touching [ignored] regions in bitmap pixel coordinates. */
         fun of(bitmap: Bitmap, ignored: List<OverlayBounds>): PageFingerprint {
             val pixels = IntArray(bitmap.width * bitmap.height)
             bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
@@ -57,6 +59,7 @@ class PageFingerprint private constructor(
         private fun luminance(pixel: Int): Int =
             (77 * (pixel shr 16 and 0xFF) + 150 * (pixel shr 8 and 0xFF) + 29 * (pixel and 0xFF)) shr 8
 
+        /** Maps the pixel interval from [start] inclusive to [end] exclusive to grid cells, clipped to [size]. */
         private fun cellsCovering(start: Float, end: Float, size: Int): IntRange {
             val first = start.toInt().coerceAtLeast(0)
             val last = ceil(end).toInt().coerceAtMost(size) - 1
