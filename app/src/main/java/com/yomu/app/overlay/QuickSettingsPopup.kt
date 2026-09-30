@@ -25,6 +25,8 @@ class QuickSettingsPopup(
     private val modelName: () -> String,
     private val onFontSizeChanged: (Float) -> Unit,
     private val onThresholdChanged: (Float) -> Unit,
+    private val hasLastPage: () -> Boolean,
+    private val onReportRequested: () -> Unit,
     private val onOpenAppRequested: () -> Unit,
     private val onStopRequested: () -> Unit
 ) {
@@ -32,13 +34,14 @@ class QuickSettingsPopup(
     private val labels = mutableListOf<TextView>()
     private val mutedLabels = mutableListOf<TextView>()
     private val accentLabels = mutableListOf<TextView>()
-    private val resetButtons = mutableListOf<Button>()
+    private val dimmableButtons = mutableListOf<Button>()
     private val seekBars = mutableListOf<SeekBar>()
     private var fontSizeSeekBar: SeekBar? = null
     private var thresholdSeekBar: SeekBar? = null
     private var thresholdLabel: TextView? = null
     private var fontSizeReset: Button? = null
     private var thresholdReset: Button? = null
+    private var reportButton: Button? = null
     private var fontSizeScale = Constants.DEFAULT_FONT_SIZE_SCALE
     private var threshold = DetectionThresholdStore.DEFAULT
     private val density = context.resources.displayMetrics.density
@@ -86,13 +89,14 @@ class QuickSettingsPopup(
         labels.clear()
         mutedLabels.clear()
         accentLabels.clear()
-        resetButtons.clear()
+        dimmableButtons.clear()
         seekBars.clear()
         fontSizeSeekBar = null
         thresholdSeekBar = null
         thresholdLabel = null
         fontSizeReset = null
         thresholdReset = null
+        reportButton = null
     }
 
     fun updateAppearance() {
@@ -101,11 +105,11 @@ class QuickSettingsPopup(
         labels.forEach { it.setTextColor(colors.ink) }
         mutedLabels.forEach { it.setTextColor(colors.inkMuted) }
         accentLabels.forEach { it.setTextColor(colors.accent) }
-        val resetColors = ColorStateList(
+        val dimmableColors = ColorStateList(
             arrayOf(intArrayOf(-android.R.attr.state_enabled), intArrayOf()),
             intArrayOf(colors.inkMuted, colors.ink)
         )
-        resetButtons.forEach { it.setTextColor(resetColors) }
+        dimmableButtons.forEach { it.setTextColor(dimmableColors) }
         seekBars.forEach {
             it.thumbTintList = ColorStateList.valueOf(colors.accent)
             it.progressTintList = ColorStateList.valueOf(colors.accent)
@@ -118,6 +122,8 @@ class QuickSettingsPopup(
         fontSizeSeekBar?.progress = fontSizeProgress(fontSizeScale)
         refreshFontSize()
     }
+
+    fun refreshReportAvailability() { reportButton?.isEnabled = hasLastPage() }
 
     fun updateThreshold(value: Float) {
         threshold = DetectionThresholdStore.snap(value)
@@ -187,8 +193,12 @@ class QuickSettingsPopup(
                 override fun onStopTrackingTouch(seekBar: SeekBar?) = onThresholdChanged(threshold)
             })
         })
+        addView(textButton("Report last page") { remove(); onReportRequested() }.apply {
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) }
+            dimmableButtons.add(this)
+            reportButton = this
+        })
         addView(row().apply {
-            setPadding(0, dp(8), 0, 0)
             addView(textButton("Open Yomu") { remove(); onOpenAppRequested() }.apply {
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
                 labels.add(this)
@@ -200,6 +210,7 @@ class QuickSettingsPopup(
         })
         refreshThreshold()
         refreshFontSize()
+        refreshReportAvailability()
     }
 
     private fun resetFontSize() {
@@ -246,15 +257,13 @@ class QuickSettingsPopup(
     }
 
     private fun resetButton(onReset: () -> Unit): Button =
-        textButton("Reset", onReset).apply { resetButtons.add(this) }
+        textButton("Reset", onReset).apply { dimmableButtons.add(this) }
 
     /** The fixed pair, drawn like the disabled chip on Home. */
     private fun languageChip(): TextView = mutedLabel("Japanese → English").apply {
         background = context.paperBackground()
         setPadding(dp(12), dp(6), dp(12), dp(6))
-        layoutParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply { topMargin = dp(12) }
+        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(12) }
     }
 
     private fun mutedLabel(text: String): TextView = TextView(context).apply {

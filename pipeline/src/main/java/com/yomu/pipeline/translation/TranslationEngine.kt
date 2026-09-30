@@ -64,7 +64,8 @@ data class TranslationResult(
     val rawResponse: String,
     val translationTimeMs: Long,
     val outcome: TranslationOutcome = TranslationOutcome.SUCCESS,
-    val errorCode: String? = null
+    val errorCode: String? = null,
+    val batchOverflowFallback: Boolean = false
 )
 
 /**
@@ -145,7 +146,8 @@ class TranslationEngine(
             rawResponse = output.rawResponse,
             translationTimeMs = output.durationMs,
             outcome = output.outcome,
-            errorCode = output.errorCode
+            errorCode = output.errorCode,
+            batchOverflowFallback = output.batchOverflowFallback
         )
     }
 

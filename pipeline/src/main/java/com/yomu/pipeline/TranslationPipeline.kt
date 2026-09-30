@@ -33,7 +33,11 @@ data class PipelineResult(
     val pageHeight: Int,
     val totalTimeMs: Long,
     /** From the page reaching the pipeline to its first bubble being ready to draw; null when none was. */
-    val timeToFirstBubbleMs: Long? = null
+    val timeToFirstBubbleMs: Long? = null,
+    /** Each stage that ran, in order. Loading the vision models is left out; a translation model load is in TRANSLATION. */
+    val stageTimesMs: Map<TranslationPipeline.Stage, Long> = emptyMap(),
+    /** Every detected bubble's glyph box as left, top, right, bottom, in detection order. */
+    val bubbleBounds: Map<Int, FloatArray> = emptyMap()
 )
 
 class TranslationPipeline(
@@ -122,6 +126,13 @@ class TranslationPipeline(
         val startTime = System.currentTimeMillis()
         val pageWidth = bitmap.width
         val pageHeight = bitmap.height
+        val stageTimesMs = linkedMapOf<Stage, Long>()
+        var stageStart = startTime
+        fun endStage(stage: Stage) {
+            val now = System.currentTimeMillis()
+            stageTimesMs[stage] = now - stageStart
+            stageStart = now
+        }
 
         try {
             if (!isModelLoaded()) {
@@ -146,8 +157,10 @@ class TranslationPipeline(
 
             currentStage = Stage.BUBBLE_DETECTION
             callback?.onStageProgress(Stage.BUBBLE_DETECTION, 0.0f)
+            stageStart = System.currentTimeMillis()
             val bubbles = bubbleDetector.detect(bitmap, confidenceThreshold)
             coroutineContext.ensureActive()
+            endStage(Stage.BUBBLE_DETECTION)
             callback?.onStageProgress(Stage.BUBBLE_DETECTION, 0.2f)
 
             if (bubbles.isEmpty()) {
@@ -187,6 +200,7 @@ class TranslationPipeline(
                 val progress = 0.2f + ((index + 1).toFloat() / bubbles.size) * 0.3f
                 callback?.onStageProgress(Stage.OCR, progress)
             }
+            endStage(Stage.OCR)
 
             currentStage = Stage.CONTEXT_ASSEMBLY
             callback?.onStageProgress(Stage.CONTEXT_ASSEMBLY, 0.5f)
@@ -199,18 +213,17 @@ class TranslationPipeline(
             // Typeset into the bubble interior; boundingBox stays the detector's glyph box, which
             // OCR crops and panel grouping are tuned to. Computed before translation so each bubble
             // is typeset the moment it arrives.
-            val bubbleBounds = bubbleRenderBoxes(
-                bitmap,
-                bubbles.associate { bubble ->
-                    bubble.id to floatArrayOf(
-                        bubble.boundingBox.left,
-                        bubble.boundingBox.top,
-                        bubble.boundingBox.right,
-                        bubble.boundingBox.bottom
-                    )
-                }
-            )
+            val detectedBounds = bubbles.associate { bubble ->
+                bubble.id to floatArrayOf(
+                    bubble.boundingBox.left,
+                    bubble.boundingBox.top,
+                    bubble.boundingBox.right,
+                    bubble.boundingBox.bottom
+                )
+            }
+            val bubbleBounds = bubbleRenderBoxes(bitmap, detectedBounds)
             typesetter.fontSizeScale = fontSizeScale
+            endStage(Stage.CONTEXT_ASSEMBLY)
             callback?.onStageProgress(Stage.CONTEXT_ASSEMBLY, 0.6f)
 
             currentStage = Stage.TRANSLATION
@@ -226,6 +239,7 @@ class TranslationPipeline(
                 onBubble?.invoke(typeset)
             }
             coroutineContext.ensureActive()
+            endStage(Stage.TRANSLATION)
             // Detection order, as the preview stacks them, so overlapping boxes keep their stacking.
             val typesetBubbles = bubbles.mapNotNull { arrived[it.id] }
             callback?.onStageProgress(Stage.TRANSLATION, 1.0f)
@@ -238,7 +252,9 @@ class TranslationPipeline(
                 pageWidth = pageWidth,
                 pageHeight = pageHeight,
                 totalTimeMs = System.currentTimeMillis() - startTime,
-                timeToFirstBubbleMs = firstBubbleAt?.let { it - startTime }
+                timeToFirstBubbleMs = firstBubbleAt?.let { it - startTime },
+                stageTimesMs = stageTimesMs,
+                bubbleBounds = detectedBounds
             )
 
             callback?.onComplete(result)
