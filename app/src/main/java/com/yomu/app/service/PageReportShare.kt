@@ -19,7 +19,7 @@ import java.util.zip.ZipOutputStream
 class PageRecord(val capture: Bitmap, val page: PipelineResult, val settings: PageSettings, val recalled: Boolean)
 
 /**
- * Writes [record]'s report as one zip in app cache, over the previous one, and returns the share
+ * Writes [record]'s report as one zip in app cache, deleting any earlier one, and returns the share
  * sheet for it. Nothing is sent from here: the reader picks where the zip goes (ADR-0018).
  */
 fun Context.pageReportShareIntent(record: PageRecord): Intent {
@@ -28,7 +28,7 @@ fun Context.pageReportShareIntent(record: PageRecord): Intent {
         appVersion = packageManager.getPackageInfo(packageName, 0).versionName.orEmpty(),
         device = "${Build.MANUFACTURER} ${Build.MODEL}"
     )
-    val zip = File(cacheDir, "reports/yomu-page-report.zip").apply { parentFile?.mkdirs() }
+    val zip = nextReportFile(File(cacheDir, "reports"), System.currentTimeMillis())
     ZipOutputStream(zip.outputStream()).use { out ->
         pageReportFiles(png, record.page, record.settings, record.recalled, origin).forEach { (name, bytes) ->
             out.putNextEntry(ZipEntry(name))
@@ -44,4 +44,14 @@ fun Context.pageReportShareIntent(record: PageRecord): Intent {
     // The chooser passes the read grant on only through ClipData.
     send.clipData = ClipData.newRawUri(null, uri)
     return Intent.createChooser(send, "Report last page").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+}
+
+/**
+ * Clears [dir] of earlier reports and names the next one. A name per report means an app still
+ * holding an earlier report's link finds nothing, never a later page.
+ */
+internal fun nextReportFile(dir: File, now: Long): File {
+    dir.mkdirs()
+    dir.listFiles()?.forEach { it.delete() }
+    return File(dir, "yomu-page-report-$now.zip")
 }
