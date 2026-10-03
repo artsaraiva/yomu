@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.PixelFormat
 import android.view.Gravity
-import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.Button
@@ -28,7 +27,9 @@ class QuickSettingsPopup(
     private val hasLastPage: () -> Boolean,
     private val onReportRequested: () -> Unit,
     private val onOpenAppRequested: () -> Unit,
-    private val onStopRequested: () -> Unit
+    private val onStopRequested: () -> Unit,
+    private val blockTouchesBelow: (onRelease: () -> Unit) -> Unit,
+    private val unblockTouchesBelow: () -> Unit
 ) {
     private var popupView: ScrollView? = null
     private val labels = mutableListOf<TextView>()
@@ -55,15 +56,12 @@ class QuickSettingsPopup(
             addView(createContentView())
             background = context.paperBackground()
             elevation = density
-            setOnTouchListener { _, event ->
-                if (event.actionMasked == MotionEvent.ACTION_OUTSIDE) { remove(); true } else false
-            }
         }
         content.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED))
         val height = content.measuredHeight.coerceAtMost((available.y - margin * 2).coerceAtLeast(1))
         val params = WindowManager.LayoutParams(
             width, height, WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
@@ -72,6 +70,7 @@ class QuickSettingsPopup(
         }
         popupView = content
         updateAppearance()
+        blockTouchesBelow(::remove)
         windowManager.addView(content, params)
         content.alpha = 0f
         content.pivotX = (anchorX - params.x).toFloat().coerceIn(0f, width.toFloat())
@@ -86,6 +85,7 @@ class QuickSettingsPopup(
             if (it.isAttachedToWindow) windowManager.removeView(it)
         }
         popupView = null
+        unblockTouchesBelow()
         labels.clear()
         mutedLabels.clear()
         accentLabels.clear()

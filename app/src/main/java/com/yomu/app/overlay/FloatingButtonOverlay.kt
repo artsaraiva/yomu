@@ -1,10 +1,11 @@
 package com.yomu.app.overlay
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.PixelFormat
-import android.os.Build
 import android.view.Gravity
 import android.view.MotionEvent
+import android.view.View
 import android.view.ViewConfiguration
 import android.view.WindowManager
 
@@ -14,6 +15,7 @@ class FloatingButtonOverlay(
 ) {
     private var buttonView: FloatingButtonView? = null
     private var buttonParams: WindowManager.LayoutParams? = null
+    private var touchLayer: View? = null
 
     fun show(
         initialX: Int,
@@ -34,10 +36,7 @@ class FloatingButtonOverlay(
         val params = WindowManager.LayoutParams(
             sizePx,
             sizePx,
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-            else
-                WindowManager.LayoutParams.TYPE_PHONE,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT
         ).apply {
@@ -88,10 +87,36 @@ class FloatingButtonOverlay(
             }
         }
 
+        // Overlay windows stack in the order they are added; the layer goes first so the button stays above it.
+        val layer = View(context).apply { visibility = View.GONE }
+        windowManager.addView(layer, WindowManager.LayoutParams(
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            PixelFormat.TRANSLUCENT
+        ))
+        touchLayer = layer
         buttonParams = params
         buttonView = view
         windowManager.addView(view, params)
         return view
+    }
+
+    /** Swallows touches everywhere under the button, so they never reach the app below, and calls [onRelease] as each one ends. */
+    @SuppressLint("ClickableViewAccessibility")
+    fun blockTouchesBelow(onRelease: () -> Unit) {
+        touchLayer?.apply {
+            setOnTouchListener { _, event ->
+                if (event.actionMasked == MotionEvent.ACTION_UP) onRelease()
+                true
+            }
+            visibility = View.VISIBLE
+        }
+    }
+
+    fun unblockTouchesBelow() {
+        touchLayer?.visibility = View.GONE
     }
 
     fun keepInBounds() {
@@ -106,7 +131,9 @@ class FloatingButtonOverlay(
 
     fun remove() {
         buttonView?.let { windowManager.removeView(it) }
+        touchLayer?.let { windowManager.removeView(it) }
         buttonView = null
         buttonParams = null
+        touchLayer = null
     }
 }
