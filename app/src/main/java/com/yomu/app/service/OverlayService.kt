@@ -273,11 +273,9 @@ class OverlayService : Service() {
                     startTranslation()
                 }
             },
-            onDragEnd = { x, y ->
-                persistButtonPosition(x, y)
-                removeQuickSettingsPopup()
-            },
-            onLongPress = { showQuickSettings() }
+            onDragEnd = { x, y -> persistButtonPosition(x, y) },
+            onLongPress = { showQuickSettings() },
+            onPress = ::removeQuickSettingsPopup
         )
     }
 

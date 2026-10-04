@@ -10,7 +10,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.ArgumentCaptor
-import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.times
 import org.mockito.Mockito.verify
@@ -52,6 +51,18 @@ class FloatingButtonOverlayTest {
 
         overlay.unblockTouchesBelow()
         assertEquals(View.GONE, layer.visibility)
+    }
+
+    /** Quick settings must close on touch-down, a frame or more before a tap starts a capture that could still show it. */
+    @Test
+    fun pressReportsTouchDownBeforeTheGestureEnds() {
+        var presses = 0
+        var taps = 0
+        val button = overlay.show(0, 0, onTap = { taps++ }, onDragEnd = { _, _ -> }, onPress = { presses++ })
+
+        button.dispatchTouchEvent(touch(MotionEvent.ACTION_DOWN))
+        assertEquals(1, presses)
+        assertEquals(0, taps)
     }
 
     private fun addedWindows(): List<Pair<View, WindowManager.LayoutParams>> {

@@ -3,6 +3,7 @@ package com.yomu.app.overlay
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.PixelFormat
+import android.os.Build
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -22,7 +23,8 @@ class FloatingButtonOverlay(
         initialY: Int,
         onTap: () -> Unit,
         onDragEnd: (x: Int, y: Int) -> Unit,
-        onLongPress: (() -> Unit)? = null
+        onLongPress: (() -> Unit)? = null,
+        onPress: (() -> Unit)? = null
     ): FloatingButtonView {
         buttonView?.let { return it }
 
@@ -62,6 +64,7 @@ class FloatingButtonOverlay(
                         downRawX = event.rawX
                         downRawY = event.rawY
                         gestureClassifier.onActionDown(event.rawX, event.rawY)
+                        onPress?.invoke()
                     }
 
                     MotionEvent.ACTION_MOVE -> {
@@ -93,9 +96,15 @@ class FloatingButtonOverlay(
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
             PixelFormat.TRANSLUCENT
-        ))
+        ).apply {
+            // Edge-to-edge apps take taps under the gesture bar and in cutouts too.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                fitInsetsTypes = 0
+                layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+            }
+        })
         touchLayer = layer
         buttonParams = params
         buttonView = view
