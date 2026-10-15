@@ -1,10 +1,12 @@
 package com.yomu.app.ui.settings
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.yomu.app.db.entities.ModelType
 import com.yomu.app.detection.DetectionThresholdStore
@@ -24,6 +26,28 @@ fun TranslationSettings(viewModel: SettingsViewModel, onBack: () -> Unit) {
             onChange = viewModel::setGeneration,
             onReset = viewModel::resetGeneration
         )
+        PageRecallPanel(state.pageRecall, viewModel::setPageRecall)
+    }
+}
+
+@Composable
+private fun PageRecallPanel(enabled: Boolean, onChange: (Boolean) -> Unit) {
+    PaperSurface(Modifier.fillMaxWidth()) {
+        Row(
+            Modifier.fillMaxWidth().toggleable(enabled, role = Role.Switch, onValueChange = onChange).padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text("Page recall", style = MaterialTheme.typography.titleSmall)
+                Text(
+                    "Shows a page already translated while reading at once, instead of translating it again.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Spacer(Modifier.width(16.dp))
+            Switch(checked = enabled, onCheckedChange = null)
+        }
     }
 }
 

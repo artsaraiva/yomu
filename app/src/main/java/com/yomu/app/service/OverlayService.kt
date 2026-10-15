@@ -90,6 +90,7 @@ class OverlayService : Service() {
                 Constants.DEFAULT_FONT_SIZE_SCALE
             )
             DetectionThresholdStore.KEY -> translationPipeline.confidenceThreshold = DetectionThresholdStore(preferences).load()
+            PageRecallStore.KEY -> pageRecall.enabled = PageRecallStore(preferences).load()
         }
     }
 
@@ -149,6 +150,7 @@ class OverlayService : Service() {
             Constants.DEFAULT_FONT_SIZE_SCALE
         )
         translationPipeline.confidenceThreshold = DetectionThresholdStore(sharedPreferences).load()
+        pageRecall.enabled = PageRecallStore(sharedPreferences).load()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {

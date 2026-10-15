@@ -10,6 +10,7 @@ import com.yomu.app.db.entities.ModelStatus
 import com.yomu.app.db.entities.ModelType
 import com.yomu.app.service.ModelManager
 import com.yomu.app.service.ModelSlotSelection
+import com.yomu.app.service.PageRecallStore
 import com.yomu.app.service.SlotDeliverable
 import com.yomu.app.translation.FitBudget
 import com.yomu.app.translation.ResourceLimit
@@ -48,6 +49,8 @@ data class SettingsUiState(
     val generationDefaults: GenerationParams = GenerationParams(),
     /** The reader's bubble confidence threshold (#227). */
     val detectionThreshold: Float = DetectionThresholdStore.DEFAULT,
+    /** Whether a page already translated this session is shown again instead of translated afresh (#351). */
+    val pageRecall: Boolean = PageRecallStore.DEFAULT,
     /** The reader's caps on the translation model (#79). */
     val resourceLimits: Map<ResourceLimit, Int> = ResourceLimit.entries.associateWith { it.default },
     /** Why the last limit change was refused, or null. */
@@ -85,6 +88,7 @@ class SettingsViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val detectionThresholdStore = DetectionThresholdStore(sharedPreferences)
+    private val pageRecallStore = PageRecallStore(sharedPreferences)
     private val resourceMonitor = ResourceMonitor(context)
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -103,6 +107,7 @@ class SettingsViewModel @Inject constructor(
             fontSizeScale = sharedPreferences.getFloat(Constants.PREF_FONT_SIZE_SCALE, Constants.DEFAULT_FONT_SIZE_SCALE),
             theme = sharedPreferences.getString(Constants.PREF_THEME, "system") ?: "system",
             detectionThreshold = detectionThresholdStore.load(),
+            pageRecall = pageRecallStore.load(),
             resourceLimits = storedResourceLimits()
         ).withSlots()
         // The warning is now on screen; forget the bad values so it does not return on every visit.
@@ -169,6 +174,11 @@ class SettingsViewModel @Inject constructor(
     fun resetDetectionThreshold() {
         detectionThresholdStore.reset()
         _uiState.update { it.copy(detectionThreshold = detectionThresholdStore.load()) }
+    }
+
+    fun setPageRecall(enabled: Boolean) {
+        pageRecallStore.save(enabled)
+        _uiState.update { it.copy(pageRecall = pageRecallStore.load()) }
     }
 
     fun setResourceLimit(limit: ResourceLimit, value: Int) =
