@@ -202,6 +202,43 @@ class PageRecallTest {
     }
 
     @Test
+    fun `while recall is off a remembered page is not recalled`() {
+        val recall = PageRecall()
+        recall.enabled = false
+
+        recall.remember(fingerprint(page(0)), settings, result("page 0"))
+
+        assertNull(recall.recall(fingerprint(page(0)), settings))
+        recall.enabled = true
+        assertNull(recall.recall(fingerprint(page(0)), settings))
+    }
+
+    @Test
+    fun `turning recall off forgets the pages remembered before it`() {
+        val recall = PageRecall()
+        recall.remember(fingerprint(page(0)), settings, result("page 0"))
+
+        recall.enabled = false
+        recall.enabled = true
+
+        assertNull(recall.recall(fingerprint(page(0)), settings))
+        recall.remember(fingerprint(page(0)), settings, result("page 0 again"))
+        assertEquals(result("page 0 again"), recall.recall(fingerprint(page(0)), settings))
+    }
+
+    @Test
+    fun `a page begun before recall was turned off and on again is not remembered`() {
+        val recall = PageRecall()
+        val begunAt = recall.timesTurnedOff
+
+        recall.enabled = false
+        recall.enabled = true
+        recall.remember(fingerprint(page(0)), settings, result("page 0"), begunAt)
+
+        assertNull(recall.recall(fingerprint(page(0)), settings))
+    }
+
+    @Test
     fun `clearing forgets every page`() {
         val recall = PageRecall()
         recall.remember(fingerprint(page(0)), settings, result("page 0"))
