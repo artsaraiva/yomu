@@ -46,13 +46,17 @@ class ScreenCaptureManager @Inject constructor(
         return projectionManager!!
     }
 
-    fun startProjection(projection: MediaProjection) {
+    /** Starts capturing from [projection]; [onEnded] runs when Android ends it, such as on screen lock. */
+    fun startProjection(projection: MediaProjection, onEnded: () -> Unit) {
         mediaProjection?.stop()
         mediaProjection = projection
 
         projection.registerCallback(object : MediaProjection.Callback() {
             override fun onStop() {
+                // Yomu's own stop also lands here, after this projection was already let go or replaced.
+                if (mediaProjection !== projection) return
                 stopProjection()
+                onEnded()
             }
         }, mainHandler)
 

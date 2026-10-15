@@ -185,7 +185,11 @@ class OverlayService : Service() {
             return START_NOT_STICKY
         }
 
-        screenCaptureManager.startProjection(projection)
+        // A button left after sharing ends would fail every tap; with the service gone, Home reads "Reading is OFF" (#353).
+        screenCaptureManager.startProjection(projection) {
+            Log.i(TAG, "Screen sharing ended; stopping")
+            stopSelf()
+        }
 
         showFloatingButton()
         sendBroadcast(Intent(ACTION_SERVICE_STARTED).setPackage(packageName))
