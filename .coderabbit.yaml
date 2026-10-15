@@ -4,5 +4,6 @@ reviews:
   profile: chill
   high_level_summary: true
   poem: false
+  review_status: false
   auto_review:
     enabled: false
