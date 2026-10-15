@@ -59,7 +59,7 @@ scheme and is stale; treat it as history, not as a plan.
 
 ### Automated Review and Security Scanning
 
-- **CodeRabbit** (`.coderabbit.yaml`) reviews every PR. It is advice, not a gate: tests and the human owner decide. Fix a finding in the PR when it is a real defect; resolve the thread with a one-line reason when it is not. A valid finding outside the PR's scope becomes a new issue.
+- **CodeRabbit** (`.coderabbit.yaml`) no longer reviews PRs automatically; comment `@coderabbitai review` on a PR to request one. Its review is advice, not a gate: tests and the human owner decide. Fix a finding in the PR when it is a real defect; resolve the thread with a one-line reason when it is not. A valid finding outside the PR's scope becomes a new issue.
 - **Dependabot** (`.github/dependabot.yml`) opens weekly grouped minor/patch PRs for Gradle and GitHub Actions and a monthly `ml/llama.cpp` submodule bump. Major updates arrive as separate PRs. Merge only when Android CI is green; a llama.cpp bump also needs an on-device translation check, since its C API changes often.
 - **CodeQL** (`.github/workflows/codeql.yml`) scans Kotlin and C/C++ on PRs, pushes to `main`, and weekly. Findings appear under Security → Code scanning.
 
