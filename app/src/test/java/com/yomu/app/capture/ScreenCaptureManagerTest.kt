@@ -3,10 +3,11 @@ package com.yomu.app.capture
 import android.media.projection.MediaProjection
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.ArgumentCaptor
-import org.mockito.Mockito.any
+import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.verify
 import org.robolectric.RobolectricTestRunner
@@ -39,6 +40,18 @@ class ScreenCaptureManagerTest {
         registeredCallback().onStop()
 
         assertEquals(0, stops)
+    }
+
+    @Test
+    fun replacedProjectionEndingLeavesTheNewOneCapturing() {
+        val replacement = mock(MediaProjection::class.java)
+        manager.startProjection(projection) { stops++ }
+        manager.startProjection(replacement) { stops++ }
+
+        registeredCallback().onStop()
+
+        assertEquals(0, stops)
+        assertTrue(manager.isProjectionActive)
     }
 
     private fun registeredCallback(): MediaProjection.Callback {
