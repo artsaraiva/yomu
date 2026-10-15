@@ -274,7 +274,8 @@ class OverlayService : Service() {
                 }
             },
             onDragEnd = { x, y -> persistButtonPosition(x, y) },
-            onLongPress = { showQuickSettings() }
+            onLongPress = { showQuickSettings() },
+            onPress = ::removeQuickSettingsPopup
         )
     }
 
@@ -301,7 +302,9 @@ class OverlayService : Service() {
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 )
             },
-            onStopRequested = { stopSelf() }
+            onStopRequested = { stopSelf() },
+            blockTouchesBelow = floatingButtonOverlay::blockTouchesBelow,
+            unblockTouchesBelow = floatingButtonOverlay::unblockTouchesBelow
         ).also { quickSettingsPopup = it }
         // The app can change either value while the service runs, so re-read both on every long-press.
         popup.updateFontSizeScale(
