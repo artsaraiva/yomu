@@ -29,10 +29,19 @@ class PageRecall {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Key, PipelineResult>): Boolean = size > CAPACITY
     }
 
-    /** Returns a matching page and marks it most recently used, or null if no fingerprint and settings match. */
+    /** The reader's switch (#351): while off nothing is recalled or remembered, and turning it off forgets every page. */
+    var enabled = true
+        @Synchronized set(value) {
+            field = value
+            if (!value) pages.clear()
+        }
+
+    /** Returns a matching page and marks it most recently used, or null if recall is off or no fingerprint and settings match. */
     @Synchronized
-    fun recall(fingerprint: PageFingerprint, settings: PageSettings): PipelineResult? =
-        pages.keys.firstOrNull { it.settings == settings && it.fingerprint.matches(fingerprint) }?.let(pages::get)
+    fun recall(fingerprint: PageFingerprint, settings: PageSettings): PipelineResult? {
+        if (!enabled) return null
+        return pages.keys.firstOrNull { it.settings == settings && it.fingerprint.matches(fingerprint) }?.let(pages::get)
+    }
 
     /**
      * Keeps a page the model finished with at least one bubble answered. A timed-out or wholly
@@ -42,7 +51,7 @@ class PageRecall {
     @Synchronized
     fun remember(fingerprint: PageFingerprint, settings: PageSettings, page: PipelineResult) {
         val translation = page.translationResult
-        if (translation.outcome != TranslationOutcome.SUCCESS || translation.translations.none { it.answered }) return
+        if (!enabled || translation.outcome != TranslationOutcome.SUCCESS || translation.translations.none { it.answered }) return
         pages.keys.removeAll { it.settings == settings && it.fingerprint.matches(fingerprint) }
         pages[Key(fingerprint, settings)] = page
     }
