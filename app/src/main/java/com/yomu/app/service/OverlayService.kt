@@ -394,6 +394,7 @@ class OverlayService : Service() {
             val fingerprintStart = System.currentTimeMillis()
             val fingerprint = PageFingerprint.of(bitmap, ignored)
             val settings = pageSettings()
+            val recallBegunAt = pageRecall.timesTurnedOff
             val recalled = pageRecall.recall(fingerprint, settings)
             Log.i(TAG, "Page recall hit=${recalled != null} ms=${System.currentTimeMillis() - fingerprintStart} ignored=$ignored")
             recalled?.let { page ->
@@ -459,7 +460,7 @@ class OverlayService : Service() {
             if (result != null && failure == null && result.translationResult.translations.isNotEmpty()) {
                 saveSessionResult(session, result)
                 // A setting changed mid-page leaves a result made under neither snapshot.
-                if (pageSettings() == settings) pageRecall.remember(fingerprint, settings, result)
+                if (pageSettings() == settings) pageRecall.remember(fingerprint, settings, result, recallBegunAt)
             }
             if (failure != null) {
                 // The row that said READY has no file behind it: put the picker right now, rather

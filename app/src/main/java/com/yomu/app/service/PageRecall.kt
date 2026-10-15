@@ -33,8 +33,16 @@ class PageRecall {
     var enabled = true
         @Synchronized set(value) {
             field = value
-            if (!value) pages.clear()
+            if (!value) {
+                pages.clear()
+                timesTurnedOff++
+            }
         }
+
+    /** How often recall has been turned off: a page begun at a lower count began before an off. */
+    var timesTurnedOff = 0
+        @Synchronized get
+        private set
 
     /** Returns a matching page and marks it most recently used, or null if recall is off or no fingerprint and settings match. */
     @Synchronized
@@ -47,11 +55,12 @@ class PageRecall {
      * Keeps a page the model finished with at least one bubble answered. A timed-out or wholly
      * unanswered page is left out, so capturing it again is how the reader retries it; a bubble the
      * model could not answer on a finished page (a sound effect, app chrome) fails the same way again.
+     * A page begun before recall was last turned off is left out too, even when recall is on again.
      */
     @Synchronized
-    fun remember(fingerprint: PageFingerprint, settings: PageSettings, page: PipelineResult) {
+    fun remember(fingerprint: PageFingerprint, settings: PageSettings, page: PipelineResult, begunAt: Int = timesTurnedOff) {
         val translation = page.translationResult
-        if (!enabled || translation.outcome != TranslationOutcome.SUCCESS || translation.translations.none { it.answered }) return
+        if (!enabled || begunAt != timesTurnedOff || translation.outcome != TranslationOutcome.SUCCESS || translation.translations.none { it.answered }) return
         pages.keys.removeAll { it.settings == settings && it.fingerprint.matches(fingerprint) }
         pages[Key(fingerprint, settings)] = page
     }
