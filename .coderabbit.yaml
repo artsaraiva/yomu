@@ -5,4 +5,4 @@ reviews:
   high_level_summary: true
   poem: false
   auto_review:
-    enabled: true
+    enabled: false
