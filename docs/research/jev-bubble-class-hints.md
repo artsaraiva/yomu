@@ -1,12 +1,12 @@
 # Jev-style typed-question models as helpers for Yomu's page translation (research #350)
 
-Research and desktop runs, 2026-10-16. The issue asked whether TypeSafe's cloud Jev could label each bubble as speech, narration or SFX. At the owner's request, this note widens the question. Can a typed-question model of Jev's kind make Qwen2.5-1.5B's page translation better or faster in any way? It is the kind of model that reads a state and returns, in one pass, probabilities over options the caller defines. And can a local open-weight model of the same kind do the work on the phone after a llama.cpp pin bump?
+Research and desktop runs, 2026-10-16. [§6](#6-real-ocr-from-the-emulator-and-the-validator-idea) on real emulator OCR and the owner's validator idea was added on 2026-10-17. The issue asked whether TypeSafe's cloud Jev could label each bubble as speech, narration or SFX. At the owner's request, this note widens the question. Can a typed-question model of Jev's kind make Qwen2.5-1.5B's page translation better or faster in any way? It is the kind of model that reads a state and returns, in one pass, probabilities over options the caller defines. And can a local open-weight model of the same kind do the work on the phone after a llama.cpp pin bump?
 
 **What was run, and on what.**
 
 - **Nothing ran on a phone, and cloud Jev was not called.** This environment has no TypeSafe or Vercel AI Gateway key.
 - **The desktop runs used an Apple M4 Pro (48 GiB), CPU only, 4 threads.** They used llama.cpp built in the session scratchpad at upstream `7182ef7` (2026-10-16). One load test also used Yomu's pin `7fe450e`. The repository's `ml/llama.cpp` submodule was not touched.
-- **The fixture text is my own transcription.** I read the three fixture pages by eye ([Appendix A](#appendix-a-hand-transcription-and-reference-labels)). Yomu's OCR did not read them, because no page report exists on this desktop.
+- **§2–§5 use my own transcription of the fixture pages.** I read the three pages by eye ([Appendix A](#appendix-a-hand-transcription-and-reference-labels)). [§6](#6-real-ocr-from-the-emulator-and-the-validator-idea) repeats the key runs on what Yomu's OCR actually read on an emulator ([Appendix D](#appendix-d-the-real-emulator-ocr)), and shows where the transcription flattered the models.
 - **Every vendor figure is a vendor claim.**
 
 ## Questions, and where the issue's checks went
@@ -18,9 +18,9 @@ Research and desktop runs, 2026-10-16. The issue asked whether TypeSafe's cloud 
 | Issue check | Where it is answered |
 |---|---|
 | 1. Access and terms | [§1](#1-cloud-jev-access-and-terms) (cloud Jev, unchanged and condensed) |
-| 2. Are the labels right? | [§5](#5-desktop-experiment), with local models instead of Jev, plus the [Jev-key procedure](#procedure-for-someone-with-a-jev-key) |
-| 3. Does the local model use them? | [§5](#5-desktop-experiment), with hand-written (best case) and model-made hints |
-| 4. Cost of a second path | [§6](#6-cost-of-a-second-path) |
+| 2. Are the labels right? | [§5](#5-desktop-experiment) and, on real OCR, [§6](#6-real-ocr-from-the-emulator-and-the-validator-idea), with local models instead of Jev, plus the [Jev-key procedure](#procedure-for-someone-with-a-jev-key) |
+| 3. Does the local model use them? | [§5](#5-desktop-experiment), with hand-written (best case) and model-made hints; the validator idea in [§6](#6-real-ocr-from-the-emulator-and-the-validator-idea) |
+| 4. Cost of a second path | [§7](#7-cost-of-a-second-path) |
 | 5. A local source | [§4](#4-local-jev-like-models) |
 
 ## Short answer
@@ -36,6 +36,12 @@ Research and desktop runs, 2026-10-16. The issue asked whether TypeSafe's cloud 
   - **Gender, register and translation checking:** none of the models was usable for any of these.
 - **Rung zero is also weak.** Qwen2.5-1.5B labelling its own page got 23 of 41 classes, and it called every speaker on one page male. The extra pass cost 1.2–2.0 s per page on desktop CPU, two thirds to three quarters of the translation call itself.
 - **The speed gain is small.** Yomu already drops text-free bubbles from the prompt. SFX lines cost about four reply tokens each, and decode time goes mostly to lines that run on to the 160-character cap, which no classifier prevents.
+- **Real OCR moves the problem.** On the emulator, Yomu's OCR read 28 of the 41 hand bubbles exactly, and 4 more correctly but merged in pairs. It garbled 4 and missed 5. It also read 2 non-text areas: art, and a text-free balloon.
+  - **Speech is read almost perfectly, but only 1 of the 7 non-speech bubbles arrives intact,** so a class labeller has little to work on.
+  - **Six of the 36 prompt lines are garbage,** and Qwen turned each into confident wrong English.
+- **The owner's validator works as an input gate, and it needs no new model.** The OCR decoder's own mean token probability separated all 6 garbage reads from the 30 readable ones on these pages: garbage scored 0.40–0.88, readable 0.976 or above. `OcrEngine` already computes the logits and then throws them away (`confidence = 1.0f`).
+  - **Decision models and Qwen were worse gates.** d1-3B, d1-omni, Julia-1 and Qwen either overlapped, inverted, or flagged most lines, at up to 13 s per page.
+  - **As an output check after Qwen, no judge caught garbage-in translations.**
 - **llama.cpp support exists upstream, and the readout is what Yomu would port.**
   - **Upstream:** the `/v1/systemone` endpoint arrived with [ggml-org/llama.cpp#29818](https://github.com/ggml-org/llama.cpp/pull/29818) (`a4cb4c6`, 2026-10-02), 215 commits after Yomu's pin.
   - **API breaks:** the C API Yomu's JNI uses is unchanged up to the d1 support commit `a657f7e`. On current master, one Yomu line breaks.
@@ -45,13 +51,14 @@ Research and desktop runs, 2026-10-16. The issue asked whether TypeSafe's cloud 
   - **(a) Cloud Jev: not worth it,** for access reasons.
   - **(b) Typed hints: not worth pursuing for Qwen2.5-1.5B's English output,** because perfect hints made no visible difference. The register hint might help non-English targets once #337 lands. It is worth one re-test with a prompt or grammar that stops leaks, not a build.
   - **(c) Local Jev-like path: no follow-up issue now.** The candidates failed on this input, and (b) shows even perfect answers would not help today. The [conclusion](#conclusion) names what would reopen it.
+  - **Worth a follow-up issue of its own:** an OCR-confidence gate, using the probabilities `OcrEngine` already computes. It is cheaper than any Jev-like model. Its threshold comes from three pages and one emulator run.
 
 ## How a page reaches Qwen today (verified on `main`, `d0a4b7e`)
 
 I traced the path myself rather than trust older notes.
 
 1. **Detection:** `BubbleDetector.detect` returns boxes (`pipeline/src/main/java/com/yomu/pipeline/TranslationPipeline.kt:161`).
-2. **OCR:** each box is cropped and read by `OcrEngine.extractText` (`:193`). OCR confidence is a constant: `confidence = 1.0f` (`pipeline/src/main/java/com/yomu/pipeline/ocr/OcrEngine.kt:93`). Nothing downstream can therefore tell a clean read from a garbled one.
+2. **OCR:** each box is cropped and read by `OcrEngine.extractText` (`:193`). OCR confidence is a constant: `confidence = 1.0f` (`pipeline/src/main/java/com/yomu/pipeline/ocr/OcrEngine.kt:93`). Nothing downstream can therefore tell a clean read from a garbled one, although the decoder's own probabilities can ([§6](#6-real-ocr-from-the-emulator-and-the-validator-idea)).
 3. **Context assembly:** `ContextAssembler.assemble` groups the bubbles into panels and orders them right to left, then top to bottom (`TranslationPipeline.kt:207`; `pipeline/src/main/java/com/yomu/pipeline/context/ContextAssembler.kt:42-114`). Nothing else is added.
 4. **Projection to the page input:** `TranslationEngine.translate` (`TranslationPipeline.kt:235`) projects the blocks into `TranslatablePage(panels: List<List<TranslatableBubble(bubbleId, sourceText)>>)` (`core/src/main/java/com/yomu/core/TranslationSlot.kt:12-14`; `pipeline/src/main/java/com/yomu/pipeline/translation/TranslationEngine.kt:154`).
    - Source text is cut at `MAX_SOURCE_CHARS = 300` (`:98`).
@@ -89,13 +96,13 @@ The uses below are ideas to test, not a fixed list. "Reaches the pipeline" names
 | Register / formality | Choice per bubble: polite / casual / rough | Same mark | Quality, for languages with a T–V distinction (pt-BR, es, fr, de) | Moot for English. The prompt is English-only until #337. | French: *tu* consistent on rough lines, one *vous* for a polite line; marks leak and get invented. pt-BR: no change in *você*. d1-omni: "polite" for everything; d1-3B: "casual" for every polite line. |
 | Speaker gender / identity | Choice per bubble: male / female / unknown (or a speaker list) | Same mark | Quality: pronouns from zero-pronoun Japanese | ADR-0002 named a JA→EN zero-pronoun set as its acceptance gate, so the problem is real. But speaker identity comes from the art, not the text. | Perfect labels: no change to the wrong pronoun in tojime [17]. Models: d1-omni and Julia-1 said "female" for nearly everything, d1-3B mostly "unknown", Qwen "male" for everything. |
 | Sentence continues across bubbles | Noul for each adjacent pair in a panel | Merge the two lines before the prompt, or mark the second | Quality | The whole page is already in one call, so Qwen sees the adjacent lines. TypeSafe's "Structure recovery" cookbook does the same for hard-wrapped text ([docs index](https://docs.typesafe.ai/llms.txt)). | Perfect mark on tojime [11]→[12]: no gain, mark leaked as "(continues 11)". Models missed the one real case (d1-3B 0.48, d1-omni 0.43, Julia-1 0.01). |
-| Skip generation (speed) | Noul: "is this readable text worth translating?"; class = sfx | Drop the bubble from `TranslatablePage`, as `carriesText` already does for text-free bubbles | Speed | Small. Text-free bubbles are already dropped. SFX were 3 of 41 bubbles, about 4 tokens each of about 510 reply tokens. A garbled-OCR check has no OCR signal to start from (`confidence = 1.0f`). | Not built. The class question it depends on failed. |
+| Skip generation (speed) | Noul: "is this readable text worth translating?"; class = sfx | Drop the bubble from `TranslatablePage`, as `carriesText` already does for text-free bubbles | Speed, and, for garbled reads, quality | Small for speed. Text-free bubbles are already dropped, and SFX were 3 of 41 bubbles at about 4 tokens each of about 510 reply tokens. The garbled-read check is the owner's "validator" idea. | On real OCR ([§6](#6-real-ocr-from-the-emulator-and-the-validator-idea)), the OCR decoder's own mean token probability flagged all 6 garbage reads and none of the 30 readable ones. Decision models and Qwen did much worse. |
 | Route hard bubbles to a bigger model | Score per bubble: difficulty; or Noul on the reply | A second LLM call | Quality, at a large speed cost | Poor on a phone. The slot holds "Exactly one LLM deliverable … at a time" (`CONTEXT.md`). A second model means a second resident model or a reload, against ~11.7 s pages on the S23 ([ADR-0013](../adr/0013-grammar-constrained-page-level-batch.md), #214 amendment). Vercel's [decision fallbacks](https://vercel.com/docs/ai-gateway/sdks-and-apis/typesafe) do this server-side. | Not built. |
-| Verify / rerank translations | Noul per (Japanese, English) pair: "faithful?"; or Choice over N candidates | Retry flagged lines per line, or pick a candidate | Quality, at a speed cost (retries or N× generation) | TypeSafe has guardrail and re-ranking cookbooks ([docs index](https://docs.typesafe.ai/llms.txt)), and d1 lists "LLM-as-a-judge scoring" ([card](https://huggingface.co/LiquidAI/d1-3B)). The judge must read Japanese and English, the hardest of these tasks. | 11 pairs (5 wrong). d1-3B gave 0.35–0.69, d1-omni 0.57–0.66 and Julia-1 0.005–0.08, so none separated right from wrong. Qwen judging itself got 7 of 11 right and caught 2 of the 5 wrong lines. |
+| Verify / rerank translations | Noul per (Japanese, English) pair: "faithful?"; or Choice over N candidates | Retry flagged lines per line, or pick a candidate | Quality, at a speed cost (retries or N× generation) | TypeSafe has guardrail and re-ranking cookbooks ([docs index](https://docs.typesafe.ai/llms.txt)), and d1 lists "LLM-as-a-judge scoring" ([card](https://huggingface.co/LiquidAI/d1-3B)). The judge must read Japanese and English, the hardest of these tasks. | 11 pairs (5 wrong). d1-3B gave 0.35–0.69, d1-omni 0.57–0.66 and Julia-1 0.005–0.08, so none separated right from wrong. Qwen judging itself got 7 of 11 right and caught 2 of the 5 wrong lines. On real OCR ([§6](#6-real-ocr-from-the-emulator-and-the-validator-idea)), no judge caught translations of garbage input. d1-3B separated faithful from unfaithful clean lines (AUC 0.86) at 0.7 s per line. |
 | Out-of-scope text (title, credit) | Noul: "is this a title or credit line?" | Drop it, as ADR-0007 already puts it out of scope | Speed, plus fewer garbled lines | A real case: bourei [3] is the title and author credit, which ADR-0007 excludes but the prompt still carries. | Asked only as part of the class question ("narration" in my labels). Text-only models did not separate it. |
 | Name reading for the glossary (#327) | Choice over candidate readings found in code (furigana, katakana) | A glossary entry, not the prompt | Quality, across pages | Fits TypeSafe's "pre-parsed value extraction" pattern ([docs index](https://docs.typesafe.ai/llms.txt)). The fixture caption carries its own furigana (`烏丸 柩(からすま くるる)`), and every Qwen run still garbled it (Kusumaru, Kusumokuro, Kusumakura). | Not tested. It belongs to #327's design, not to this note. |
 
-**Summary of the uses.** On today's English-only prompt, the uses that change what Qwen reads (class, gender, continuation) showed no visible gain even with perfect answers. The uses that cut work (skipping bubbles) save almost nothing. The uses that add a second model call (routing, reranking) cost more time than a phone page can spare. Register is the one hint with a visible effect, and it only matters after #337.
+**Summary of the uses.** On today's English-only prompt, the uses that change what Qwen reads (class, gender, continuation) showed no visible gain even with perfect answers. The uses that cut work (skipping bubbles) save almost nothing. The uses that add a second model call (routing, reranking) cost more time than a phone page can spare. Register is the one hint with a visible effect, and it only matters after #337. Real OCR adds one use that does work: rejecting garbled reads before they reach Qwen. It works best with no Jev-like model at all ([§6](#6-real-ocr-from-the-emulator-and-the-validator-idea)).
 
 ## 3. Rung zero: Qwen2.5-1.5B as its own labeller
 
@@ -285,7 +292,131 @@ Arms:
 
 **Answer to the experiment's question.** On these three pages, hints that were perfect by construction did not make Qwen2.5-1.5B's English visibly better. Their effect was smaller than the effect of changing the seed. A labeller of any kind, cloud or local, is therefore not worth pursuing for the shipped English prompt. Register is the exception that might matter once #337 lands. It would be re-tested with a reply that cannot carry marks, after which it could become its own small question.
 
-## 6. Cost of a second path
+## 6. Real OCR from the emulator, and the validator idea
+
+Added 2026-10-17.
+
+**The inputs.**
+
+- **Three page reports from the `sdk_gphone16k_arm64` emulator, one per fixture page.** Each holds the exact 1280×2856 frame the OCR read (`capture.png`), each bubble's detector box and OCR text (`page.json`), and Qwen's raw reply (`reply.txt`).
+- **The run setup:** Photos in full screen with its toolbars hidden; the app on Qwen2.5-1.5B, Japanese → English; fresh runs (`recalled=false`).
+- **A fourth run is set aside.** With Photos' toolbar visible, it read interface text as bubbles: `Sep15.2.50AN`, `oloEdit`, and the screen-share chip as `回00.37`. That is being filed as a separate bug and is not used here.
+- **The emulator was only read**, with `adb exec-out run-as com.yomu.app cat`. Everything else ran on the same desktop as §5. Appendix D has every read, verdict and reply.
+
+### What the real OCR reads
+
+I mapped each OCR read to Appendix A by its text. Where the text was unclear, I drew the detector boxes on `capture.png` and decided by position.
+
+| Page | Hand bubbles | Read exactly | Merged with a neighbour | Garbled | Missed (no box) | Reads with no hand bubble |
+|---|---|---|---|---|---|---|
+| balloon-dense-dialogue | 15 | 11 | 2 (as 1 read) | 1 | 1 | 0 (the `・・・・・・?` read is dropped as text-free) |
+| bourei-p04 | 8 | 5 | 0 | 2 | 1 | 1 (the skyline strip, read as `前回!!これは!??`) |
+| tojime-dense-action | 18 | 12 | 2 (as 1 read) | 1 | 3 | 1 (a `……` balloon, read as `ここ`) |
+| **Total** | **41** | **28** | **4 (as 2 reads)** | **4** | **5** | **2** |
+
+"Exact" ignores `…` coming out as `...`.
+
+- **Speech is read well.** 27 of the 34 speech bubbles are read exactly, and 4 more arrive correctly but merged in pairs: なにあ然と… with ヘリウム…, and 腰の銃で…か? with あ?. One is garbled (ほぉ → `まお`) and two are missed (ただ空気いれた…, えっ).
+- **Non-speech mostly does not arrive.** **Only 1 of the 7 non-speech bubbles arrives intact**, the 「視える」 caption.
+  - **Garbled (3):** the title, the 烏丸 caption, and the camera text, read as `よくある`.
+  - **Missed (3):** the client caption 葬儀依頼人…, グッ and プラーン.
+- **On the bourei page:** the read `前回!!これは!??` is not the client caption. Its box sits on the skyline strip across the top panel, and the client caption has no box at all.
+- **Six of the 36 lines that reach the prompt are garbage:** 4 garbled reads, plus 2 reads of art or of a text-free balloon. Qwen translated every one of them into confident English: "It's common", "Last time!! This!!?", "The general manager of the participants' comprehensive register, Nitori, 25 years old", "Welcome to the recruitment office, high school student", "Momosha" and "Here".
+
+**Where the hand transcription flattered the models.**
+
+- **The non-speech text §5 asked about mostly never arrives.** §5 gave every labeller all 7 non-speech bubbles as clean text. On the real page, 6 of the 7 are missing or garbled. Whatever a class labeller can do, it has almost nothing to work on.
+- **No merges, art or garbage.** The real prompt has two merged pairs. Each asks Qwen to translate two bubbles as one line, as in tojime [1] ( "Let's see if you're the one that got my brain between the ribs?"). The prompt also has two reads of things that are not text.
+- **Reading order.** Appendix A is in true reading order. The app's prompt is in `ContextAssembler`'s order. A Python port of `ContextAssembler.kt:66-114` reproduces the order in `reply.txt` on all three pages. On balloon-dense-dialogue that port puts the whole page in one panel, so the third-tier line 地球の写真… comes before the first-tier line なにあ然と….
+- **What still holds from §5:** speech was read almost perfectly, so the finding that hints do not help Qwen with speech carries over to real OCR.
+
+### The class labellers on real OCR
+
+Each read was asked one bubble at a time (Qwen: one grammar-constrained pass per page). Scoring covers the 34 reads that came from a hand bubble; the 2 art and text-free reads have no class.
+
+| Labeller | Hand text, §5 | Real OCR | Non-speech on real OCR (4 arrive: 1 clean, 3 garbled) |
+|---|---|---|---|
+| d1-3B | 35/41 | 30/34 | 1/4 (the garbled 烏丸 caption as narration) |
+| d1-omni-600M | 17/41 | 15/34 | 2/4 |
+| Julia-1 | 3/41 | 2/34 | 2/4 ("sfx" or "narration" for almost every read) |
+| Qwen2.5-1.5B (rung zero) | 23/41 | 21/34 | 1/4 |
+
+**Nothing changes.** Each model's accuracy on speech is what it was on hand text, and the non-speech class it was meant to find barely reaches the pipeline.
+
+### Validator (a): an input gate between OCR and Qwen
+
+This tests the owner's idea that a validator "could sit in between the ocr and the llm". Each of the 36 reads in the prompt was asked one yes/no question: "Is this readable Japanese, or a garbled OCR read?" Six of the reads are garbage and 30 are readable. The decision models got one request per read. Qwen got one grammar-constrained pass per page that answers `yes|no` for each line.
+
+| Gate | Separates garbage from readable | Flags among the 30 readable reads, at a threshold that catches all 6 garbage reads | Cost |
+|---|---|---|---|
+| **OCR's own mean token probability** | **Completely (AUC 1.00).** Garbage 0.398–0.879, readable 0.976–1.000 | **0** (threshold 0.95) | About nothing: a softmax over logits OcrEngine already computes |
+| OCR's minimum token probability | Almost (AUC 0.99); one merged clean read at 0.540 | 1 | About nothing |
+| d1-3B | Overlapping (AUC 0.85): garbage 0.39–0.72, readable 0.58–0.91 | 12 | 0.93 s per read on desktop CPU, about 13 s for a 14-read page |
+| d1-omni-600M | Weak (AUC 0.72) | 19 | 0.12 s per read |
+| Julia-1 | Worse than chance (AUC 0.21); garbage scored ≥ 0.91 | 30 | 0.03 s per read |
+| Qwen2.5-1.5B (rung zero) | Said "garbled" for 28 of 36 lines | Caught 3 of the 6, with 25 false flags | 2.6–3.5 s per page on desktop CPU |
+
+AUC is the chance that a readable read scores above a garbage one.
+
+**How the OCR-confidence baseline was measured.**
+
+- **The model.** `OcrEngine` runs an ONNX VisionEncoderDecoder (`l0wgear/manga-ocr-2025-onnx@e8b27bb`). The decoder returns logits at every step; `OcrEngine` takes the argmax and returns `confidence = 1.0f` (`pipeline/src/main/java/com/yomu/pipeline/ocr/OcrEngine.kt:93`).
+- **The files:** I pulled the app's own encoder, decoder and vocabulary from the emulator. Their checksums match `ModelManager.kt` (`f87668ae…`, `6b1fb216…`).
+- **The replica:** I rebuilt `OcrEngine` in Python with onnxruntime, keeping the softmax probability of each chosen token:
+  - the crop from `capture.png`, cut from the detector box as `CropBoundsCalculator.clamp` cuts it;
+  - a bilinear resize to 224×224, scaled to [-1, 1];
+  - decoding from start token 0, greedy, stopping at `[SEP]` within 128 steps.
+- **Fidelity:** the replica reproduced the app's text exactly on 34 of 37 reads. The three it read differently are the three garbled bourei reads, which it also read as garbage, so their probabilities are the replica's. The likely cause is a small resampling difference from Android's `createScaledBitmap`.
+- **Calibration:** the 0.95 threshold was chosen on these same 36 reads, and only 6 of them are garbage. It is a result to confirm, not a tuned value.
+
+**What the app would do with a flag, and where.**
+
+- **Compute it.** In `OcrEngine.runDecoder` (`:151`), keep `softmax(logits)[argmax]` at each step and return the mean as `OcrResult.confidence`. The field already exists and already travels with the text into `ConversationBlock`. The cost is one exponential pass over the 6,144 logits per step the decoder already returns, which is negligible beside the decode itself.
+- **Act on it.** The cheapest action is to skip a low-confidence read where OCR results are kept (`TranslationPipeline.kt:195`, `if (result != null && result.text.isNotEmpty())`).
+  - **A skipped read is never answered.** An unanswered bubble "gets no box and the reader sees the art under it" (`TranslationPipeline.kt:231`, #330). The reader then sees the original Japanese instead of confident wrong English.
+  - **Do not route it through `carriesText`.** That filter renders the source text itself, and here the source is the garbled read.
+  - **Keep the evidence.** The page report should still record the skipped read and its confidence.
+- **Effect on the rest of the page** (Appendix D, three seeds each):
+  - **The garbage lines go.** Without the 6 flagged reads, the 6 wrong English lines were gone in every run.
+  - **One run-on goes with them.** In two of the three seeds, bourei's shipped prompt made Qwen write commentary after the garbled title ("(The line is incomplete and seems to be a joke or a typo) "ビエ" is likely a misspelling…"). Gating removed it.
+  - **Other lines are unchanged.** The remaining lines did not visibly change. On bourei the run-on moved to the new last line ("[4] Yes... (pause) -_-; (sigh) …").
+  - **Prompts shrink:** on bourei, from 161 to 107 tokens. Page times did not fall consistently, because run-on dominates them.
+- **Alternatives to skipping:**
+  - **Re-read the flagged crop,** padded or with the decoding the model ships with (next paragraph). That costs one more OCR decode per flagged bubble. The emulator's OCR stage took 1.4–2.7 s for 8–15 reads, about 0.15–0.2 s each.
+  - **Keep the line with an "unsure" mark.** §5 shows that marks leak into the reply.
+
+**A side finding about the OCR decoder: its own issue, not a validator.**
+
+- **Settings mismatch.** The model's `config.json` says `decoder_start_token_id: 2` (`[CLS]`), and its `generation_config.json` asks for `num_beams: 4` and `no_repeat_ngram_size: 3` ([repo @e8b27bb](https://huggingface.co/l0wgear/manga-ocr-2025-onnx/tree/e8b27bbd3f424fe3877e0bda704d6a920e4f0a33)). `OcrEngine` starts from `BOS_TOKEN_ID = 0` (`[PAD]`, `OcrEngine.kt:22`) and decodes greedily.
+- **Start token 2 in the replica changed four reads, all garbage ones; no clean read changed:**
+  - the title became `ようこそビエ葬儀屋さん高良いと`, with 葬儀屋 right and 吉良 close;
+  - the 烏丸 caption gained its furigana, `(からすまくるる)`;
+  - the tojime `……` balloon came out as `・・・・・・`, which `carriesText` would then drop;
+  - the skyline read stayed garbage.
+- **Not tried:** beam search.
+
+### Validator (b): an output check after Qwen
+
+Each pair of real OCR Japanese and Qwen's line from `reply.txt` was asked: "Is `english` a faithful English translation of the Japanese manga line `japanese`?" My verdicts are in Appendix D: 22 faithful, 8 not, and 6 garbage-in. For garbage-in, the right answer is no.
+
+| Judge | Faithful vs unfaithful (clean input) | Garbage-in caught? | Cost |
+|---|---|---|---|
+| d1-3B | AUC 0.86 (faithful mean 0.786, unfaithful 0.572) | **No.** Garbage-in mean 0.789, as high as faithful (AUC 0.48) | 0.69 s per pair on desktop CPU |
+| d1-omni-600M | AUC 0.57 | Partly (AUC 0.66); 2 of 6 below 0.3 | 0.11 s per pair |
+| Julia-1 | AUC 0.47 | No (AUC 0.40) | 0.02 s per pair |
+| Qwen2.5-1.5B (rung zero) | Caught 0 of 8 unfaithful lines; 4 false alarms among the 22 faithful | 1 of 6 | 2.5–4.3 s per page |
+
+**Comparison with the hand text.** There, d1-3B gave 0.560 to right lines against 0.556 to wrong ones. On real pairs it separates faithful from unfaithful lines better (AUC 0.86). One likely reason: the hand set was chosen to be hard, while these are the lines Qwen actually wrote. But no judge can tell that the Japanese itself is garbage, and garbage-in is the failure the input gate already catches for free.
+
+**What the app would do with a flag, and where.**
+
+- **Where it would sit:** today's output guard is `deadTranslationReason` (empty, non-translation, Japanese residue), applied in `TranslationEngine.translate` (`TranslationEngine.kt:41`, used at `:124` and `:132`). A judge would add one more test there.
+- **The actions:** leave the line unanswered so the art shows, or retry it alone with `translatePerLine`, at about one prompt prefill plus one decode per retried bubble.
+- **The cost:** a second resident model (d1-3B) or a second Qwen pass, on the critical path after decoding.
+  - **It clashes with streaming:** since #348, a line is shown the moment it decodes. A check after decoding either delays every line or takes back lines already shown.
+- **Verdict:** not worth it on these results.
+
+## 7. Cost of a second path
 
 - **Cloud (Jev or any hosted labeller).** It needs a reopening ADR, since ADR-0018 says "Reopening takes a new ADR that supersedes this one, and the README's promise changes in the same pull request". The README promises "Nothing leaves your phone". It also needs a consent screen naming TypeSafe and US hosting, and either a Yomu server or keys readers bring themselves.
   - **Fallback and latency:** without network, without a key, or on failure, the page falls back to the unlabelled prompt within a fixed deadline. The call sits between OCR and translation, adding a round trip (vendor: 70–500 ms, measured from the US West Coast) to a page the S23 translates in ~11.7 s median (ADR-0013, #214 amendment). Measured against the first bubble, which arrives 0.7–1.1 s into translation on the `Yomu_16G` emulator ([PR #348](https://github.com/artsaraiva/yomu/pull/348), emulator numbers), the round trip is a large share.
@@ -294,6 +425,7 @@ Arms:
   - Julia-1 took 0.4–1.7 s.
   - d1-3B took 16–56 s per page for the class question (0.66 s per bubble when asked singly), roughly 4 to 18 times the translation call.
   - The phone would be slower than the desktop. None of this is measured on a phone.
+  - The input gate that worked in §6 is the exception: it reads probabilities the OCR decoder already produces, so it adds no model and almost no time.
 
 ## Conclusion
 
@@ -302,6 +434,7 @@ Arms:
 - **No way to ship it:** a Yomu-held key needs a Yomu server, which ADR-0018 forbids. MCA §2.4 requires the key to stay confidential, and an APK cannot keep it so. Keys readers bring themselves serve almost nobody. Signups are paused.
 - **Weak on this input by its own account:** TypeSafe's docs flag CJK text and numbers as weak spots.
 - **Nothing unique about it:** local open-weight models now offer the same typed-question interface. None of them answered well here either.
+- **Real OCR changes nothing here.**
 
 **(b) Do typed hints help Qwen2.5-1.5B?**
 
@@ -311,12 +444,19 @@ Arms:
 | Speaker gender | No. |
 | Continuation | No. |
 | Register | Possibly, only for non-English targets once #337 lands. It needs a leak-proof reply first. |
-| Skipping bubbles | No. Almost nothing to save. |
-| Routing / reranking | No. Too slow on a phone, and no model here could judge a translation. |
+| Skipping bubbles for speed | No. Almost nothing to save. |
+| **Input gate (validator a): OCR's own token probability** | **Yes, on these pages.** It separated all 6 garbage reads from the 30 readable ones, with no new model, at almost no cost. It would be its own follow-up issue. |
+| Input gate: a decision model or Qwen | No. d1-3B overlapped, d1-omni was weak, Julia-1 was inverted, and Qwen flagged most lines. They cost up to 13 s per page. |
+| Output check (validator b) after Qwen | No. No judge caught translations of garbage input. Only d1-3B separated faithful from unfaithful clean lines, at 0.7 s per line, and a check after decoding fights streaming. |
+| Routing / reranking | No. Too slow on a phone, and no judge here caught a translation of garbage input. |
 | Out-of-scope text (title, credit) | Untested. |
 | Name reading | Belongs to #327. |
 
 For bubble class, gender and continuation, perfect hand-written hints made no visible difference on the fixture pages. The cost, on the other hand, is visible: prompt length, and marks leaking into the reply.
+
+**What real OCR changes in (b).** The class row gets weaker: only 1 of 7 non-speech bubbles reaches the prompt as clean text. The validator rows are new. The useful validator is a gate on the OCR's own confidence, not a model of Jev's kind. It turns six confident wrong English lines into untouched art on these pages.
+
+**Calibration.** This rests on three pages, one emulator run and six garbage reads, and the threshold was picked on the same data. The follow-up must confirm it on more pages, and on the phone.
 
 **(c) Local Jev-like path: no follow-up issue now.**
 
@@ -325,11 +465,15 @@ For bubble class, gender and continuation, perfect hand-written hints made no vi
 - **The real cost is elsewhere:** porting the readout, and running a second resident model.
 - **No candidate passed:** on Japanese manga text, every candidate failed the questions Yomu would ask (the best, d1-3B, found 2 of 7 non-speech bubbles and took several times longer than the translation call on desktop CPU).
 - **(b) blocks it anyway:** even correct answers would not improve today's English output.
+- **Real OCR strengthens this:**
+  - the class question has little text to work on;
+  - the one validator that works needs no Jev-like model;
+  - the decision models were worse gates than the OCR's own probabilities.
 
 **What would reopen (c):**
 
 1. **#337 lands,** and a leak-proof register re-test shows a visible gain in the target languages.
-2. **A decision model then answers register or class correctly on real page-report OCR**, not my transcription, for the fixture pages.
+2. **A decision model then answers register correctly on real page-report OCR** for the fixture pages. Class is a weaker reason now: on real OCR it mostly lacks text to classify, because non-speech bubbles are missed or garbled before any labeller sees them.
 
 If both hold, the follow-up issue would cover the rest:
 
@@ -342,6 +486,16 @@ If both hold, the follow-up issue would cover the rest:
 - amend ADR-0007's revisit clause to admit a checked class source with published weights;
 - run AGENTS.md's on-device translation check and `scripts/run-speed-benchmark.sh` table.
 
+**Follow-ups this note points to (not filed yet):**
+
+1. **An OCR-confidence gate.**
+   - **Compute:** the mean token probability in `OcrEngine.runDecoder`, returned as `OcrResult.confidence`.
+   - **Skip:** reads below a threshold at `TranslationPipeline.kt:195`, so they stay unanswered and the art shows.
+   - **Record:** each read and its confidence in the page report.
+   - **Re-check:** the threshold on more pages.
+2. **OCR decoding settings.** Use the model's own start token (2, not 0), and try its beam settings. The replica's garbled reads got closer to the page with start token 2.
+3. **Interface text read as bubbles when Photos shows its toolbar.** This is being filed separately.
+
 ## Procedure for someone with a Jev key
 
 This is kept from the first version of this note. It is the same experiment as §5, with Jev as the labeller. Use `jev-1.14.0`, or `typesafe-ai/jev-1.14.0` on Vercel AI Gateway, and pin the versioned id. Send the same state and questions as `exp/d1.py`: one Choice per bubble, a reversed-options pass, and optionally the page image under `TypeSafe-Danger-Zone-Images: true`. Read the answers against the labels in Appendix A. Given (b), only the register question is still worth asking. Run it only if #337's re-test shows register marks help.
@@ -349,7 +503,9 @@ This is kept from the first version of this note. It is the same experiment as �
 ## Open questions / not verified
 
 - **Nothing here ran on a phone.** No decision-model latency on a phone is known; the desktop timings are a lower bound.
-- **The input text is my transcription,** not Yomu's OCR. Real OCR errors would make every labeller's job harder.
+- **§2–§5 rest on my transcription.** §6 tests real OCR, but from one emulator run of three pages, not a phone.
+- **The OCR replica is close, not exact.** It reproduced the app's text on 34 of 37 reads. The three it read differently are garbage either way. The resampling differs slightly from Android's `createScaledBitmap`.
+- **The 0.95 gate threshold is fitted to six garbage reads.** No held-out pages were used.
 - **The hint wording is one wording.** A different phrasing, or hints in a system turn, was not tried.
 - **d3-edge, Kai-0.6B, laya-multilingual (ONNX) and the Laya English model were not run.** d1-3B's speed was measured with `llama-server` defaults on CPU. A tuned port might be faster, and the vendor's 30 ms figure is on a GPU.
 - **The ONNX route over Yomu's existing ONNX Runtime is untested.**
@@ -365,6 +521,11 @@ This is kept from the first version of this note. It is the same experiment as �
 - Vercel: https://vercel.com/docs/ai-gateway/sdks-and-apis/typesafe; `GET https://ai-gateway.vercel.sh/v1/models`.
 - Hugging Face cards and API entries: `LiquidAI/d1-3B` @`051bcc4` (README, LICENSE), `LiquidAI/d1-3B-GGUF` @`bb1e436`, `LiquidAI/d1-omni-600M` @`02b55d7`, `LiquidAI/d1-omni-600M-GGUF` @`0439714`, `SupersonicLabs/Julia-1` (README, `metrics/accuracy-20260924.json`), `ggml-org/Julia-1-GGUF` @`16fee17`, `convaiinnovations/laya` @`7b928d8`, `convaiinnovations/laya-multilingual` @`1720e3e`, `ggml-org/Laya-GGUF` @`2226500`, `mys/laya-multilingual-GGUF` @`3b645ae`, `vllm-sr/d3-edge` (README), `ggml-org/vllm-d3-edge-GGUF` @`753af7a`, `vllm-sr/Decision-2.0-Kai-0.6B` and `-GGUF` @`633669d`, `onnx-community/Decision-2.0-Kai-0.6B-ONNX` @`13ab550`, `mizchi/laya-multilingual-onnx` @`d9d003d`, `ggml-org/lev-GGUF`, `ggml-org/Kev-4B-GGUF`, `ggml-org/OpenJev-GGUF`, `ggml-org/Clef-GGUF`, `ggml-org/Clef-Flash-GGUF`, `bartowski/Qwen2.5-1.5B-Instruct-GGUF` @`9eadc66`.
 - Pydantic AI: `pydantic_ai_slim/pydantic_ai/profiles/typesafe.py` at `7db7a4d`.
+- Real OCR (§6):
+  - page reports from the `sdk_gphone16k_arm64` emulator, 2026-10-17 (`page.json`, `capture.png`, `reply.txt` per page);
+  - the app's MangaOCR ONNX files and vocabulary, pulled read-only from the emulator;
+  - `l0wgear/manga-ocr-2025-onnx` @`e8b27bb` (`config.json`, `generation_config.json`, `preprocessor_config.json`, README);
+  - repo files `pipeline/…/ocr/OcrEngine.kt`, `CropBoundsCalculator.kt`, `TranslationPipeline.kt` and `context/ContextAssembler.kt`, and `app/…/service/ModelManager.kt`.
 - Secondary, used only to find primary pages: Wikipedia "Jev (AI model)", flaviocopes.com/jev and /jev-api-key, and the Requesty and apidog posts. The claim that Cloudflare AI Gateway serves Jev rests on these alone.
 
 ## Appendix A: hand transcription and reference labels
@@ -1741,3 +1902,464 @@ Translate each Japanese line to French. Keep the [id] tag before each line. Pane
 [18] (casual) Vamos, um pouco...!
 ```
 
+## Appendix D: the real emulator OCR
+
+Source: page reports from the `sdk_gphone16k_arm64` emulator, Qwen2.5-1.5B, Japanese → English, fresh runs (`recalled=false`), Photos full-screen with its toolbars hidden. Rows are in prompt order, which is the order of the `[id]` lines in `reply.txt`. OCR ids are detection ids. "Hand" names the Appendix A bubble(s) a read came from. `mean p` and `min p` are the replica decoder's token probabilities (§7). The three bourei reads marked † were read differently by the replica than by the app (both garbled); their probabilities are the replica's.
+
+### balloon-dense-dialogue (real OCR)
+
+| OCR id | OCR text (app) | status | hand | mean p | min p | gate: d1-3B | gate: d1-omni | gate: Julia-1 | gate: Qwen | Qwen's reply (app run) | my verdict on the reply | judge: d1-3B | judge: Qwen |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 10 | こいつ絶対バカだし | exact | [2] こいつ絶対バカだし | 1.000 | 0.996 | 0.72 | 0.16 | 0.00 | no | This guy is definitely dumber than a box of rocks | yes | 0.73 | yes |
+| 9 | むぐっ | exact | [3] むぐっ | 1.000 | 0.999 | 0.58 | 0.22 | 0.00 | no | mu-guu | yes | 0.63 | no |
+| 4 | 大体なんで使い捨てカメラなんだよ! | exact | [6] 大体なんで使い捨てカメラなんだよ! | 1.000 | 0.999 | 0.78 | 0.56 | 0.04 | no | It's probably because he's a disposable camera | no | 0.27 | yes |
+| 14 | よくある | garbled | [7] すご～くよく写るンズ | 0.879 | 0.398 | 0.64 | 0.34 | 0.91 | no | It's common | garbage | 0.93 | yes |
+| 1 | 地球の写真なんてネット上にいくらでも落ちてるだろ | exact | [12] 地球の写真なんてネット上にいくらでも落ちてるだろ | 1.000 | 0.996 | 0.83 | 0.29 | 0.00 | no | Earth's photos are all over the internet, right? | yes | 0.84 | yes |
+| 11 | ったく | exact | [10] ったく | 0.998 | 0.990 | 0.61 | 0.33 | 0.99 | no | What the hell | yes | 0.78 | no |
+| 2 | 確かに原理的には可能かもしれないけどな... | exact | [11] 確かに原理的には可能かもしれないけどな… | 0.999 | 0.983 | 0.90 | 0.31 | 1.00 | no | I think it's possible, but... | yes | 0.81 | yes |
+| 13 | なにあ然としてんの!?ヘリウム入れないと風船は浮かねーよ!! | merged | [4] なにあ然としてんの!?, [5] ヘリウム入れないと風船は浮かねーよ!! | 0.977 | 0.540 | 0.77 | 0.50 | 0.03 | no | What the hell!? You can't float a balloon without helium! | yes | 0.86 | yes |
+| 5 | 宇宙でフィルム巻いてシャッターきる気か!? | exact | [9] 宇宙でフィルム巻いてシャッターきる気か!? | 0.999 | 0.991 | 0.80 | 0.43 | 0.00 | no | Can you even take a film roll and shutter in space?! | yes | 0.75 | yes |
+| 8 | あっ安かったので... | exact | [8] あっ安かったので… | 0.996 | 0.961 | 0.72 | 0.47 | 0.24 | no | Ah, it was too cheap... | yes | 0.70 | yes |
+| 7 | ああ | exact | [14] ああ | 0.990 | 0.970 | 0.75 | 0.27 | 1.00 | no | Ah | yes | 0.96 | yes |
+| 3 | わざわざ自分で撮らなくたって... | exact | [13] わざわざ自分で撮らなくたって… | 1.000 | 0.996 | 0.81 | 0.34 | 1.00 | no | Why would you even take a picture yourself? | yes | 0.78 | yes |
+| 6 | それはですね... | exact | [15] それはですね… | 1.000 | 0.999 | 0.85 | 0.69 | 1.00 | no | That's right... (pause) I'm sorry, I didn't mean to say that. I'm just a little drunk. (laughs) I'm sorry. (pause) I'm sorry. (pause) I'm sorry. (pause) I'm so, | no | 0.49 | yes |
+
+Hand bubbles with no OCR read: [1] ただ空気いれた風船をいくら集めても浮くわけねーだろ!!.
+
+### bourei-p04 (real OCR)
+
+| OCR id | OCR text (app) | status | hand | mean p | min p | gate: d1-3B | gate: d1-omni | gate: Julia-1 | gate: Qwen | Qwen's reply (app run) | my verdict on the reply | judge: d1-3B | judge: Qwen |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 3 | 死んでるんですよねぇ | exact | [1] 死んでるんですよねぇ | 0.988 | 0.868 | 0.70 | 0.33 | 0.00 | yes | "He's dead, you know" | yes | 0.73 | yes |
+| 6 | 前回!!これは!?? | extra | — (art) | 0.398 † | 0.066 | 0.70 | 0.32 | 1.00 | yes | "Last time!! This!!?" | garbage | 0.82 | yes |
+| 5 | 参加者総合社長簿九和のらすまくるるし25歳 | garbled | [7] 烏丸葬儀社社長 烏丸 柩(からすま くるる) 25歳 | 0.738 † | 0.239 | 0.58 | 0.19 | 1.00 | yes | "The general manager of the participants' comprehensive register, Nitori, 25 years old" | garbage | 0.65 | yes |
+| 1 | 「視える」人間ってヤツでして | exact | [2] 「視える」人間ってヤツでして | 0.996 | 0.966 | 0.68 | 0.26 | 0.99 | yes | "People who can be seen are you, right?" | no | 0.66 | yes |
+| 2 | 亡くなったお姉さんのお化粧を? | exact | [5] 亡くなったお姉さんのお化粧を? | 1.000 | 1.000 | 0.77 | 0.66 | 0.40 | yes | "What about my sister who died? Her makeup?" | no | 0.66 | yes |
+| 7 | え? | exact | [4] え? | 0.976 | 0.953 | 0.68 | 0.56 | 0.26 | no | "Eh?" | yes | 0.91 | no |
+| 4 | はい... | exact | [6] はい… | 0.981 | 0.886 | 0.87 | 0.69 | 1.00 | yes | "Yes..." | yes | 0.96 | yes |
+| 8 | ようこそビエ募集屋さん高校いと | garbled | [3] ようこそ亡霊葬儀屋さん 吉良いと | 0.819 † | 0.208 | 0.51 | 0.23 | 1.00 | yes | "Welcome to the recruitment office, high school student" | garbage | 0.81 | yes |
+
+Hand bubbles with no OCR read: [8] 葬儀依頼人 桜野 すずめ 19歳.
+
+### tojime-dense-action (real OCR)
+
+| OCR id | OCR text (app) | status | hand | mean p | min p | gate: d1-3B | gate: d1-omni | gate: Julia-1 | gate: Qwen | Qwen's reply (app run) | my verdict on the reply | judge: d1-3B | judge: Qwen |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 5 | マフィア舐めんのも大概にしやがれ | exact | [1] マフィア舐めんのも大概にしやがれ | 0.996 | 0.947 | 0.60 | 0.20 | 0.00 | no | It's about time the mafia licked my ass. | no | 0.62 | yes |
+| 1 | 腰の銃でイかれた脳みそぶちまけてみるか?あ? | merged | [5] 腰の銃でイかれた脳みそぶちまけてみるか?, [6] あ? | 0.987 | 0.731 | 0.66 | 0.46 | 0.22 | yes | Let's see if you're the one that got my brain between the ribs? | no | 0.50 | yes |
+| 7 | お前もしかして | exact | [11] お前もしかして | 1.000 | 1.000 | 0.60 | 0.31 | 0.08 | no | Are you? | yes | 0.59 | yes |
+| 4 | ちょっとやめてよ!こんなとこで! | exact | [8] ちょっとやめてよ!こんなとこで! | 0.989 | 0.814 | 0.87 | 0.67 | 1.00 | no | Stop it! This is not the place! | yes | 0.94 | yes |
+| 11 | あ、あの... | exact | [7] あ、あの… | 0.999 | 0.992 | 0.76 | 0.57 | 1.00 | no | Ah, that... | yes | 0.88 | yes |
+| 8 | 女か? | exact | [12] 女か? | 0.997 | 0.986 | 0.66 | 0.53 | 0.93 | no | Is it a girl? | yes | 0.90 | yes |
+| 3 | えっはい...そうですけど... | exact | [13] えっはい…そうですけど… | 1.000 | 0.997 | 0.91 | 0.31 | 0.99 | no | Oh, yes... but... | yes | 0.49 | yes |
+| 13 | まお | garbled | [14] ほぉ | 0.783 | 0.641 | 0.72 | 0.26 | 1.00 | no | Momosha | garbage | 0.61 | no |
+| 14 | ここ | extra | — (text-free balloon `……`) | 0.567 | 0.202 | 0.39 | 0.48 | 1.00 | no | Here | garbage | 0.91 | yes |
+| 10 | あっ | exact | [3] あっ | 0.997 | 0.990 | 0.70 | 0.28 | 1.00 | no | Ah | yes | 0.90 | yes |
+| 9 | 面見せてみろ | exact | [15] 面見せてみろ | 1.000 | 0.998 | 0.84 | 0.34 | 1.00 | no | Show me your face | yes | 0.72 | yes |
+| 6 | 閉じ眼が用心棒だ? | exact | [4] 閉じ眼が用心棒だ? | 1.000 | 0.999 | 0.75 | 0.53 | 0.27 | no | Is it that my eyes are the dagger of the mafia? | no | 0.55 | yes |
+| 15 | ん? | exact | [10] ん? | 1.000 | 0.999 | 0.62 | 0.59 | 0.99 | no | Nn? | yes | 0.77 | no |
+| 2 | 閉じ眼でも器量が良けりゃ買い手は... | exact | [17] 閉じ眼でも器量が良けりゃ買い手は… | 1.000 | 0.997 | 0.73 | 0.44 | 0.99 | no | Even if you close your eyes, you have the potential to be bought. | yes | 0.67 | yes |
+| 12 | やっちょっと...! | exact | [18] やっちょっと…! | 0.996 | 0.970 | 0.79 | 0.34 | 1.00 | no | Just a little...! | no | 0.83 | yes |
+
+Hand bubbles with no OCR read: [2] グッ, [9] プラーン, [16] えっ.
+
+### Qwen2.5-1.5B with and without the OCR-confidence gate
+
+Desktop llama.cpp `7182ef7`, CPU, the app's sampler and grammar, seeds 7, 8 and 9. The prompt is the app's own, rebuilt from each page report with a port of `ContextAssembler`'s panel grouping; the port reproduces the `reply.txt` order on all three pages. "Gated" drops the reads whose mean token probability is below 0.95.
+
+**balloon-dense-dialogue: shipped prompt**
+
+```text
+Translate each Japanese line to English. Keep the [id] tag before each line. Panels are separated by ---.
+[10] こいつ絶対バカだし
+[9] むぐっ
+[4] 大体なんで使い捨てカメラなんだよ!
+[14] よくある
+[1] 地球の写真なんてネット上にいくらでも落ちてるだろ
+[11] ったく
+[2] 確かに原理的には可能かもしれないけどな...
+[13] なにあ然としてんの!?ヘリウム入れないと風船は浮かねーよ!!
+[5] 宇宙でフィルム巻いてシャッターきる気か!?
+[8] あっ安かったので...
+[7] ああ
+[3] わざわざ自分で撮らなくたって...
+[6] それはですね...
+```
+
+**balloon-dense-dialogue: gated prompt** (drops [14])
+
+```text
+Translate each Japanese line to English. Keep the [id] tag before each line. Panels are separated by ---.
+[10] こいつ絶対バカだし
+[9] むぐっ
+[4] 大体なんで使い捨てカメラなんだよ!
+[1] 地球の写真なんてネット上にいくらでも落ちてるだろ
+[11] ったく
+[2] 確かに原理的には可能かもしれないけどな...
+[13] なにあ然としてんの!?ヘリウム入れないと風船は浮かねーよ!!
+[5] 宇宙でフィルム巻いてシャッターきる気か!?
+[8] あっ安かったので...
+[7] ああ
+[3] わざわざ自分で撮らなくたって...
+[6] それはですね...
+```
+
+**balloon-dense-dialogue, shipped, seed 7** (5349 ms, 229 prompt / 195 reply tokens)
+
+```text
+[10] This guy is definitely dumber than dirt
+[9] muuuu
+[4] It's probably because it's a disposable camera
+[14] It's common
+[1] Earth's photos are all over the internet, right?
+[11] What the hell
+[2] I guess it's theoretically possible, but...
+[13] What the hell! Without helium, a balloon won't float!
+[5] Can you film in space with film rolls?!
+[8] It was cheap, so...
+[7] Aaah
+[3] Why would you even take a picture yourself?
+[6] That's right... (pause) ...I guess? (pause) ...I'm sorry? (pause) ...I'm sorry? (pause) ...I'm sorry? (pause) ...I'm sorry? (pause) ...I'm sorry? (pause) ...I'm
+```
+
+**balloon-dense-dialogue, shipped, seed 8** (5043 ms, 229 prompt / 184 reply tokens)
+
+```text
+[10] This guy is definitely a dolt
+[9] mu-gg
+[4] It's probably because it's a disposable camera
+[14] It's common
+[1] Earth's photos are all over the internet, right?
+[11] F*ck off
+[2] I guess it's theoretically possible, but...
+[13] What the hell! Without helium, a balloon won't float!
+[5] Is it possible to shoot film in space?!
+[8] I was just being cheap
+[7] Aaah
+[3] Why would you even take a picture yourself?
+[6] That's right... (pause) ...I was just being cheap. (pause) ...I was just being cheap. (pause) ...I was just being cheap. (pause) ...I was just being cheap. (pa
+```
+
+**balloon-dense-dialogue, shipped, seed 9** (5153 ms, 229 prompt / 195 reply tokens)
+
+```text
+[10] This guy is definitely dumber than dirt.
+[9] Mugu
+[4] It's just a disposable camera, basically.
+[14] It's common.
+[1] Earth's photos are all over the internet, right?
+[11] What the heck.
+[2] Indeed, theoretically it's possible, but...
+[13] What the hell! Without helium, the balloon won't float!
+[5] Is there any chance of actually taking a film roll and pressing the shutter in space?
+[8] It was cheap, so...
+[7] Aaah
+[3] Why would you even take a picture yourself?
+[6] That's right... (pause) ... (end of scene) (cut to credits) (fade to black) (end of scene) (fade to black) (end of scene) (fade to black) (end of scene) (fade) 
+```
+
+**balloon-dense-dialogue, gated, seed 7** (4582 ms, 220 prompt / 181 reply tokens)
+
+```text
+[10] This guy is definitely dumber than dirt
+[9] Mugu
+[4] It's probably because it's a disposable camera
+[1] Earth's photos are all over the internet, right?
+[11] F*ck off
+[2] Indeed, theoretically, it's possible, but...
+[13] What the hell! Without helium, the balloon won't float!
+[5] Have you ever thought of taking a roll of film and pressing the shutter in space?!
+[8] Oh, I was just being cheap
+[7] Ah
+[3] Why would you even take a picture yourself?
+[6] That's right... (pause) I was being cheap. I didn't want to use a disposable camera. I wanted to take a real photo. I wanted to take a real photo of the Earth. 
+```
+
+**balloon-dense-dialogue, gated, seed 8** (4782 ms, 220 prompt / 183 reply tokens)
+
+```text
+[10] He's definitely a dummy
+[9] muuuu
+[4] It's basically disposable cameras for me!
+[1] Earth's photos are all over the internet, right?
+[11] F*ck off
+[2] Indeed, theoretically it's possible, but...
+[13] What the hell!? Without helium, balloons won't float!
+[5] Do you have the guts to film in space?!
+[8] Ah, it was cheap...
+[7] Ah
+[3] Why would you take it yourself if you could just buy it?
+[6] That's right... (pause) ... (end of line) (pause) ... (end of line) (pause) ... (end of line) (pause) ... (end of line) (pause) ... (end of line) (pause) ... (n
+```
+
+**balloon-dense-dialogue, gated, seed 9** (4607 ms, 220 prompt / 187 reply tokens)
+
+```text
+[10] He's definitely a dolt
+[9] muuuu
+[4] It's just a disposable camera, anyway!
+[1] Earth's photos are all over the internet, right?
+[11] Darn
+[2] Indeed, theoretically it's possible, but...
+[13] What the hell! Without helium, balloons won't float!
+[5] Can you shoot with film in space?!
+[8] Ah, it was cheap...
+[7] Ah
+[3] Why would you take it yourself if you don't have to?
+[6] That's right... (pause) ... (end) (laughs) (pause) (end) (laughs) (pause) (end) (laughs) (pause) (end) (laughs) (pause) (end) (laughs) (pause) (end) (laughs) (1
+```
+
+**bourei-p04: shipped prompt**
+
+```text
+Translate each Japanese line to English. Keep the [id] tag before each line. Panels are separated by ---.
+[3] 死んでるんですよねぇ
+[6] 前回!!これは!??
+[5] 参加者総合社長簿九和のらすまくるるし25歳
+---
+[1] 「視える」人間ってヤツでして
+[2] 亡くなったお姉さんのお化粧を?
+[7] え?
+[4] はい...
+---
+[8] ようこそビエ募集屋さん高校いと
+```
+
+**bourei-p04: gated prompt** (drops [6], [5], [8])
+
+```text
+Translate each Japanese line to English. Keep the [id] tag before each line. Panels are separated by ---.
+[3] 死んでるんですよねぇ
+---
+[1] 「視える」人間ってヤツでして
+[2] 亡くなったお姉さんのお化粧を?
+[7] え?
+[4] はい...
+```
+
+**bourei-p04, shipped, seed 7** (3212 ms, 161 prompt / 126 reply tokens)
+
+```text
+[3] "He's dead, you know."
+[6] "Last time!! This!!?"
+[5] The General Manager of the Participant's Comprehensive Social Club, Nishimura, is 25 years old.
+[1] "Visible" people, you know.
+[2] The makeup of the deceased aunt?
+[7] ?
+[4] Yes...
+[8] Welcome to the recruitment office, high school student. (The line is incomplete and seems to be a joke or a typo) "ビエ" is likely a misspelling of "ビール" (beer) -
+```
+
+**bourei-p04, shipped, seed 8** (2595 ms, 161 prompt / 103 reply tokens)
+
+```text
+[3] "He's dead, you know."
+[6] "Last time!! This!!?"
+[5] "The General Manager of the Participant's Comprehensive Social Club, Kusukusu, 25 years old."
+[1] "The visible person, you know."
+[2] "What about the makeup of the late aunt?"
+[7] "Eh?"
+[4] "Yes..."
+[8] "Welcome to the recruitment office of the Bi-e High School."
+```
+
+**bourei-p04, shipped, seed 9** (3413 ms, 161 prompt / 122 reply tokens)
+
+```text
+[3] "You're dead, aren't you?"
+[6] "Last time!! This!!?"
+[5] Chairman of the Participants' Comprehensive Social Secretary, Ninoshima, 25 years old
+[1] "Visible" people are you, aren't you?
+[2] The makeup of the deceased aunt?
+[7] ?
+[4] Yes...
+[8] Welcome to the recruitment office, high school student. (Ninoshima, 25 years old) - This is a translation of the Japanese text, but the exact meaning and tone, 
+```
+
+**bourei-p04, gated, seed 7** (3457 ms, 107 prompt / 138 reply tokens)
+
+```text
+[3] You're dead, aren't you?
+[1] "Visible" people are you, aren't they?
+[2] What about your sister's makeup after she died?
+[7] E?
+[4] Yes... (pause) -_-; (sigh) -_-; (sigh) -_-; (sigh) -_-; (sigh) -_-; (sigh) -_-; (sigh) -_-; (sigh) -_-; (sigh) -_-; (sigh) -_-; (sigh) -_-; (sigh) -_-; (sigh) -
+```
+
+**bourei-p04, gated, seed 8** (3356 ms, 107 prompt / 135 reply tokens)
+
+```text
+[3] You're dead, aren't you?
+[1] "Visible" people are you, aren't they?
+[2] What about your sister's makeup?
+[7] E?
+[4] Yes... (pause) -_-; (sigh) -_-; (sigh) -_-; (sigh) -_-; (sigh) -_-; (sigh) -_-; (sigh) -_-; (sigh) -_-; (sigh) -_-; (sigh) -_-; (sigh) -_-; (sigh) -_-; (sigh) -
+```
+
+**bourei-p04, gated, seed 9** (2431 ms, 107 prompt / 82 reply tokens)
+
+```text
+[3] You're dead, aren't you?
+[1] "Visible" people are you, aren't they?
+[2] What about your sister's makeup?
+[7] E?
+[4] Yes... (pause) ... (end) - This indicates a dramatic or serious situation, possibly involving a death or a serious event. The speaker seems to be in a state of愕
+```
+
+**tojime-dense-action: shipped prompt**
+
+```text
+Translate each Japanese line to English. Keep the [id] tag before each line. Panels are separated by ---.
+[5] マフィア舐めんのも大概にしやがれ
+[1] 腰の銃でイかれた脳みそぶちまけてみるか?あ?
+[7] お前もしかして
+[4] ちょっとやめてよ!こんなとこで!
+[11] あ、あの...
+[8] 女か?
+[3] えっはい...そうですけど...
+[13] まお
+---
+[14] ここ
+[10] あっ
+[9] 面見せてみろ
+---
+[6] 閉じ眼が用心棒だ?
+[15] ん?
+[2] 閉じ眼でも器量が良けりゃ買い手は...
+[12] やっちょっと...!
+```
+
+**tojime-dense-action: gated prompt** (drops [13], [14])
+
+```text
+Translate each Japanese line to English. Keep the [id] tag before each line. Panels are separated by ---.
+[5] マフィア舐めんのも大概にしやがれ
+[1] 腰の銃でイかれた脳みそぶちまけてみるか?あ?
+[7] お前もしかして
+[4] ちょっとやめてよ!こんなとこで!
+[11] あ、あの...
+[8] 女か?
+[3] えっはい...そうですけど...
+---
+[10] あっ
+[9] 面見せてみろ
+---
+[6] 閉じ眼が用心棒だ?
+[15] ん?
+[2] 閉じ眼でも器量が良けりゃ買い手は...
+[12] やっちょっと...!
+```
+
+**tojime-dense-action, shipped, seed 7** (5391 ms, 234 prompt / 201 reply tokens)
+
+```text
+[5] Mafia licking my ass is about as likely as it getting me off.
+[1] I'm going to see if you're willing to watch me shoot your brain out with a gun to your waist? Are you?
+[7] Are you, too?
+[4] Stop it! You're not in this kind of situation!
+[11] Ah, that...
+[8] Is it a girl?
+[3] Oh, yeah... but...
+[13] Maou
+[14] Here
+[10] Ah
+[9] Show me your face
+[6] Are you trying to be a vigilante with your closed eyes?
+[15] Nn?
+[2] Even with your eyes closed, you have enough brains to buy me.
+[12] Just a little...! ](This is a translation of the Japanese text provided. The content is a series of statements and questions in Japanese, and the English text I
+```
+
+**tojime-dense-action, shipped, seed 8** (4029 ms, 234 prompt / 158 reply tokens)
+
+```text
+[5] Mafia sucking my cock is about as common as it gets.
+[1] Are you going to watch me rip out your brain and shoot it?!
+[7] Are you, too?
+[4] Stop it! This is not the place!
+[11] Ah, that...
+[8] Is it a girl?
+[3] Uh... yes, but...
+[13] Maou
+[14] Here
+[10] Ah
+[9] Show me your face
+[6] Are you so blind that you can't even see the dagger in my eye?
+[15] Nn?
+[2] Closed eyes don't make you any smarter, do they?
+[12] Just a little...!
+```
+
+**tojime-dense-action, shipped, seed 9** (4006 ms, 234 prompt / 154 reply tokens)
+
+```text
+[5] Mafia sucking my cock is about as likely as it getting wet.
+[1] Are you going to see my brain if I shoot you with a gun to the waist?!
+[7] Are you... maybe?
+[4] Stop it! This is not the place!
+[11] Ah, that...
+[8] Is it a girl?
+[3] Oh, yeah... but...
+[13] Ma~o
+[14] Here
+[10] Ah
+[9] Show me your face
+[6] Are you blind?!
+[15] Nn?!
+[2] Closed eyes can be good even if they're not good.
+[12] Just a little...!
+```
+
+**tojime-dense-action, gated, seed 7** (3654 ms, 219 prompt / 131 reply tokens)
+
+```text
+[5] I'm not going to lick the mafia's ass.
+[1] Are you going to see the brain in your waist-shot?
+[7] Are you, maybe?
+[4] Stop it! This is too far!
+[11] Ah, that...
+[8] Is it a girl?
+[3] Oh, yeah... but...
+[10] Ah...
+[9] Show me your face.
+[6] Are you the eyes that protect yourself?
+[15] What?
+[2] Even if you close your eyes, you have talent.
+[12] Just a little...! ```ascii
+```
+
+**tojime-dense-action, gated, seed 8** (4917 ms, 219 prompt / 204 reply tokens)
+
+```text
+[5] I'm not going to eat the mafia's cock.
+[1] Are you going to see if I'm still alive with a gun to my neck? Are you?
+[7] Are you too?
+[4] Stop it! This is not the place!
+[11] Ah, that...
+[8] Is it a girl?
+[3] Uh... Yes, but...
+[10] Ah...
+[9] Show me your face.
+[6] Are you a spy with your eyes closed?
+[15] What?
+[2] With your eyes closed, you can still be a good buyer.
+[12] Let's just do it...! (pause)! (pause)! (pause)! (pause)! (pause)! (pause)! (pause)! (pause)! (pause)! (pause)! (pause)! (pause)! (pause)! (pause)! (pause)! (end
+```
+
+**tojime-dense-action, gated, seed 9** (3766 ms, 219 prompt / 139 reply tokens)
+
+```text
+[5] I'm not going to lick the mafia's anus.
+[1] Are you going to see if I'm still alive with a gun to the back of my head?!
+[7] Are you, too?
+[4] Stop it! This is not the place!
+[11] Ah, that's it...
+[8] Is it a girl?
+[3] Oh, yeah... but...
+[10] Ah...
+[9] Show me your face!
+[6] Are you blind?!
+[15] What?
+[2] Even if you close your eyes, you have talent!
+[12] Just a little...!
+```
