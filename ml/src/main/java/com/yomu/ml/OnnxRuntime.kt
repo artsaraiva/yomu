@@ -180,13 +180,13 @@ class OnnxRuntime(private val context: Context) {
         val env = ortEnv ?: return emptyList()
 
         return try {
-            val inputSize = 1280
-            val resized = Bitmap.createScaledBitmap(bitmap, inputSize, inputSize, true)
-            val pixels = IntArray(inputSize * inputSize)
-            resized.getPixels(pixels, 0, inputSize, 0, 0, inputSize, inputSize)
-            val floatArray = bitmapPixelsToCHW(pixels, inputSize, inputSize)
+            val box = Letterbox(bitmap.width, bitmap.height, inputSize = 1280)
+            val resized = Bitmap.createScaledBitmap(bitmap, box.scaledWidth, box.scaledHeight, true)
+            val pixels = IntArray(box.inputWidth * box.inputHeight) { Letterbox.PAD_COLOR }
+            resized.getPixels(pixels, 0, box.inputWidth, 0, 0, box.scaledWidth, box.scaledHeight)
+            val floatArray = bitmapPixelsToCHW(pixels, box.inputWidth, box.inputHeight)
 
-            val shape = longArrayOf(1, 3, inputSize.toLong(), inputSize.toLong())
+            val shape = longArrayOf(1, 3, box.inputHeight.toLong(), box.inputWidth.toLong())
             val inputTensor = OnnxTensor.createTensor(env, FloatBuffer.wrap(floatArray), shape)
             try {
                 val inputName = session.getInputNames().first()
@@ -215,7 +215,7 @@ class OnnxRuntime(private val context: Context) {
                             if (detections.isEmpty()) {
                                 Log.d(TAG, "YOLO inference produced zero detections above threshold")
                             }
-                            detections
+                            detections.map { it.copy(bbox = box.toSource(it.bbox)) }
                         }
                     } else {
                         Log.e(TAG, "YOLO output tensor was null for model $modelName")

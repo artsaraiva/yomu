@@ -46,9 +46,6 @@ class BubbleDetector(private val onnxRuntime: OnnxRuntime) {
         if (!isLoaded) return emptyList()
         val path = modelPath ?: return emptyList()
 
-        val origWidth = bitmap.width
-        val origHeight = bitmap.height
-
         val rawDetections = onnxRuntime.runBitmapInference(path, bitmap, confidenceThreshold)
         val detections = keptDetections(rawDetections, confidenceThreshold)
         Log.d(
@@ -64,11 +61,7 @@ class BubbleDetector(private val onnxRuntime: OnnxRuntime) {
 
         return detections
             .mapIndexed { index, detection ->
-                val x1 = detection.bbox[0] / 1280f * origWidth
-                val y1 = detection.bbox[1] / 1280f * origHeight
-                val x2 = detection.bbox[2] / 1280f * origWidth
-                val y2 = detection.bbox[3] / 1280f * origHeight
-
+                val (x1, y1, x2, y2) = detection.bbox
                 Bubble(
                     id = index + 1,
                     boundingBox = RectF(x1, y1, x2, y2),
