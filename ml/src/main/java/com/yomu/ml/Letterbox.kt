@@ -3,12 +3,12 @@ package com.yomu.ml
 import kotlin.math.roundToInt
 
 /**
- * Fits a page into the detector input the way YOLO was trained: long side scaled to [inputSize],
- * aspect kept, short side padded up to the model stride. Stretching a 1280×2856 screen into a
- * 1280×1280 square squashed text 2.2× and hid whole bubbles from the model (#369).
+ * YOLO was trained on aspect-kept, padded pages. Stretching a 1280×2856 screen into a 1280×1280
+ * square squashed text 2.2× and hid whole bubbles from the model (#369). The padding sits at the
+ * bottom and right, so [toSource] needs no offset.
  */
 internal class Letterbox(width: Int, height: Int, inputSize: Int) {
-    val scale = inputSize.toFloat() / maxOf(width, height)
+    private val scale = inputSize.toFloat() / maxOf(width, height)
     val scaledWidth = (width * scale).roundToInt()
     val scaledHeight = (height * scale).roundToInt()
     val inputWidth = roundUpToStride(scaledWidth)

@@ -19,6 +19,7 @@ class OnnxRuntime(private val context: Context) {
 
     companion object {
         private const val TAG = "OnnxRuntime"
+        private const val YOLO_INPUT_SIZE = 1280
         private const val YOLO_FIELDS_PER_DETECTION = 6
         private const val YOLO_EXPECTED_DETECTIONS = 300
         private const val YOLO_EXPECTED_OUTPUT_SIZE = YOLO_EXPECTED_DETECTIONS * YOLO_FIELDS_PER_DETECTION
@@ -180,13 +181,13 @@ class OnnxRuntime(private val context: Context) {
         val env = ortEnv ?: return emptyList()
 
         return try {
-            val box = Letterbox(bitmap.width, bitmap.height, inputSize = 1280)
-            val resized = Bitmap.createScaledBitmap(bitmap, box.scaledWidth, box.scaledHeight, true)
-            val pixels = IntArray(box.inputWidth * box.inputHeight) { Letterbox.PAD_COLOR }
-            resized.getPixels(pixels, 0, box.inputWidth, 0, 0, box.scaledWidth, box.scaledHeight)
-            val floatArray = bitmapPixelsToCHW(pixels, box.inputWidth, box.inputHeight)
+            val letterbox = Letterbox(bitmap.width, bitmap.height, YOLO_INPUT_SIZE)
+            val resized = Bitmap.createScaledBitmap(bitmap, letterbox.scaledWidth, letterbox.scaledHeight, true)
+            val pixels = IntArray(letterbox.inputWidth * letterbox.inputHeight) { Letterbox.PAD_COLOR }
+            resized.getPixels(pixels, 0, letterbox.inputWidth, 0, 0, letterbox.scaledWidth, letterbox.scaledHeight)
+            val floatArray = bitmapPixelsToCHW(pixels, letterbox.inputWidth, letterbox.inputHeight)
 
-            val shape = longArrayOf(1, 3, box.inputHeight.toLong(), box.inputWidth.toLong())
+            val shape = longArrayOf(1, 3, letterbox.inputHeight.toLong(), letterbox.inputWidth.toLong())
             val inputTensor = OnnxTensor.createTensor(env, FloatBuffer.wrap(floatArray), shape)
             try {
                 val inputName = session.getInputNames().first()
@@ -215,7 +216,7 @@ class OnnxRuntime(private val context: Context) {
                             if (detections.isEmpty()) {
                                 Log.d(TAG, "YOLO inference produced zero detections above threshold")
                             }
-                            detections.map { it.copy(bbox = box.toSource(it.bbox)) }
+                            detections.map { it.copy(bbox = letterbox.toSource(it.bbox)) }
                         }
                     } else {
                         Log.e(TAG, "YOLO output tensor was null for model $modelName")
