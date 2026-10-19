@@ -97,17 +97,28 @@ internal fun nonMaxSuppressDetections(
     val sorted = detections.sortedByDescending { it.confidence }
     val kept = mutableListOf<OnnxRuntime.Detection>()
 
-    for (candidate in sorted) {
-        // Boxes are visited highest-confidence first, so a suppressed candidate always loses to a
-        // box we already trust more. IoU catches near-equal boxes; the containment checks catch the
-        // #88 case where one box nearly sits inside the other (either direction) but IoU stays low.
-        val redundant = kept.any { keptDetection ->
+    fun redundant(candidate: OnnxRuntime.Detection, others: List<OnnxRuntime.Detection>) =
+        others.any { keptDetection ->
             detectionIou(candidate, keptDetection) > iouThreshold ||
                 detectionContainedFraction(candidate, keptDetection) >= containmentThreshold ||
                 detectionContainedFraction(keptDetection, candidate) >= containmentThreshold
         }
-        if (!redundant) {
+
+    for (candidate in sorted) {
+        // Boxes are visited highest-confidence first, so a suppressed candidate always loses to a
+        // box we already trust more. IoU catches near-equal boxes; the containment checks catch the
+        // #88 case where one box nearly sits inside the other (either direction) but IoU stays low.
+        if (!redundant(candidate, kept)) {
             kept.add(candidate)
+        }
+    }
+
+    for (candidate in sorted.filterNot { it in kept }) {
+        val swallowed = kept.singleOrNull {
+            detectionContainedFraction(it, candidate) >= containmentThreshold
+        } ?: continue
+        if (!redundant(candidate, kept - swallowed)) {
+            kept[kept.indexOf(swallowed)] = candidate
         }
     }
 
