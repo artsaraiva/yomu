@@ -70,6 +70,21 @@ class BubbleDetectorNmsTest {
     }
 
     @Test
+    fun nonMaxSuppressDetections_keepsSeparateBubblesOverTheBoxMergingThem() {
+        val upper = detection(0.6f, floatArrayOf(0f, 0f, 100f, 100f))
+        val lower = detection(0.2f, floatArrayOf(0f, 150f, 100f, 250f))
+        val merged = detection(0.3f, floatArrayOf(0f, 0f, 100f, 250f))
+
+        val kept = nonMaxSuppressDetections(
+            detections = listOf(upper, merged, lower),
+            iouThreshold = 0.80f,
+            containmentThreshold = 0.90f
+        )
+
+        assertEquals(listOf(upper, lower), kept)
+    }
+
+    @Test
     fun nonMaxSuppressDetections_keepsNestedBoxWhenContainmentDisabled() {
         // Default threshold disables containment, leaving the prior IoU-only behaviour intact.
         val big = detection(0.9f, floatArrayOf(0f, 0f, 200f, 200f))
