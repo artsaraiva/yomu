@@ -79,9 +79,9 @@ class ModelManager @Inject constructor(
                 name = "MangaOCR (Encoder + Decoder)",
                 type = ModelType.OCR,
                 fileName = Constants.OCR_ENCODER_MODEL,
-                fileSize = 140_410_339L,
-                downloadUrl = "https://huggingface.co/l0wgear/manga-ocr-2025-onnx/resolve/e8b27bbd3f424fe3877e0bda704d6a920e4f0a33/encoder_model.onnx",
-                checksum = "f87668ae0f62d6f032dac6b213e8c0fea84cd15895ac8cab624cc9a2f49d4a27",
+                fileSize = 22_279_960L,
+                downloadUrl = "https://huggingface.co/artsaraiva/manga-ocr-2025-onnx-past/resolve/151898756903f03a2682fa6be4507dfeff71fb7e/encoder_model.onnx",
+                checksum = "2398ca8799bcc30a6240f2f309b3f9a1b697b5192afa9231338d2f69c3f866ef",
                 status = ModelStatus.AVAILABLE,
                 version = "1.0",
                 isRequired = true
@@ -348,14 +348,14 @@ class ModelManager @Inject constructor(
             Constants.MANGA_OCR_MODEL_ID -> listOf(
                 AdditionalFile(
                     fileName = Constants.OCR_DECODER_MODEL,
-                    url = "https://huggingface.co/l0wgear/manga-ocr-2025-onnx/resolve/e8b27bbd3f424fe3877e0bda704d6a920e4f0a33/decoder_model.onnx",
-                    checksum = "6b1fb216d542c4b2a4fa5b9d7ae3522081eb85fb959d2cecd28055af956a8a5e",
-                    size = 118_053_454L
+                    url = "https://huggingface.co/artsaraiva/manga-ocr-2025-onnx-past/resolve/151898756903f03a2682fa6be4507dfeff71fb7e/decoder_model_merged.onnx",
+                    checksum = "ac0ac6f48fa89bbfff1ab8d53ffcaa76839a72b145fe20a70923dc59b0b9349e",
+                    size = 118_131_111L
                 ),
                 AdditionalFile(
                     fileName = Constants.OCR_VOCAB_FILE,
-                    url = "https://huggingface.co/l0wgear/manga-ocr-2025-onnx/resolve/e8b27bbd3f424fe3877e0bda704d6a920e4f0a33/vocab.txt",
-                    checksum = "",
+                    url = "https://huggingface.co/artsaraiva/manga-ocr-2025-onnx-past/resolve/151898756903f03a2682fa6be4507dfeff71fb7e/vocab.txt",
+                    checksum = "344fbb6b8bf18c57839e924e2c9365434697e0227fac00b88bb4899b78aa594d",
                     size = 24_072L
                 )
             )
@@ -379,6 +379,12 @@ class ModelManager @Inject constructor(
                 // being selected and translates nothing in silence (#308).
                 val lostItsFiles = existing.status == ModelStatus.READY &&
                     modelFiles(model).any { !it.exists() }
+                // A model's files share one pinned revision, so a new pin changes the main file's URL.
+                // The files on disk are the old pin's and must not be mixed with the new ones (#393).
+                val repinned = existing.status == ModelStatus.READY &&
+                    (existing.downloadUrl != model.downloadUrl || existing.checksum != model.checksum)
+                if (repinned) deleteFiles(modelFiles(model))
+                val outdated = lostItsFiles || repinned
                 modelDao.insertModel(
                     existing.copy(
                         name = model.name,
@@ -389,8 +395,8 @@ class ModelManager @Inject constructor(
                         checksum = model.checksum,
                         version = model.version,
                         isRequired = model.isRequired,
-                        status = if (lostItsFiles) ModelStatus.AVAILABLE else existing.status,
-                        downloadProgress = if (lostItsFiles) 0 else existing.downloadProgress
+                        status = if (outdated) ModelStatus.AVAILABLE else existing.status,
+                        downloadProgress = if (outdated) 0 else existing.downloadProgress
                     )
                 )
             }

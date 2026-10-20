@@ -12,6 +12,7 @@ import kotlinx.coroutines.test.runTest
 import okhttp3.OkHttpClient
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -85,6 +86,24 @@ class ModelManagerRefreshTest {
         ModelManager(context, dao, OkHttpClient()).refreshModelList()
 
         assertEquals(ModelStatus.READY, dao.rows.value.getValue(llm.id).status)
+    }
+
+    @Test
+    fun `refresh deletes the files of a READY row the registry repinned and returns it to AVAILABLE`() = runTest {
+        val filesDir = tmp.newFolder()
+        val context = mock(Context::class.java)
+        `when`(context.filesDir).thenReturn(filesDir)
+        val dao = FakeModelDao()
+        val ocr = ModelManager.REGISTRY.single { it.id == Constants.MANGA_OCR_MODEL_ID }
+        dao.insertModel(ocr.copy(checksum = "the-previous-pin", status = ModelStatus.READY, downloadProgress = 100))
+        val manager = ModelManager(context, dao, OkHttpClient())
+        val oldFiles = manager.modelFiles(ocr).onEach { it.parentFile?.mkdirs(); it.writeText("old weights") }
+
+        manager.refreshModelList()
+
+        assertTrue(oldFiles.none { it.exists() })
+        assertEquals(ModelStatus.AVAILABLE, dao.rows.value.getValue(ocr.id).status)
+        assertEquals(ocr.checksum, dao.rows.value.getValue(ocr.id).checksum)
     }
 
     @Test

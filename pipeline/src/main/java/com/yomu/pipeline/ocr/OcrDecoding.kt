@@ -32,17 +32,27 @@ internal fun decodeTokens(tokenIds: List<Int>, vocab: Map<Int, String>): String 
     return builder.toString().trim()
 }
 
-internal fun decodeGreedy(stopTokenId: Int, nextToken: (LongArray) -> TokenChoice?): GreedyDecode {
-    val inputIds = mutableListOf(DECODER_START_TOKEN_ID)
+/** One decoder step: its [TokenChoice] and the key/value state it hands the next step, by past input name. */
+internal class DecoderStep<T>(val choice: TokenChoice, val state: Map<String, T>)
+
+/**
+ * Greedy decode from [DECODER_START_TOKEN_ID], one token per [step]. Each step gets the previous steps'
+ * state, the latest value per name: a step leaves out state it did not recompute, like the cache branch's
+ * empty cross-attention presents, and the first step's stays in use (#393).
+ */
+internal fun <T> decodeGreedy(stopTokenId: Int, step: (token: Long, past: Map<String, T>) -> DecoderStep<T>?): GreedyDecode {
+    var token = DECODER_START_TOKEN_ID
+    var past = emptyMap<String, T>()
     val generatedIds = mutableListOf<Int>()
     val probabilities = mutableListOf<Float>()
     fun decoded() = GreedyDecode(generatedIds, if (probabilities.isEmpty()) 0f else probabilities.average().toFloat())
     repeat(MAX_LENGTH) {
-        val choice = nextToken(inputIds.toLongArray()) ?: return decoded()
-        probabilities.add(choice.probability)
-        if (choice.id == stopTokenId) return decoded()
-        generatedIds.add(choice.id)
-        inputIds.add(choice.id.toLong())
+        val next = step(token, past) ?: return decoded()
+        probabilities.add(next.choice.probability)
+        if (next.choice.id == stopTokenId) return decoded()
+        generatedIds.add(next.choice.id)
+        token = next.choice.id.toLong()
+        past = past + next.state
     }
     return decoded()
 }
