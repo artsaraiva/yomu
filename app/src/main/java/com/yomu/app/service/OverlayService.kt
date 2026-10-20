@@ -9,6 +9,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.res.Configuration
+import android.graphics.RectF
 import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.IBinder
@@ -390,7 +391,7 @@ class OverlayService : Service() {
             // A page that ends without a result must not leave the one before it to be reported.
             lastPage = null
 
-            val ignored = withContext(Dispatchers.Main) { recallIgnoredRegions(bitmap.width) }
+            val ignored = withContext(Dispatchers.Main) { ignoredRegions(bitmap.width) }
             val fingerprintStart = System.currentTimeMillis()
             val fingerprint = PageFingerprint.of(bitmap, ignored)
             val settings = pageSettings()
@@ -430,7 +431,7 @@ class OverlayService : Service() {
 
             val ocrStates = mutableListOf<OverlayBubbleState>()
 
-            val onOcrComplete: (Int, String, android.graphics.RectF) -> Unit = { bubbleId, ocrText, bounds ->
+            val onOcrComplete: (Int, String, RectF) -> Unit = { bubbleId, ocrText, bounds ->
                 val state = OverlayBubbleState(
                     bubbleId = bubbleId,
                     bounds = OverlayBounds(bounds.left, bounds.top, bounds.right, bounds.bottom),
@@ -453,7 +454,8 @@ class OverlayService : Service() {
                     mainScope.launch {
                         if (job.isActive) translationRenderOverlay.showTypesetBubble(bubble)
                     }
-                }
+                },
+                ignoredRegions = ignored.map { RectF(it.left, it.top, it.right, it.bottom) }
             )
             if (result != null) lastPage = PageRecord(bitmap, result, settings, recalled = false)
             val failure = result?.translationResult?.readerFailure()
@@ -509,10 +511,10 @@ class OverlayService : Service() {
     }
 
     /**
-     * What differs between two captures of one page: the status bar clock, the status line under it
-     * and the floating button, which may have moved. Read on the main thread once the capture is in.
+     * The status bar, the status line under it and the floating button: they differ between two
+     * captures of one page, and no bubble there is the reader's. Read on the main thread once the capture is in.
      */
-    private fun recallIgnoredRegions(pageWidth: Int): List<OverlayBounds> = listOfNotNull(
+    private fun ignoredRegions(pageWidth: Int): List<OverlayBounds> = listOfNotNull(
         OverlayBounds(0f, 0f, pageWidth.toFloat(), statusBarHeight().toFloat()),
         statusOverlay.boundsOnScreen(),
         floatingButton?.boundsOnScreen()

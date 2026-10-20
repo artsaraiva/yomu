@@ -89,7 +89,7 @@ class TranslationEngineTest {
     fun untranslatedNotice_isNullWhenEveryBubbleWasAnswered() = runTest {
         val slot = FakeTranslationSlot(PageTranslation(mapOf(1 to "Hello"), "", 1L))
 
-        val result = TranslationEngine { slot }.translate(listOf(block(1 to "こんにちは", 2 to "!?")))
+        val result = TranslationEngine { slot }.translate(listOf(block(1 to "こんにちは")))
 
         assertNull(result.untranslatedNotice())
     }
@@ -156,9 +156,9 @@ class TranslationEngineTest {
         val forwarded = mutableListOf<TranslatedBubble>()
 
         TranslationEngine { slot }
-            .translate(listOf(block(1 to "こんにちは", 2 to "?", 3 to "またね", 4 to "さようなら"))) { forwarded += it }
+            .translate(listOf(block(1 to "こんにちは", 3 to "またね", 4 to "さようなら"))) { forwarded += it }
 
-        assertEquals(listOf(3, 1, 2), forwarded.map { it.bubbleId })
+        assertEquals(listOf(3, 1), forwarded.map { it.bubbleId })
     }
 
     /** Verifies the final answered set equals the listener output even when a streamed answer is absent from the reply map. */
@@ -248,28 +248,6 @@ class TranslationEngineTest {
 
         assertTrue(result.translations.isEmpty())
         assertTrue(slot.pages.isEmpty())
-    }
-
-    @Test
-    fun translate_keepsPunctuationOnlyBubblesWithoutAskingTheSlot() = runTest {
-        val slot = FakeTranslationSlot(PageTranslation(mapOf(1 to "Hello"), "", 1L))
-
-        val result = TranslationEngine { slot }
-            .translate(listOf(block(1 to "こんにちは", 2 to "?", 3 to "……")))
-
-        assertEquals(listOf(listOf(1 to "こんにちは")), slot.pagePairs())
-        assertEquals(listOf("Hello", "?", "……"), result.translations.map { it.translatedText })
-        assertEquals(listOf(true, true, true), result.translations.map { it.answered })
-    }
-
-    @Test
-    fun translate_punctuationOnlyPageDoesNotCallTheSlot() = runTest {
-        val slot = FakeTranslationSlot(PageTranslation(emptyMap(), "", 1L))
-
-        val result = TranslationEngine { slot }.translate(listOf(block(1 to "?")))
-
-        assertTrue(slot.pages.isEmpty())
-        assertEquals(listOf("?"), result.translations.map { it.translatedText })
     }
 
     @Test

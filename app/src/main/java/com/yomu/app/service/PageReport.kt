@@ -42,7 +42,8 @@ private val gson = GsonBuilder().serializeNulls().disableHtmlEscaping().setPrett
 
 /**
  * The files of a page report by name, in zip order: the capture, the page as JSON and the model's raw
- * reply. Every detected bubble is listed, so one OCR never read shows up as a detection with no text.
+ * reply. Every detected bubble is listed, so one OCR never read, or read with no Japanese in it, shows up
+ * as a detection with no text.
  * A recalled page is described by the translation it recalled.
  */
 fun pageReportFiles(
