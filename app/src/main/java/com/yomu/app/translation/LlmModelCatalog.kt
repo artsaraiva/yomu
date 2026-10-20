@@ -35,9 +35,9 @@ data class LlmModelOption(
      */
     val licence: String,
     /**
-     * The language label (#336): true only when the model card names every target language Yomu offers
-     * (English, Portuguese, Spanish, French, German). A card that gives only a count ("201 languages",
-     * "35+ languages") names none of them, so its entry is English only. Checked 2026-10-20.
+     * The language label (#336): true only when the model card or the maker's own documentation names
+     * every target language Yomu offers (English, Portuguese, Spanish, French, German). A count alone
+     * ("201 languages", "35+ languages") names none of them, so its entry is English only. Checked 2026-10-20.
      */
     val multilingual: Boolean,
     /** Per-model (#84): a model that can emit one id-keyed reply for the whole page carries true and
@@ -257,7 +257,9 @@ object LlmModelCatalog {
             ggufFileName = Constants.QWEN3_4B_2507_MODEL,
             sizeBytes = Constants.QWEN3_4B_2507_SIZE,
             licence = "Apache-2.0",
-            multilingual = false,
+            // The card names no languages; the Qwen3 technical report (arXiv 2505.09388, §A.1.2 and
+            // its per-language tables) names all five, with Qwen3-4B rows.
+            multilingual = true,
             idKeyedBatch = true,
             promptMode = TranslationPromptMode.TRANSLATION_ONLY,
             // Plain GQA over all 36 layers, so every one holds a KV cache — the heaviest of the Qwen line.
