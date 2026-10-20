@@ -40,7 +40,7 @@ private val CJK = Regex("[぀-ヺヽ-ヿ㐀-䶿一-鿿豈-﫿ｦ-ﾟ]")
 fun deadTranslationReason(text: String?): String? = when {
     text.isNullOrBlank() -> "empty"
     looksLikeNonTranslation(text) -> "non-translation"
-    CJK.containsMatchIn(text) -> "japanese residue"
+    text.hasJapaneseScript() -> "japanese residue"
     else -> null
 }
 

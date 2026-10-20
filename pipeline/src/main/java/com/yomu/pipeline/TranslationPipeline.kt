@@ -5,7 +5,7 @@ import android.graphics.RectF
 import android.util.Log
 import com.yomu.pipeline.bubble.BubbleDetector
 import com.yomu.pipeline.bubble.bubbleRenderBoxes
-import com.yomu.pipeline.bubble.outside
+import com.yomu.pipeline.bubble.centeredOutside
 import com.yomu.pipeline.context.ContextAssembler
 import com.yomu.pipeline.ocr.OcrEngine
 import com.yomu.pipeline.translation.TranslationEngine
@@ -163,7 +163,7 @@ class TranslationPipeline(
             currentStage = Stage.BUBBLE_DETECTION
             callback?.onStageProgress(Stage.BUBBLE_DETECTION, 0.0f)
             stageStart = System.currentTimeMillis()
-            val bubbles = bubbleDetector.detect(bitmap, confidenceThreshold).outside(ignoredRegions)
+            val bubbles = bubbleDetector.detect(bitmap, confidenceThreshold).centeredOutside(ignoredRegions)
             coroutineContext.ensureActive()
             endStage(Stage.BUBBLE_DETECTION)
             callback?.onStageProgress(Stage.BUBBLE_DETECTION, 0.2f)
@@ -197,7 +197,6 @@ class TranslationPipeline(
 
                 val result = ocrEngine.extractText(bubbleBitmap)
                 coroutineContext.ensureActive()
-                // A reader app's toolbar label or date, or a lone "!?", is nothing to translate or draw.
                 if (result != null && result.text.hasJapaneseScript()) {
                     ocrResults[bubble.id] = result
                     onOcrComplete?.invoke(bubble.id, result.text, bubble.boundingBox)
