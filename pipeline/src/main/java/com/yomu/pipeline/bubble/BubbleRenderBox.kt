@@ -77,9 +77,7 @@ internal fun findBubbleInterior(pixels: IntArray, width: Int, height: Int, textB
 private fun fillablePixels(pixels: IntArray, width: Int, height: Int): BooleanArray {
     val fillable = BooleanArray(pixels.size) { true }
     for (y in 0 until height) for (x in 0 until width) {
-        val p = pixels[y * width + x]
-        val luminance = ((p shr 16 and 0xFF) * 299 + (p shr 8 and 0xFF) * 587 + (p and 0xFF) * 114) / 1000
-        if (luminance > WHITE_LUMINANCE) continue
+        if (luminance(pixels[y * width + x]) > WHITE_LUMINANCE) continue
         for (ny in maxOf(0, y - OUTLINE_CLOSE_RADIUS)..minOf(height - 1, y + OUTLINE_CLOSE_RADIUS)) {
             for (nx in maxOf(0, x - OUTLINE_CLOSE_RADIUS)..minOf(width - 1, x + OUTLINE_CLOSE_RADIUS)) {
                 fillable[ny * width + nx] = false
@@ -145,3 +143,6 @@ private fun interiorAround(fillable: BooleanArray, width: Int, height: Int, text
 
 private fun intersects(a: FloatArray, b: FloatArray): Boolean =
     a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3]
+
+internal fun luminance(argb: Int): Int =
+    ((argb shr 16 and 0xFF) * 299 + (argb shr 8 and 0xFF) * 587 + (argb and 0xFF) * 114) / 1000

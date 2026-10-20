@@ -207,8 +207,7 @@ class TranslationPipeline(
             val pageContext = contextAssembler.assemble(
                 bubbles = bubbles,
                 ocrResults = ocrResults,
-                pageWidth = pageWidth,
-                pageHeight = pageHeight
+                page = bitmap
             )
             // Typeset into the bubble interior; boundingBox stays the detector's glyph box, which
             // OCR crops and panel grouping are tuned to. Computed before translation so each bubble
@@ -271,14 +270,12 @@ class TranslationPipeline(
     }
 
     fun release() {
-        contextAssembler.reset()
         translationEngine.endSession()
     }
 
     fun close() {
         bubbleDetector.release()
         ocrEngine.release()
-        contextAssembler.reset()
         translationEngine.close()
     }
 }
