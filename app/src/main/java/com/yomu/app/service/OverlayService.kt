@@ -17,7 +17,6 @@ import android.provider.Settings
 import android.util.Log
 import android.view.WindowInsets
 import android.view.WindowManager
-import android.widget.Toast
 import com.yomu.app.MainActivity
 import com.yomu.app.capture.ScreenCaptureManager
 import com.yomu.app.detection.DetectionThresholdStore
@@ -476,7 +475,8 @@ class OverlayService : Service() {
                     // The OCR pass may already have drawn its bubbles, and that overlay is
                     // untouchable — without this the reader is left with pinned Japanese (#308).
                     translationRenderOverlay.remove()
-                    showTranslationFailedToast(failure)
+                    // A null result already put the pipeline's own "Failed: …" on the status line.
+                    failure?.let { statusOverlay.showOrUpdate("Failed: $it") }
                     delay(1500)
                     statusOverlay.remove()
                 }
@@ -565,15 +565,10 @@ class OverlayService : Service() {
         Log.e(TAG, reason)
         updateStatus(job, "Failed: $reason")
         withContext(Dispatchers.Main) {
-            showTranslationFailedToast(reason)
             delay(1500)
             statusOverlay.remove()
             floatingButton?.setState(FloatingButtonView.State.IDLE)
         }
-    }
-
-    private fun showTranslationFailedToast(message: String? = null) {
-        Toast.makeText(applicationContext, message ?: "Translation failed", Toast.LENGTH_SHORT).show()
     }
 
     private fun persistButtonPosition(x: Int, y: Int) {
