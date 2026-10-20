@@ -1,0 +1,109 @@
+package com.yomu.pipeline
+
+import android.graphics.Bitmap
+import android.graphics.Color
+import android.graphics.RectF
+import com.yomu.core.PageTranslation
+import com.yomu.pipeline.bubble.Bubble
+import com.yomu.pipeline.bubble.BubbleDetector
+import com.yomu.pipeline.context.ContextAssembler
+import com.yomu.pipeline.ocr.OcrEngine
+import com.yomu.pipeline.ocr.OcrResult
+import com.yomu.pipeline.translation.FakeTranslationSlot
+import com.yomu.pipeline.translation.TranslationEngine
+import com.yomu.pipeline.typesetting.Typesetter
+import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.mockito.Mockito
+import org.robolectric.RobolectricTestRunner
+
+@RunWith(RobolectricTestRunner::class)
+class TranslationPipelineTest {
+
+    private val statusBar = RectF(0f, 0f, 400f, 40f)
+    private val clock = Bubble(1, RectF(10f, 5f, 60f, 35f), 0.9f)
+    private val speech = Bubble(2, RectF(100f, 100f, 180f, 300f), 0.9f)
+    private val sfx = Bubble(3, RectF(220f, 100f, 280f, 300f), 0.9f)
+
+    // The fake OCR sees only a crop, so each box above has its own width to be told apart by.
+    private val readsByCropWidth = mapOf(50 to "12:00", 80 to "こんにちは", 60 to "!?")
+    private val reads = mutableListOf<String>()
+    private val slot = FakeTranslationSlot(PageTranslation(mapOf(2 to "Hello", 3 to "What?"), "", 1L))
+
+    private fun pipeline(vararg boxes: Bubble) = TranslationPipeline(
+        detector(boxes.toList()),
+        ocr(),
+        ContextAssembler(),
+        TranslationEngine { slot },
+        Typesetter()
+    )
+
+    private fun detector(boxes: List<Bubble>): BubbleDetector = Mockito.mock(BubbleDetector::class.java) { invocation ->
+        when (invocation.method.name) {
+            "isModelLoaded" -> true
+            "detect" -> boxes
+            else -> Mockito.RETURNS_DEFAULTS.answer(invocation)
+        }
+    }
+
+    private fun ocr(): OcrEngine = Mockito.mock(OcrEngine::class.java) { invocation ->
+        when (invocation.method.name) {
+            "isModelLoaded" -> true
+            "extractText" -> {
+                val text = readsByCropWidth.getValue(invocation.getArgument<Bitmap>(0).width)
+                reads += text
+                OcrResult(text, 1f, floatArrayOf())
+            }
+            else -> Mockito.RETURNS_DEFAULTS.answer(invocation)
+        }
+    }
+
+    private fun page(): Bitmap = Bitmap.createBitmap(400, 400, Bitmap.Config.ARGB_8888).apply {
+        eraseColor(Color.WHITE)
+    }
+
+    @Test
+    fun `a box centered in an ignored region never reaches OCR`() = runTest {
+        pipeline(clock, speech).processPage(page(), ignoredRegions = listOf(statusBar))
+
+        assertEquals(listOf("こんにちは"), reads)
+    }
+
+    @Test
+    fun `a read with no kana or kanji never reaches onOcrComplete, the slot or onBubble`() = runTest {
+        val previewed = mutableListOf<Int>()
+        val drawn = mutableListOf<Int>()
+
+        pipeline(speech, sfx).processPage(
+            page(),
+            onOcrComplete = { bubbleId, _, _ -> previewed += bubbleId },
+            onBubble = { drawn += it.bubbleId }
+        )
+
+        assertEquals(listOf(2), previewed)
+        assertEquals(listOf(listOf(2 to "こんにちは")), slot.pagePairs())
+        assertEquals(listOf(2), drawn)
+    }
+
+    @Test
+    fun `a page with no bubbles left reports its error without calling the slot`() = runTest {
+        val errors = mutableListOf<Pair<TranslationPipeline.Stage, String>>()
+        val callback = object : TranslationPipeline.PipelineCallback {
+            override fun onStageProgress(stage: TranslationPipeline.Stage, progress: Float) = Unit
+            override fun onError(stage: TranslationPipeline.Stage, message: String) {
+                errors += stage to message
+            }
+            override fun onComplete(result: PipelineResult) = Unit
+        }
+
+        val result = pipeline(clock).processPage(page(), callback, ignoredRegions = listOf(statusBar))
+
+        assertNull(result)
+        assertEquals(listOf(TranslationPipeline.Stage.BUBBLE_DETECTION to "No bubbles detected on the page"), errors)
+        assertTrue(slot.pages.isEmpty())
+    }
+}
