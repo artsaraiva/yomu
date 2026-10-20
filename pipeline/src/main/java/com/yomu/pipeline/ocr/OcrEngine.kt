@@ -19,7 +19,8 @@ class OcrEngine(private val onnxRuntime: OnnxRuntime) {
         // (resolved from the vocab, see sepTokenId), so short bubbles end early and only genuinely
         // long ones use the budget. 32 truncated lines longer than the 36-char annotated max (#82).
         private const val MAX_LENGTH = 128
-        private const val BOS_TOKEN_ID = 0
+        // [CLS], the model's decoder_start_token_id. Starting from [PAD] (0) garbled hard reads (#365).
+        internal const val DECODER_START_TOKEN_ID = 2
         // Fallback only: this model's [SEP] is not reliably at index 102 (the English-BERT id).
         // The real stop id is resolved from the loaded vocab by string; see sepTokenId.
         private const val EOS_TOKEN_ID = 102
@@ -157,7 +158,7 @@ class OcrEngine(private val onnxRuntime: OnnxRuntime) {
         val inputNames = onnxRuntime.getInputNames(decoderPath)
         if (inputNames.isEmpty()) return ""
 
-        val inputIds = mutableListOf<Long>(BOS_TOKEN_ID.toLong())
+        val inputIds = mutableListOf<Long>(DECODER_START_TOKEN_ID.toLong())
         val generatedIds = mutableListOf<Int>()
 
         for (step in 0 until MAX_LENGTH) {

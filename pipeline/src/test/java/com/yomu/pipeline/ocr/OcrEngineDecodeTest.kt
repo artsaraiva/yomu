@@ -43,4 +43,9 @@ class OcrEngineDecodeTest {
     fun decode_emptyWhenOnlySpecialTokens() {
         assertEquals("", OcrEngine.decodeTokens(listOf(1, 2, 0), vocab))
     }
+
+    @Test
+    fun decode_startsFromTheModelsDecoderStartToken() {
+        assertEquals(2, OcrEngine.DECODER_START_TOKEN_ID)
+    }
 }
