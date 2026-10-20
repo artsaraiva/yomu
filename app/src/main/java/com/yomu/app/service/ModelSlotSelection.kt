@@ -25,8 +25,12 @@ data class SlotDeliverable(
     val sizeBytes: Long,
     val licence: String,
     val experimental: Boolean = false,
-    val speedOverride: DeliverableSpeed? = null
+    val speedOverride: DeliverableSpeed? = null,
+    /** Null for the reading models, which write no language. */
+    val multilingual: Boolean? = null
 ) {
+    val languageLabel: String? get() = multilingual?.let { if (it) "Multilingual" else "English only" }
+
     /** Read off the download size unless the entry states its own, so a reader is told the same thing on every device. */
     val speed: DeliverableSpeed
         get() = speedOverride ?: when {
@@ -65,7 +69,7 @@ class ModelSlotSelection @Inject constructor(
 
     fun deliverables(type: ModelType): List<SlotDeliverable> = when (type) {
         ModelType.LLM -> LlmModelCatalog.ALL.map {
-            SlotDeliverable(it.id, it.displayName, it.sizeBytes, it.licenceWithCredit, it.experimental, it.speed)
+            SlotDeliverable(it.id, it.displayName, it.sizeBytes, it.licenceWithCredit, it.experimental, it.speed, it.multilingual)
         }
         else -> ModelManager.REGISTRY.filter { it.type == type }.map {
             SlotDeliverable(
