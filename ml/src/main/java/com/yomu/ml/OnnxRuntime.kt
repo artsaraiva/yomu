@@ -3,14 +3,12 @@ package com.yomu.ml
 import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
-import ai.onnxruntime.OnnxJavaType
 import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
 import ai.onnxruntime.TensorInfo
 import java.io.File
 import java.nio.FloatBuffer
-import java.nio.LongBuffer
 
 class OnnxRuntime(private val context: Context) {
 
@@ -109,37 +107,15 @@ class OnnxRuntime(private val context: Context) {
         }
     }
 
-    fun runInferenceMixed(
-        modelPath: String,
-        floatInputs: Map<String, FloatArray>,
-        floatInputShapes: Map<String, LongArray>,
-        longInputs: Map<String, LongArray>,
-        longInputShapes: Map<String, LongArray>
-    ): Map<String, FloatArray>? {
+    /** Starts a [PastKeyValueDecode] of [modelPath] over this encoder output; null when the model is not loaded. */
+    fun startPastKeyValueDecode(modelPath: String, encoderHiddenStates: FloatArray, shape: LongArray): PastKeyValueDecode? {
         val session = loadedModels[modelPath] ?: return null
         val env = ortEnv ?: return null
-        val inputTensors = mutableMapOf<String, OnnxTensor>()
-
         return try {
-            for ((name, data) in floatInputs) {
-                val shape = floatInputShapes[name] ?: return null
-                inputTensors[name] = OnnxTensor.createTensor(env, FloatBuffer.wrap(data), shape)
-            }
-            for ((name, data) in longInputs) {
-                val shape = longInputShapes[name] ?: return null
-                inputTensors[name] = OnnxTensor.createTensor(env, LongBuffer.wrap(data), shape)
-            }
-            val result = session.run(inputTensors)
-            try {
-                readOutputs(session, result)
-            } finally {
-                result.close()
-            }
+            PastKeyValueDecode(env, session, OnnxTensor.createTensor(env, FloatBuffer.wrap(encoderHiddenStates), shape))
         } catch (e: Exception) {
-            Log.e(TAG, "runInferenceMixed failed for $modelPath: ${e.message}", e)
+            Log.e(TAG, "startPastKeyValueDecode failed for $modelPath: ${e.message}", e)
             null
-        } finally {
-            closeTensors(inputTensors.values)
         }
     }
 
@@ -152,13 +128,6 @@ class OnnxRuntime(private val context: Context) {
         val info = session.getInputInfo()[inputName] ?: return null
         val tensorInfo = info.info as? TensorInfo ?: return null
         return tensorInfo.shape
-    }
-
-    fun isInputLong(modelPath: String, inputName: String): Boolean {
-        val session = loadedModels[modelPath] ?: return false
-        val info = session.getInputInfo()[inputName] ?: return false
-        val tensorInfo = info.info as? TensorInfo ?: return false
-        return tensorInfo.type == OnnxJavaType.INT64
     }
 
     fun getOutputNames(modelPath: String): List<String> {

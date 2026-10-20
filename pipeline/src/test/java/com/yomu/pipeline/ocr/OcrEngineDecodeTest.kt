@@ -59,7 +59,7 @@ class OcrEngineDecodeTest {
     fun greedy_confidenceIsTheMeanProbabilityOfEveryChoiceIncludingTheStop() {
         val script = ArrayDeque(listOf(TokenChoice(10, 1.0f), TokenChoice(11, 0.5f), TokenChoice(3, 0.9f)))
 
-        val decoded = decodeGreedy(stopTokenId = 3) { script.removeFirst() }
+        val decoded = decodeGreedy<String>(stopTokenId = 3) { _, _ -> DecoderStep(script.removeFirst(), emptyMap()) }
 
         assertEquals(listOf(10, 11), decoded.tokenIds)
         assertEquals(0.8f, decoded.confidence, 0.0001f)
@@ -67,28 +67,50 @@ class OcrEngineDecodeTest {
 
     @Test
     fun greedy_confidenceIsZeroWhenTheDecoderNeverAnswers() {
-        assertEquals(0f, decodeGreedy(stopTokenId = 3) { null }.confidence)
+        assertEquals(0f, decodeGreedy<String>(stopTokenId = 3) { _, _ -> null }.confidence)
     }
 
     @Test
-    fun greedy_startsFromTheModelsDecoderStartToken() {
-        val seenInputs = mutableListOf<List<Long>>()
-        decodeGreedy(stopTokenId = 3) { ids ->
-            seenInputs.add(ids.toList())
-            TokenChoice(3, 1f)
-        }
-        assertEquals(listOf(listOf(2L)), seenInputs)
-    }
-
-    @Test
-    fun greedy_feedsEachTokenBackUntilTheStopToken() {
+    fun greedy_sendsOneTokenPerStepFromTheDecoderStartTokenUntilTheStopToken() {
         val script = ArrayDeque(listOf(10, 11, 3, 12))
-        val seenInputs = mutableListOf<List<Long>>()
-        val generated = decodeGreedy(stopTokenId = 3) { ids ->
-            seenInputs.add(ids.toList())
-            TokenChoice(script.removeFirst(), 1f)
+        val seenTokens = mutableListOf<Long>()
+
+        val generated = decodeGreedy<String>(stopTokenId = 3) { token, _ ->
+            seenTokens.add(token)
+            DecoderStep(TokenChoice(script.removeFirst(), 1f), emptyMap())
         }
+
         assertEquals(listOf(10, 11), generated.tokenIds)
-        assertEquals(listOf(listOf(2L), listOf(2L, 10L), listOf(2L, 10L, 11L)), seenInputs)
+        // 2 is [CLS], the model's decoder_start_token_id.
+        assertEquals(listOf(2L, 10L, 11L), seenTokens)
+    }
+
+    @Test
+    fun greedy_handsEachStepThePreviousStatesKeepingStateALaterStepLeftOut() {
+        // The cache branch returns empty cross-attention presents, which the step leaves out,
+        // so the first step's must carry through.
+        val states = ArrayDeque(
+            listOf(
+                mapOf("cross" to "cross-1", "self" to "self-1"),
+                mapOf("self" to "self-2"),
+                mapOf("self" to "self-3")
+            )
+        )
+        val seenPasts = mutableListOf<Map<String, String>>()
+
+        decodeGreedy(stopTokenId = 3) { _, past ->
+            seenPasts.add(past)
+            val state = states.removeFirst()
+            DecoderStep(TokenChoice(if (states.isEmpty()) 3 else 10, 1f), state)
+        }
+
+        assertEquals(
+            listOf(
+                emptyMap(),
+                mapOf("cross" to "cross-1", "self" to "self-1"),
+                mapOf("cross" to "cross-1", "self" to "self-2")
+            ),
+            seenPasts
+        )
     }
 }

@@ -69,7 +69,7 @@ class OcrEngine(private val onnxRuntime: OnnxRuntime) {
             fallback = longArrayOf(1L, 197L, 192L)
         )
 
-        val decoded = runDecoder(decoderPath, encoderOutput, encoderOutputShape, vocab)
+        val decoded = runDecoder(decoderPath, encoderOutput, encoderOutputShape)
 
         return OcrResult(
             text = decodeTokens(decoded.tokenIds, vocab),
@@ -131,79 +131,14 @@ class OcrEngine(private val onnxRuntime: OnnxRuntime) {
         return outputs?.values?.firstOrNull()
     }
 
-    private fun runDecoder(
-        decoderPath: String,
-        encoderOutput: FloatArray,
-        encoderOutputShape: LongArray,
-        vocab: Map<Int, String>
-    ): GreedyDecode {
-        val inputNames = onnxRuntime.getInputNames(decoderPath)
-        if (inputNames.isEmpty()) return GreedyDecode(emptyList(), 0f)
-
-        return decodeGreedy(sepTokenId) { decoderInputIds ->
-            val seqLen = decoderInputIds.size.toLong()
-
-            val floatInputs = mutableMapOf<String, FloatArray>()
-            val floatInputShapes = mutableMapOf<String, LongArray>()
-            val longInputs = mutableMapOf<String, LongArray>()
-            val longInputShapes = mutableMapOf<String, LongArray>()
-
-            val encoderSeqLen = encoderOutputShape.getOrNull(1) ?: 1L
-
-            for (name in inputNames) {
-                val isLong = onnxRuntime.isInputLong(decoderPath, name)
-                if (isLong) {
-                    when {
-                        isDecoderInputIds(name) -> {
-                            longInputs[name] = decoderInputIds
-                            longInputShapes[name] = longArrayOf(1L, seqLen)
-                        }
-                        isEncoderAttentionMask(name) -> {
-                            longInputs[name] = LongArray(encoderSeqLen.toInt()) { 1L }
-                            longInputShapes[name] = longArrayOf(1L, encoderSeqLen)
-                        }
-                        isDecoderAttentionMask(name) -> {
-                            longInputs[name] = LongArray(seqLen.toInt()) { 1L }
-                            longInputShapes[name] = longArrayOf(1L, seqLen)
-                        }
-                        else -> {
-                            longInputs[name] = LongArray(seqLen.toInt()) { 1L }
-                            longInputShapes[name] = longArrayOf(1L, seqLen)
-                        }
-                    }
-                } else {
-                    if (isEncoderHiddenStates(name)) {
-                        floatInputs[name] = encoderOutput
-                        floatInputShapes[name] = encoderOutputShape
-                    } else {
-                        val shape = onnxRuntime.getInputShape(decoderPath, name) ?: encoderOutputShape
-                        floatInputs[name] = FloatArray(shape.totalElements()) { 0f }
-                        floatInputShapes[name] = shape
-                    }
-                }
+    private fun runDecoder(decoderPath: String, encoderOutput: FloatArray, encoderOutputShape: LongArray): GreedyDecode {
+        val decode = onnxRuntime.startPastKeyValueDecode(decoderPath, encoderOutput, encoderOutputShape)
+            ?: return GreedyDecode(emptyList(), 0f)
+        return decode.use {
+            decodeGreedy(sepTokenId) { token, past ->
+                val step = decode.step(token, past) ?: return@decodeGreedy null
+                DecoderStep(chooseToken(step.logits, 0, step.logits.size), step.presents)
             }
-
-            val outputs = onnxRuntime.runInferenceMixed(
-                decoderPath,
-                floatInputs,
-                floatInputShapes,
-                longInputs,
-                longInputShapes
-            ) ?: return@decodeGreedy null
-
-            val outputName = outputs.keys.firstOrNull() ?: return@decodeGreedy null
-            val logits = outputs[outputName] ?: return@decodeGreedy null
-            val currentSeqLen = seqLen.toInt()
-            val currentVocabSize = if (currentSeqLen > 0 && logits.size % currentSeqLen == 0) {
-                logits.size / currentSeqLen
-            } else {
-                vocab.size
-            }
-
-            val lastTimestepStart = (currentSeqLen - 1) * currentVocabSize
-            if (lastTimestepStart + currentVocabSize > logits.size) return@decodeGreedy null
-
-            chooseToken(logits, lastTimestepStart, currentVocabSize)
         }
     }
 
@@ -248,22 +183,6 @@ class OcrEngine(private val onnxRuntime: OnnxRuntime) {
 
     private fun isPixelValuesInput(name: String): Boolean {
         return name == "pixel_values" || name.contains("pixel")
-    }
-
-    private fun isDecoderInputIds(name: String): Boolean {
-        return name == "decoder_input_ids" || name.contains("input_ids")
-    }
-
-    private fun isEncoderHiddenStates(name: String): Boolean {
-        return name == "encoder_hidden_states" || name.contains("encoder") || name.contains("hidden_states")
-    }
-
-    private fun isEncoderAttentionMask(name: String): Boolean {
-        return name == "encoder_attention_mask" || (name.contains("attention_mask") && name.contains("encoder"))
-    }
-
-    private fun isDecoderAttentionMask(name: String): Boolean {
-        return name == "decoder_attention_mask" || (name.contains("attention_mask") && name.contains("decoder"))
     }
 
     private fun LongArray.totalElements(): Int {
