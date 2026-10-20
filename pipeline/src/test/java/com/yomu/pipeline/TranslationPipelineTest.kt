@@ -109,7 +109,7 @@ class TranslationPipelineTest {
         assertEquals(listOf(2), drawn)
         assertEquals(
             mapOf(2 to ("こんにちは" to 1f), 4 to ("よくラるって" to 0.738f)),
-            result!!.reads.mapValues { (_, read) -> read.text to read.confidence }
+            checkNotNull(result).reads.mapValues { (_, read) -> read.text to read.confidence }
         )
     }
 
