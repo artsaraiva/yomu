@@ -511,8 +511,8 @@ class OverlayService : Service() {
     }
 
     /**
-     * The status bar, the status line under it and the floating button: they differ between two
-     * captures of one page, and no bubble there is the reader's. Read on the main thread once the capture is in.
+     * The status bar while it is shown, the status line under it and the floating button: they differ
+     * between two captures of one page, and no bubble there is the reader's. Read on the main thread once the capture is in.
      */
     private fun ignoredRegions(pageWidth: Int): List<OverlayBounds> = listOfNotNull(
         OverlayBounds(0f, 0f, pageWidth.toFloat(), statusBarHeight().toFloat()),
@@ -521,12 +521,13 @@ class OverlayService : Service() {
     )
 
     /**
-     * Returns the status bar height in pixels, or zero if the legacy dimension is unavailable.
-     * Before R nothing public reports the status bar to an overlay window laid out below it.
+     * Returns the height in pixels of the status bar while it is shown, and zero while the reader hides
+     * it, since the reader then puts manga in its strip (#377). Before R nothing public tells an overlay
+     * whether the bar is shown, so the legacy dimension always applies, or zero if it is unavailable.
      */
     @SuppressLint("DiscouragedApi", "InternalInsetResource")
     private fun statusBarHeight(): Int = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-        windowManager.currentWindowMetrics.windowInsets.getInsetsIgnoringVisibility(WindowInsets.Type.statusBars()).top
+        windowManager.currentWindowMetrics.windowInsets.getInsets(WindowInsets.Type.statusBars()).top
     } else {
         resources.getIdentifier("status_bar_height", "dimen", "android").let { id ->
             if (id == 0) 0 else resources.getDimensionPixelSize(id)
