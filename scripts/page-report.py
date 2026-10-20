@@ -178,8 +178,11 @@ def load(report_dir: Path) -> dict:
 def describe(bubble: dict | None) -> str:
     if bubble is None:
         return "-"
+    # Reports from before #366 have no confidence.
+    confidence = bubble.get("ocrConfidence")
+    score = "" if confidence is None else f" p={confidence:.3f}" + (" SKIPPED" if bubble["skipped"] else "")
     dropped = " (dropped)" if bubble.get("ocrDropped") else ""
-    return f"#{bubble['id']} {bubble['ocrText']!r}{dropped} -> {bubble['translation']!r}"
+    return f"#{bubble['id']} {bubble['ocrText']!r}{score}{dropped} -> {bubble['translation']!r}"
 
 
 def bounds(bubble: dict) -> str:

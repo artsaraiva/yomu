@@ -8,6 +8,7 @@ import com.yomu.pipeline.bubble.bubbleRenderBoxes
 import com.yomu.pipeline.bubble.centeredOutside
 import com.yomu.pipeline.context.ContextAssembler
 import com.yomu.pipeline.ocr.OcrEngine
+import com.yomu.pipeline.ocr.OcrResult
 import com.yomu.pipeline.translation.TranslationEngine
 import com.yomu.pipeline.translation.TranslationResult
 import com.yomu.pipeline.translation.hasJapaneseScript
@@ -40,6 +41,8 @@ data class PipelineResult(
     val stageTimesMs: Map<TranslationPipeline.Stage, Long> = emptyMap(),
     /** Every detected bubble's glyph box as left, top, right, bottom, in detection order. */
     val bubbleBounds: Map<Int, FloatArray> = emptyMap(),
+    /** Every read with kana or kanji in it, by bubble id, including the [OcrResult.unsure] ones never translated. */
+    val reads: Map<Int, OcrResult> = emptyMap(),
     /** OCR text with no kana or kanji, by bubble id. Only the page report reads it; it is never previewed, translated or drawn. */
     val droppedReads: Map<Int, String> = emptyMap()
 )
@@ -80,10 +83,7 @@ class TranslationPipeline(
 
     fun getCurrentStage(): Stage = currentStage
 
-    fun isModelLoaded(): Boolean {
-        return bubbleDetector.isModelLoaded() &&
-               ocrEngine.isModelLoaded()
-    }
+    fun isModelLoaded(): Boolean = bubbleDetector.isModelLoaded() && ocrEngine.isModelLoaded()
 
     suspend fun loadModels(paths: ModelPaths): Boolean = withContext(Dispatchers.IO) {
         val bubbleLoaded = bubbleDetector.loadModel(paths.bubbleDetectionPath)
@@ -178,7 +178,8 @@ class TranslationPipeline(
 
             currentStage = Stage.OCR
             callback?.onStageProgress(Stage.OCR, 0.2f)
-            val ocrResults = mutableMapOf<Int, com.yomu.pipeline.ocr.OcrResult>()
+            val reads = linkedMapOf<Int, OcrResult>()
+            val ocrResults = mutableMapOf<Int, OcrResult>()
             val droppedReads = mutableMapOf<Int, String>()
 
             for ((index, bubble) in bubbles.withIndex()) {
@@ -201,8 +202,14 @@ class TranslationPipeline(
                 val result = ocrEngine.extractText(bubbleBitmap)
                 coroutineContext.ensureActive()
                 if (result != null && result.text.hasJapaneseScript()) {
-                    ocrResults[bubble.id] = result
-                    onOcrComplete?.invoke(bubble.id, result.text, bubble.boundingBox)
+                    reads[bubble.id] = result
+                    // A garbled read comes back as confident wrong English, so its bubble keeps its art (#366).
+                    if (result.unsure) {
+                        Log.i(TAG, "Skipping unsure read bubble=${bubble.id} confidence=${result.confidence}")
+                    } else {
+                        ocrResults[bubble.id] = result
+                        onOcrComplete?.invoke(bubble.id, result.text, bubble.boundingBox)
+                    }
                 } else if (result != null && result.text.isNotBlank()) {
                     droppedReads[bubble.id] = result.text
                 }
@@ -264,6 +271,7 @@ class TranslationPipeline(
                 timeToFirstBubbleMs = firstBubbleAt?.let { it - startTime },
                 stageTimesMs = stageTimesMs,
                 bubbleBounds = detectedBounds,
+                reads = reads,
                 droppedReads = droppedReads
             )
 

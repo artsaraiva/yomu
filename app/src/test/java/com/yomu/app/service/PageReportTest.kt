@@ -8,6 +8,7 @@ import com.yomu.core.RuntimeLimits
 import com.yomu.core.TranslationOutcome
 import com.yomu.pipeline.PipelineResult
 import com.yomu.pipeline.TranslationPipeline.Stage
+import com.yomu.pipeline.ocr.OcrResult
 import com.yomu.pipeline.translation.TranslatedBubble
 import com.yomu.pipeline.translation.TranslationResult
 import org.junit.Assert.assertArrayEquals
@@ -37,6 +38,7 @@ class PageReportTest {
         outcome: TranslationOutcome = TranslationOutcome.SUCCESS,
         errorCode: String? = null,
         batchOverflowFallback: Boolean = false,
+        reads: Map<Int, OcrResult> = emptyMap(),
         droppedReads: Map<Int, String> = emptyMap()
     ) = PipelineResult(
         typesetBubbles = emptyList(),
@@ -52,6 +54,7 @@ class PageReportTest {
             Stage.TRANSLATION to 6_200L
         ),
         bubbleBounds = bounds,
+        reads = reads,
         droppedReads = droppedReads
     )
 
@@ -159,6 +162,31 @@ class PageReportTest {
         assertEquals(JsonNull.INSTANCE, unread["ocrText"])
         assertEquals(JsonNull.INSTANCE, unread["translation"])
         assertFalse(unread["answered"].asBoolean)
+    }
+
+    @Test
+    fun `a skipped unsure read is recorded with its text and confidence`() {
+        val gated = page(
+            bubbles = listOf(TranslatedBubble(0, "こんにちは", "Hello", answered = true)),
+            bounds = linkedMapOf(0 to floatArrayOf(10f, 20f, 110f, 220f), 1 to floatArrayOf(300f, 40f, 420f, 260f)),
+            rawResponse = "[0] Hello",
+            reads = linkedMapOf(
+                0 to OcrResult("こんにちは", 0.998f, floatArrayOf()),
+                1 to OcrResult("よくラるって", 0.738f, floatArrayOf())
+            )
+        )
+
+        val recorded = json(report(gated))
+
+        val read = recorded.bubble(0)
+        assertEquals(0.998f, read["ocrConfidence"].asFloat)
+        assertFalse(read["skipped"].asBoolean)
+        val skipped = recorded.bubble(1)
+        assertEquals("よくラるって", skipped["ocrText"].asString)
+        assertEquals(0.738f, skipped["ocrConfidence"].asFloat)
+        assertTrue(skipped["skipped"].asBoolean)
+        assertEquals(JsonNull.INSTANCE, skipped["translation"])
+        assertFalse(skipped["answered"].asBoolean)
     }
 
     @Test
