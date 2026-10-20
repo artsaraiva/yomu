@@ -178,7 +178,8 @@ def load(report_dir: Path) -> dict:
 def describe(bubble: dict | None) -> str:
     if bubble is None:
         return "-"
-    return f"#{bubble['id']} {bubble['ocrText']!r} -> {bubble['translation']!r}"
+    dropped = " (dropped)" if bubble.get("ocrDropped") else ""
+    return f"#{bubble['id']} {bubble['ocrText']!r}{dropped} -> {bubble['translation']!r}"
 
 
 def bounds(bubble: dict) -> str:
