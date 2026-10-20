@@ -11,7 +11,6 @@ import androidx.compose.ui.unit.dp
 import com.yomu.app.db.entities.ModelType
 import com.yomu.app.detection.DetectionThresholdStore
 import com.yomu.app.ui.theme.*
-import kotlin.math.roundToInt
 
 @Composable
 fun TranslationSettings(viewModel: SettingsViewModel, onBack: () -> Unit) {
