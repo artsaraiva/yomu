@@ -21,8 +21,8 @@ class BubbleDetector(private val onnxRuntime: OnnxRuntime) {
         internal const val NMS_IOU_THRESHOLD = 0.80f
         // #88 bug B: a small box sitting almost entirely inside a bigger one has low IoU, so IoU-NMS
         // keeps both — two boxes over the same balloon, whose translated texts then paint on top of
-        // each other. Suppress a box that is at least this fraction contained in a higher-confidence
-        // kept box. 0.90: a box that merges two bubbles plus a second box over just one of them
+        // each other. Of two boxes where one is at least this fraction contained in the other, keep
+        // one. 0.90: a box that merges two bubbles plus a second box over just one of them
         // measured 0.92 contained on device, and both translations painted over each other; the
         // merged box's OCR already carries that text. Genuinely-close distinct balloons the model
         // under-separates are still the detector's problem (#57), not this heuristic's.
@@ -97,17 +97,31 @@ internal fun nonMaxSuppressDetections(
     val sorted = detections.sortedByDescending { it.confidence }
     val kept = mutableListOf<OnnxRuntime.Detection>()
 
-    for (candidate in sorted) {
-        // Boxes are visited highest-confidence first, so a suppressed candidate always loses to a
-        // box we already trust more. IoU catches near-equal boxes; the containment checks catch the
-        // #88 case where one box nearly sits inside the other (either direction) but IoU stays low.
-        val redundant = kept.any { keptDetection ->
-            detectionIou(candidate, keptDetection) > iouThreshold ||
-                detectionContainedFraction(candidate, keptDetection) >= containmentThreshold ||
-                detectionContainedFraction(keptDetection, candidate) >= containmentThreshold
+    fun isRedundant(candidate: OnnxRuntime.Detection, others: List<OnnxRuntime.Detection>) =
+        others.any { other ->
+            detectionIou(candidate, other) > iouThreshold ||
+                detectionContainedFraction(candidate, other) >= containmentThreshold ||
+                detectionContainedFraction(other, candidate) >= containmentThreshold
         }
-        if (!redundant) {
+
+    for (candidate in sorted) {
+        // Boxes are visited highest-confidence first, so a suppressed candidate loses to a box we
+        // already trust more. IoU catches near-equal boxes; the containment checks catch the
+        // #88 case where one box nearly sits inside the other (either direction) but IoU stays low.
+        if (!isRedundant(candidate, kept)) {
             kept.add(candidate)
+        }
+    }
+
+    // #370: a dropped box that swallows a kept one carries text the kept box misses, such as a
+    // bubble the model only boxes merged with its neighbour. One merged read beats losing that
+    // bubble, but bubbles the model boxed separately stay separate.
+    for (candidate in sorted.filterNot { it in kept }) {
+        val swallowed = kept.firstOrNull {
+            detectionContainedFraction(it, candidate) >= containmentThreshold
+        } ?: continue
+        if (!isRedundant(candidate, kept - swallowed)) {
+            kept[kept.indexOf(swallowed)] = candidate
         }
     }
 

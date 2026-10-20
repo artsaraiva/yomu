@@ -54,6 +54,37 @@ class BubbleDetectorNmsTest {
     }
 
     @Test
+    fun nonMaxSuppressDetections_prefersLowerConfidenceBoxContainingTheKeptOne() {
+        // #370: the model boxes なにあ然 only inside a box merged with the ヘリウム balloon below it,
+        // and boxes ヘリウム alone with more confidence. Keeping the merged box keeps both lines.
+        val heliumAlone = detection(0.582f, floatArrayOf(135f, 937f, 256f, 1098f))
+        val merged = detection(0.216f, floatArrayOf(132f, 677f, 255f, 1100f))
+
+        val kept = nonMaxSuppressDetections(
+            detections = listOf(heliumAlone, merged),
+            iouThreshold = 0.80f,
+            containmentThreshold = 0.90f
+        )
+
+        assertEquals(listOf(merged), kept)
+    }
+
+    @Test
+    fun nonMaxSuppressDetections_keepsSeparateBubblesOverTheBoxMergingThem() {
+        val upper = detection(0.6f, floatArrayOf(0f, 0f, 100f, 100f))
+        val lower = detection(0.2f, floatArrayOf(0f, 150f, 100f, 250f))
+        val merged = detection(0.3f, floatArrayOf(0f, 0f, 100f, 250f))
+
+        val kept = nonMaxSuppressDetections(
+            detections = listOf(upper, merged, lower),
+            iouThreshold = 0.80f,
+            containmentThreshold = 0.90f
+        )
+
+        assertEquals(listOf(upper, lower), kept)
+    }
+
+    @Test
     fun nonMaxSuppressDetections_keepsNestedBoxWhenContainmentDisabled() {
         // Default threshold disables containment, leaving the prior IoU-only behaviour intact.
         val big = detection(0.9f, floatArrayOf(0f, 0f, 200f, 200f))
