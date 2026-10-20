@@ -41,6 +41,8 @@ jobs:
           java-version: '17'
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
+      - name: Check code standards
+        run: ./gradlew detekt && scripts/check-code-standards.sh
       - name: Verify Android project (PR)
         if: github.event_name == 'pull_request'
         run: ./gradlew lint :core:test testDebugUnitTest assembleDebug -Pyomu.abis=arm64-v8a

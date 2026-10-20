@@ -42,7 +42,9 @@ data class PipelineResult(
     /** Every detected bubble's glyph box as left, top, right, bottom, in detection order. */
     val bubbleBounds: Map<Int, FloatArray> = emptyMap(),
     /** Every read with kana or kanji in it, by bubble id, including the [OcrResult.unsure] ones never translated. */
-    val reads: Map<Int, OcrResult> = emptyMap()
+    val reads: Map<Int, OcrResult> = emptyMap(),
+    /** OCR text with no kana or kanji, by bubble id. Only the page report reads it; it is never previewed, translated or drawn. */
+    val droppedReads: Map<Int, String> = emptyMap()
 )
 
 class TranslationPipeline(
@@ -81,10 +83,7 @@ class TranslationPipeline(
 
     fun getCurrentStage(): Stage = currentStage
 
-    fun isModelLoaded(): Boolean {
-        return bubbleDetector.isModelLoaded() &&
-               ocrEngine.isModelLoaded()
-    }
+    fun isModelLoaded(): Boolean = bubbleDetector.isModelLoaded() && ocrEngine.isModelLoaded()
 
     suspend fun loadModels(paths: ModelPaths): Boolean = withContext(Dispatchers.IO) {
         val bubbleLoaded = bubbleDetector.loadModel(paths.bubbleDetectionPath)
@@ -181,6 +180,7 @@ class TranslationPipeline(
             callback?.onStageProgress(Stage.OCR, 0.2f)
             val reads = linkedMapOf<Int, OcrResult>()
             val ocrResults = mutableMapOf<Int, OcrResult>()
+            val droppedReads = mutableMapOf<Int, String>()
 
             for ((index, bubble) in bubbles.withIndex()) {
                 val cropBounds = CropBoundsCalculator.clamp(
@@ -210,6 +210,8 @@ class TranslationPipeline(
                         ocrResults[bubble.id] = result
                         onOcrComplete?.invoke(bubble.id, result.text, bubble.boundingBox)
                     }
+                } else if (result != null && result.text.isNotBlank()) {
+                    droppedReads[bubble.id] = result.text
                 }
 
                 val progress = 0.2f + ((index + 1).toFloat() / bubbles.size) * 0.3f
@@ -269,7 +271,8 @@ class TranslationPipeline(
                 timeToFirstBubbleMs = firstBubbleAt?.let { it - startTime },
                 stageTimesMs = stageTimesMs,
                 bubbleBounds = detectedBounds,
-                reads = reads
+                reads = reads,
+                droppedReads = droppedReads
             )
 
             callback?.onComplete(result)

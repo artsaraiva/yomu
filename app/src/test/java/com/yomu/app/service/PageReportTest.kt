@@ -38,7 +38,8 @@ class PageReportTest {
         outcome: TranslationOutcome = TranslationOutcome.SUCCESS,
         errorCode: String? = null,
         batchOverflowFallback: Boolean = false,
-        reads: Map<Int, OcrResult> = emptyMap()
+        reads: Map<Int, OcrResult> = emptyMap(),
+        droppedReads: Map<Int, String> = emptyMap()
     ) = PipelineResult(
         typesetBubbles = emptyList(),
         translationResult = TranslationResult(bubbles, rawResponse, 5_700L, outcome, errorCode, batchOverflowFallback),
@@ -53,7 +54,8 @@ class PageReportTest {
             Stage.TRANSLATION to 6_200L
         ),
         bubbleBounds = bounds,
-        reads = reads
+        reads = reads,
+        droppedReads = droppedReads
     )
 
     private val twoBubblePage = page(
@@ -185,6 +187,32 @@ class PageReportTest {
         assertTrue(skipped["skipped"].asBoolean)
         assertEquals(JsonNull.INSTANCE, skipped["translation"])
         assertFalse(skipped["answered"].asBoolean)
+    }
+
+    @Test
+    fun `a read with no Japanese keeps its OCR text, marked dropped, apart from an empty read`() {
+        val labelled = page(
+            bubbles = listOf(TranslatedBubble(0, "こんにちは", "Hello", answered = true)),
+            bounds = linkedMapOf(
+                0 to floatArrayOf(10f, 20f, 110f, 220f),
+                1 to floatArrayOf(0f, 0f, 300f, 60f),
+                2 to floatArrayOf(500f, 600f, 560f, 700f)
+            ),
+            rawResponse = "[0] Hello",
+            droppedReads = mapOf(1 to "Sep15.2.50AN")
+        )
+
+        val recorded = json(report(labelled))
+
+        assertFalse(recorded.bubble(0)["ocrDropped"].asBoolean)
+        val dropped = recorded.bubble(1)
+        assertEquals("Sep15.2.50AN", dropped["ocrText"].asString)
+        assertTrue(dropped["ocrDropped"].asBoolean)
+        assertEquals(JsonNull.INSTANCE, dropped["translation"])
+        assertFalse(dropped["answered"].asBoolean)
+        val empty = recorded.bubble(2)
+        assertEquals(JsonNull.INSTANCE, empty["ocrText"])
+        assertFalse(empty["ocrDropped"].asBoolean)
     }
 
     @Test
