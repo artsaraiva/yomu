@@ -8,6 +8,7 @@ import android.graphics.PixelFormat
 import android.graphics.Typeface
 import android.os.Build
 import android.util.Log
+import android.view.WindowInsets
 import android.view.WindowManager
 import android.widget.FrameLayout
 import com.yomu.pipeline.typesetting.TypesetBubble
@@ -170,7 +171,14 @@ class TranslationRenderOverlay(
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSPARENT
-        )
+        ).apply {
+            // A reader that hides the status bar puts bubbles beside the camera cutout (#377). Bars are
+            // fitted only while shown, so a bubble card never sits under the clock.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                fitInsetsTypes = WindowInsets.Type.systemBars()
+                layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+            }
+        }
     }
 
     private fun drawTypesetBubble(
