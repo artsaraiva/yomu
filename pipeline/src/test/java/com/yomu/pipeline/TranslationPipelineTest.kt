@@ -25,11 +25,12 @@ class TranslationPipelineTest {
     private val statusBar = RectF(0f, 0f, 400f, 40f)
     private val clock = Bubble(1, RectF(10f, 5f, 60f, 35f), 0.9f)
     private val speech = Bubble(2, RectF(100f, 100f, 180f, 300f), 0.9f)
+    private val sfx = Bubble(3, RectF(220f, 100f, 280f, 300f), 0.9f)
 
     // The fake OCR sees only a crop, so each box above has its own width to be told apart by.
-    private val readsByCropWidth = mapOf(50 to "12:00", 80 to "こんにちは")
+    private val readsByCropWidth = mapOf(50 to "12:00", 80 to "こんにちは", 60 to "!?")
     private val reads = mutableListOf<String>()
-    private val slot = FakeTranslationSlot(PageTranslation(mapOf(2 to "Hello"), "", 1L))
+    private val slot = FakeTranslationSlot(PageTranslation(mapOf(2 to "Hello", 3 to "What?"), "", 1L))
 
     private fun pipeline(vararg boxes: Bubble) = TranslationPipeline(
         detector(boxes.toList()),
@@ -68,5 +69,21 @@ class TranslationPipelineTest {
         pipeline(clock, speech).processPage(page(), ignoredRegions = listOf(statusBar))
 
         assertEquals(listOf("こんにちは"), reads)
+    }
+
+    @Test
+    fun `a read with no kana or kanji never reaches onOcrComplete, the slot or onBubble`() = runTest {
+        val previewed = mutableListOf<Int>()
+        val drawn = mutableListOf<Int>()
+
+        pipeline(speech, sfx).processPage(
+            page(),
+            onOcrComplete = { bubbleId, _, _ -> previewed += bubbleId },
+            onBubble = { drawn += it.bubbleId }
+        )
+
+        assertEquals(listOf(2), previewed)
+        assertEquals(listOf(listOf(2 to "こんにちは")), slot.pagePairs())
+        assertEquals(listOf(2), drawn)
     }
 }
