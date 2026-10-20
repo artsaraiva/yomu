@@ -43,4 +43,26 @@ class OcrEngineDecodeTest {
     fun decode_emptyWhenOnlySpecialTokens() {
         assertEquals("", OcrEngine.decodeTokens(listOf(1, 2, 0), vocab))
     }
+
+    @Test
+    fun greedy_startsFromTheModelsDecoderStartToken() {
+        val seenInputs = mutableListOf<List<Long>>()
+        OcrEngine.decodeGreedy(stopTokenId = 3) { ids ->
+            seenInputs.add(ids.toList())
+            3
+        }
+        assertEquals(listOf(listOf(2L)), seenInputs)
+    }
+
+    @Test
+    fun greedy_feedsEachTokenBackUntilTheStopToken() {
+        val script = ArrayDeque(listOf(10, 11, 3, 12))
+        val seenInputs = mutableListOf<List<Long>>()
+        val generated = OcrEngine.decodeGreedy(stopTokenId = 3) { ids ->
+            seenInputs.add(ids.toList())
+            script.removeFirst()
+        }
+        assertEquals(listOf(10, 11), generated)
+        assertEquals(listOf(listOf(2L), listOf(2L, 10L), listOf(2L, 10L, 11L)), seenInputs)
+    }
 }

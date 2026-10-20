@@ -19,7 +19,8 @@ class OcrEngine(private val onnxRuntime: OnnxRuntime) {
         // (resolved from the vocab, see sepTokenId), so short bubbles end early and only genuinely
         // long ones use the budget. 32 truncated lines longer than the 36-char annotated max (#82).
         private const val MAX_LENGTH = 128
-        private const val BOS_TOKEN_ID = 0
+        // [CLS], the model's decoder_start_token_id. Starting from [PAD] (0) garbled hard reads (#365).
+        private const val DECODER_START_TOKEN_ID = 2L
         // Fallback only: this model's [SEP] is not reliably at index 102 (the English-BERT id).
         // The real stop id is resolved from the loaded vocab by string; see sepTokenId.
         private const val EOS_TOKEN_ID = 102
@@ -42,6 +43,18 @@ class OcrEngine(private val onnxRuntime: OnnxRuntime) {
                 }
             }
             return builder.toString().trim()
+        }
+
+        internal fun decodeGreedy(stopTokenId: Int, nextToken: (LongArray) -> Int?): List<Int> {
+            val inputIds = mutableListOf(DECODER_START_TOKEN_ID)
+            val generatedIds = mutableListOf<Int>()
+            repeat(MAX_LENGTH) {
+                val tokenId = nextToken(inputIds.toLongArray())
+                if (tokenId == null || tokenId == stopTokenId) return generatedIds
+                generatedIds.add(tokenId)
+                inputIds.add(tokenId.toLong())
+            }
+            return generatedIds
         }
 
         private fun isSpecialToken(token: String): Boolean =
@@ -157,11 +170,7 @@ class OcrEngine(private val onnxRuntime: OnnxRuntime) {
         val inputNames = onnxRuntime.getInputNames(decoderPath)
         if (inputNames.isEmpty()) return ""
 
-        val inputIds = mutableListOf<Long>(BOS_TOKEN_ID.toLong())
-        val generatedIds = mutableListOf<Int>()
-
-        for (step in 0 until MAX_LENGTH) {
-            val decoderInputIds = inputIds.toLongArray()
+        val generatedIds = decodeGreedy(sepTokenId) { decoderInputIds ->
             val seqLen = decoderInputIds.size.toLong()
 
             val floatInputs = mutableMapOf<String, FloatArray>()
@@ -210,10 +219,10 @@ class OcrEngine(private val onnxRuntime: OnnxRuntime) {
                 floatInputShapes,
                 longInputs,
                 longInputShapes
-            ) ?: break
+            ) ?: return@decodeGreedy null
 
-            val outputName = outputs.keys.firstOrNull() ?: break
-            val logits = outputs[outputName] ?: break
+            val outputName = outputs.keys.firstOrNull() ?: return@decodeGreedy null
+            val logits = outputs[outputName] ?: return@decodeGreedy null
             val currentSeqLen = seqLen.toInt()
             val currentVocabSize = if (currentSeqLen > 0 && logits.size % currentSeqLen == 0) {
                 logits.size / currentSeqLen
@@ -222,13 +231,9 @@ class OcrEngine(private val onnxRuntime: OnnxRuntime) {
             }
 
             val lastTimestepStart = (currentSeqLen - 1) * currentVocabSize
-            if (lastTimestepStart + currentVocabSize > logits.size) break
+            if (lastTimestepStart + currentVocabSize > logits.size) return@decodeGreedy null
 
-            val nextTokenId = argmax(logits, lastTimestepStart, currentVocabSize)
-
-            if (nextTokenId == sepTokenId) break
-            generatedIds.add(nextTokenId)
-            inputIds.add(nextTokenId.toLong())
+            argmax(logits, lastTimestepStart, currentVocabSize)
         }
 
         return decodeTokens(generatedIds, vocab)
