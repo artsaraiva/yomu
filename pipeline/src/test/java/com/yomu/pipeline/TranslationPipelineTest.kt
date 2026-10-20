@@ -28,9 +28,11 @@ class TranslationPipelineTest {
     private val clock = Bubble(1, RectF(10f, 5f, 60f, 35f), 0.9f)
     private val speech = Bubble(2, RectF(100f, 100f, 180f, 300f), 0.9f)
     private val sfx = Bubble(3, RectF(220f, 100f, 280f, 300f), 0.9f)
+    private val caption = Bubble(4, RectF(300f, 100f, 370f, 300f), 0.9f)
 
     // The fake OCR sees only a crop, so each box above has its own width to be told apart by.
-    private val readsByCropWidth = mapOf(50 to "12:00", 80 to "こんにちは", 60 to "!?")
+    private val readsByCropWidth = mapOf(50 to "12:00", 80 to "こんにちは", 60 to "!?", 70 to "よくある")
+    private val confidenceByCropWidth = mapOf(70 to 0.879f)
     private val reads = mutableListOf<String>()
     private val slot = FakeTranslationSlot(PageTranslation(mapOf(2 to "Hello", 3 to "What?"), "", 1L))
 
@@ -56,7 +58,7 @@ class TranslationPipelineTest {
             "extractText" -> {
                 val text = readsByCropWidth.getValue(invocation.getArgument<Bitmap>(0).width)
                 reads += text
-                OcrResult(text, 1f, floatArrayOf())
+                OcrResult(text, confidenceByCropWidth[invocation.getArgument<Bitmap>(0).width] ?: 1f, floatArrayOf())
             }
             else -> Mockito.RETURNS_DEFAULTS.answer(invocation)
         }
@@ -87,6 +89,26 @@ class TranslationPipelineTest {
         assertEquals(listOf(2), previewed)
         assertEquals(listOf(listOf(2 to "こんにちは")), slot.pagePairs())
         assertEquals(listOf(2), drawn)
+    }
+
+    @Test
+    fun `an unsure read never reaches onOcrComplete, the slot or onBubble, but stays in the result`() = runTest {
+        val previewed = mutableListOf<Int>()
+        val drawn = mutableListOf<Int>()
+
+        val result = pipeline(speech, caption).processPage(
+            page(),
+            onOcrComplete = { bubbleId, _, _ -> previewed += bubbleId },
+            onBubble = { drawn += it.bubbleId }
+        )
+
+        assertEquals(listOf(2), previewed)
+        assertEquals(listOf(listOf(2 to "こんにちは")), slot.pagePairs())
+        assertEquals(listOf(2), drawn)
+        assertEquals(
+            mapOf(2 to ("こんにちは" to 1f), 4 to ("よくある" to 0.879f)),
+            result!!.reads.mapValues { (_, read) -> read.text to read.confidence }
+        )
     }
 
     @Test

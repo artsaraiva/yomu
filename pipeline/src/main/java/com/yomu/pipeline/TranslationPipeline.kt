@@ -8,6 +8,7 @@ import com.yomu.pipeline.bubble.bubbleRenderBoxes
 import com.yomu.pipeline.bubble.centeredOutside
 import com.yomu.pipeline.context.ContextAssembler
 import com.yomu.pipeline.ocr.OcrEngine
+import com.yomu.pipeline.ocr.OcrResult
 import com.yomu.pipeline.translation.TranslationEngine
 import com.yomu.pipeline.translation.TranslationResult
 import com.yomu.pipeline.translation.hasJapaneseScript
@@ -39,7 +40,9 @@ data class PipelineResult(
     /** Each stage that ran, in order. Loading the vision models is left out; a translation model load is in TRANSLATION. */
     val stageTimesMs: Map<TranslationPipeline.Stage, Long> = emptyMap(),
     /** Every detected bubble's glyph box as left, top, right, bottom, in detection order. */
-    val bubbleBounds: Map<Int, FloatArray> = emptyMap()
+    val bubbleBounds: Map<Int, FloatArray> = emptyMap(),
+    /** Every read with kana or kanji in it, by bubble id, including the [OcrResult.unsure] ones never translated. */
+    val reads: Map<Int, OcrResult> = emptyMap()
 )
 
 class TranslationPipeline(
@@ -176,7 +179,8 @@ class TranslationPipeline(
 
             currentStage = Stage.OCR
             callback?.onStageProgress(Stage.OCR, 0.2f)
-            val ocrResults = mutableMapOf<Int, com.yomu.pipeline.ocr.OcrResult>()
+            val reads = linkedMapOf<Int, OcrResult>()
+            val ocrResults = mutableMapOf<Int, OcrResult>()
 
             for ((index, bubble) in bubbles.withIndex()) {
                 val cropBounds = CropBoundsCalculator.clamp(
@@ -198,8 +202,14 @@ class TranslationPipeline(
                 val result = ocrEngine.extractText(bubbleBitmap)
                 coroutineContext.ensureActive()
                 if (result != null && result.text.hasJapaneseScript()) {
-                    ocrResults[bubble.id] = result
-                    onOcrComplete?.invoke(bubble.id, result.text, bubble.boundingBox)
+                    reads[bubble.id] = result
+                    // A garbled read comes back as confident wrong English, so its bubble keeps its art (#366).
+                    if (result.unsure) {
+                        Log.i(TAG, "Skipping unsure read bubble=${bubble.id} confidence=${result.confidence}")
+                    } else {
+                        ocrResults[bubble.id] = result
+                        onOcrComplete?.invoke(bubble.id, result.text, bubble.boundingBox)
+                    }
                 }
 
                 val progress = 0.2f + ((index + 1).toFloat() / bubbles.size) * 0.3f
@@ -258,7 +268,8 @@ class TranslationPipeline(
                 totalTimeMs = System.currentTimeMillis() - startTime,
                 timeToFirstBubbleMs = firstBubbleAt?.let { it - startTime },
                 stageTimesMs = stageTimesMs,
-                bubbleBounds = detectedBounds
+                bubbleBounds = detectedBounds,
+                reads = reads
             )
 
             callback?.onComplete(result)
