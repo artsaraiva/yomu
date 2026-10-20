@@ -5,9 +5,14 @@ import com.yomu.core.GenerationParams
 sealed class GenerationResult {
     abstract val durationMs: Long
 
+    /**
+     * [endedByModel] is true only when the model closed the reply with end-of-generation, so its last
+     * line is whole; a reply the deadline or the token cap cut off can stop mid-line.
+     */
     data class Success(
         val text: String,
-        override val durationMs: Long
+        override val durationMs: Long,
+        val endedByModel: Boolean = false
     ) : GenerationResult()
 
     data class NotLoaded(

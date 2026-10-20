@@ -30,11 +30,13 @@ static std::atomic<bool> g_abort_requested{false};
 
 // Why an empty reply was empty, read back by nativeLastStatus. The JNI used to collapse a refused
 // prompt, an aborted decode and a genuinely empty completion into "", which the batch path cannot
-// tell apart: it must fall back to per-line on an overflow and only on an overflow (#149).
+// tell apart: it must fall back to per-line on an overflow and only on an overflow (#149). ENDED
+// marks a reply the model closed itself, so a last line without a newline is whole (#368).
 enum GenerationStatus {
     GENERATION_OK = 0,
     GENERATION_OVERFLOW = 1,
-    GENERATION_TIMEOUT = 2
+    GENERATION_TIMEOUT = 2,
+    GENERATION_ENDED = 3
 };
 static std::atomic<int> g_last_status{GENERATION_OK};
 
@@ -345,7 +347,6 @@ Java_com_yomu_ml_LlamaBridge_nativeGenerate(
     bool listener_threw = false;
     int n_len = 0;
     llama_token new_token_id;
-    llama_token eos = llama_vocab_eos(g_vocab);
     const int n_vocab = llama_vocab_n_tokens(g_vocab);
     std::vector<llama_token_data> cur;
 
@@ -356,7 +357,10 @@ Java_com_yomu_ml_LlamaBridge_nativeGenerate(
         }
         new_token_id = g_grammar.sample(g_ctx, g_sampler, cur, n_vocab);
 
-        if (new_token_id == eos) break;
+        if (llama_vocab_is_eog(g_vocab, new_token_id)) {
+            g_last_status.store(GENERATION_ENDED, std::memory_order_relaxed);
+            break;
+        }
 
         // Convert token to text
         char buf[256];
