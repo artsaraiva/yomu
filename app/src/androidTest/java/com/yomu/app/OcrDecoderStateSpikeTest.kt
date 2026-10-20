@@ -13,12 +13,14 @@ import com.yomu.ml.OnnxRuntime
 import com.yomu.pipeline.CropBoundsCalculator
 import com.yomu.pipeline.bubble.BubbleDetector
 import com.yomu.pipeline.ocr.OcrEngine
+import com.yomu.pipeline.ocr.OcrResult
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
 import java.nio.FloatBuffer
 import java.nio.LongBuffer
+import kotlin.math.exp
 
 /**
  * Spike #339, never merged: times the OCR stage with today's no-past export against a
@@ -31,8 +33,9 @@ class OcrDecoderStateSpikeTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val env = OrtEnvironment.getEnvironment()
 
+    /** Logs each page's OCR ms per reader; fails if any crop reads differently or flips [OcrResult.unsure]. */
     @Test
-    fun compareOcrStage() {
+    fun pastKeyValueExportsReadEveryCropLikeTodays() {
         val pages = File(FIXTURE_DIR, "pages").listFiles { f -> f.extension == "jpg" }.orEmpty().sortedBy { it.name }
         check(pages.isNotEmpty()) { "No pages under $FIXTURE_DIR/pages" }
         val vision = stage(Constants.VISION_MODELS_DIR, VISION_FILES)
@@ -48,30 +51,34 @@ class OcrDecoderStateSpikeTest {
         val encoder = session(File(past, "encoder_model.onnx"))
         val merged = MergedDecoder(session(File(past, "decoder_model_merged.onnx")))
         val split = SplitDecoder(session(File(past, "decoder_model.onnx")), session(File(past, "decoder_with_past_model.onnx")))
-        val readers = linkedMapOf<String, (Bitmap) -> String>(
-            "current" to { crop -> current.extractText(crop)?.text.orEmpty() },
-            "merged" to { crop -> text(merged.decode(encode(encoder, crop), sep), vocab) },
-            "split" to { crop -> text(split.decode(encode(encoder, crop), sep), vocab) }
+        val readers = linkedMapOf<String, (Bitmap) -> Read>(
+            "current" to { crop -> current.extractText(crop).let { Read(it?.text.orEmpty(), it?.confidence ?: 0f) } },
+            "merged" to { crop -> merged.decode(encode(encoder, crop), sep).let { Read(text(it.tokenIds, vocab), it.confidence) } },
+            "split" to { crop -> split.decode(encode(encoder, crop), sep).let { Read(text(it.tokenIds, vocab), it.confidence) } }
         )
         try {
             // Warm-up: first runs pay session and allocator setup; excluded like SpeedBenchmarkTest's.
             crops(detector, pages.first()).forEach { crop -> readers.values.forEach { it(crop) } }
             var differing = 0
+            var unsureFlips = 0
             for ((index, page) in pages.withIndex()) {
                 val crops = crops(detector, page)
                 val ms = readers.keys.associateWith { 0L }.toMutableMap()
                 for ((cropIndex, crop) in crops.withIndex()) {
-                    val texts = readers.mapValues { (name, read) ->
+                    val reads = readers.mapValues { (name, read) ->
                         val start = System.nanoTime()
                         read(crop).also { ms[name] = ms.getValue(name) + (System.nanoTime() - start) / 1_000_000L }
                     }
-                    val same = texts.values.toSet().size == 1
+                    val same = reads.values.map { it.text }.toSet().size == 1
                     if (!same) differing++
-                    Log.i(TAG, "CROP page=${index + 1} crop=${cropIndex + 1} same=$same texts=$texts")
+                    // Same text can still differ in fp noise; a crop near 0.85 must not change the pipeline's skip.
+                    if (reads.values.map { it.confidence < OcrEngine.MIN_CONFIDENCE }.toSet().size > 1) unsureFlips++
+                    Log.i(TAG, "CROP page=${index + 1} crop=${cropIndex + 1} same=$same reads=$reads")
                 }
                 ms.forEach { (name, total) -> Log.i(TAG, "OCR_TIMING page=${index + 1} crops=${crops.size} reader=$name ms=$total") }
             }
             assertEquals("crops whose reads differ", 0, differing)
+            assertEquals("crops whose unsure flag differs", 0, unsureFlips)
         } finally {
             merged.session.close()
             split.first.close()
@@ -85,12 +92,12 @@ class OcrDecoderStateSpikeTest {
         val bitmap = checkNotNull(BitmapFactory.decodeFile(page.absolutePath))
         // Same crop as TranslationPipeline.processPage, at the shipped detector threshold.
         return detector.detect(bitmap, BubbleDetector.DEFAULT_CONFIDENCE_THRESHOLD).map { bubble ->
-            val b = CropBoundsCalculator.clamp(
+            val bounds = CropBoundsCalculator.clamp(
                 bitmap.width, bitmap.height,
                 bubble.boundingBox.left.toInt(), bubble.boundingBox.top.toInt(),
                 bubble.boundingBox.width().toInt(), bubble.boundingBox.height().toInt()
             )
-            Bitmap.createBitmap(bitmap, b.x, b.y, b.width, b.height)
+            Bitmap.createBitmap(bitmap, bounds.x, bounds.y, bounds.width, bounds.height)
         }
     }
 
@@ -113,12 +120,18 @@ class OcrDecoderStateSpikeTest {
         }
     }
 
+    private data class Read(val text: String, val confidence: Float)
+
+    private data class Decode(val tokenIds: List<Int>, val confidence: Float)
+
     /** One token in, logits plus present key/values out; greedy from [CLS] like OcrDecoding.decodeGreedy. */
     private abstract inner class PastDecoder {
         abstract fun step(token: Long, hidden: OnnxTensor, past: Map<String, OnnxTensor>?): OrtSession.Result
 
-        fun decode(hidden: OnnxTensor, sep: Int): List<Int> {
+        fun decode(hidden: OnnxTensor, sep: Int): Decode {
             val ids = mutableListOf<Int>()
+            val probabilities = mutableListOf<Float>()
+            fun decoded() = Decode(ids, if (probabilities.isEmpty()) 0f else probabilities.average().toFloat())
             val results = mutableListOf<OrtSession.Result>()
             var past: Map<String, OnnxTensor>? = null
             var token = START_TOKEN_ID
@@ -128,14 +141,18 @@ class OcrDecoderStateSpikeTest {
                     val logits = (result.get("logits").get() as OnnxTensor).floatBuffer
                     var best = 0
                     for (i in 1 until logits.limit()) if (logits[i] > logits[best]) best = i
-                    if (best == sep) return ids
+                    // OcrDecoding.chooseToken's softmax probability of the argmax.
+                    var sum = 0.0
+                    for (i in 0 until logits.limit()) sum += exp((logits[i] - logits[best]).toDouble())
+                    probabilities += (1.0 / sum).toFloat()
+                    if (best == sep) return decoded()
                     ids += best
                     token = best.toLong()
                     past = nextPast(past, result)
                     // Every past tensor now comes from the latest result or the first one (cross-attention).
                     while (results.size > 2) results.removeAt(1).close()
                 }
-                return ids
+                return decoded()
             } finally {
                 results.forEach { it.close() }
                 hidden.close()
@@ -147,7 +164,7 @@ class OcrDecoderStateSpikeTest {
             result.filter { it.key.startsWith("present.") }.associate { (name, value) ->
                 val pastName = name.replace("present.", "past_key_values.")
                 val tensor = value as OnnxTensor
-                pastName to if (tensor.info.shape[0] == 0L) old!!.getValue(pastName) else tensor
+                pastName to if (tensor.info.shape.any { it == 0L }) old!!.getValue(pastName) else tensor
             }.let { (old.orEmpty()) + it }
 
         protected fun ids(token: Long) = OnnxTensor.createTensor(env, LongBuffer.wrap(longArrayOf(token)), longArrayOf(1, 1))

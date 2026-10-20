@@ -2,6 +2,10 @@
 
 Optimum refuses image-to-text-with-past for a BERT decoder: its BERT config is encoder-only.
 BertLMHeadModel does support a KV cache, so register a decoder config for bert first.
+It patches Optimum's private registry, so pin the tools it ran with:
+  uv venv --python 3.12 && uv pip install "optimum[exporters]" optimum-onnx onnxruntime pillow
+  optimum 2.1.0, optimum-onnx 0.1.0, transformers 4.57.6, torch 2.14.1, onnx 1.23.2, onnxruntime 1.31.0
+Usage: python spike-339-export.py <out-dir>
 """
 import functools
 import sys
