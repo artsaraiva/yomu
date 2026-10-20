@@ -87,3 +87,11 @@ The #68 amendment relaxed "one call per page" to "one target bubble per call **c
 **Withdrawn.** "The previous page's source/translation pairs as session memory", and the `OverlayService`-held `List<Pair<ja, en>>` that carries it. It reached a model for the first time in #137 and failed: the production-shaped payload exceeds the 512-token `n_batch` prompt cap on 4 of 17 pages, each silently rendering the untranslated page; surviving pages were slower and no arm showed a quality gain. The plumbing is deleted rather than left dormant. Cross-panel coherence now comes from the whole page being in one call — which is what this ADR decided in the first place — and koharu's identical design (its `TranslationContext` is populated only under `#[cfg(test)]`) corroborates it independently.
 
 **Consequence for the #53 amendment** *(moot: [ADR-0015](0015-quality-belongs-to-the-model.md) retires the gate)*. [ADR-0006](0006-coherence-gate-contract.md)'s directional gate — accuracy *with* session context against accuracy with it blanked — no longer has a cross-page arm to measure. It becomes runnable on **intra-page** coherence only.
+
+## Amendment (#367): panels come from the drawn gutters
+
+**Status:** accepted, amends "Panel detection stays as-is for now" above.
+
+The bubble-box gap heuristic merged all three tiers of balloon-dense-dialogue into one panel, so third-tier lines reached the prompt before the top tier's left panel. Box gaps cannot separate panels on their own: on that page two bubbles of one panel sit 290 px apart, while the gutters between tiers are 113–118 px.
+
+`ContextAssembler` now reads the page bitmap. It cuts the page along paper-white rows into tiers, read top to bottom, then along paper-white columns into panels, read right to left, recursively. Inside a panel, bubbles are read in rows of vertically overlapping boxes, each row right to left. On the three fixture pages this reproduces the hand reading order. A slanted gutter, or art crossing one, keeps those panels together, and their bubbles fall back to row order.

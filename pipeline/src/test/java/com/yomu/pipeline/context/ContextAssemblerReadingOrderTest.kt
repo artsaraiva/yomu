@@ -59,6 +59,38 @@ class ContextAssemblerReadingOrderTest {
     }
 
     @Test
+    fun bubblesSideBySideReadRightToLeftBeforeTheRowBelow() {
+        val upperLeft = bubble(1, left = 0f, top = 0f, right = 40f, bottom = 40f)
+        val upperRight = bubble(2, left = 60f, top = 10f, right = 100f, bottom = 50f)
+        val lowerRight = bubble(3, left = 60f, top = 100f, right = 100f, bottom = 140f)
+
+        val result = assembler.assemble(
+            bubbles = listOf(upperLeft, upperRight, lowerRight),
+            ocrResults = emptyMap(),
+            page = onePanel
+        )
+
+        assertEquals(listOf(2, 1, 3), result.orderedBubbleIds())
+    }
+
+    @Test
+    fun everyBubbleAppearsInExactlyOnePanel() {
+        // A wide panel overlapping a lower, narrower one along X once put both bubbles in both
+        // panels, and the page prompt carried duplicate [id] lines (found by the #165 run records).
+        val wide = bubble(1, left = 0f, top = 0f, right = 300f, bottom = 50f)
+        val lowerNarrow = bubble(2, left = 100f, top = 500f, right = 150f, bottom = 550f)
+        val twoTiers = page(1000, 1000, Rect(0, 0, 1000, 200) to art, Rect(0, 300, 1000, 1000) to art)
+
+        val result = assembler.assemble(
+            bubbles = listOf(wide, lowerNarrow),
+            ocrResults = emptyMap(),
+            page = twoTiers
+        )
+
+        assertEquals(listOf(listOf(1), listOf(2)), result.blocks.map { block -> block.readingOrder })
+    }
+
+    @Test
     fun emptyBubblesReturnsEmpty() {
         val result = assembler.assemble(
             bubbles = emptyList(),
