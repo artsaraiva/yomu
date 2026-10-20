@@ -119,6 +119,15 @@ internal fun deliverableStatus(status: ModelStatus?, progress: Int?, selected: B
     else -> "Not downloaded"
 } + if (pending) " · Takes over when downloaded" else ""
 
+internal fun deliverableDetail(deliverable: SlotDeliverable, fits: Boolean): String = listOfNotNull(
+    deliverable.sizeBytes.toFileSizeString(),
+    deliverable.speed.label,
+    deliverable.languageLabel,
+    deliverable.licence,
+    "Experimental".takeIf { deliverable.experimental },
+    if (fits) "Fits this device" else "Needs more memory"
+).joinToString(" · ")
+
 @Composable
 private fun DeliverableRow(
     deliverable: SlotDeliverable,
@@ -138,11 +147,7 @@ private fun DeliverableRow(
             RadioButton(selected = selected, onClick = onPick, enabled = fits)
             Column(Modifier.weight(1f)) {
                 Text(deliverable.name, style = MaterialTheme.typography.titleSmall, color = if (fits) LocalContentColor.current else muted)
-                Text(
-                    "${deliverable.sizeBytes.toFileSizeString()} · ${deliverable.speed.label} · ${deliverable.licence}${if (deliverable.experimental) " · Experimental" else ""} · ${if (fits) "Fits this device" else "Needs more memory"}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = muted
-                )
+                Text(deliverableDetail(deliverable, fits), style = MaterialTheme.typography.bodySmall, color = muted)
                 Text(
                     statusLabel,
                     style = MaterialTheme.typography.bodySmall,

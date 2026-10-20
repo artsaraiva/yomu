@@ -34,6 +34,12 @@ data class LlmModelOption(
      * Yomu to surface.
      */
     val licence: String,
+    /**
+     * The language label (#336): true only when the model card or the maker's own documentation names
+     * every target language Yomu offers (English, Portuguese, Spanish, French, German). A count alone
+     * ("201 languages", "35+ languages") names none of them, so its entry is English only. Checked 2026-10-20.
+     */
+    val multilingual: Boolean,
     /** Per-model (#84): a model that can emit one id-keyed reply for the whole page carries true and
      *  routes to the grammar-constrained page-level batch call (ADR-0013); CAT-Translate 0.8b cannot
      *  and stays per-line. Read by the slot, and by the settings screen, which hides the
@@ -104,6 +110,7 @@ object LlmModelCatalog {
         ggufFileName = Constants.QWEN25_15B_MODEL,
         sizeBytes = Constants.QWEN25_15B_SIZE,
         licence = "Apache-2.0",
+        multilingual = true,
         idKeyedBatch = true,
         promptMode = TranslationPromptMode.TRANSLATION_ONLY,
         kvCacheBytesPerToken = 28L * 2 * 2 * 128 * 2,
@@ -131,6 +138,7 @@ object LlmModelCatalog {
         ggufFileName = ggufFileName,
         sizeBytes = sizeBytes,
         licence = "Apache-2.0",
+        multilingual = false,
         idKeyedBatch = true,
         promptMode = TranslationPromptMode.TRANSLATION_ONLY,
         // Both are plain Qwen3 GQA: 36 layers, 8 KV heads, head dim 128.
@@ -163,6 +171,7 @@ object LlmModelCatalog {
             ggufFileName = Constants.TRANSLATION_MODEL_4BIT,
             sizeBytes = Constants.TRANSLATION_MODEL_4BIT_SIZE,
             licence = "MIT",
+            multilingual = false,
             idKeyedBatch = false,
             promptMode = TranslationPromptMode.MODEL_CARD,
             kvCacheBytesPerToken = 24L * 2 * 8 * 80 * 2,
@@ -174,6 +183,7 @@ object LlmModelCatalog {
             ggufFileName = Constants.CAT_TRANSLATION_14B_MODEL,
             sizeBytes = Constants.CAT_TRANSLATION_14B_SIZE,
             licence = "MIT",
+            multilingual = false,
             idKeyedBatch = true,
             promptMode = TranslationPromptMode.MODEL_CARD,
             kvCacheBytesPerToken = 24L * 2 * 8 * 112 * 2,
@@ -185,6 +195,9 @@ object LlmModelCatalog {
             ggufFileName = Constants.QWEN35_08B_MODEL,
             sizeBytes = Constants.QWEN35_08B_SIZE,
             licence = "Apache-2.0",
+            // Every Qwen3.5 card gives only "201 languages"; the family's launch post
+            // (qwen.ai/blog?id=qwen3.5, "Multilingual Support") names all five.
+            multilingual = true,
             idKeyedBatch = true,
             promptMode = TranslationPromptMode.TRANSLATION_ONLY,
             // 6 of its 24 layers hold a KV cache; the 18 DeltaNet layers keep a fixed ~19 MiB state instead.
@@ -198,6 +211,7 @@ object LlmModelCatalog {
             ggufFileName = Constants.QWEN35_2B_MODEL,
             sizeBytes = Constants.QWEN35_2B_SIZE,
             licence = "Apache-2.0",
+            multilingual = true,
             idKeyedBatch = true,
             promptMode = TranslationPromptMode.TRANSLATION_ONLY,
             // Only its 6 full-attention layers hold a KV cache; the 18 DeltaNet layers keep a fixed ~19 MiB state instead.
@@ -215,6 +229,7 @@ object LlmModelCatalog {
             ggufFileName = Constants.QWEN35_4B_MODEL,
             sizeBytes = Constants.QWEN35_4B_SIZE,
             licence = "Apache-2.0",
+            multilingual = true,
             idKeyedBatch = true,
             promptMode = TranslationPromptMode.TRANSLATION_ONLY,
             // 8 of its 32 layers hold a KV cache; the DeltaNet layers keep a fixed ~50 MiB state instead.
@@ -229,6 +244,7 @@ object LlmModelCatalog {
             ggufFileName = Constants.QWEN35_9B_MODEL,
             sizeBytes = Constants.QWEN35_9B_SIZE,
             licence = "Apache-2.0",
+            multilingual = true,
             idKeyedBatch = true,
             promptMode = TranslationPromptMode.TRANSLATION_ONLY,
             // 8 of its 32 layers hold a KV cache; the DeltaNet layers keep a fixed ~50 MiB state instead.
@@ -243,6 +259,9 @@ object LlmModelCatalog {
             ggufFileName = Constants.QWEN3_4B_2507_MODEL,
             sizeBytes = Constants.QWEN3_4B_2507_SIZE,
             licence = "Apache-2.0",
+            // The card names no languages; the Qwen3 technical report (arXiv 2505.09388, §A.1.2 and
+            // its per-language tables) names all five, with Qwen3-4B rows.
+            multilingual = true,
             idKeyedBatch = true,
             promptMode = TranslationPromptMode.TRANSLATION_ONLY,
             // Plain GQA over all 36 layers, so every one holds a KV cache — the heaviest of the Qwen line.
@@ -261,6 +280,7 @@ object LlmModelCatalog {
             ggufFileName = Constants.MINISTRAL3_3B_MODEL,
             sizeBytes = Constants.MINISTRAL3_3B_SIZE,
             licence = "Apache-2.0",
+            multilingual = true,
             idKeyedBatch = true,
             promptMode = TranslationPromptMode.TRANSLATION_ONLY,
             // 26 layers, 8 KV heads, head dim 128: 106,496 B/token, the heaviest of the sub-4B entries.
@@ -277,6 +297,7 @@ object LlmModelCatalog {
             ggufFileName = Constants.MINISTRAL3_8B_MODEL,
             sizeBytes = Constants.MINISTRAL3_8B_SIZE,
             licence = "Apache-2.0",
+            multilingual = true,
             idKeyedBatch = true,
             promptMode = TranslationPromptMode.TRANSLATION_ONLY,
             // 34 layers, 8 KV heads, head dim 160 (hidden 5120 / 32 heads). The addendum's shortlist
@@ -293,6 +314,7 @@ object LlmModelCatalog {
             ggufFileName = Constants.GEMMA4_E2B_MODEL,
             sizeBytes = Constants.GEMMA4_E2B_SIZE,
             licence = "Apache-2.0",
+            multilingual = false,
             idKeyedBatch = true,
             promptMode = TranslationPromptMode.TRANSLATION_ONLY,
             // KV sharing: only the first 35 − 20 = 15 layers own a KV cache, and of those 12 slide
@@ -308,6 +330,7 @@ object LlmModelCatalog {
             ggufFileName = Constants.GEMMA4_E4B_MODEL,
             sizeBytes = Constants.GEMMA4_E4B_SIZE,
             licence = "Apache-2.0",
+            multilingual = false,
             idKeyedBatch = true,
             promptMode = TranslationPromptMode.TRANSLATION_ONLY,
             // 42 layers, 18 KV-shared, so 24 own a cache: 20 sliding (2 KV heads × 256) + 4 global (× 512).
@@ -326,6 +349,7 @@ object LlmModelCatalog {
             ggufFileName = Constants.HY_MT2_18B_MODEL,
             sizeBytes = Constants.HY_MT2_18B_SIZE,
             licence = "Apache-2.0",
+            multilingual = true,
             idKeyedBatch = false,
             promptMode = TranslationPromptMode.HY_MT2,
             // 32 layers, 4 KV heads, head dim 128 — config.json and the GGUF header agree
