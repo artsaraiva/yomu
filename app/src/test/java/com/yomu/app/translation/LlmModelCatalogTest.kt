@@ -313,6 +313,24 @@ class LlmModelCatalogTest {
     }
 
     @Test
+    fun `CAT-Translate 0_8B and 1_4B are English only`() {
+        listOf(Constants.CAT_TRANSLATION_MODEL_ID, Constants.CAT_TRANSLATION_14B_MODEL_ID).forEach { id ->
+            assertFalse(id, LlmModelCatalog.fromId(id)!!.multilingual)
+        }
+    }
+
+    @Test
+    fun `only the entries whose card names all five target languages are Multilingual`() {
+        val multilingual = setOf(
+            Constants.QWEN25_15B_MODEL_ID,
+            Constants.MINISTRAL3_3B_MODEL_ID,
+            Constants.MINISTRAL3_8B_MODEL_ID,
+            Constants.HY_MT2_18B_MODEL_ID
+        )
+        assertEquals(multilingual, LlmModelCatalog.ALL.filter { it.multilingual }.map { it.id }.toSet())
+    }
+
+    @Test
     fun `Ministral 3 3B and 8B are experimental page-batch entries`() {
         listOf(Constants.MINISTRAL3_3B_MODEL_ID, Constants.MINISTRAL3_8B_MODEL_ID).forEach { id ->
             val option = LlmModelCatalog.fromId(id)!!
