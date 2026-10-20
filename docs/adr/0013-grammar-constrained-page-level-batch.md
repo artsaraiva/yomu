@@ -10,6 +10,8 @@
 
 > **Revised by [#214](https://github.com/artsaraiva/yomu/issues/214) (2026-09-14).** Two claims in *Amendment (#203)* are corrected by quoted hit texts: that all four 0.027 hits are run-on, and that confabulated structure appeared only at `repeat_penalty = 1.1`. Three of the four are confabulated structure. The shipped grammar now excludes `[` from `line`, which makes that class unreachable. See *Amendment (#214)* below.
 
+> **Revised by [#368](https://github.com/artsaraiva/yomu/issues/368) (2026-10-20).** Run-on past the last line had a structural cause: the grammar required a newline after the last line, which masked end-of-generation. That newline is now optional. See *Amendment (#368)* below.
+
 Yomu translates a page in **one page-level, id-keyed call per capture**, with the output shape enforced **at sample time by a GBNF grammar** rather than checked after the fact. The curated default (Qwen2.5-1.5B-Instruct) carries `idKeyedBatch = true`. Per-line translation survives as a **slot strategy** — for the CAT-Translate-0.8b low-storage floor, which cannot produce id-keyed output, and as the fallback for a page whose prompt exceeds the native prompt cap — not as the default architecture.
 
 **Cross-page session context is withdrawn.** It is not deferred and not dormant: the plumbing is deleted.
@@ -159,3 +161,17 @@ Both remaining hits are run-on past the translation, the class adjudicated above
 **The 160-character bound stays.** Excluding `[` removes only the tag-shaped form of writing past the translation. The model still runs on as parenthetical commentary or a punctuation loop, and 4 of 17 pages still reach the bound.
 
 **The comparison can be rerun.** `eval/run-benchmark.sh --bracket-exclusion` pairs `grammar_bracket` with `grammar_no_bracket`. Both arms declare `gen.line_excludes_id_bracket`, and the scorer checks it against what the device recorded.
+
+## Amendment (#368): the last line's newline is optional
+
+**Run-on on the final id was the grammar's doing.** The reply grammar ended with `"[last] " line "\n"`, so end-of-generation stayed masked until that newline. Qwen2.5-1.5B ends a reply with end-of-generation, not a newline. With that token masked, it kept writing until the 160-character bound. On `balloon-dense-dialogue`, after `[6] That's right...` the unconstrained model put 0.998 on end-of-generation. The grammar forced its next pick, ` (`, which the model gave under 0.001. That explains why every run-on hit in the amendments above sat on the final id: only the last line's end is masked. It was not a missing repetition penalty.
+
+**The fix: the last newline is optional, so the model can end its reply right after the translation.** The native loop now stops on any end-of-generation token (`llama_vocab_is_eog`), not only the vocab's EOS, and reports that the model ended the reply. Only then does the batch path accept a last line with no newline. A line the deadline or the token cap cut off still stays unanswered.
+
+**Measured on the three fixture pages** (#350's real-OCR prompts on desktop, seeds 7/8/9/42; three speed-benchmark runs on the emulator, random seeds):
+
+- Desktop: the last line ended with its translation in 12 of 12 runs, against 5 of 12 before. The earlier lines were byte-identical.
+- Two other candidates lost. Excluding `(` from `line` kept the run-on as `/That's right...` loops. A line bound scaled to the source length still showed invented text, only shorter.
+- Emulator: page decode time fell from 3,104 to 2,596 ms (`balloon-dense-dialogue`) and from 3,018 to 2,514 ms (`tojime-dense-action`). `bourei-p04` did not run on and stayed level (1,446 to 1,423 ms).
+
+**The 160-character bound stays** as a backstop for a line that loops mid-page.
