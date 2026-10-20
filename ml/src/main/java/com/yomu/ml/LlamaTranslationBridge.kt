@@ -4,7 +4,6 @@ import android.util.Log
 import com.yomu.core.ERROR_MODEL_MISSING
 import com.yomu.core.ModelProfile
 import com.yomu.core.PageTranslation
-import com.yomu.core.TranslatableBubble
 import com.yomu.core.TranslatablePage
 import com.yomu.core.TranslationOutcome
 import com.yomu.core.TranslationPromptMode
