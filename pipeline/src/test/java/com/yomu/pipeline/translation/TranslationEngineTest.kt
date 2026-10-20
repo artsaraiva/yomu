@@ -338,6 +338,20 @@ class TranslationEngineTest {
     }
 
     @Test
+    fun hasJapaneseScript_rejectsReaderInterfaceTextAndBarePunctuation() {
+        listOf("Sep15.2.50AN", "oloEdit", "00:37", "OK!", "!?", "……", "ー", "・・・").forEach { text ->
+            assertFalse(text, text.hasJapaneseScript())
+        }
+    }
+
+    @Test
+    fun hasJapaneseScript_acceptsAnyKanaOrKanji() {
+        listOf("こんにちは", "え?!", "ドーン", "ｳｿ", "源", "回00.37").forEach { text ->
+            assertTrue(text, text.hasJapaneseScript())
+        }
+    }
+
+    @Test
     fun looksLikeNonTranslation_keepsLegitDialogue() {
         assertFalse(looksLikeNonTranslation("I'm sorry!"))
         assertFalse(looksLikeNonTranslation("I'm sorry, I can't come with you today."))

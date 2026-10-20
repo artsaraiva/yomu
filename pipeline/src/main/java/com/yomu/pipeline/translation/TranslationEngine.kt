@@ -45,6 +45,9 @@ fun deadTranslationReason(text: String?): String? = when {
     else -> null
 }
 
+/** Whether the text has any kana or kanji, which reader-app labels, dates and a lone "!?" never do. */
+internal fun String.hasJapaneseScript(): Boolean = CJK.containsMatchIn(this)
+
 // Source text with no letter or digit — a lone "?", "...", "!?" — carries nothing to translate, and
 // asking a model to translate it invites a request for the missing text instead (#120).
 private fun TranslatableBubble.carriesText(): Boolean = sourceText.any { it.isLetterOrDigit() }
