@@ -14,6 +14,8 @@ import com.yomu.pipeline.translation.TranslationEngine
 import com.yomu.pipeline.typesetting.Typesetter
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.Mockito
@@ -85,5 +87,23 @@ class TranslationPipelineTest {
         assertEquals(listOf(2), previewed)
         assertEquals(listOf(listOf(2 to "こんにちは")), slot.pagePairs())
         assertEquals(listOf(2), drawn)
+    }
+
+    @Test
+    fun `a page with no bubbles left reports its error without calling the slot`() = runTest {
+        val errors = mutableListOf<Pair<TranslationPipeline.Stage, String>>()
+        val callback = object : TranslationPipeline.PipelineCallback {
+            override fun onStageProgress(stage: TranslationPipeline.Stage, progress: Float) = Unit
+            override fun onError(stage: TranslationPipeline.Stage, message: String) {
+                errors += stage to message
+            }
+            override fun onComplete(result: PipelineResult) = Unit
+        }
+
+        val result = pipeline(clock).processPage(page(), callback, ignoredRegions = listOf(statusBar))
+
+        assertNull(result)
+        assertEquals(listOf(TranslationPipeline.Stage.BUBBLE_DETECTION to "No bubbles detected on the page"), errors)
+        assertTrue(slot.pages.isEmpty())
     }
 }
