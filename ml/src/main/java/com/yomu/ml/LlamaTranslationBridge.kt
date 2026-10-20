@@ -63,10 +63,8 @@ class LlamaTranslationBridge(
         private const val MAX_BATCH_OUTPUT = 768
 
         /**
-         * Longest line the batch grammar will let the model write. Unbounded, the model finished
-         * the last id and kept writing inside that same line until the token cap (#137); #368 traced
-         * that to the grammar masking end-of-generation, and the bound stays as a backstop. 160 is
-         * ~2x the longest human reference line on the fixture pages. A knob co-owned with the
+         * Longest line the batch grammar will let the model write, a backstop for a line that loops.
+         * 160 is ~2x the longest human reference line on the fixture pages. A knob co-owned with the
          * sampler (ADR-0013), not a pinned constant.
          */
         private const val MAX_LINE_CHARS = 160
@@ -308,7 +306,12 @@ class LlamaTranslationBridge(
                             "maxTokens=$maxTokens durationMs=${result.durationMs}"
                     )
                     Log.i(TAG, "generate raw=${text.replace("\n", "\\n")}")
-                    GeneratedText(text, result.durationMs, TranslationOutcome.SUCCESS, endedByModel = result.endedByModel)
+                    GeneratedText(
+                        text,
+                        result.durationMs,
+                        TranslationOutcome.SUCCESS,
+                        endedByModel = result.endedByModel
+                    )
                 }
             }
             is GenerationResult.Blank ->

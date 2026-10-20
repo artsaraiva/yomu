@@ -23,7 +23,10 @@ internal class ReplyLineSplitter(private val onLine: (String) -> Unit) {
         pending.write(bytes, start, bytes.size - start)
     }
 
-    /** Emits the unterminated tail as the last line; only for a reply the model ended, never one cut off mid-line (#368). */
+    /**
+     * Emits the unterminated tail as the last line. Only for a reply the model ended: a reply cut off
+     * mid-line must leave that line unanswered (#368).
+     */
     fun finish() {
         if (pending.size() > 0) onLine(decodeGenerated(pending.toByteArray()))
         pending.reset()

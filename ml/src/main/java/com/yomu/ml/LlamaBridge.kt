@@ -104,8 +104,8 @@ open class LlamaBridge(private val context: Context?) : TextGenerationBridge {
             )
             val durationMs = System.currentTimeMillis() - startMs
             val text = decodeGenerated(result)
+            val status = nativeLastStatus()
             if (text.isBlank()) {
-                val status = nativeLastStatus()
                 Log.w(TAG, "generate completed status=empty native=$status durationMs=$durationMs")
                 return when (status) {
                     STATUS_OVERFLOW -> GenerationResult.Overflow(durationMs = durationMs)
@@ -113,8 +113,12 @@ open class LlamaBridge(private val context: Context?) : TextGenerationBridge {
                     else -> GenerationResult.Blank(durationMs = durationMs)
                 }
             }
-            val endedByModel = nativeLastStatus() == STATUS_ENDED
-            Log.i(TAG, "generate completed status=success durationMs=$durationMs responseLength=${text.length} endedByModel=$endedByModel")
+            val endedByModel = status == STATUS_ENDED
+            Log.i(
+                TAG,
+                "generate completed status=success durationMs=$durationMs responseLength=${text.length} " +
+                    "endedByModel=$endedByModel"
+            )
             return GenerationResult.Success(text = text, durationMs = durationMs, endedByModel = endedByModel)
         } catch (e: Exception) {
             val durationMs = System.currentTimeMillis() - startMs
