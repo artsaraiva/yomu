@@ -195,7 +195,9 @@ object LlmModelCatalog {
             ggufFileName = Constants.QWEN35_08B_MODEL,
             sizeBytes = Constants.QWEN35_08B_SIZE,
             licence = "Apache-2.0",
-            multilingual = false,
+            // Every Qwen3.5 card gives only "201 languages"; the family's launch post
+            // (qwen.ai/blog?id=qwen3.5, "Multilingual Support") names all five.
+            multilingual = true,
             idKeyedBatch = true,
             promptMode = TranslationPromptMode.TRANSLATION_ONLY,
             // 6 of its 24 layers hold a KV cache; the 18 DeltaNet layers keep a fixed ~19 MiB state instead.
@@ -209,7 +211,7 @@ object LlmModelCatalog {
             ggufFileName = Constants.QWEN35_2B_MODEL,
             sizeBytes = Constants.QWEN35_2B_SIZE,
             licence = "Apache-2.0",
-            multilingual = false,
+            multilingual = true,
             idKeyedBatch = true,
             promptMode = TranslationPromptMode.TRANSLATION_ONLY,
             // Only its 6 full-attention layers hold a KV cache; the 18 DeltaNet layers keep a fixed ~19 MiB state instead.
@@ -227,7 +229,7 @@ object LlmModelCatalog {
             ggufFileName = Constants.QWEN35_4B_MODEL,
             sizeBytes = Constants.QWEN35_4B_SIZE,
             licence = "Apache-2.0",
-            multilingual = false,
+            multilingual = true,
             idKeyedBatch = true,
             promptMode = TranslationPromptMode.TRANSLATION_ONLY,
             // 8 of its 32 layers hold a KV cache; the DeltaNet layers keep a fixed ~50 MiB state instead.
@@ -242,7 +244,7 @@ object LlmModelCatalog {
             ggufFileName = Constants.QWEN35_9B_MODEL,
             sizeBytes = Constants.QWEN35_9B_SIZE,
             licence = "Apache-2.0",
-            multilingual = false,
+            multilingual = true,
             idKeyedBatch = true,
             promptMode = TranslationPromptMode.TRANSLATION_ONLY,
             // 8 of its 32 layers hold a KV cache; the DeltaNet layers keep a fixed ~50 MiB state instead.
