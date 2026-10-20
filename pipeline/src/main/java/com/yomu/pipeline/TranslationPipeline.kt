@@ -39,7 +39,9 @@ data class PipelineResult(
     /** Each stage that ran, in order. Loading the vision models is left out; a translation model load is in TRANSLATION. */
     val stageTimesMs: Map<TranslationPipeline.Stage, Long> = emptyMap(),
     /** Every detected bubble's glyph box as left, top, right, bottom, in detection order. */
-    val bubbleBounds: Map<Int, FloatArray> = emptyMap()
+    val bubbleBounds: Map<Int, FloatArray> = emptyMap(),
+    /** OCR text with no kana or kanji, by bubble id. Only the page report reads it; it is never previewed, translated or drawn. */
+    val droppedReads: Map<Int, String> = emptyMap()
 )
 
 class TranslationPipeline(
@@ -177,6 +179,7 @@ class TranslationPipeline(
             currentStage = Stage.OCR
             callback?.onStageProgress(Stage.OCR, 0.2f)
             val ocrResults = mutableMapOf<Int, com.yomu.pipeline.ocr.OcrResult>()
+            val droppedReads = mutableMapOf<Int, String>()
 
             for ((index, bubble) in bubbles.withIndex()) {
                 val cropBounds = CropBoundsCalculator.clamp(
@@ -200,6 +203,8 @@ class TranslationPipeline(
                 if (result != null && result.text.hasJapaneseScript()) {
                     ocrResults[bubble.id] = result
                     onOcrComplete?.invoke(bubble.id, result.text, bubble.boundingBox)
+                } else if (result != null && result.text.isNotBlank()) {
+                    droppedReads[bubble.id] = result.text
                 }
 
                 val progress = 0.2f + ((index + 1).toFloat() / bubbles.size) * 0.3f
@@ -258,7 +263,8 @@ class TranslationPipeline(
                 totalTimeMs = System.currentTimeMillis() - startTime,
                 timeToFirstBubbleMs = firstBubbleAt?.let { it - startTime },
                 stageTimesMs = stageTimesMs,
-                bubbleBounds = detectedBounds
+                bubbleBounds = detectedBounds,
+                droppedReads = droppedReads
             )
 
             callback?.onComplete(result)

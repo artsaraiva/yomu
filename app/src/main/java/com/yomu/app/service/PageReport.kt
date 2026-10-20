@@ -12,6 +12,8 @@ private class ReportedBubble(
     val id: Int,
     val bounds: FloatArray,
     val ocrText: String?,
+    /** OCR read [ocrText] but found no Japanese in it, so it was never translated or drawn. */
+    val ocrDropped: Boolean,
     val translation: String?,
     val answered: Boolean
 )
@@ -42,8 +44,8 @@ private val gson = GsonBuilder().serializeNulls().disableHtmlEscaping().setPrett
 
 /**
  * The files of a page report by name, in zip order: the capture, the page as JSON and the model's raw
- * reply. Every detected bubble is listed, so one OCR never read, or read with no Japanese in it, shows up
- * as a detection with no text.
+ * reply. Every detected bubble is listed, so one OCR never read shows up as a detection with no text, and
+ * one read with no Japanese in it keeps its text, marked dropped.
  * A recalled page is described by the translation it recalled.
  */
 fun pageReportFiles(
@@ -71,7 +73,8 @@ fun pageReportFiles(
             ReportedBubble(
                 id = id,
                 bounds = bounds,
-                ocrText = bubble?.originalText,
+                ocrText = bubble?.originalText ?: page.droppedReads[id],
+                ocrDropped = id in page.droppedReads,
                 translation = bubble?.takeIf { it.answered }?.translatedText,
                 answered = bubble?.answered == true
             )
