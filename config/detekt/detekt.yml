@@ -1,0 +1,7 @@
+# The mechanical rules from CODING_STANDARDS.md that detekt checks without type resolution (#380).
+style:
+  active: true
+  ForbiddenComment:
+    active: true
+  UnusedImports:
+    active: true
