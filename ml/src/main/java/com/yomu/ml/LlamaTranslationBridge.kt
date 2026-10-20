@@ -241,9 +241,12 @@ class LlamaTranslationBridge(
      *
      * Structural only: nothing here forbids Japanese characters or constrains content, so a model
      * that fails to translate still shows it rather than having the grammar hide it.
+     *
+     * The last newline is optional: the model ends its reply with end-of-generation, not a newline,
+     * and a grammar still waiting for one masks that token, so the model writes on to the line cap (#368).
      */
     private fun buildBatchGrammar(page: TranslatablePage): String {
-        val root = page.panels.flatten().joinToString(" ") { "\"[${it.bubbleId}] \" line \"\\n\"" }
+        val root = page.panels.flatten().joinToString(" ") { "\"[${it.bubbleId}] \" line \"\\n\"" } + "?"
         val excluded = if (profile.generation.lineExcludesIdBracket) "\\r\\n\\[" else "\\r\\n"
         return "root ::= $root\nline ::= [^$excluded]{1,$MAX_LINE_CHARS}\n"
     }
