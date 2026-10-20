@@ -63,10 +63,9 @@ class LlamaTranslationBridge(
         private const val MAX_BATCH_OUTPUT = 768
 
         /**
-         * Longest line the batch grammar will let the model write. Unbounded, the model finishes
-         * the last id and keeps writing inside that same line until the token cap (#137), because
-         * the sampler carries no repetition penalty. 160 is ~2x the longest human reference line on
-         * the fixture pages. A knob co-owned with the sampler (ADR-0013), not a pinned constant.
+         * Longest line the batch grammar will let the model write, a backstop for a line that loops.
+         * 160 is ~2x the longest human reference line on the fixture pages. A knob co-owned with the
+         * sampler (ADR-0013), not a pinned constant.
          */
         private const val MAX_LINE_CHARS = 160
 
@@ -186,6 +185,7 @@ class LlamaTranslationBridge(
             buildBatchGrammar(page),
             splitter::feed
         )
+        if (output.endedByModel) splitter.finish()
         if (output.outcome == TranslationOutcome.OVERFLOW) {
             // Loud, and typed: the old behaviour was an empty PageTranslation and a silently
             // untranslated page (ADR-0013). The page still renders, but it renders through the
@@ -241,9 +241,12 @@ class LlamaTranslationBridge(
      *
      * Structural only: nothing here forbids Japanese characters or constrains content, so a model
      * that fails to translate still shows it rather than having the grammar hide it.
+     *
+     * The last newline is optional: the model ends its reply with end-of-generation, not a newline,
+     * and a grammar still waiting for one masks that token, so the model writes on to the line cap (#368).
      */
     private fun buildBatchGrammar(page: TranslatablePage): String {
-        val root = page.panels.flatten().joinToString(" ") { "\"[${it.bubbleId}] \" line \"\\n\"" }
+        val root = page.panels.flatten().joinToString(" ") { "\"[${it.bubbleId}] \" line \"\\n\"" } + "?"
         val excluded = if (profile.generation.lineExcludesIdBracket) "\\r\\n\\[" else "\\r\\n"
         return "root ::= $root\nline ::= [^$excluded]{1,$MAX_LINE_CHARS}\n"
     }
@@ -303,7 +306,12 @@ class LlamaTranslationBridge(
                             "maxTokens=$maxTokens durationMs=${result.durationMs}"
                     )
                     Log.i(TAG, "generate raw=${text.replace("\n", "\\n")}")
-                    GeneratedText(text, result.durationMs, TranslationOutcome.SUCCESS)
+                    GeneratedText(
+                        text,
+                        result.durationMs,
+                        TranslationOutcome.SUCCESS,
+                        endedByModel = result.endedByModel
+                    )
                 }
             }
             is GenerationResult.Blank ->
@@ -333,6 +341,7 @@ class LlamaTranslationBridge(
         val text: String,
         val durationMs: Long,
         val outcome: TranslationOutcome,
-        val errorCode: String? = null
+        val errorCode: String? = null,
+        val endedByModel: Boolean = false
     )
 }

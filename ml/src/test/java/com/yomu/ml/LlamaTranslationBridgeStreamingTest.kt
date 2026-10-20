@@ -67,6 +67,23 @@ class LlamaTranslationBridgeStreamingTest {
         model.delete()
     }
 
+    /** The grammar lets the model end its reply without a final newline, so the last line is reported when the model ends it (#368). */
+    @Test
+    fun translatePage_batchReportsTheLastLineWhenTheModelEndsTheReplyWithoutANewline() = runTest {
+        val model = File.createTempFile("model", ".gguf")
+        val slot = LlamaTranslationBridge(
+            FakeLlamaBridge { GenerationResult.Success("[1] Hello\n[2] Goodbye", 1L, endedByModel = true) },
+            profile(model)
+        )
+        val reported = mutableListOf<Pair<Int, String>>()
+
+        val result = slot.translatePage(page(1 to "こんにちは", 2 to "さようなら")) { id, text -> reported += id to text }
+
+        assertEquals(listOf(1 to "Hello", 2 to "Goodbye"), reported)
+        assertEquals(result.byId.toList(), reported)
+        model.delete()
+    }
+
     /** A reply cut off by the deadline ends mid-line: the lines already reported stay, the cut one is unanswered. */
     @Test
     fun translatePage_batchCutOffMidLineKeepsOnlyTheCompleteLines() = runTest {

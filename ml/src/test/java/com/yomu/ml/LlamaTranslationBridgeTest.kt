@@ -187,7 +187,10 @@ class LlamaTranslationBridgeTest {
         model.delete()
     }
 
-    /** Verifies batch generation receives a grammar containing one reply tag for each requested bubble ID. */
+    /**
+     * Verifies batch generation receives a grammar containing one reply tag for each requested bubble ID,
+     * with only the last line's newline optional so the model can end its reply after it (#368).
+     */
     @Test
     fun translatePage_batchPinsTheReplyShapeWithAGrammarPerId() = runTest {
         val model = File.createTempFile("model", ".gguf")
@@ -197,7 +200,7 @@ class LlamaTranslationBridgeTest {
         slot.translatePage(page(1 to "こんにちは", 2 to "さようなら"))
 
         val grammar = native.grammars.single()
-        assertTrue(grammar, grammar.startsWith("root ::= \"[1] \" line \"\\n\" \"[2] \" line \"\\n\""))
+        assertTrue(grammar, grammar.startsWith("root ::= \"[1] \" line \"\\n\" \"[2] \" line \"\\n\"?\n"))
         assertTrue(grammar, grammar.contains("line ::= [^\\r\\n\\[]{1,160}"))
         model.delete()
     }

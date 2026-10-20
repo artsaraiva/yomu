@@ -15,6 +15,7 @@ open class LlamaBridge(private val context: Context?) : TextGenerationBridge {
         // Mirrors GenerationStatus in llama_jni.cpp; the two must be edited together.
         private const val STATUS_OVERFLOW = 1
         private const val STATUS_TIMEOUT = 2
+        private const val STATUS_ENDED = 3
 
         init {
             try {
@@ -103,8 +104,8 @@ open class LlamaBridge(private val context: Context?) : TextGenerationBridge {
             )
             val durationMs = System.currentTimeMillis() - startMs
             val text = decodeGenerated(result)
+            val status = nativeLastStatus()
             if (text.isBlank()) {
-                val status = nativeLastStatus()
                 Log.w(TAG, "generate completed status=empty native=$status durationMs=$durationMs")
                 return when (status) {
                     STATUS_OVERFLOW -> GenerationResult.Overflow(durationMs = durationMs)
@@ -112,8 +113,13 @@ open class LlamaBridge(private val context: Context?) : TextGenerationBridge {
                     else -> GenerationResult.Blank(durationMs = durationMs)
                 }
             }
-            Log.i(TAG, "generate completed status=success durationMs=$durationMs responseLength=${text.length}")
-            return GenerationResult.Success(text = text, durationMs = durationMs)
+            val endedByModel = status == STATUS_ENDED
+            Log.i(
+                TAG,
+                "generate completed status=success durationMs=$durationMs responseLength=${text.length} " +
+                    "endedByModel=$endedByModel"
+            )
+            return GenerationResult.Success(text = text, durationMs = durationMs, endedByModel = endedByModel)
         } catch (e: Exception) {
             val durationMs = System.currentTimeMillis() - startMs
             val reason = e::class.simpleName ?: "Exception"
