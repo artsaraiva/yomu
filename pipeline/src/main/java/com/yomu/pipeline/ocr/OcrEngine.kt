@@ -3,16 +3,30 @@ package com.yomu.pipeline.ocr
 import android.graphics.Bitmap
 import com.yomu.ml.OnnxRuntime
 import java.io.File
+import kotlin.math.exp
 
 data class OcrResult(
     val text: String,
+    /** The decoder's mean probability for the tokens it chose, the stop token included. */
     val confidence: Float,
     val boundingBox: FloatArray
-)
+) {
+    /** A read this unsure is likely garbled, art or a text-free balloon, and is not worth translating (#366). */
+    val unsure: Boolean get() = confidence < OcrEngine.MIN_CONFIDENCE
+}
+
+/** One greedy step: the highest-scoring token and the probability softmax gives it. */
+internal data class TokenChoice(val id: Int, val probability: Float)
+
+/** A greedy decode's tokens, without the stop token, and its mean [TokenChoice.probability]; 0 when no step ran. */
+internal class GreedyDecode(val tokenIds: List<Int>, val confidence: Float)
 
 class OcrEngine(private val onnxRuntime: OnnxRuntime) {
 
     companion object {
+        // ponytail: picked on the 36 reads of the #350 fixtures (garbage 0.398-0.879, readable
+        // 0.976-1.000); re-check it against page reports' ocrConfidence when OCR or its decoding changes.
+        const val MIN_CONFIDENCE = 0.95f
         private const val INPUT_SIZE = 224
         private const val CHANNELS = 3
         // Safety cap on decoder steps, not the expected length: generation stops at the real [SEP]
@@ -45,16 +59,35 @@ class OcrEngine(private val onnxRuntime: OnnxRuntime) {
             return builder.toString().trim()
         }
 
-        internal fun decodeGreedy(stopTokenId: Int, nextToken: (LongArray) -> Int?): List<Int> {
+        internal fun decodeGreedy(stopTokenId: Int, nextToken: (LongArray) -> TokenChoice?): GreedyDecode {
             val inputIds = mutableListOf(DECODER_START_TOKEN_ID)
             val generatedIds = mutableListOf<Int>()
+            val probabilities = mutableListOf<Float>()
+            fun decoded() = GreedyDecode(generatedIds, if (probabilities.isEmpty()) 0f else probabilities.average().toFloat())
             repeat(MAX_LENGTH) {
-                val tokenId = nextToken(inputIds.toLongArray())
-                if (tokenId == null || tokenId == stopTokenId) return generatedIds
-                generatedIds.add(tokenId)
-                inputIds.add(tokenId.toLong())
+                val choice = nextToken(inputIds.toLongArray()) ?: return decoded()
+                probabilities.add(choice.probability)
+                if (choice.id == stopTokenId) return decoded()
+                generatedIds.add(choice.id)
+                inputIds.add(choice.id.toLong())
             }
-            return generatedIds
+            return decoded()
+        }
+
+        /** The argmax of [count] logits from [start], with its softmax probability over the same span. */
+        internal fun chooseToken(logits: FloatArray, start: Int, count: Int): TokenChoice {
+            var bestIndex = 0
+            var bestValue = Float.NEGATIVE_INFINITY
+            for (i in 0 until count) {
+                val value = logits[start + i]
+                if (value > bestValue) {
+                    bestValue = value
+                    bestIndex = i
+                }
+            }
+            var sum = 0.0
+            for (i in 0 until count) sum += exp((logits[start + i] - bestValue).toDouble())
+            return TokenChoice(bestIndex, (1.0 / sum).toFloat())
         }
 
         private fun isSpecialToken(token: String): Boolean =
@@ -99,11 +132,11 @@ class OcrEngine(private val onnxRuntime: OnnxRuntime) {
             fallback = longArrayOf(1L, 197L, 192L)
         )
 
-        val text = runDecoder(decoderPath, encoderOutput, encoderOutputShape, vocab)
+        val decoded = runDecoder(decoderPath, encoderOutput, encoderOutputShape, vocab)
 
         return OcrResult(
-            text = text,
-            confidence = 1.0f,
+            text = decodeTokens(decoded.tokenIds, vocab),
+            confidence = decoded.confidence,
             boundingBox = floatArrayOf(
                 region.width.toFloat(),
                 region.height.toFloat(),
@@ -166,11 +199,11 @@ class OcrEngine(private val onnxRuntime: OnnxRuntime) {
         encoderOutput: FloatArray,
         encoderOutputShape: LongArray,
         vocab: Map<Int, String>
-    ): String {
+    ): GreedyDecode {
         val inputNames = onnxRuntime.getInputNames(decoderPath)
-        if (inputNames.isEmpty()) return ""
+        if (inputNames.isEmpty()) return GreedyDecode(emptyList(), 0f)
 
-        val generatedIds = decodeGreedy(sepTokenId) { decoderInputIds ->
+        return decodeGreedy(sepTokenId) { decoderInputIds ->
             val seqLen = decoderInputIds.size.toLong()
 
             val floatInputs = mutableMapOf<String, FloatArray>()
@@ -233,23 +266,8 @@ class OcrEngine(private val onnxRuntime: OnnxRuntime) {
             val lastTimestepStart = (currentSeqLen - 1) * currentVocabSize
             if (lastTimestepStart + currentVocabSize > logits.size) return@decodeGreedy null
 
-            argmax(logits, lastTimestepStart, currentVocabSize)
+            chooseToken(logits, lastTimestepStart, currentVocabSize)
         }
-
-        return decodeTokens(generatedIds, vocab)
-    }
-
-    private fun argmax(values: FloatArray, start: Int, count: Int): Int {
-        var bestIndex = 0
-        var bestValue = Float.NEGATIVE_INFINITY
-        for (i in 0 until count) {
-            val value = values[start + i]
-            if (value > bestValue) {
-                bestValue = value
-                bestIndex = i
-            }
-        }
-        return bestIndex
     }
 
     private fun loadVocab(vocabPath: String): Boolean {
