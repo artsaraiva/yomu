@@ -5,10 +5,12 @@ import android.graphics.RectF
 import android.util.Log
 import com.yomu.pipeline.bubble.BubbleDetector
 import com.yomu.pipeline.bubble.bubbleRenderBoxes
+import com.yomu.pipeline.bubble.centeredOutside
 import com.yomu.pipeline.context.ContextAssembler
 import com.yomu.pipeline.ocr.OcrEngine
 import com.yomu.pipeline.translation.TranslationEngine
 import com.yomu.pipeline.translation.TranslationResult
+import com.yomu.pipeline.translation.hasJapaneseScript
 import com.yomu.pipeline.typesetting.TypesetBubble
 import com.yomu.pipeline.typesetting.Typesetter
 import kotlin.coroutines.coroutineContext
@@ -96,6 +98,7 @@ class TranslationPipeline(
 
     /**
      * Serializes page processing with model unloading and emits OCR previews followed by typeset bubbles.
+     * A bubble centered in one of [ignoredRegions], such as the status bar, is never read.
      * Callbacks run in the processing coroutine; UI callers must dispatch to the main thread.
      * Returns null on processing failure and propagates cancellation.
      */
@@ -103,8 +106,9 @@ class TranslationPipeline(
         bitmap: Bitmap,
         callback: PipelineCallback? = null,
         onOcrComplete: ((bubbleId: Int, ocrText: String, bounds: RectF) -> Unit)? = null,
-        onBubble: ((TypesetBubble) -> Unit)? = null
-    ): PipelineResult? = inference.withLock { runPage(bitmap, callback, onOcrComplete, onBubble) }
+        onBubble: ((TypesetBubble) -> Unit)? = null,
+        ignoredRegions: List<RectF> = emptyList()
+    ): PipelineResult? = inference.withLock { runPage(bitmap, callback, onOcrComplete, onBubble, ignoredRegions) }
 
     /** Releases the detector after any active page finishes using its native session. */
     suspend fun unloadDetection() = inference.withLock { bubbleDetector.release() }
@@ -121,7 +125,8 @@ class TranslationPipeline(
         bitmap: Bitmap,
         callback: PipelineCallback?,
         onOcrComplete: ((bubbleId: Int, ocrText: String, bounds: RectF) -> Unit)?,
-        onBubble: ((TypesetBubble) -> Unit)?
+        onBubble: ((TypesetBubble) -> Unit)?,
+        ignoredRegions: List<RectF>
     ): PipelineResult? {
         val startTime = System.currentTimeMillis()
         val pageWidth = bitmap.width
@@ -158,7 +163,7 @@ class TranslationPipeline(
             currentStage = Stage.BUBBLE_DETECTION
             callback?.onStageProgress(Stage.BUBBLE_DETECTION, 0.0f)
             stageStart = System.currentTimeMillis()
-            val bubbles = bubbleDetector.detect(bitmap, confidenceThreshold)
+            val bubbles = bubbleDetector.detect(bitmap, confidenceThreshold).centeredOutside(ignoredRegions)
             coroutineContext.ensureActive()
             endStage(Stage.BUBBLE_DETECTION)
             callback?.onStageProgress(Stage.BUBBLE_DETECTION, 0.2f)
@@ -192,7 +197,7 @@ class TranslationPipeline(
 
                 val result = ocrEngine.extractText(bubbleBitmap)
                 coroutineContext.ensureActive()
-                if (result != null && result.text.isNotEmpty()) {
+                if (result != null && result.text.hasJapaneseScript()) {
                     ocrResults[bubble.id] = result
                     onOcrComplete?.invoke(bubble.id, result.text, bubble.boundingBox)
                 }

@@ -1,7 +1,6 @@
 package com.yomu.pipeline.translation
 
 import com.yomu.core.ERROR_MODEL_MISSING
-import com.yomu.core.PageTranslation
 import com.yomu.core.TranslatableBubble
 import com.yomu.core.TranslatablePage
 import com.yomu.core.TranslationOutcome
@@ -41,13 +40,12 @@ private val CJK = Regex("[぀-ヺヽ-ヿ㐀-䶿一-鿿豈-﫿ｦ-ﾟ]")
 fun deadTranslationReason(text: String?): String? = when {
     text.isNullOrBlank() -> "empty"
     looksLikeNonTranslation(text) -> "non-translation"
-    CJK.containsMatchIn(text) -> "japanese residue"
+    text.hasJapaneseScript() -> "japanese residue"
     else -> null
 }
 
-// Source text with no letter or digit — a lone "?", "...", "!?" — carries nothing to translate, and
-// asking a model to translate it invites a request for the missing text instead (#120).
-private fun TranslatableBubble.carriesText(): Boolean = sourceText.any { it.isLetterOrDigit() }
+/** Whether the text has any kana or kanji, which reader-app labels, dates and a lone "!?" never do. */
+internal fun String.hasJapaneseScript(): Boolean = CJK.containsMatchIn(this)
 
 private fun String?.usableTranslation(): String? = this?.takeIf { deadTranslationReason(it) == null }
 
@@ -111,28 +109,17 @@ class TranslationEngine(
         val bubbles = page.panels.flatten()
         if (bubbles.isEmpty()) return TranslationResult(emptyList(), "", 0L)
 
-        val translatable = TranslatablePage(
-            page.panels.mapNotNull { panel -> panel.filter { it.carriesText() }.ifEmpty { null } }
-        )
-        val sourceById = translatable.panels.flatten().associate { it.bubbleId to it.sourceText }
+        val sourceById = bubbles.associate { it.bubbleId to it.sourceText }
         val forwarded = mutableMapOf<Int, String>()
-        val output = if (translatable.panels.isEmpty()) {
-            PageTranslation(emptyMap(), "", 0L)
-        } else {
-            slotProvider().translatePage(translatable) { bubbleId, text ->
-                val source = sourceById[bubbleId] ?: return@translatePage
-                val usable = text.usableTranslation() ?: return@translatePage
-                if (forwarded.putIfAbsent(bubbleId, usable) == null) {
-                    onBubble(TranslatedBubble(bubbleId, source, usable, answered = true))
-                }
+        val output = slotProvider().translatePage(page) { bubbleId, text ->
+            val source = sourceById[bubbleId] ?: return@translatePage
+            val usable = text.usableTranslation() ?: return@translatePage
+            if (forwarded.putIfAbsent(bubbleId, usable) == null) {
+                onBubble(TranslatedBubble(bubbleId, source, usable, answered = true))
             }
         }
         val translations = bubbles.map { bubble ->
-            val translated = if (bubble.carriesText()) {
-                forwarded[bubble.bubbleId] ?: output.byId[bubble.bubbleId].usableTranslation()
-            } else {
-                bubble.sourceText
-            }
+            val translated = forwarded[bubble.bubbleId] ?: output.byId[bubble.bubbleId].usableTranslation()
             TranslatedBubble(
                 bubbleId = bubble.bubbleId,
                 originalText = bubble.sourceText,

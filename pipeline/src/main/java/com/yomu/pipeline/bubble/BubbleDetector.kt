@@ -181,3 +181,8 @@ internal fun detectionIou(a: OnnxRuntime.Detection, b: OnnxRuntime.Detection): F
 
     return interArea / union
 }
+
+/** The bubbles whose box center lies in none of [regions], so a manga bubble the floating button only partly covers stays. */
+internal fun List<Bubble>.centeredOutside(regions: List<RectF>): List<Bubble> = filterNot { bubble ->
+    regions.any { it.contains(bubble.boundingBox.centerX(), bubble.boundingBox.centerY()) }
+}
