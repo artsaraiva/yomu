@@ -88,7 +88,7 @@ Yomu downloads every model on first launch (Wi-Fi required). Each download is pi
 | Slot | Model | Licence |
 |---|---|---|
 | Bubble detection | [`Kiuyha/Manga-Bubble-YOLO`](https://huggingface.co/Kiuyha/Manga-Bubble-YOLO) (yolo26n, ONNX) | see [ADR-0007](docs/adr/0007-bubble-text-detection-approach.md) |
-| OCR | [`l0wgear/manga-ocr-2025-onnx`](https://huggingface.co/l0wgear/manga-ocr-2025-onnx) | see model card |
+| OCR | [`artsaraiva/manga-ocr-2025-onnx-past`](https://huggingface.co/artsaraiva/manga-ocr-2025-onnx-past/tree/151898756903f03a2682fa6be4507dfeff71fb7e) (manga-ocr-2025 with past key values) | Apache-2.0 |
 | Translation (default) | **Qwen2.5 1.5B Instruct** Q4_K_M | Apache-2.0 |
 | Translation | CAT-Translate 1.4B Q4_K_M | MIT |
 | Translation (low storage) | CAT-Translate 0.8B Q4_K_M | MIT |

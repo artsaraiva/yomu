@@ -63,9 +63,9 @@ ls "$FIXTURES"/pages/*.jpg >/dev/null 2>&1 || { echo "No pages in $FIXTURES/page
 # Same pinned revisions ModelManager downloads; keep the two in step when a model changes.
 MODELS=(
   "vision/bubble_detection.onnx|https://huggingface.co/Kiuyha/Manga-Bubble-YOLO/resolve/fb646500455e8a8a3a807fd27b855c8e4fc63766/onnx/yolo26n.onnx"
-  "vision/manga_ocr_encoder.onnx|https://huggingface.co/l0wgear/manga-ocr-2025-onnx/resolve/e8b27bbd3f424fe3877e0bda704d6a920e4f0a33/encoder_model.onnx"
-  "vision/manga_ocr_decoder.onnx|https://huggingface.co/l0wgear/manga-ocr-2025-onnx/resolve/e8b27bbd3f424fe3877e0bda704d6a920e4f0a33/decoder_model.onnx"
-  "vision/vocab.txt|https://huggingface.co/l0wgear/manga-ocr-2025-onnx/resolve/e8b27bbd3f424fe3877e0bda704d6a920e4f0a33/vocab.txt"
+  "vision/manga_ocr_encoder.onnx|https://huggingface.co/artsaraiva/manga-ocr-2025-onnx-past/resolve/151898756903f03a2682fa6be4507dfeff71fb7e/encoder_model.onnx"
+  "vision/manga_ocr_decoder.onnx|https://huggingface.co/artsaraiva/manga-ocr-2025-onnx-past/resolve/151898756903f03a2682fa6be4507dfeff71fb7e/decoder_model_merged.onnx"
+  "vision/vocab.txt|https://huggingface.co/artsaraiva/manga-ocr-2025-onnx-past/resolve/151898756903f03a2682fa6be4507dfeff71fb7e/vocab.txt"
   "llm/qwen25_1.5b_instruct_q4_k_m.gguf|https://huggingface.co/bartowski/Qwen2.5-1.5B-Instruct-GGUF/resolve/9eadc66189c7641e1ddd226b8267a9119b2ce2d4/Qwen2.5-1.5B-Instruct-Q4_K_M.gguf"
   "llm/cat_translate_0.8b_q4_k_m.gguf|https://huggingface.co/mradermacher/CAT-Translate-0.8b-GGUF/resolve/834d0624185e964856a1b3c43eb5e114c9c41df5/CAT-Translate-0.8b.Q4_K_M.gguf"
   "llm/cat_translate_1.4b_q4_k_m.gguf|https://huggingface.co/mradermacher/CAT-Translate-1.4b-GGUF/resolve/2eb35647e57b5981c14611e67b9ad205329b498d/CAT-Translate-1.4b.Q4_K_M.gguf"
@@ -88,11 +88,13 @@ MODELS=(
 for entry in "${MODELS[@]}"; do
   rel="${entry%%|*}"; url="${entry#*|}"; file="$FIXTURES/models/$rel"
   case "$rel" in llm/*) [ -n "$ONLY" ] && [ "${rel#*"$ONLY"}" = "$rel" ] && continue ;; esac
-  [ -f "$file" ] && continue
+  # A .url sidecar records the pin a cached file came from; a file from another pin is fetched again.
+  [ -f "$file" ] && [ "$(cat "$file.url" 2>/dev/null)" = "$url" ] && continue
   echo "Fetching $rel..."
   mkdir -p "$(dirname "$file")"
   curl -L --fail --progress-bar -o "$file.part" "$url"
   mv "$file.part" "$file"
+  printf '%s' "$url" > "$file.url"
 done
 
 # Size-compare before pushing, so a re-run does not re-send gigabytes.
