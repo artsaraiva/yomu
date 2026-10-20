@@ -170,7 +170,7 @@ class PageReportTest {
             rawResponse = "[0] Hello",
             reads = linkedMapOf(
                 0 to OcrResult("こんにちは", 0.998f, floatArrayOf()),
-                1 to OcrResult("よくある", 0.879f, floatArrayOf())
+                1 to OcrResult("よくラるって", 0.738f, floatArrayOf())
             )
         )
 
@@ -180,8 +180,8 @@ class PageReportTest {
         assertEquals(0.998f, read["ocrConfidence"].asFloat)
         assertFalse(read["skipped"].asBoolean)
         val skipped = recorded.bubble(1)
-        assertEquals("よくある", skipped["ocrText"].asString)
-        assertEquals(0.879f, skipped["ocrConfidence"].asFloat)
+        assertEquals("よくラるって", skipped["ocrText"].asString)
+        assertEquals(0.738f, skipped["ocrConfidence"].asFloat)
         assertTrue(skipped["skipped"].asBoolean)
         assertEquals(JsonNull.INSTANCE, skipped["translation"])
         assertFalse(skipped["answered"].asBoolean)

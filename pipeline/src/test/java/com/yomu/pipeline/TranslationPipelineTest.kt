@@ -29,10 +29,12 @@ class TranslationPipelineTest {
     private val speech = Bubble(2, RectF(100f, 100f, 180f, 300f), 0.9f)
     private val sfx = Bubble(3, RectF(220f, 100f, 280f, 300f), 0.9f)
     private val caption = Bubble(4, RectF(300f, 100f, 370f, 300f), 0.9f)
+    private val terse = Bubble(5, RectF(10f, 320f, 100f, 390f), 0.9f)
 
     // The fake OCR sees only a crop, so each box above has its own width to be told apart by.
-    private val readsByCropWidth = mapOf(50 to "12:00", 80 to "こんにちは", 60 to "!?", 70 to "よくある")
-    private val confidenceByCropWidth = mapOf(70 to 0.879f)
+    private val readsByCropWidth = mapOf(50 to "12:00", 80 to "こんにちは", 60 to "!?", 70 to "よくラるって", 90 to "御意")
+    // Emulator scores from #366: a garbled caption, and a clean two-kanji line.
+    private val confidenceByCropWidth = mapOf(70 to 0.738f, 90 to 0.898f)
     private val reads = mutableListOf<String>()
     private val slot = FakeTranslationSlot(PageTranslation(mapOf(2 to "Hello", 3 to "What?"), "", 1L))
 
@@ -106,9 +108,16 @@ class TranslationPipelineTest {
         assertEquals(listOf(listOf(2 to "こんにちは")), slot.pagePairs())
         assertEquals(listOf(2), drawn)
         assertEquals(
-            mapOf(2 to ("こんにちは" to 1f), 4 to ("よくある" to 0.879f)),
+            mapOf(2 to ("こんにちは" to 1f), 4 to ("よくラるって" to 0.738f)),
             result!!.reads.mapValues { (_, read) -> read.text to read.confidence }
         )
+    }
+
+    @Test
+    fun `a clean read the decoder is less sure of is still translated`() = runTest {
+        pipeline(terse).processPage(page())
+
+        assertEquals(listOf(listOf(5 to "御意")), slot.pagePairs())
     }
 
     @Test

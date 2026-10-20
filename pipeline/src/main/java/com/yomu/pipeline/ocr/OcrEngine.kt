@@ -24,9 +24,10 @@ internal class GreedyDecode(val tokenIds: List<Int>, val confidence: Float)
 class OcrEngine(private val onnxRuntime: OnnxRuntime) {
 
     companion object {
-        // ponytail: picked on the 36 reads of the #350 fixtures (garbage 0.398-0.879, readable
-        // 0.976-1.000); re-check it against page reports' ocrConfidence when OCR or its decoding changes.
-        const val MIN_CONFIDENCE = 0.95f
+        // ponytail: picked on 210 emulator reads of 18 OpenMantra pages (#366). Five of the six garbled
+        // reads scored 0.57-0.84 and no clean read went below 0.87; the sixth, half garbled, scored 0.93
+        // among clean lines. Re-check against page reports' ocrConfidence when OCR or its decoding changes.
+        const val MIN_CONFIDENCE = 0.85f
         private const val INPUT_SIZE = 224
         private const val CHANNELS = 3
         // Safety cap on decoder steps, not the expected length: generation stops at the real [SEP]
