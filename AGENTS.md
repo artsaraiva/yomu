@@ -47,15 +47,15 @@ scheme and is stale; treat it as history, not as a plan.
   ```
   An empty list means unlinked. Editing the body fixes it even after the PR is merged.
 - Use label `future` only for work intentionally deferred beyond the current delivery window.
-- For this repository, use `github-personal_*` tools and never the work-account GitHub tools.
+- For GitHub writes, use the `mcp__plugin_github_github__*` tools (signed in as `artsaraiva`) or `gh` with the personal token; see `docs/agents/issue-tracker.md`.
 
 ### GitHub Workflow
 
 1. **Remote:** `git@github-personal:artsaraiva/yomu.git` (SSH alias for personal account)
 2. **Git identity:** `Arthur Saraiva <arthur.m.saraiva@hotmail.com>` (set per-repo, not global)
 3. **Flow:** branch → commit → push → PR → review → merge to `main`
-4. **PR creation:** Use `github-personal_*` MCP tools (authenticated as `artsaraiva`). Do NOT use `github_*` tools (work account) for this repo.
-5. **PR review:** Self-review the diff before requesting human review. Use `github-personal_pull_request_read` with `get_diff` and `get_files`.
+4. **PR creation:** `mcp__plugin_github_github__create_pull_request`.
+5. **PR review:** Self-review the diff (`git diff origin/main...HEAD`) before requesting human review.
 
 ### Automated Review and Security Scanning
 
@@ -72,17 +72,11 @@ scheme and is stale; treat it as history, not as a plan.
 2. `ml/llama.cpp` alert: bump the submodule to an upstream commit with the fix; if upstream has none, dismiss with the reachability reason or open an issue to patch around it.
 3. CodeQL alert in our code: open a `fix/<issue>-…` branch; the alert closes when the fixing PR's scan no longer reports it.
 
-### Device Testing (Android MCP)
+### Device Testing
 
-When a physical device or emulator is connected, use the `android-mcp_*` tools to validate changes on-device:
+Use the `mcp__android__*` tools or `adb` on a connected phone or emulator. Yomu's overlays (floating button, quick settings, drawn page) are their own windows, so a plain `uiautomator dump` misses them; use `uiautomator dump --windows`.
 
-1. **Check device:** `android-mcp_execute_adb_shell_command` with `getprop ro.product.model`
-2. **Launch app:** `am start -n com.yomu.app/.MainActivity`
-3. **Inspect UI:** `android-mcp_get_uilayout` for clickable elements, or `uiautomator dump /dev/tty` for full hierarchy
-4. **Take screenshots:** `android-mcp_get_screenshot` (note: some models can't read images — use UI layout dump as fallback)
-5. **Interact:** `input tap <x> <y>`, `input swipe <x1> <y1> <x2> <y2>`, `input keyevent KEYCODE_BACK`
-6. **Logcat:** `logcat -s OverlayService:* FloatingButtonOverlay:*` for targeted debugging
-7. **Service state:** `dumpsys activity services com.yomu.app` to check if foreground service is running
+To check a pipeline or rendering change, run `scripts/page-report.py <page.jpg> <out-dir>` once on `main` and once on the branch, then `scripts/page-report.py --compare <before> <after>`. It translates one page in Google Photos and pulls its page report; `--help` lists what it needs.
 
 **When to test on-device:**
 - After overlay/service changes (can't be unit-tested)
@@ -94,21 +88,13 @@ When a physical device or emulator is connected, use the `android-mcp_*` tools t
 - Pure logic changes (typesetter math, cache, parsing) — unit tests suffice
 - Build/config changes — `assembleDebug` is enough
 
-### Code Standards
-
-1. **Type everything.** No `Any`, no unchecked casts, no `!!` unless unavoidable.
-2. **No comments.** Code explains itself. Only document the "why" when the code can't.
-3. **Follow existing patterns.** Look at surrounding files before writing new code.
-4. **Files are focused.** One responsibility per file. If a file grows past 300 lines, split it.
-5. **No dead code.** No TODOs, no commented-out code, no unused imports.
-
 ### Testing
 
 1. **TDD.** Red → Green → Refactor. Always write the failing test first.
-2. **Test the behavior, not the implementation.** Use meaningful test names that describe what should happen.
-3. **Every public function has a test.**
-4. **Run the test before implementation to confirm it fails.** Run it after to confirm it passes.
-5. **Speed benchmark on model changes.** A change to a model, the inference runtime (llama.cpp) or `LlmModelCatalog` runs `scripts/run-speed-benchmark.sh` on a phone or emulator and pastes the printed table in the PR, naming the device it ran on (emulator milliseconds are not phone numbers). The numbers are report-only; nothing gates on them.
+2. **Run the test before implementation to confirm it fails.** Run it after to confirm it passes.
+3. **Speed benchmark on model changes.** A change to a model, the inference runtime (llama.cpp) or `LlmModelCatalog` runs `scripts/run-speed-benchmark.sh` on a phone or emulator and pastes the printed table in the PR, naming the device it ran on (emulator milliseconds are not phone numbers). The numbers are report-only; nothing gates on them.
+
+Code and test-quality rules live in `CODING_STANDARDS.md`; review checks every diff against them.
 
 ### Yomu Project Context
 

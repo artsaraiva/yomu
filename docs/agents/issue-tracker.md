@@ -1,6 +1,14 @@
 # Issue tracker: GitHub
 
-Issues and specs for this repo live as GitHub issues (`artsaraiva/yomu`). Use the `gh` CLI for all operations — active `gh` account is `artsaraiva`, matching this repo.
+Issues and specs for this repo live as GitHub issues (`artsaraiva/yomu`). Use the `gh` CLI for all operations.
+
+`gh` reads work as-is. `gh` writes run as a work account that GitHub refuses on this repo (403 "Enterprise Managed User"), so prefix every write with the personal token, and never echo its value:
+
+```
+GH_TOKEN=$GITHUB_PERSONAL_ACCESS_TOKEN_YOMU gh issue edit <number> --body-file body.md
+```
+
+The `mcp__plugin_github_github__*` tools are signed in as `artsaraiva` and need no prefix.
 
 ## Conventions
 
@@ -13,7 +21,7 @@ Issues and specs for this repo live as GitHub issues (`artsaraiva/yomu`). Use th
 
 Infer the repo from `git remote -v` — `gh` does this automatically when run inside a clone.
 
-This repo already has a detailed issue/milestone/branch workflow documented in `AGENTS.md` under "Phase, Issue, and Branch Workflow" — read that section before creating or working an issue here; it takes precedence over the generic conventions below when the two overlap.
+This repo already has a detailed issue/milestone/branch workflow documented in `AGENTS.md` under "Issue and Branch Workflow" — read that section before creating or working an issue here; it takes precedence over the generic conventions below when the two overlap.
 
 ## Pull requests as a triage surface
 
@@ -41,7 +49,7 @@ Used by `/wayfinder`. The **map** is a single issue with **child** issues as tic
 
 - **Map**: a single issue labelled `wayfinder:map`, holding the Notes / Decisions-so-far / Fog body. `gh issue create --label wayfinder:map`.
 - **Child ticket**: an issue linked to the map as a GitHub sub-issue (`gh api` on the sub-issues endpoint). Where sub-issues aren't enabled, add the child to a task list in the map body and put `Part of #<map>` at the top of the child body. Labels: `wayfinder:<type>` (`research`/`prototype`/`grilling`/`task`). Once claimed, the ticket is assigned to the driving dev.
-- **Blocking**: GitHub's **native issue dependencies** — the canonical, UI-visible representation. Add an edge with `gh api --method POST repos/<owner>/<repo>/issues/<child>/dependencies/blocked_by -F issue_id=<blocker-db-id>`, where `<blocker-db-id>` is the blocker's numeric **database id** (`gh api repos/<owner>/<repo>/issues/<n> --jq .id`, _not_ the `#number` or `node_id`). GitHub reports `issue_dependencies_summary.blocked_by` (open blockers only — the live gate). Where dependencies aren't available, fall back to a `Blocked by: #<n>, #<n>` line at the top of the child body. A ticket is unblocked when every blocker is closed.
+- **Blocking**: GitHub's **native issue dependencies** — the canonical, UI-visible representation. Add an edge with `GH_TOKEN=$GITHUB_PERSONAL_ACCESS_TOKEN_YOMU gh api --method POST repos/<owner>/<repo>/issues/<child>/dependencies/blocked_by -F issue_id=<blocker-db-id>`, where `<blocker-db-id>` is the blocker's numeric **database id** (`gh api repos/<owner>/<repo>/issues/<n> --jq .id`, _not_ the `#number` or `node_id`). GitHub reports `issue_dependencies_summary.blocked_by` (open blockers only — the live gate). Where dependencies aren't available, fall back to a `Blocked by: #<n>, #<n>` line at the top of the child body. A ticket is unblocked when every blocker is closed.
 - **Frontier query**: list the map's open children (`gh issue list --state open`, scoped to the map's sub-issues / task list), drop any with an open blocker (`issue_dependencies_summary.blocked_by > 0`, or an open issue in the `Blocked by` line) or an assignee; first in map order wins.
 - **Claim**: `gh issue edit <n> --add-assignee @me` — the session's first write.
 - **Resolve**: `gh issue comment <n> --body "<answer>"`, then `gh issue close <n>`, then append a context pointer (gist + link) to the map's Decisions-so-far.
