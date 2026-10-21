@@ -46,12 +46,4 @@ class TargetLanguageStoreTest {
         prefs.values[Constants.PREF_TARGET_LANGUAGE] = 3
         assertEquals(TargetLanguage.ENGLISH, store.load())
     }
-
-    @Test
-    fun `each language carries the full name used in prompts`() {
-        assertEquals(
-            listOf("English", "Brazilian Portuguese", "Spanish", "French", "German"),
-            TargetLanguage.entries.map { it.promptName }
-        )
-    }
 }

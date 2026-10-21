@@ -17,4 +17,12 @@ class TargetLanguageTest {
         assertNull(TargetLanguage.fromCode("pt"))
         assertNull(TargetLanguage.fromCode(null))
     }
+
+    @Test
+    fun `each language carries the full name used in prompts`() {
+        assertEquals(
+            listOf("English", "Brazilian Portuguese", "Spanish", "French", "German"),
+            TargetLanguage.entries.map { it.promptName }
+        )
+    }
 }

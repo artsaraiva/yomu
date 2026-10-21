@@ -93,7 +93,7 @@ class TranslationPipeline(
         onOcrComplete: ((bubbleId: Int, ocrText: String, bounds: RectF) -> Unit)? = null,
         onBubble: ((TypesetBubble) -> Unit)? = null,
         ignoredRegions: List<RectF> = emptyList(),
-        targetLanguage: TargetLanguage = TargetLanguage.ENGLISH
+        targetLanguage: TargetLanguage
     ): PipelineResult? = inference.withLock { runPage(bitmap, callback, onOcrComplete, onBubble, ignoredRegions, targetLanguage) }
 
     /** Releases the detector after any active page finishes using its native session. */
