@@ -391,6 +391,15 @@ class LlmModelCatalogTest {
     }
 
     @Test
+    fun `profileFor marks the profile multilingual only for a Multilingual entry`() {
+        fun profile(id: String) = LlmModelCatalog.profileFor(LlmModelCatalog.fromId(id)!!, File("m"), GenerationParams(), RuntimeLimits(), fit(twelveGb))
+
+        assertTrue(profile(Constants.QWEN25_15B_MODEL_ID).multilingual)
+        assertTrue(profile(Constants.HY_MT2_18B_MODEL_ID).multilingual)
+        assertFalse(profile(Constants.CAT_TRANSLATION_14B_MODEL_ID).multilingual)
+    }
+
+    @Test
     fun `profileFor carries the entry's system message onto every entry`() {
         LlmModelCatalog.ALL.forEach { option ->
             val profile = LlmModelCatalog.profileFor(option, File("m"), GenerationParams(), RuntimeLimits(), fit(twelveGb))
