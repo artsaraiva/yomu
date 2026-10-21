@@ -19,6 +19,17 @@ set(GGML_BACKEND_DL ON CACHE BOOL "" FORCE)
 if(ANDROID_ABI STREQUAL "arm64-v8a")
     set(GGML_CPU_ALL_VARIANTS ON CACHE BOOL "" FORCE)
     set(GGML_CPU_KLEIDIAI ON CACHE BOOL "" FORCE)
+    # Spike #340: the OpenCL backend (Adreno kernels), built when scripts/spike-340-opencl-sdk.sh has
+    # prepared ml/opencl-sdk. With GGML_BACKEND_DL it is its own libggml-opencl.so; on a phone without
+    # libOpenCL.so its dlopen fails and the CPU variants carry on alone.
+    set(YOMU_OPENCL_SDK ${CMAKE_CURRENT_SOURCE_DIR}/../../../opencl-sdk)
+    if(EXISTS ${YOMU_OPENCL_SDK}/lib/libOpenCL.so)
+        set(GGML_OPENCL ON CACHE BOOL "" FORCE)
+        set(GGML_OPENCL_USE_ADRENO_KERNELS ON CACHE BOOL "" FORCE)
+        set(GGML_OPENCL_EMBED_KERNELS ON CACHE BOOL "" FORCE)
+        set(OpenCL_INCLUDE_DIR ${YOMU_OPENCL_SDK}/include CACHE PATH "" FORCE)
+        set(OpenCL_LIBRARY ${YOMU_OPENCL_SDK}/lib/libOpenCL.so CACHE FILEPATH "" FORCE)
+    endif()
 endif()
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../../llama.cpp llama.cpp)

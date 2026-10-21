@@ -28,15 +28,18 @@ BatchOverflowFallbackTest reads the default GGUF from $DEVICE_DIR, so run this o
   --skip-build   Reuse the installed APKs.
   --only=<sub>   Fetch and push only the GGUFs whose file name contains <sub>; the run then times
                  those entries and skips the rest. For one big model on a device short of space.
+  --gpu-layers=<n>  Spike #340: offload n layers to the OpenCL backend (99 = all). Default 0.
 EOF
 }
 
 SKIP_BUILD=0
 ONLY=""
+GPU_LAYERS=0
 for arg in "$@"; do
   case "$arg" in
     --skip-build) SKIP_BUILD=1 ;;
     --only=*) ONLY="${arg#--only=}" ;;
+    --gpu-layers=*) GPU_LAYERS="${arg#--gpu-layers=}" ;;
     -h|--help) usage; exit 0 ;;
     *) printf 'Unknown flag: %s\n' "$arg" >&2; usage >&2; exit 2 ;;
   esac
@@ -131,7 +134,7 @@ trap 'rm -f "$log_file"' EXIT
 adb logcat -s "$TAG:I" > "$log_file" &
 logcat_pid=$!
 set +e
-instrument_out="$(adb shell am instrument -w -e class "$APP_ID.SpeedBenchmarkTest" "$APP_ID.test/$APP_ID.CustomTestRunner" | tr -d '\r')"
+instrument_out="$(adb shell am instrument -w -e gpuLayers "$GPU_LAYERS" -e class "$APP_ID.SpeedBenchmarkTest" "$APP_ID.test/$APP_ID.CustomTestRunner" | tr -d '\r')"
 set -e
 sleep 2
 kill "$logcat_pid" 2>/dev/null || true

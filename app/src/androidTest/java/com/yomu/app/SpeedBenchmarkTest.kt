@@ -62,6 +62,8 @@ class SpeedBenchmarkTest {
             LlmModelCatalog.DEFAULT_FIT_BUDGET_PERCENT,
             RuntimeLimits.DEFAULT_CONTEXT_TOKENS
         )
+        // Spike #340: -e gpuLayers 99 offloads every layer to the OpenCL backend.
+        LlamaTranslationBridge.nGpuLayers = InstrumentationRegistry.getArguments().getString("gpuLayers")?.toInt() ?: 0
         var rows = 0
         try {
             for (option in LlmModelCatalog.ALL) {

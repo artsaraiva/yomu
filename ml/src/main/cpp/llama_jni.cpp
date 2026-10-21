@@ -157,6 +157,14 @@ JNI_OnLoad(JavaVM *vm, void *reserved) {
     if (ggml_backend_reg_count() == 0) {
         LOGE("No ggml backend loaded; are native libs extracted?");
     }
+    // Spike #340: name each device and forward llama.cpp's own log, so a run shows what offloaded.
+    for (size_t i = 0; i < ggml_backend_dev_count(); i++) {
+        ggml_backend_dev_t dev = ggml_backend_dev_get(i);
+        LOGI("ggml device %zu: %s (%s)", i, ggml_backend_dev_name(dev), ggml_backend_dev_description(dev));
+    }
+    llama_log_set([](ggml_log_level level, const char *text, void *) {
+        if (level >= GGML_LOG_LEVEL_INFO) __android_log_write(ANDROID_LOG_INFO, "LlamaCpp", text);
+    }, nullptr);
     return JNI_VERSION_1_6;
 }
 
@@ -198,6 +206,7 @@ Java_com_yomu_ml_LlamaBridge_nativeLoadModel(
     ctx_params.n_batch = 2048;
     ctx_params.n_threads = threads;
     ctx_params.n_threads_batch = threads;
+    ctx_params.no_perf = false;
     ctx_params.abort_callback = abort_if_timed_out;
     ctx_params.abort_callback_data = nullptr;
 
@@ -393,6 +402,11 @@ Java_com_yomu_ml_LlamaBridge_nativeGenerate(
     const int64_t elapsed_ms = now_ms() - started_ms;
     LOGI("Generation complete tokens=%d resultLength=%zu durationMs=%lld grammarRejections=%d grammar=%d",
          n_len, result.size(), (long long)elapsed_ms, g_grammar.rejections(), g_grammar.active() ? 1 : 0);
+    // Spike #340: prompt (prefill) and generated-token (decode) cost apart, so GPU and CPU compare per phase.
+    const llama_perf_context_data perf = llama_perf_context(g_ctx);
+    LOGI("Perf promptTokens=%d promptMs=%.0f decodeTokens=%d decodeMs=%.0f",
+         perf.n_p_eval, perf.t_p_eval_ms, perf.n_eval, perf.t_eval_ms);
+    llama_perf_context_reset(g_ctx);
     g_grammar.reset();
     g_abort_deadline_ms.store(0, std::memory_order_relaxed);
     if (listener_threw) {

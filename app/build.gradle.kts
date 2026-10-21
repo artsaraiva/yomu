@@ -42,7 +42,11 @@ android {
     packaging {
         resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" }
         // ggml finds its CPU backend variants by listing the native lib dir, which is empty unless extracted.
-        jniLibs { useLegacyPackaging = true }
+        jniLibs {
+            useLegacyPackaging = true
+            // Spike #340: the ICD loader is a link stub; the phone's vendor libOpenCL.so must win.
+            excludes += "**/libOpenCL.so"
+        }
     }
 }
 

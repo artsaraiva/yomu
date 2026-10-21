@@ -37,3 +37,4 @@ __pycache__/
 
 # Speed benchmark fixtures (#230): OpenMantra pages are CC BY-NC, weights are large; never commit
 scripts/speed-fixtures/
+ml/opencl-sdk/

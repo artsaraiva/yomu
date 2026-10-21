@@ -52,7 +52,8 @@ class LlamaTranslationBridge(
 
     companion object {
         private const val TAG = "LlamaTranslationBridge"
-        private const val N_GPU_LAYERS = 0
+        /** Spike #340: layers offloaded to the GPU; SpeedBenchmarkTest sets it from a `gpuLayers` instrumentation arg. */
+        @JvmStatic var nGpuLayers = 0
         /**
          * The whole token budget a page's reply may use, fixed rather than derived from what the
          * prompt leaves over. The old "all of the context the prompt does not use" arithmetic was handed
@@ -97,7 +98,7 @@ class LlamaTranslationBridge(
             return@withLock false
         }
         val runtime = profile.runtime
-        val loaded = llamaBridge.loadModel(profile.modelPath, runtime.contextTokens, N_GPU_LAYERS, runtime.threads, profile.repackWeights)
+        val loaded = llamaBridge.loadModel(profile.modelPath, runtime.contextTokens, nGpuLayers, runtime.threads, profile.repackWeights)
         status = if (loaded) TranslationStatus.Ready else TranslationStatus.Error("load_failed")
         loaded
     }
