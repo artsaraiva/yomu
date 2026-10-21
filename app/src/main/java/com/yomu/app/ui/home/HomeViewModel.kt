@@ -170,7 +170,7 @@ class HomeViewModel @Inject constructor(
     /** From the quick-settings chip here, or from the overlay's when its switch needs the model offer (#338). */
     fun chooseLanguage(language: TargetLanguage) {
         viewModelScope.launch {
-            val switch = slotSelection.switchLanguage(language, _uiState.value.fitBudget.totalMemBytes)
+            val switch = slotSelection.switchLanguage(language)
             _uiState.update { it.copy(languageOffer = switch as? LanguageSwitch.Offer).withSlots() }
         }
     }

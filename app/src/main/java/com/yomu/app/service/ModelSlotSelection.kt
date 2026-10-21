@@ -77,6 +77,8 @@ class ModelSlotSelection @Inject constructor(
     private val languages: TargetLanguageStore
 ) {
     private val pending = mutableMapOf<ModelType, String>()
+    /** An accepted offer's language, set when its model takes over so no page asks the old model for it. */
+    private var pendingLanguage: Pair<String, TargetLanguage>? = null
     private val downloads = mutableMapOf<String, Job>()
     private val _progress = MutableStateFlow<Map<String, Int>>(emptyMap())
 
@@ -119,6 +121,7 @@ class ModelSlotSelection @Inject constructor(
     suspend fun pick(type: ModelType, id: String, status: ModelStatus?, totalMemBytes: Long): Boolean {
         val deliverable = deliverables(type).firstOrNull { it.id == id } ?: return false
         if (!fits(id, fitBudget(totalMemBytes)) || languageBlock(deliverable, languages.load()) != null) return false
+        if (type == ModelType.LLM && pendingLanguage?.first != id) pendingLanguage = null
         when {
             id == selectedId(type) -> pending.remove(type)
             status == ModelStatus.READY -> {
@@ -162,7 +165,7 @@ class ModelSlotSelection @Inject constructor(
      * Sets [language] unless the translation model in use, or the one waiting to take over, writes English only;
      * then the default is offered instead and nothing changes until [accept].
      */
-    suspend fun switchLanguage(language: TargetLanguage, totalMemBytes: Long): LanguageSwitch {
+    suspend fun switchLanguage(language: TargetLanguage): LanguageSwitch {
         val options = deliverables(ModelType.LLM)
         val englishOnly = listOfNotNull(selectedId(ModelType.LLM), pending[ModelType.LLM])
             .mapNotNull { id -> options.firstOrNull { it.id == id } }
@@ -177,20 +180,25 @@ class ModelSlotSelection @Inject constructor(
     }
 
     /**
-     * Picks the offered model and sets the language. A model that isn't downloaded waits as pending, and the caller
-     * starts its [download]; if that download never completes, the language returns to English.
+     * Picks the offered model; the language is set when that model takes over. A model that isn't downloaded waits as
+     * pending, and the caller starts its [download]; if that download never completes, the language stays as it was.
      */
     suspend fun accept(offer: LanguageSwitch.Offer, totalMemBytes: Long): Boolean {
         if (!pick(ModelType.LLM, offer.model.id, models.getModel(offer.model.id)?.status, totalMemBytes)) return false
-        languages.save(offer.language)
+        if (selectedId(ModelType.LLM) == offer.model.id) languages.save(offer.language)
+        else pendingLanguage = offer.model.id to offer.language
         return true
+    }
+
+    /** Why [language] can't be chosen on this device, or null. */
+    fun languageUnavailable(language: TargetLanguage, totalMemBytes: Long): String? {
+        val budget = fitBudget(totalMemBytes)
+        return languageUnavailable(language, deliverables(ModelType.LLM)) { fits(it.id, budget) }
     }
 
     private fun dropPending(id: String) {
         pending.values.remove(id)
-        // An accepted offer set the language before its model arrived; without it, the model in use can't write it.
-        val inUse = selectedId(ModelType.LLM)?.let { selected -> deliverables(ModelType.LLM).firstOrNull { it.id == selected } }
-        if (inUse != null && languageBlock(inUse, languages.load()) != null) languages.save(TargetLanguage.ENGLISH)
+        if (pendingLanguage?.first == id) pendingLanguage = null
     }
 
     /**
@@ -241,6 +249,8 @@ class ModelSlotSelection @Inject constructor(
     private suspend fun commit(type: ModelType, id: String) {
         if (type == ModelType.LLM) {
             LlmModelCatalog.fromId(id)?.let { translation.selectLlmModel(it) }
+            pendingLanguage?.takeIf { it.first == id }?.let { languages.save(it.second) }
+            pendingLanguage = null
         } else {
             ModelManager.REGISTRY.firstOrNull { it.id == id }?.let(reading::select)
         }

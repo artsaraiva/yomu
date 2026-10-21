@@ -297,12 +297,7 @@ class OverlayService : Service() {
         OverlayLanguageSwitch(
             context = this,
             targetLanguage = slotSelection::targetLanguage,
-            unavailable = { language ->
-                val budget = slotSelection.fitBudget(modelManager.deviceTotalMemBytes())
-                ModelSlotSelection.languageUnavailable(language, slotSelection.deliverables(ModelType.LLM)) {
-                    ModelSlotSelection.fits(it.id, budget)
-                }
-            },
+            unavailable = { slotSelection.languageUnavailable(it, modelManager.deviceTotalMemBytes()) },
             onChosen = ::chooseLanguage
         )
     }
@@ -337,7 +332,7 @@ class OverlayService : Service() {
     private fun chooseLanguage(language: TargetLanguage) {
         // On the main thread, like the app's screens, since the slot selection's pending picks are not shared across threads.
         scope.launch(Dispatchers.Main) {
-            if (slotSelection.switchLanguage(language, modelManager.deviceTotalMemBytes()) is LanguageSwitch.Offer) {
+            if (slotSelection.switchLanguage(language) is LanguageSwitch.Offer) {
                 removeQuickSettingsPopup()
                 openApp(language)
             } else {

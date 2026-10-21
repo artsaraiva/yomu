@@ -60,7 +60,7 @@ class LanguageSwitchTest {
     fun `a Multilingual model in use switches the language at once`() = runTest {
         val selection = newSelection()
 
-        assertEquals(LanguageSwitch.Done, selection.switchLanguage(TargetLanguage.SPANISH, eightGb))
+        assertEquals(LanguageSwitch.Done, selection.switchLanguage(TargetLanguage.SPANISH))
 
         assertEquals(TargetLanguage.SPANISH, selection.targetLanguage())
     }
@@ -69,7 +69,7 @@ class LanguageSwitchTest {
     fun `an English-only model in use offers the default with its download size and keeps English`() = runTest {
         val selection = newSelection().withCat()
 
-        val offer = selection.switchLanguage(TargetLanguage.SPANISH, eightGb) as LanguageSwitch.Offer
+        val offer = selection.switchLanguage(TargetLanguage.SPANISH) as LanguageSwitch.Offer
 
         assertEquals(TargetLanguage.SPANISH, offer.language)
         assertEquals(cat, offer.current.id)
@@ -82,7 +82,7 @@ class LanguageSwitchTest {
     fun `an offer of a downloaded default names no download`() = runTest {
         val selection = newSelection(ready = setOf(qwen)).withCat()
 
-        val offer = selection.switchLanguage(TargetLanguage.SPANISH, eightGb) as LanguageSwitch.Offer
+        val offer = selection.switchLanguage(TargetLanguage.SPANISH) as LanguageSwitch.Offer
 
         assertEquals(0L, offer.downloadBytes)
     }
@@ -92,13 +92,13 @@ class LanguageSwitchTest {
         val selection = newSelection()
         selection.pick(ModelType.LLM, cat, ModelStatus.AVAILABLE, eightGb)
 
-        assertTrue(selection.switchLanguage(TargetLanguage.FRENCH, eightGb) is LanguageSwitch.Offer)
+        assertTrue(selection.switchLanguage(TargetLanguage.FRENCH) is LanguageSwitch.Offer)
     }
 
     @Test
     fun `accepting a downloaded default selects it and sets the language`() = runTest {
         val selection = newSelection(ready = setOf(qwen)).withCat()
-        val offer = selection.switchLanguage(TargetLanguage.SPANISH, eightGb) as LanguageSwitch.Offer
+        val offer = selection.switchLanguage(TargetLanguage.SPANISH) as LanguageSwitch.Offer
 
         assertTrue(selection.accept(offer, eightGb))
 
@@ -107,35 +107,54 @@ class LanguageSwitchTest {
     }
 
     @Test
-    fun `accepting a default that isn't downloaded waits on it and sets the language`() = runTest {
+    fun `accepting a default that isn't downloaded keeps English until the default takes over`() = runTest {
         val selection = newSelection().withCat()
-        val offer = selection.switchLanguage(TargetLanguage.SPANISH, eightGb) as LanguageSwitch.Offer
+        val offer = selection.switchLanguage(TargetLanguage.SPANISH) as LanguageSwitch.Offer
 
         assertTrue(selection.accept(offer, eightGb))
 
         assertEquals(qwen, selection.pendingId(ModelType.LLM))
+        assertEquals(TargetLanguage.ENGLISH, selection.targetLanguage())
+
+        selection.commitPending(mapOf(qwen to ModelStatus.READY))
+
+        assertEquals(qwen, selection.selectedId(ModelType.LLM))
         assertEquals(TargetLanguage.SPANISH, selection.targetLanguage())
     }
 
     @Test
-    fun `a failed download of the accepted default returns the language to English`() = runTest {
-        val selection = newSelection(downloads = false).withCat()
-        selection.accept(selection.switchLanguage(TargetLanguage.SPANISH, eightGb) as LanguageSwitch.Offer, eightGb)
+    fun `another pick replacing the accepted default drops the language waiting on it`() = runTest {
+        val qwen35 = Constants.QWEN35_2B_MODEL_ID
+        val selection = newSelection().withCat()
+        selection.accept(selection.switchLanguage(TargetLanguage.SPANISH) as LanguageSwitch.Offer, eightGb)
 
-        assertFalse(selection.download(qwen))
+        selection.pick(ModelType.LLM, qwen35, ModelStatus.AVAILABLE, eightGb)
+        selection.commitPending(mapOf(qwen35 to ModelStatus.READY))
 
-        assertEquals(cat, selection.selectedId(ModelType.LLM))
         assertEquals(TargetLanguage.ENGLISH, selection.targetLanguage())
     }
 
     @Test
-    fun `cancelling the accepted default's download returns the language to English`() = runTest {
+    fun `a failed download of the accepted default leaves the language English`() = runTest {
+        val selection = newSelection(downloads = false).withCat()
+        selection.accept(selection.switchLanguage(TargetLanguage.SPANISH) as LanguageSwitch.Offer, eightGb)
+
+        assertFalse(selection.download(qwen))
+
+        assertEquals(cat, selection.selectedId(ModelType.LLM))
+        selection.commitPending(mapOf(qwen to ModelStatus.READY))
+        assertEquals(TargetLanguage.ENGLISH, selection.targetLanguage())
+    }
+
+    @Test
+    fun `cancelling the accepted default's download leaves the language English`() = runTest {
         val selection = newSelection().withCat()
-        selection.accept(selection.switchLanguage(TargetLanguage.SPANISH, eightGb) as LanguageSwitch.Offer, eightGb)
+        selection.accept(selection.switchLanguage(TargetLanguage.SPANISH) as LanguageSwitch.Offer, eightGb)
 
         selection.cancel(qwen)
 
         assertNull(selection.pendingId(ModelType.LLM))
+        selection.commitPending(mapOf(qwen to ModelStatus.READY))
         assertEquals(TargetLanguage.ENGLISH, selection.targetLanguage())
     }
 
@@ -143,13 +162,13 @@ class LanguageSwitchTest {
     fun `English never needs the offer`() = runTest {
         val selection = newSelection().withCat()
 
-        assertEquals(LanguageSwitch.Done, selection.switchLanguage(TargetLanguage.ENGLISH, eightGb))
+        assertEquals(LanguageSwitch.Done, selection.switchLanguage(TargetLanguage.ENGLISH))
     }
 
     @Test
     fun `an English-only model can't be picked while the language is not English`() = runTest {
         val selection = newSelection()
-        selection.switchLanguage(TargetLanguage.GERMAN, eightGb)
+        selection.switchLanguage(TargetLanguage.GERMAN)
 
         assertFalse(selection.pick(ModelType.LLM, cat, ModelStatus.READY, eightGb))
 
@@ -185,5 +204,10 @@ class LanguageSwitchTest {
         )
         assertNull(ModelSlotSelection.languageUnavailable(TargetLanguage.ENGLISH, listOf(catEntry), noneFit))
         assertNull(ModelSlotSelection.languageUnavailable(TargetLanguage.FRENCH, listOf(catEntry, qwenEntry), allFit))
+    }
+
+    @Test
+    fun `the default keeps other languages available on any device, even with unknown memory`() {
+        assertNull(newSelection().languageUnavailable(TargetLanguage.FRENCH, 0L))
     }
 }

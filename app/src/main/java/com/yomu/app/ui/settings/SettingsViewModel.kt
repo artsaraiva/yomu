@@ -186,7 +186,7 @@ class SettingsViewModel @Inject constructor(
 
     fun setTargetLanguage(language: TargetLanguage) {
         viewModelScope.launch {
-            val switch = slotSelection.switchLanguage(language, _uiState.value.deviceTotalMemBytes)
+            val switch = slotSelection.switchLanguage(language)
             _uiState.update { it.copy(languageOffer = switch as? LanguageSwitch.Offer).withSlots() }
         }
     }
