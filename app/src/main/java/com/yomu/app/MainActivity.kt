@@ -5,6 +5,7 @@ import javax.inject.Inject
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.*
 import com.yomu.core.Constants
+import com.yomu.core.TargetLanguage
 import com.yomu.app.ui.theme.*
 import android.content.Intent
 import android.net.Uri
@@ -25,6 +26,9 @@ import dagger.hilt.android.AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
     @Inject lateinit var sharedPreferences: SharedPreferences
+
+    /** A language the overlay's switch asked for, waiting for Home to offer the model it needs (#338). */
+    private var languageRequest by mutableStateOf<TargetLanguage?>(null)
 
     private val screenCaptureLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -78,6 +82,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (savedInstanceState == null) languageRequest = intent.languageRequest()
 
         setContent {
             var theme by remember { mutableStateOf(sharedPreferences.getString(Constants.PREF_THEME, "system") ?: "system") }
@@ -97,9 +102,22 @@ class MainActivity : ComponentActivity() {
             }
             YomuTheme(colors = if (mode == ThemeMode.Night) NightPaper else DayPaper) {
                 AppNavigation(
-                    onRequestScreenCapture = { launchScreenCaptureConsent() }
+                    onRequestScreenCapture = { launchScreenCaptureConsent() },
+                    languageRequest = languageRequest,
+                    onLanguageRequestHandled = { languageRequest = null }
                 )
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        languageRequest = intent.languageRequest()
+    }
+
+    private fun Intent.languageRequest(): TargetLanguage? = TargetLanguage.fromCode(getStringExtra(EXTRA_TARGET_LANGUAGE))
+
+    companion object {
+        const val EXTRA_TARGET_LANGUAGE = "target_language"
     }
 }

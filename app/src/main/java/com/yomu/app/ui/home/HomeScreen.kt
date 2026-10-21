@@ -91,7 +91,7 @@ fun HomeScreen(
             )
             if (readingStatus != ReadingStatus.NotReady) {
                 Spacer(Modifier.height(12.dp))
-                QuickSettingsStrip(state, viewModel::pickTranslationModel)
+                QuickSettingsStrip(state, viewModel::pickTranslationModel, viewModel::chooseLanguage)
             }
         }
         state.confirmation?.let { message -> item { PaperSuccess(message, viewModel::dismissConfirmation) } }

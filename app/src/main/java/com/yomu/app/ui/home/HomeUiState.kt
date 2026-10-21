@@ -3,11 +3,13 @@ package com.yomu.app.ui.home
 import com.yomu.app.db.entities.ModelEntity
 import com.yomu.app.db.entities.ModelType
 import com.yomu.app.db.entities.TranslationEntity
+import com.yomu.app.service.LanguageSwitch
 import com.yomu.app.service.ModelSlotSelection
 import com.yomu.app.service.SlotDeliverable
 import com.yomu.app.translation.FitBudget
 import com.yomu.app.translation.LlmModelCatalog
 import com.yomu.core.RuntimeLimits
+import com.yomu.core.TargetLanguage
 
 data class HomeUiState(
     val isServiceRunning: Boolean = false,
@@ -27,6 +29,9 @@ data class HomeUiState(
     val chosenIds: Map<ModelType, String> = emptyMap(),
     val translationSelectedId: String? = null,
     val translationPendingId: String? = null,
+    val targetLanguage: TargetLanguage = TargetLanguage.ENGLISH,
+    /** The model switch a language choice is waiting on the reader to accept or decline (#338), or null. */
+    val languageOffer: LanguageSwitch.Offer? = null,
     val setupDownloadBytes: Long = 0L,
     val fitBudget: FitBudget = FitBudget(0L, LlmModelCatalog.DEFAULT_FIT_BUDGET_PERCENT, RuntimeLimits.DEFAULT_CONTEXT_TOKENS),
     val onWifi: Boolean = true,
@@ -46,6 +51,13 @@ data class HomeUiState(
 
     fun needsSlowWarning(deliverable: SlotDeliverable): Boolean =
         ModelSlotSelection.needsSlowWarning(deliverable, fitBudget)
+
+    fun languageBlock(deliverable: SlotDeliverable): String? = ModelSlotSelection.languageBlock(deliverable, targetLanguage)
+
+    fun languageUnavailable(language: TargetLanguage): String? =
+        ModelSlotSelection.languageUnavailable(language, deliverables[ModelType.LLM].orEmpty(), ::fits)
+
+    fun languageChipLabel(): String = "Japanese → ${targetLanguage.promptName}"
 
     fun translationChipLabel(): String {
         val options = deliverables[ModelType.LLM].orEmpty()

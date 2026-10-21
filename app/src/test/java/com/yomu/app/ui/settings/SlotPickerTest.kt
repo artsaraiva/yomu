@@ -22,4 +22,14 @@ class SlotPickerTest {
 
         assertEquals("1.00 GB · Fast · Apache-2.0 (manga-ocr) · Fits this device", deliverableDetail(ocr, fits = true))
     }
+
+    @Test
+    fun `an entry blocked by the target language says why`() {
+        val cat = SlotDeliverable("cat", "CAT-Translate 1.4B", gb, "MIT", multilingual = false)
+
+        assertEquals(
+            "1.00 GB · Fast · English only · MIT · Fits this device · Can't write Spanish",
+            deliverableDetail(cat, fits = true, languageBlock = "Can't write Spanish")
+        )
+    }
 }

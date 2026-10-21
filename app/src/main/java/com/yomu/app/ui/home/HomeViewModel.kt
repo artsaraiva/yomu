@@ -13,9 +13,11 @@ import androidx.lifecycle.viewModelScope
 import com.yomu.app.db.HistoryDao
 import com.yomu.app.db.entities.ModelStatus
 import com.yomu.app.db.entities.ModelType
+import com.yomu.app.service.LanguageSwitch
 import com.yomu.app.service.ModelManager
 import com.yomu.app.service.ModelSlotSelection
 import com.yomu.app.service.OverlayService
+import com.yomu.core.TargetLanguage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
@@ -128,7 +130,7 @@ class HomeViewModel @Inject constructor(
             it.service.className == OverlayService::class.java.name && it.foreground
         }
         _uiState.update {
-            it.copy(
+            it.withSlots().copy(
                 isServiceRunning = running,
                 onWifi = modelManager.isOnWifi(),
                 fitBudget = slotSelection.fitBudget(it.fitBudget.totalMemBytes)
@@ -169,11 +171,33 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             val status = modelManager.getModel(id)?.status
             if (!slotSelection.pick(ModelType.LLM, id, status, _uiState.value.fitBudget.totalMemBytes)) return@launch
-            _uiState.update { it.withSlots() }
-            if (slotSelection.pendingId(ModelType.LLM) != id) return@launch
-            slotSelection.download(id)
-            _uiState.update { it.withSlots() }
+            downloadIfPending(id)
         }
+    }
+
+    /** From the quick-settings chip here, or from the overlay's when its switch needs the model offer (#338). */
+    fun chooseLanguage(language: TargetLanguage) {
+        viewModelScope.launch {
+            val switch = slotSelection.switchLanguage(language, _uiState.value.fitBudget.totalMemBytes)
+            _uiState.update { it.copy(languageOffer = switch as? LanguageSwitch.Offer).withSlots() }
+        }
+    }
+
+    fun acceptLanguageOffer() {
+        val offer = _uiState.value.languageOffer ?: return
+        _uiState.update { it.copy(languageOffer = null) }
+        viewModelScope.launch {
+            if (slotSelection.accept(offer, _uiState.value.fitBudget.totalMemBytes)) downloadIfPending(offer.model.id)
+        }
+    }
+
+    fun declineLanguageOffer() = _uiState.update { it.copy(languageOffer = null) }
+
+    private suspend fun downloadIfPending(id: String) {
+        _uiState.update { it.withSlots() }
+        if (slotSelection.pendingId(ModelType.LLM) != id) return
+        slotSelection.download(id)
+        _uiState.update { it.withSlots() }
     }
 
     fun deleteModel(id: String) {
@@ -187,6 +211,8 @@ class HomeViewModel @Inject constructor(
         chosenIds = ModelType.entries.associateWith(slotSelection::chosenId),
         translationSelectedId = slotSelection.selectedId(ModelType.LLM),
         translationPendingId = slotSelection.pendingId(ModelType.LLM),
+        // With the slots, since a download that never completes can return the language to English.
+        targetLanguage = slotSelection.targetLanguage(),
         setupDownloadBytes = slotSelection.downloadBytes(models.associate { it.id to it.status })
     )
 

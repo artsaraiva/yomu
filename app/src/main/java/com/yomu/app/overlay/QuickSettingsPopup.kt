@@ -9,6 +9,8 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.LinearLayout
+import android.widget.RadioButton
+import android.widget.RadioGroup
 import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.TextView
@@ -16,12 +18,16 @@ import com.yomu.app.detection.DetectionThresholdStore
 import com.yomu.app.ui.theme.paperBackground
 import com.yomu.app.ui.theme.paperColors
 import com.yomu.core.Constants
+import com.yomu.core.TargetLanguage
 import kotlin.math.abs
 
 class QuickSettingsPopup(
     private val context: Context,
     private val windowManager: WindowManager,
     private val modelName: () -> String,
+    private val targetLanguage: () -> TargetLanguage,
+    private val languageUnavailable: (TargetLanguage) -> String?,
+    private val onLanguageChosen: (TargetLanguage) -> Unit,
     private val onFontSizeChanged: (Float) -> Unit,
     private val onThresholdChanged: (Float) -> Unit,
     private val hasLastPage: () -> Boolean,
@@ -37,6 +43,9 @@ class QuickSettingsPopup(
     private val accentLabels = mutableListOf<TextView>()
     private val dimmableButtons = mutableListOf<Button>()
     private val seekBars = mutableListOf<SeekBar>()
+    private val radioButtons = mutableListOf<RadioButton>()
+    private var languageChip: TextView? = null
+    private var languageOptions: RadioGroup? = null
     private var fontSizeSeekBar: SeekBar? = null
     private var thresholdSeekBar: SeekBar? = null
     private var thresholdLabel: TextView? = null
@@ -91,6 +100,9 @@ class QuickSettingsPopup(
         accentLabels.clear()
         dimmableButtons.clear()
         seekBars.clear()
+        radioButtons.clear()
+        languageChip = null
+        languageOptions = null
         fontSizeSeekBar = null
         thresholdSeekBar = null
         thresholdLabel = null
@@ -110,6 +122,7 @@ class QuickSettingsPopup(
             intArrayOf(colors.inkMuted, colors.ink)
         )
         dimmableButtons.forEach { it.setTextColor(dimmableColors) }
+        radioButtons.forEach { it.buttonTintList = ColorStateList.valueOf(colors.accent) }
         seekBars.forEach {
             it.thumbTintList = ColorStateList.valueOf(colors.accent)
             it.progressTintList = ColorStateList.valueOf(colors.accent)
@@ -121,6 +134,12 @@ class QuickSettingsPopup(
         fontSizeScale = scale.coerceIn(0.5f, 2f)
         fontSizeSeekBar?.progress = fontSizeProgress(fontSizeScale)
         refreshFontSize()
+    }
+
+    /** Shows the language now in use and folds the languages away, once a choice has been set. */
+    fun updateLanguage() {
+        languageChip?.text = languageChipText()
+        languageOptions?.visibility = View.GONE
     }
 
     fun refreshReportAvailability() { reportButton?.isEnabled = hasLastPage() }
@@ -150,6 +169,7 @@ class QuickSettingsPopup(
         })
         addView(mutedLabel(modelName()))
         addView(languageChip())
+        addView(languageOptions())
         addView(labelRow(sectionLabel("Font size"), resetButton { resetFontSize() }.also { fontSizeReset = it }))
         addView(SeekBar(context).apply {
             max = 100
@@ -259,11 +279,36 @@ class QuickSettingsPopup(
     private fun resetButton(onReset: () -> Unit): Button =
         textButton("Reset", onReset).apply { dimmableButtons.add(this) }
 
-    /** The fixed pair, drawn like the disabled chip on Home. */
-    private fun languageChip(): TextView = mutedLabel("Japanese → English").apply {
+    /** Drawn like the language chip on Home; tapping it unfolds the languages below it (#338). */
+    private fun languageChip(): TextView = mutedLabel(languageChipText()).apply {
         background = context.paperBackground()
         setPadding(dp(12), dp(6), dp(12), dp(6))
         layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(12) }
+        setOnClickListener {
+            languageOptions?.let { it.visibility = if (it.visibility == View.VISIBLE) View.GONE else View.VISIBLE }
+        }
+        languageChip = this
+    }
+
+    private fun languageChipText(): String = "Japanese → ${targetLanguage().promptName}"
+
+    private fun languageOptions(): RadioGroup = RadioGroup(context).apply {
+        visibility = View.GONE
+        val current = targetLanguage()
+        TargetLanguage.entries.forEach { language ->
+            val reason = languageUnavailable(language)
+            addView(RadioButton(context).apply {
+                text = listOfNotNull(language.promptName, reason).joinToString(" · ")
+                textSize = 14f
+                minHeight = dp(48)
+                isChecked = language == current
+                isEnabled = reason == null
+                setOnClickListener { onLanguageChosen(language) }
+                dimmableButtons.add(this)
+                radioButtons.add(this)
+            })
+        }
+        languageOptions = this
     }
 
     private fun mutedLabel(text: String): TextView = TextView(context).apply {
