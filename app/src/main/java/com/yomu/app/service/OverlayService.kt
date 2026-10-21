@@ -24,6 +24,7 @@ import com.yomu.app.overlay.FloatingButtonView
 import com.yomu.app.overlay.FloatingButtonOverlay
 import com.yomu.app.overlay.OverlayBounds
 import com.yomu.app.overlay.OverlayBubbleState
+import com.yomu.app.overlay.OverlayLanguageSwitch
 import com.yomu.app.overlay.QuickSettingsPopup
 import com.yomu.app.overlay.TranslationRenderOverlay
 import com.yomu.app.overlay.TranslationStatusOverlay
@@ -292,20 +293,27 @@ class OverlayService : Service() {
         floatingButton = null
     }
 
+    private val languageSwitch by lazy {
+        OverlayLanguageSwitch(
+            context = this,
+            targetLanguage = slotSelection::targetLanguage,
+            unavailable = { language ->
+                val budget = slotSelection.fitBudget(modelManager.deviceTotalMemBytes())
+                ModelSlotSelection.languageUnavailable(language, slotSelection.deliverables(ModelType.LLM)) {
+                    ModelSlotSelection.fits(it.id, budget)
+                }
+            },
+            onChosen = ::chooseLanguage
+        )
+    }
+
     private fun showQuickSettings() {
         val thresholdStore = DetectionThresholdStore(sharedPreferences)
         val popup = quickSettingsPopup ?: QuickSettingsPopup(
             context = this,
             windowManager = windowManager,
             modelName = ::translationModelName,
-            targetLanguage = slotSelection::targetLanguage,
-            languageUnavailable = { language ->
-                val budget = slotSelection.fitBudget(modelManager.deviceTotalMemBytes())
-                ModelSlotSelection.languageUnavailable(language, slotSelection.deliverables(ModelType.LLM)) {
-                    ModelSlotSelection.fits(it.id, budget)
-                }
-            },
-            onLanguageChosen = ::chooseLanguage,
+            languageSwitch = languageSwitch,
             onFontSizeChanged = { scale ->
                 sharedPreferences.edit().putFloat(Constants.PREF_FONT_SIZE_SCALE, scale).apply()
             },
@@ -333,7 +341,7 @@ class OverlayService : Service() {
                 removeQuickSettingsPopup()
                 openApp(language)
             } else {
-                quickSettingsPopup?.updateLanguage()
+                languageSwitch.update()
             }
         }
     }

@@ -27,7 +27,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.util.Calendar
+import java.time.LocalDate
+import java.time.ZoneId
 import javax.inject.Inject
 
 @HiltViewModel
@@ -138,25 +139,16 @@ class HomeViewModel @Inject constructor(
         }
         countJob?.cancel()
         countJob = viewModelScope.launch {
-            val start = Calendar.getInstance().apply {
-                set(Calendar.HOUR_OF_DAY, 0)
-                set(Calendar.MINUTE, 0)
-                set(Calendar.SECOND, 0)
-                set(Calendar.MILLISECOND, 0)
-            }.timeInMillis
+            val start = LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
             historyDao.getTranslationCountSince(start)
                 .catch { _uiState.update { it.copy(historyError = true) } }
                 .collect { count -> _uiState.update { it.copy(pagesTranslatedToday = count) } }
         }
     }
 
-    fun openSetup() {
-        _uiState.update { it.copy(setupVisible = true) }
-    }
+    fun openSetup() = _uiState.update { it.copy(setupVisible = true) }
 
-    fun dismissSetup() {
-        _uiState.update { it.copy(setupVisible = false) }
-    }
+    fun dismissSetup() = _uiState.update { it.copy(setupVisible = false) }
 
     /** Setup only records the choice; its Download button fetches every slot's choice at once. */
     fun pickSetupModel(type: ModelType, id: String) {
@@ -293,13 +285,9 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun dismissConfirmation() {
-        _uiState.update { it.copy(confirmation = null) }
-    }
+    fun dismissConfirmation() = _uiState.update { it.copy(confirmation = null) }
 
-    fun dismissServiceError() {
-        _uiState.update { it.copy(serviceError = false) }
-    }
+    fun dismissServiceError() = _uiState.update { it.copy(serviceError = false) }
 
     fun stopService() {
         OverlayService.stop(context)

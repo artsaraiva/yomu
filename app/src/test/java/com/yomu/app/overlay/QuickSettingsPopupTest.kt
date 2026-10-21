@@ -32,9 +32,12 @@ class QuickSettingsPopupTest {
         context = RuntimeEnvironment.getApplication(),
         windowManager = windowManager,
         modelName = { "Model" },
-        targetLanguage = { TargetLanguage.ENGLISH },
-        languageUnavailable = { language -> unavailable.takeIf { language != TargetLanguage.ENGLISH } },
-        onLanguageChosen = { chosen += it },
+        languageSwitch = OverlayLanguageSwitch(
+            RuntimeEnvironment.getApplication(),
+            targetLanguage = { TargetLanguage.ENGLISH },
+            unavailable = { language -> unavailable.takeIf { language != TargetLanguage.ENGLISH } },
+            onChosen = { chosen += it }
+        ),
         onFontSizeChanged = {},
         onThresholdChanged = {},
         hasLastPage = { false },
