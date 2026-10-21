@@ -6,8 +6,10 @@ import com.yomu.app.translation.DeliverableSpeed
 import com.yomu.app.translation.FitBudget
 import com.yomu.app.translation.LlmModelCatalog
 import com.yomu.app.translation.ResourceLimit
+import com.yomu.app.translation.TargetLanguageStore
 import com.yomu.app.translation.TranslationModelSelection
 import com.yomu.core.Constants
+import com.yomu.core.TargetLanguage
 import com.yomu.pipeline.TranslationPipeline
 import javax.inject.Inject
 import kotlinx.coroutines.Job
@@ -48,6 +50,19 @@ data class SlotDeliverable(
     }
 }
 
+/** What choosing a target language does (#338). */
+sealed interface LanguageSwitch {
+    /** The language is set. */
+    data object Done : LanguageSwitch
+
+    /**
+     * [current] writes English only, so the language stays as it is unless the reader switches to [model].
+     * [downloadBytes] is what that switch downloads, 0 when [model] is already downloaded.
+     */
+    data class Offer(val language: TargetLanguage, val current: SlotDeliverable, val model: SlotDeliverable, val downloadBytes: Long) :
+        LanguageSwitch
+}
+
 /**
  * Which curated model fills each slot, and which one is waiting to take over. A model picked before it is READY is
  * held as pending, so the stored selection, and the model already working, stay put until its download completes.
@@ -58,9 +73,12 @@ class ModelSlotSelection @Inject constructor(
     private val translation: TranslationModelSelection,
     private val reading: ReadingModelSelection,
     private val pipeline: TranslationPipeline,
-    private val models: ModelManager
+    private val models: ModelManager,
+    private val languages: TargetLanguageStore
 ) {
     private val pending = mutableMapOf<ModelType, String>()
+    /** An accepted offer's language, set when its model takes over so no page asks the old model for it. */
+    private var pendingLanguage: Pair<String, TargetLanguage>? = null
     private val downloads = mutableMapOf<String, Job>()
     private val _progress = MutableStateFlow<Map<String, Int>>(emptyMap())
 
@@ -99,8 +117,11 @@ class ModelSlotSelection @Inject constructor(
         deliverables(type).firstOrNull { it.id == id }?.sizeBytes ?: 0L
     }
 
+    /** Refuses a model outside the fit budget, and an English-only one while the language is not English. */
     suspend fun pick(type: ModelType, id: String, status: ModelStatus?, totalMemBytes: Long): Boolean {
-        if (deliverables(type).none { it.id == id } || !fits(id, fitBudget(totalMemBytes))) return false
+        val deliverable = deliverables(type).firstOrNull { it.id == id } ?: return false
+        if (!fits(id, fitBudget(totalMemBytes)) || languageBlock(deliverable, languages.load()) != null) return false
+        if (type == ModelType.LLM && pendingLanguage?.first != id) pendingLanguage = null
         when {
             id == selectedId(type) -> pending.remove(type)
             status == ModelStatus.READY -> {
@@ -138,8 +159,46 @@ class ModelSlotSelection @Inject constructor(
         }
     }
 
+    fun targetLanguage(): TargetLanguage = languages.load()
+
+    /**
+     * Sets [language] unless the translation model in use, or the one waiting to take over, writes English only;
+     * then the default is offered instead and nothing changes until [accept].
+     */
+    suspend fun switchLanguage(language: TargetLanguage): LanguageSwitch {
+        val options = deliverables(ModelType.LLM)
+        val englishOnly = listOfNotNull(selectedId(ModelType.LLM), pending[ModelType.LLM])
+            .mapNotNull { id -> options.firstOrNull { it.id == id } }
+            .firstOrNull { languageBlock(it, language) != null }
+        if (englishOnly == null) {
+            languages.save(language)
+            return LanguageSwitch.Done
+        }
+        val model = options.first { it.id == LlmModelCatalog.DEFAULT.id }
+        val downloaded = models.getModel(model.id)?.status == ModelStatus.READY
+        return LanguageSwitch.Offer(language, englishOnly, model, if (downloaded) 0L else model.sizeBytes)
+    }
+
+    /**
+     * Picks the offered model; the language is set when that model takes over. A model that isn't downloaded waits as
+     * pending, and the caller starts its [download]; if that download never completes, the language stays as it was.
+     */
+    suspend fun accept(offer: LanguageSwitch.Offer, totalMemBytes: Long): Boolean {
+        if (!pick(ModelType.LLM, offer.model.id, models.getModel(offer.model.id)?.status, totalMemBytes)) return false
+        if (selectedId(ModelType.LLM) == offer.model.id) languages.save(offer.language)
+        else pendingLanguage = offer.model.id to offer.language
+        return true
+    }
+
+    /** Why [language] can't be chosen on this device, or null. */
+    fun languageUnavailable(language: TargetLanguage, totalMemBytes: Long): String? {
+        val budget = fitBudget(totalMemBytes)
+        return languageUnavailable(language, deliverables(ModelType.LLM)) { fits(it.id, budget) }
+    }
+
     private fun dropPending(id: String) {
         pending.values.remove(id)
+        if (pendingLanguage?.first == id) pendingLanguage = null
     }
 
     /**
@@ -190,6 +249,8 @@ class ModelSlotSelection @Inject constructor(
     private suspend fun commit(type: ModelType, id: String) {
         if (type == ModelType.LLM) {
             LlmModelCatalog.fromId(id)?.let { translation.selectLlmModel(it) }
+            pendingLanguage?.takeIf { it.first == id }?.let { languages.save(it.second) }
+            pendingLanguage = null
         } else {
             ModelManager.REGISTRY.firstOrNull { it.id == id }?.let(reading::select)
         }
@@ -201,6 +262,16 @@ class ModelSlotSelection @Inject constructor(
             Constants.BUBBLE_DETECTION_MODEL_ID to "AGPL-3.0 (YOLO26)",
             Constants.MANGA_OCR_MODEL_ID to "Apache-2.0 (manga-ocr)"
         )
+
+        const val NO_MULTILINGUAL_FIT = "No Multilingual model fits this device"
+
+        /** Why [deliverable] can't translate into [language], or null when it can. Reading models write no language. */
+        fun languageBlock(deliverable: SlotDeliverable, language: TargetLanguage): String? =
+            "Can't write ${language.promptName}".takeIf { language != TargetLanguage.ENGLISH && deliverable.multilingual == false }
+
+        /** Why [language] can't be chosen, or null: any language but English needs a Multilingual model that [fits]. */
+        fun languageUnavailable(language: TargetLanguage, deliverables: List<SlotDeliverable>, fits: (SlotDeliverable) -> Boolean): String? =
+            NO_MULTILINGUAL_FIT.takeIf { language != TargetLanguage.ENGLISH && deliverables.none { it.multilingual == true && fits(it) } }
 
         /** A Slow deliverable asks before gigabytes are downloaded; one that doesn't fit can't be picked at all. */
         fun needsSlowWarning(deliverable: SlotDeliverable, budget: FitBudget): Boolean =

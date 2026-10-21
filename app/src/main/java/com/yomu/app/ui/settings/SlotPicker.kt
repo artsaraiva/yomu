@@ -13,8 +13,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.yomu.app.db.entities.ModelStatus
+import com.yomu.app.service.LanguageSwitch
 import com.yomu.app.service.SlotDeliverable
 import com.yomu.app.ui.theme.*
+import com.yomu.core.TargetLanguage
 import com.yomu.core.toFileSizeString
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -29,6 +31,7 @@ internal fun SlotPicker(
     downloads: Map<String, Int>,
     fits: (SlotDeliverable) -> Boolean,
     needsSlowWarning: (SlotDeliverable) -> Boolean,
+    languageBlock: (SlotDeliverable) -> String?,
     onPick: (String) -> Unit,
     onCancel: (String) -> Unit,
     onDelete: (String) -> Unit
@@ -68,6 +71,7 @@ internal fun SlotPicker(
                     status = statuses[deliverable.id],
                     progress = downloads[deliverable.id],
                     fits = fits(deliverable),
+                    languageBlock = languageBlock(deliverable),
                     onPick = { if (needsSlowWarning(deliverable)) confirmSlow = deliverable.id else onPick(deliverable.id) },
                     onCancel = { onCancel(deliverable.id) },
                     onDelete = { if (deliverable.id == selectedId) confirmDelete = deliverable.id else onDelete(deliverable.id) }
@@ -112,6 +116,19 @@ internal fun SlowDeliverableDialog(onConfirm: () -> Unit, onDismiss: () -> Unit)
     )
 }
 
+/** Every surface that chooses a language asks the same thing when the model in use writes English only (#338). */
+@Composable
+internal fun LanguageOfferDialog(offer: LanguageSwitch.Offer, keep: TargetLanguage, onAccept: () -> Unit, onDecline: () -> Unit) {
+    val download = if (offer.downloadBytes > 0) " It downloads ${offer.downloadBytes.toFileSizeString()} first." else ""
+    AlertDialog(
+        onDismissRequest = onDecline,
+        title = { Text("Switch to ${offer.model.name}?") },
+        text = { Text("${offer.current.name} writes English only. ${offer.model.name} can translate into ${offer.language.promptName}.$download") },
+        confirmButton = { TextButton(onClick = onAccept) { Text("Switch") } },
+        dismissButton = { TextButton(onClick = onDecline) { Text("Keep ${keep.promptName}") } }
+    )
+}
+
 internal fun deliverableStatus(status: ModelStatus?, progress: Int?, selected: Boolean, pending: Boolean): String = when {
     progress != null -> "Downloading $progress%"
     status == ModelStatus.READY -> if (selected) "In use" else "Downloaded"
@@ -119,13 +136,14 @@ internal fun deliverableStatus(status: ModelStatus?, progress: Int?, selected: B
     else -> "Not downloaded"
 } + if (pending) " · Takes over when downloaded" else ""
 
-internal fun deliverableDetail(deliverable: SlotDeliverable, fits: Boolean): String = listOfNotNull(
+internal fun deliverableDetail(deliverable: SlotDeliverable, fits: Boolean, languageBlock: String? = null): String = listOfNotNull(
     deliverable.sizeBytes.toFileSizeString(),
     deliverable.speed.label,
     deliverable.languageLabel,
     deliverable.licence,
     "Experimental".takeIf { deliverable.experimental },
-    if (fits) "Fits this device" else "Needs more memory"
+    if (fits) "Fits this device" else "Needs more memory",
+    languageBlock
 ).joinToString(" · ")
 
 @Composable
@@ -136,18 +154,20 @@ private fun DeliverableRow(
     status: ModelStatus?,
     progress: Int?,
     fits: Boolean,
+    languageBlock: String?,
     onPick: () -> Unit,
     onCancel: () -> Unit,
     onDelete: () -> Unit
 ) {
+    val pickable = fits && languageBlock == null
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     val statusLabel = deliverableStatus(status, progress, selected, pending)
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            RadioButton(selected = selected, onClick = onPick, enabled = fits)
+            RadioButton(selected = selected, onClick = onPick, enabled = pickable)
             Column(Modifier.weight(1f)) {
-                Text(deliverable.name, style = MaterialTheme.typography.titleSmall, color = if (fits) LocalContentColor.current else muted)
-                Text(deliverableDetail(deliverable, fits), style = MaterialTheme.typography.bodySmall, color = muted)
+                Text(deliverable.name, style = MaterialTheme.typography.titleSmall, color = if (pickable) LocalContentColor.current else muted)
+                Text(deliverableDetail(deliverable, fits, languageBlock), style = MaterialTheme.typography.bodySmall, color = muted)
                 Text(
                     statusLabel,
                     style = MaterialTheme.typography.bodySmall,
@@ -157,7 +177,7 @@ private fun DeliverableRow(
             when {
                 progress != null -> PaperButton("Cancel", onCancel)
                 status == ModelStatus.READY -> PaperButton("Delete", onDelete)
-                else -> PaperButton(if (status == ModelStatus.ERROR) "Retry" else "Download", onPick, enabled = fits)
+                else -> PaperButton(if (status == ModelStatus.ERROR) "Retry" else "Download", onPick, enabled = pickable)
             }
         }
         progress?.let {

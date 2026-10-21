@@ -24,6 +24,7 @@ import com.yomu.app.overlay.FloatingButtonView
 import com.yomu.app.overlay.FloatingButtonOverlay
 import com.yomu.app.overlay.OverlayBounds
 import com.yomu.app.overlay.OverlayBubbleState
+import com.yomu.app.overlay.OverlayLanguageSwitch
 import com.yomu.app.overlay.QuickSettingsPopup
 import com.yomu.app.overlay.TranslationRenderOverlay
 import com.yomu.app.overlay.TranslationStatusOverlay
@@ -34,6 +35,7 @@ import com.yomu.app.translation.ResourceLimitsStore
 import com.yomu.app.translation.TargetLanguageStore
 import com.yomu.app.translation.TranslationModelSelection
 import com.yomu.core.Constants
+import com.yomu.core.TargetLanguage
 import com.yomu.pipeline.ModelPaths
 import com.yomu.pipeline.PipelineResult
 import com.yomu.pipeline.TranslationPipeline
@@ -291,24 +293,29 @@ class OverlayService : Service() {
         floatingButton = null
     }
 
+    private val languageSwitch by lazy {
+        OverlayLanguageSwitch(
+            context = this,
+            targetLanguage = slotSelection::targetLanguage,
+            unavailable = { slotSelection.languageUnavailable(it, modelManager.deviceTotalMemBytes()) },
+            onChosen = ::chooseLanguage
+        )
+    }
+
     private fun showQuickSettings() {
         val thresholdStore = DetectionThresholdStore(sharedPreferences)
         val popup = quickSettingsPopup ?: QuickSettingsPopup(
             context = this,
             windowManager = windowManager,
             modelName = ::translationModelName,
+            languageSwitch = languageSwitch,
             onFontSizeChanged = { scale ->
                 sharedPreferences.edit().putFloat(Constants.PREF_FONT_SIZE_SCALE, scale).apply()
             },
             onThresholdChanged = { thresholdStore.save(it) },
             hasLastPage = { lastPage != null },
             onReportRequested = ::reportLastPage,
-            onOpenAppRequested = {
-                startActivity(
-                    Intent(this, MainActivity::class.java)
-                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                )
-            },
+            onOpenAppRequested = ::openApp,
             onStopRequested = { stopSelf() },
             blockTouchesBelow = floatingButtonOverlay::blockTouchesBelow,
             unblockTouchesBelow = floatingButtonOverlay::unblockTouchesBelow
@@ -319,6 +326,27 @@ class OverlayService : Service() {
         )
         popup.updateThreshold(thresholdStore.load())
         popup.show(buttonPositionX, buttonPositionY)
+    }
+
+    /** Sets [language], or opens the app to offer the model it needs when the one in use writes English only (#338). */
+    private fun chooseLanguage(language: TargetLanguage) {
+        // On the main thread, like the app's screens, since the slot selection's pending picks are not shared across threads.
+        scope.launch(Dispatchers.Main) {
+            if (slotSelection.switchLanguage(language) is LanguageSwitch.Offer) {
+                removeQuickSettingsPopup()
+                openApp(language)
+            } else {
+                languageSwitch.update()
+            }
+        }
+    }
+
+    private fun openApp(language: TargetLanguage? = null) {
+        startActivity(
+            Intent(this, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                .apply { language?.let { putExtra(MainActivity.EXTRA_TARGET_LANGUAGE, it.code) } }
+        )
     }
 
     /** Shares the last page's report through the share sheet; writing it stays off the main thread. */

@@ -8,13 +8,13 @@ import com.yomu.app.detection.DetectionThresholdStore
 import com.yomu.app.db.entities.ModelEntity
 import com.yomu.app.db.entities.ModelStatus
 import com.yomu.app.db.entities.ModelType
+import com.yomu.app.service.LanguageSwitch
 import com.yomu.app.service.ModelManager
 import com.yomu.app.service.ModelSlotSelection
 import com.yomu.app.service.PageRecallStore
 import com.yomu.app.service.SlotDeliverable
 import com.yomu.app.translation.FitBudget
 import com.yomu.app.translation.ResourceLimit
-import com.yomu.app.translation.TargetLanguageStore
 import com.yomu.app.translation.TranslationModelSelection
 import com.yomu.core.Constants
 import com.yomu.core.GenerationBound
@@ -34,6 +34,8 @@ import javax.inject.Inject
 data class SettingsUiState(
     val translationMode: String = "local",
     val targetLanguage: TargetLanguage = TargetLanguage.ENGLISH,
+    /** The model switch a language choice is waiting on the reader to accept or decline (#338), or null. */
+    val languageOffer: LanguageSwitch.Offer? = null,
     val sourceLanguage: String = "ja",
     val deliverables: Map<ModelType, List<SlotDeliverable>> = emptyMap(),
     val selectedIds: Map<ModelType, String> = emptyMap(),
@@ -70,6 +72,11 @@ data class SettingsUiState(
     fun needsSlowWarning(deliverable: SlotDeliverable): Boolean =
         ModelSlotSelection.needsSlowWarning(deliverable, fitBudget())
 
+    fun languageBlock(deliverable: SlotDeliverable): String? = ModelSlotSelection.languageBlock(deliverable, targetLanguage)
+
+    fun languageUnavailable(language: TargetLanguage): String? =
+        ModelSlotSelection.languageUnavailable(language, deliverables[ModelType.LLM].orEmpty(), ::fits)
+
     private fun fitBudget() = FitBudget(
         deviceTotalMemBytes,
         resourceLimits.getValue(ResourceLimit.FIT_BUDGET_PERCENT),
@@ -91,7 +98,6 @@ class SettingsViewModel @Inject constructor(
 
     private val detectionThresholdStore = DetectionThresholdStore(sharedPreferences)
     private val pageRecallStore = PageRecallStore(sharedPreferences)
-    private val targetLanguageStore = TargetLanguageStore(sharedPreferences)
     private val resourceMonitor = ResourceMonitor(context)
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -103,7 +109,6 @@ class SettingsViewModel @Inject constructor(
         }
         _uiState.value = SettingsUiState(
             translationMode = sharedPreferences.getString(Constants.PREF_TRANSLATION_MODE, "local") ?: "local",
-            targetLanguage = targetLanguageStore.load(),
             sourceLanguage = sharedPreferences.getString(Constants.PREF_SOURCE_LANGUAGE, "ja") ?: "ja",
             deliverables = ModelType.entries.associateWith(slotSelection::deliverables),
             deviceTotalMemBytes = modelManager.deviceTotalMemBytes(),
@@ -180,9 +185,23 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun setTargetLanguage(language: TargetLanguage) {
-        targetLanguageStore.save(language)
-        _uiState.update { it.copy(targetLanguage = targetLanguageStore.load()) }
+        viewModelScope.launch {
+            val switch = slotSelection.switchLanguage(language)
+            _uiState.update { it.copy(languageOffer = switch as? LanguageSwitch.Offer).withSlots() }
+        }
     }
+
+    fun acceptLanguageOffer() {
+        val offer = _uiState.value.languageOffer ?: return
+        _uiState.update { it.copy(languageOffer = null) }
+        viewModelScope.launch {
+            if (!slotSelection.accept(offer, _uiState.value.deviceTotalMemBytes)) return@launch
+            _uiState.update { it.withSlots() }
+            if (slotSelection.pendingId(ModelType.LLM) == offer.model.id) downloadModel(offer.model.id)
+        }
+    }
+
+    fun declineLanguageOffer() = _uiState.update { it.copy(languageOffer = null) }
 
     fun setPageRecall(enabled: Boolean) {
         pageRecallStore.save(enabled)
@@ -240,6 +259,8 @@ class SettingsViewModel @Inject constructor(
      * no path that commits a pick can leave the panel showing the previous model's defaults.
      */
     private fun SettingsUiState.withSlots(): SettingsUiState = copy(
+        // With the slots, since a download that never completes can return the language to English.
+        targetLanguage = slotSelection.targetLanguage(),
         selectedIds = ModelType.entries.mapNotNull { type -> slotSelection.selectedId(type)?.let { type to it } }.toMap(),
         pendingIds = ModelType.entries.mapNotNull { type -> slotSelection.pendingId(type)?.let { type to it } }.toMap()
     ).withGenerationProfile()

@@ -13,9 +13,11 @@ import androidx.lifecycle.viewModelScope
 import com.yomu.app.db.HistoryDao
 import com.yomu.app.db.entities.ModelStatus
 import com.yomu.app.db.entities.ModelType
+import com.yomu.app.service.LanguageSwitch
 import com.yomu.app.service.ModelManager
 import com.yomu.app.service.ModelSlotSelection
 import com.yomu.app.service.OverlayService
+import com.yomu.core.TargetLanguage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
@@ -25,7 +27,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.util.Calendar
+import java.time.LocalDate
+import java.time.ZoneId
 import javax.inject.Inject
 
 @HiltViewModel
@@ -128,7 +131,7 @@ class HomeViewModel @Inject constructor(
             it.service.className == OverlayService::class.java.name && it.foreground
         }
         _uiState.update {
-            it.copy(
+            it.withSlots().copy(
                 isServiceRunning = running,
                 onWifi = modelManager.isOnWifi(),
                 fitBudget = slotSelection.fitBudget(it.fitBudget.totalMemBytes)
@@ -136,25 +139,16 @@ class HomeViewModel @Inject constructor(
         }
         countJob?.cancel()
         countJob = viewModelScope.launch {
-            val start = Calendar.getInstance().apply {
-                set(Calendar.HOUR_OF_DAY, 0)
-                set(Calendar.MINUTE, 0)
-                set(Calendar.SECOND, 0)
-                set(Calendar.MILLISECOND, 0)
-            }.timeInMillis
+            val start = LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
             historyDao.getTranslationCountSince(start)
                 .catch { _uiState.update { it.copy(historyError = true) } }
                 .collect { count -> _uiState.update { it.copy(pagesTranslatedToday = count) } }
         }
     }
 
-    fun openSetup() {
-        _uiState.update { it.copy(setupVisible = true) }
-    }
+    fun openSetup() = _uiState.update { it.copy(setupVisible = true) }
 
-    fun dismissSetup() {
-        _uiState.update { it.copy(setupVisible = false) }
-    }
+    fun dismissSetup() = _uiState.update { it.copy(setupVisible = false) }
 
     /** Setup only records the choice; its Download button fetches every slot's choice at once. */
     fun pickSetupModel(type: ModelType, id: String) {
@@ -169,11 +163,33 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             val status = modelManager.getModel(id)?.status
             if (!slotSelection.pick(ModelType.LLM, id, status, _uiState.value.fitBudget.totalMemBytes)) return@launch
-            _uiState.update { it.withSlots() }
-            if (slotSelection.pendingId(ModelType.LLM) != id) return@launch
-            slotSelection.download(id)
-            _uiState.update { it.withSlots() }
+            downloadIfPending(id)
         }
+    }
+
+    /** From the quick-settings chip here, or from the overlay's when its switch needs the model offer (#338). */
+    fun chooseLanguage(language: TargetLanguage) {
+        viewModelScope.launch {
+            val switch = slotSelection.switchLanguage(language)
+            _uiState.update { it.copy(languageOffer = switch as? LanguageSwitch.Offer).withSlots() }
+        }
+    }
+
+    fun acceptLanguageOffer() {
+        val offer = _uiState.value.languageOffer ?: return
+        _uiState.update { it.copy(languageOffer = null) }
+        viewModelScope.launch {
+            if (slotSelection.accept(offer, _uiState.value.fitBudget.totalMemBytes)) downloadIfPending(offer.model.id)
+        }
+    }
+
+    fun declineLanguageOffer() = _uiState.update { it.copy(languageOffer = null) }
+
+    private suspend fun downloadIfPending(id: String) {
+        _uiState.update { it.withSlots() }
+        if (slotSelection.pendingId(ModelType.LLM) != id) return
+        slotSelection.download(id)
+        _uiState.update { it.withSlots() }
     }
 
     fun deleteModel(id: String) {
@@ -187,6 +203,8 @@ class HomeViewModel @Inject constructor(
         chosenIds = ModelType.entries.associateWith(slotSelection::chosenId),
         translationSelectedId = slotSelection.selectedId(ModelType.LLM),
         translationPendingId = slotSelection.pendingId(ModelType.LLM),
+        // With the slots, since a download that never completes can return the language to English.
+        targetLanguage = slotSelection.targetLanguage(),
         setupDownloadBytes = slotSelection.downloadBytes(models.associate { it.id to it.status })
     )
 
@@ -267,13 +285,9 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun dismissConfirmation() {
-        _uiState.update { it.copy(confirmation = null) }
-    }
+    fun dismissConfirmation() = _uiState.update { it.copy(confirmation = null) }
 
-    fun dismissServiceError() {
-        _uiState.update { it.copy(serviceError = false) }
-    }
+    fun dismissServiceError() = _uiState.update { it.copy(serviceError = false) }
 
     fun stopService() {
         OverlayService.stop(context)

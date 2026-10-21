@@ -108,6 +108,7 @@ private fun SetupSlot(state: HomeUiState, viewModel: HomeViewModel, type: ModelT
         downloads = emptyMap(),
         fits = state::fits,
         needsSlowWarning = state::needsSlowWarning,
+        languageBlock = state::languageBlock,
         onPick = { viewModel.pickSetupModel(type, it) },
         onCancel = {},
         onDelete = viewModel::deleteModel

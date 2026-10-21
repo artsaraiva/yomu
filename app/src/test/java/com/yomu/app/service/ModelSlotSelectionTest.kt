@@ -7,6 +7,7 @@ import com.yomu.app.translation.FitBudget
 import com.yomu.app.translation.LlmModelCatalog
 import com.yomu.app.translation.MapSharedPreferences
 import com.yomu.app.translation.ResourceLimit
+import com.yomu.app.translation.TargetLanguageStore
 import com.yomu.app.translation.TranslationModelSelection
 import com.yomu.core.Constants
 import com.yomu.ml.LlamaTranslationBridge
@@ -46,7 +47,7 @@ class ModelSlotSelectionTest {
             TranslationEngine(translation::current, translation::close),
             Mockito.mock(Typesetter::class.java)
         )
-        return ModelSlotSelection(translation, ReadingModelSelection(prefs), pipeline, models)
+        return ModelSlotSelection(translation, ReadingModelSelection(prefs), pipeline, models, TargetLanguageStore(prefs))
     }
 
     private fun downloadingWith(result: Any): ModelManager = Mockito.mock(ModelManager::class.java) { invocation ->

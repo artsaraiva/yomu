@@ -1,8 +1,14 @@
 package com.yomu.app.overlay
 
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowManager
+import android.widget.RadioButton
+import android.widget.TextView
+import com.yomu.core.TargetLanguage
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.ArgumentCaptor
@@ -20,10 +26,18 @@ class QuickSettingsPopupTest {
     private val windowManager = mock(WindowManager::class.java)
     private var releaseOutside: (() -> Unit)? = null
     private var unblocks = 0
+    private var unavailable: String? = null
+    private val chosen = mutableListOf<TargetLanguage>()
     private val popup = QuickSettingsPopup(
         context = RuntimeEnvironment.getApplication(),
         windowManager = windowManager,
         modelName = { "Model" },
+        languageSwitch = OverlayLanguageSwitch(
+            RuntimeEnvironment.getApplication(),
+            targetLanguage = { TargetLanguage.ENGLISH },
+            unavailable = { language -> unavailable.takeIf { language != TargetLanguage.ENGLISH } },
+            onChosen = { chosen += it }
+        ),
         onFontSizeChanged = {},
         onThresholdChanged = {},
         hasLastPage = { false },
@@ -47,5 +61,41 @@ class QuickSettingsPopupTest {
 
         popup.show(0, 0)
         verify(windowManager, times(2)).addView(any(View::class.java), any(WindowManager.LayoutParams::class.java))
+    }
+
+    private fun shownContent(): View {
+        popup.show(0, 0)
+        val view = ArgumentCaptor.forClass(View::class.java)
+        verify(windowManager).addView(view.capture(), any(WindowManager.LayoutParams::class.java))
+        return view.value
+    }
+
+    private fun View.withText(text: String): TextView? = when {
+        this is TextView && this.text.toString() == text -> this
+        this is ViewGroup -> (0 until childCount).firstNotNullOfOrNull { getChildAt(it).withText(text) }
+        else -> null
+    }
+
+    @Test
+    fun theLanguageChipOpensTheLanguagesAndChoosingOneSwitchesToIt() {
+        val content = shownContent()
+        val spanish = checkNotNull(content.withText("Spanish"))
+        val languages = spanish.parent as View
+        assertEquals(View.GONE, languages.visibility)
+
+        checkNotNull(content.withText("Japanese → English")).performClick()
+        assertEquals(View.VISIBLE, languages.visibility)
+        spanish.performClick()
+
+        assertEquals(listOf(TargetLanguage.SPANISH), chosen)
+    }
+
+    @Test
+    fun otherLanguagesAreDisabledWithTheReasonWhenNoMultilingualModelFits() {
+        unavailable = "No Multilingual model fits this device"
+        val content = shownContent()
+
+        assertFalse(checkNotNull(content.withText("French · No Multilingual model fits this device")).isEnabled)
+        assertTrue((checkNotNull(content.withText("English")) as RadioButton).isChecked)
     }
 }

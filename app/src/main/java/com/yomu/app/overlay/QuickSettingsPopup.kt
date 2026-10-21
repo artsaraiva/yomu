@@ -22,6 +22,7 @@ class QuickSettingsPopup(
     private val context: Context,
     private val windowManager: WindowManager,
     private val modelName: () -> String,
+    private val languageSwitch: OverlayLanguageSwitch,
     private val onFontSizeChanged: (Float) -> Unit,
     private val onThresholdChanged: (Float) -> Unit,
     private val hasLastPage: () -> Boolean,
@@ -110,6 +111,7 @@ class QuickSettingsPopup(
             intArrayOf(colors.inkMuted, colors.ink)
         )
         dimmableButtons.forEach { it.setTextColor(dimmableColors) }
+        languageSwitch.applyColors(colors)
         seekBars.forEach {
             it.thumbTintList = ColorStateList.valueOf(colors.accent)
             it.progressTintList = ColorStateList.valueOf(colors.accent)
@@ -149,7 +151,7 @@ class QuickSettingsPopup(
             })
         })
         addView(mutedLabel(modelName()))
-        addView(languageChip())
+        addView(languageSwitch.createView())
         addView(labelRow(sectionLabel("Font size"), resetButton { resetFontSize() }.also { fontSizeReset = it }))
         addView(SeekBar(context).apply {
             max = 100
@@ -258,13 +260,6 @@ class QuickSettingsPopup(
 
     private fun resetButton(onReset: () -> Unit): Button =
         textButton("Reset", onReset).apply { dimmableButtons.add(this) }
-
-    /** The fixed pair, drawn like the disabled chip on Home. */
-    private fun languageChip(): TextView = mutedLabel("Japanese → English").apply {
-        background = context.paperBackground()
-        setPadding(dp(12), dp(6), dp(12), dp(6))
-        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(12) }
-    }
 
     private fun mutedLabel(text: String): TextView = TextView(context).apply {
         this.text = text

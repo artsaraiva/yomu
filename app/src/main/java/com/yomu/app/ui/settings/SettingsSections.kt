@@ -19,7 +19,10 @@ import com.yomu.core.TargetLanguage
 fun TranslationSettings(viewModel: SettingsViewModel, onBack: () -> Unit) {
     val state by viewModel.uiState.collectAsState()
     SettingsPage(SettingsSection.Translation.title, SettingsSection.Translation.description, onBack) {
-        TargetLanguagePanel(state.targetLanguage, viewModel::setTargetLanguage)
+        TargetLanguagePanel(state.targetLanguage, state::languageUnavailable, viewModel::setTargetLanguage)
+        state.languageOffer?.let {
+            LanguageOfferDialog(it, state.targetLanguage, viewModel::acceptLanguageOffer, viewModel::declineLanguageOffer)
+        }
         ModelSlot(state, viewModel, ModelType.LLM, "Model", "The on-device model that translates each bubble.")
         state.recoveryWarning?.let { RecoveryWarning(it) }
         AdvancedGenerationPanel(
@@ -34,19 +37,34 @@ fun TranslationSettings(viewModel: SettingsViewModel, onBack: () -> Unit) {
 }
 
 @Composable
-private fun TargetLanguagePanel(selected: TargetLanguage, onChange: (TargetLanguage) -> Unit) {
+private fun TargetLanguagePanel(
+    selected: TargetLanguage,
+    unavailable: (TargetLanguage) -> String?,
+    onChange: (TargetLanguage) -> Unit
+) {
     PaperSurface(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp)) {
             SettingRow("Language", "The language pages are translated into. English only models write English alone.") {
                 Column(Modifier.selectableGroup()) {
                     TargetLanguage.entries.forEach { language ->
+                        val reason = unavailable(language)
                         Row(
-                            Modifier.fillMaxWidth()
-                                .selectable(language == selected, role = Role.RadioButton, onClick = { onChange(language) }),
+                            Modifier.fillMaxWidth().selectable(
+                                language == selected, enabled = reason == null, role = Role.RadioButton, onClick = { onChange(language) }
+                            ),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            RadioButton(selected = language == selected, onClick = null)
-                            Text(language.promptName, style = MaterialTheme.typography.bodyMedium)
+                            RadioButton(selected = language == selected, onClick = null, enabled = reason == null)
+                            Column {
+                                Text(
+                                    language.promptName,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = if (reason == null) LocalContentColor.current else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                reason?.let {
+                                    Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
                         }
                     }
                 }
@@ -125,6 +143,7 @@ private fun ModelSlot(state: SettingsUiState, viewModel: SettingsViewModel, type
         downloads = state.downloads,
         fits = state::fits,
         needsSlowWarning = state::needsSlowWarning,
+        languageBlock = state::languageBlock,
         onPick = { viewModel.pickModel(type, it) },
         onCancel = viewModel::cancelDownload,
         onDelete = viewModel::deleteModel

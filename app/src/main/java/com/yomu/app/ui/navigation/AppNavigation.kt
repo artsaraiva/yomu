@@ -37,10 +37,12 @@ import com.yomu.app.ui.settings.AppearanceSettings
 import com.yomu.app.ui.settings.PerformanceSettings
 import com.yomu.app.ui.settings.PipelineSettings
 import com.yomu.app.ui.settings.SettingsScreen
+import com.yomu.app.ui.settings.LanguageOfferDialog
 import com.yomu.app.ui.settings.SettingsSection
 import com.yomu.app.ui.settings.SettingsViewModel
 import com.yomu.app.ui.settings.TranslationSettings
 import com.yomu.app.ui.settings.TypesettingSettings
+import com.yomu.core.TargetLanguage
 
 private const val SETTINGS_ROOT = "settings/root"
 
@@ -52,9 +54,21 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
 val bottomNavItems = listOf(Screen.Home, Screen.Settings)
 
 @Composable
-fun AppNavigation(onRequestScreenCapture: () -> Unit = {}) {
+fun AppNavigation(
+    onRequestScreenCapture: () -> Unit = {},
+    languageRequest: TargetLanguage? = null,
+    onLanguageRequestHandled: () -> Unit = {}
+) {
     val viewModel: HomeViewModel = hiltViewModel()
     val state by viewModel.uiState.collectAsState()
+    // The overlay's language switch opens the app when the choice needs the model offer (#338).
+    LaunchedEffect(languageRequest) {
+        languageRequest?.let(viewModel::chooseLanguage)
+        onLanguageRequestHandled()
+    }
+    state.languageOffer?.let {
+        LanguageOfferDialog(it, state.targetLanguage, viewModel::acceptLanguageOffer, viewModel::declineLanguageOffer)
+    }
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner, viewModel) {
         val observer = LifecycleEventObserver { _, event ->
