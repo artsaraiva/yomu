@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.RectF
 import com.yomu.core.PageTranslation
+import com.yomu.core.TargetLanguage
 import com.yomu.pipeline.bubble.Bubble
 import com.yomu.pipeline.bubble.BubbleDetector
 import com.yomu.pipeline.context.ContextAssembler
@@ -118,6 +119,14 @@ class TranslationPipelineTest {
         pipeline(terse).processPage(page())
 
         assertEquals(listOf(listOf(5 to "御意")), slot.pagePairs())
+    }
+
+    @Test
+    fun `the page is translated into the language it was asked for`() = runTest {
+        val result = pipeline(speech).processPage(page(), targetLanguage = TargetLanguage.FRENCH)
+
+        assertEquals(TargetLanguage.FRENCH, slot.pages.single().targetLanguage)
+        assertEquals(TargetLanguage.FRENCH, result?.translationResult?.targetLanguage)
     }
 
     @Test

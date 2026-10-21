@@ -3,6 +3,7 @@ package com.yomu.pipeline
 import android.graphics.Bitmap
 import android.graphics.RectF
 import android.util.Log
+import com.yomu.core.TargetLanguage
 import com.yomu.pipeline.bubble.BubbleDetector
 import com.yomu.pipeline.bubble.bubbleRenderBoxes
 import com.yomu.pipeline.bubble.centeredOutside
@@ -101,6 +102,7 @@ class TranslationPipeline(
     /**
      * Serializes page processing with model unloading and emits OCR previews followed by typeset bubbles.
      * A bubble centered in one of [ignoredRegions], such as the status bar, is never read.
+     * The page is translated into [targetLanguage].
      * Callbacks run in the processing coroutine; UI callers must dispatch to the main thread.
      * Returns null on processing failure and propagates cancellation.
      */
@@ -109,8 +111,9 @@ class TranslationPipeline(
         callback: PipelineCallback? = null,
         onOcrComplete: ((bubbleId: Int, ocrText: String, bounds: RectF) -> Unit)? = null,
         onBubble: ((TypesetBubble) -> Unit)? = null,
-        ignoredRegions: List<RectF> = emptyList()
-    ): PipelineResult? = inference.withLock { runPage(bitmap, callback, onOcrComplete, onBubble, ignoredRegions) }
+        ignoredRegions: List<RectF> = emptyList(),
+        targetLanguage: TargetLanguage = TargetLanguage.ENGLISH
+    ): PipelineResult? = inference.withLock { runPage(bitmap, callback, onOcrComplete, onBubble, ignoredRegions, targetLanguage) }
 
     /** Releases the detector after any active page finishes using its native session. */
     suspend fun unloadDetection() = inference.withLock { bubbleDetector.release() }
@@ -128,7 +131,8 @@ class TranslationPipeline(
         callback: PipelineCallback?,
         onOcrComplete: ((bubbleId: Int, ocrText: String, bounds: RectF) -> Unit)?,
         onBubble: ((TypesetBubble) -> Unit)?,
-        ignoredRegions: List<RectF>
+        ignoredRegions: List<RectF>,
+        targetLanguage: TargetLanguage
     ): PipelineResult? {
         val startTime = System.currentTimeMillis()
         val pageWidth = bitmap.width
@@ -248,7 +252,7 @@ class TranslationPipeline(
             // the art under it (#330).
             val arrived = mutableMapOf<Int, TypesetBubble>()
             var firstBubbleAt: Long? = null
-            val translationResult = translationEngine.translate(pageContext.blocks) { translated ->
+            val translationResult = translationEngine.translate(pageContext.blocks, targetLanguage) { translated ->
                 val typeset = typesetter.typeset(listOf(translated), bubbleBounds).single()
                 if (firstBubbleAt == null) firstBubbleAt = System.currentTimeMillis()
                 arrived[typeset.bubbleId] = typeset
