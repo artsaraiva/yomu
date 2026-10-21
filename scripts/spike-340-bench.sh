@@ -7,9 +7,9 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT_DIR="${OUT_DIR:-/tmp/yomu-340}"
 name="$1"; shift
 mkdir -p "$OUT_DIR"
-# Throttling halves decode speed, so every run starts cool: thermal status 0 and battery at most 35 C.
+# Throttling halves decode speed, so every run starts cool: thermal status 0 and battery at most 39 C (it idles near 38 C on USB).
 until [ "$(adb shell dumpsys thermalservice | sed -n 's/^Thermal Status: //p' | tr -d '\r')" = 0 ] &&
-      [ "$(adb shell dumpsys battery | sed -n 's/^ *temperature: //p' | tr -d '\r')" -le 350 ]; do sleep 30; done
+      [ "$(adb shell dumpsys battery | sed -n 's/^ *temperature: //p' | tr -d '\r')" -le 390 ]; do sleep 30; done
 adb logcat -c
 adb logcat -s 'LlamaJNI:*' 'LlamaCpp:*' > "$OUT_DIR/$name.logcat" &
 pid=$!
