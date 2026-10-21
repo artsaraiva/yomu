@@ -46,6 +46,7 @@ scheme and is stale; treat it as history, not as a plan.
   gh api graphql -f query='{repository(owner:"artsaraiva",name:"yomu"){issue(number:NN){closedByPullRequestsReferences(first:5,includeClosedPrs:true){nodes{number}}}}}'
   ```
   An empty list means unlinked. Editing the body fixes it even after the PR is merged.
+- **Spikes publish a tag, never a branch.** Spike code is never merged, so its `spike/<issue>-…` branch stays local. To link the code from the issue's results comment, push only a tag: `git tag spike-<issue> && git push origin spike-<issue>`, then link `tree/spike-<issue>`. A pushed branch with no PR leaves GitHub's "Compare & pull request" banner behind, and deleting it later takes a manual step.
 - Use label `future` only for work intentionally deferred beyond the current delivery window.
 - For GitHub writes, use the `mcp__plugin_github_github__*` tools (signed in as `artsaraiva`) or `gh` with the personal token; see `docs/agents/issue-tracker.md`.
 
