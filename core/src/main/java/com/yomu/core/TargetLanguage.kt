@@ -9,5 +9,10 @@ enum class TargetLanguage(val code: String, val promptName: String) {
     BRAZILIAN_PORTUGUESE("pt-BR", "Brazilian Portuguese"),
     SPANISH("es", "Spanish"),
     FRENCH("fr", "French"),
-    GERMAN("de", "German")
+    GERMAN("de", "German");
+
+    companion object {
+        /** The language stored as [code], or null for a code no language has. */
+        fun fromCode(code: String?): TargetLanguage? = entries.firstOrNull { it.code == code }
+    }
 }

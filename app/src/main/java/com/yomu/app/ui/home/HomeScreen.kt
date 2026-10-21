@@ -19,6 +19,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import com.yomu.app.ui.theme.*
+import com.yomu.core.TargetLanguage
 import kotlinx.coroutines.launch
 import java.text.DateFormat
 import java.util.Date
@@ -138,7 +139,9 @@ fun HomeScreen(
                         PaperAction(onClick = { expanded = !expanded }, modifier = Modifier.fillMaxWidth()) {
                             Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Text(translation.translatedText, maxLines = if (expanded) Int.MAX_VALUE else 3, style = MaterialTheme.typography.bodyMedium)
-                                Text(DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(translation.createdAt)), style = MaterialTheme.typography.bodySmall)
+                                val translatedAt = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(translation.createdAt))
+                                val language = TargetLanguage.fromCode(translation.targetLanguage)?.promptName
+                                Text(listOfNotNull(translatedAt, language).joinToString(" · "), style = MaterialTheme.typography.bodySmall)
                                 Text(if (expanded) "Show less" else "Read translation", style = MaterialTheme.typography.labelMedium)
                             }
                         }

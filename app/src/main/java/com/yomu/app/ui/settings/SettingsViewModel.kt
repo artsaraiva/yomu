@@ -14,10 +14,12 @@ import com.yomu.app.service.PageRecallStore
 import com.yomu.app.service.SlotDeliverable
 import com.yomu.app.translation.FitBudget
 import com.yomu.app.translation.ResourceLimit
+import com.yomu.app.translation.TargetLanguageStore
 import com.yomu.app.translation.TranslationModelSelection
 import com.yomu.core.Constants
 import com.yomu.core.GenerationBound
 import com.yomu.core.GenerationParams
+import com.yomu.core.TargetLanguage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -31,7 +33,7 @@ import javax.inject.Inject
 
 data class SettingsUiState(
     val translationMode: String = "local",
-    val targetLanguage: String = "en",
+    val targetLanguage: TargetLanguage = TargetLanguage.ENGLISH,
     val sourceLanguage: String = "ja",
     val deliverables: Map<ModelType, List<SlotDeliverable>> = emptyMap(),
     val selectedIds: Map<ModelType, String> = emptyMap(),
@@ -89,6 +91,7 @@ class SettingsViewModel @Inject constructor(
 
     private val detectionThresholdStore = DetectionThresholdStore(sharedPreferences)
     private val pageRecallStore = PageRecallStore(sharedPreferences)
+    private val targetLanguageStore = TargetLanguageStore(sharedPreferences)
     private val resourceMonitor = ResourceMonitor(context)
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -100,7 +103,7 @@ class SettingsViewModel @Inject constructor(
         }
         _uiState.value = SettingsUiState(
             translationMode = sharedPreferences.getString(Constants.PREF_TRANSLATION_MODE, "local") ?: "local",
-            targetLanguage = sharedPreferences.getString(Constants.PREF_TARGET_LANGUAGE, "en") ?: "en",
+            targetLanguage = targetLanguageStore.load(),
             sourceLanguage = sharedPreferences.getString(Constants.PREF_SOURCE_LANGUAGE, "ja") ?: "ja",
             deliverables = ModelType.entries.associateWith(slotSelection::deliverables),
             deviceTotalMemBytes = modelManager.deviceTotalMemBytes(),
@@ -174,6 +177,11 @@ class SettingsViewModel @Inject constructor(
     fun resetDetectionThreshold() {
         detectionThresholdStore.reset()
         _uiState.update { it.copy(detectionThreshold = detectionThresholdStore.load()) }
+    }
+
+    fun setTargetLanguage(language: TargetLanguage) {
+        targetLanguageStore.save(language)
+        _uiState.update { it.copy(targetLanguage = targetLanguageStore.load()) }
     }
 
     fun setPageRecall(enabled: Boolean) {

@@ -1,6 +1,8 @@
 package com.yomu.app.ui.settings
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -11,11 +13,13 @@ import androidx.compose.ui.unit.dp
 import com.yomu.app.db.entities.ModelType
 import com.yomu.app.detection.DetectionThresholdStore
 import com.yomu.app.ui.theme.*
+import com.yomu.core.TargetLanguage
 
 @Composable
 fun TranslationSettings(viewModel: SettingsViewModel, onBack: () -> Unit) {
     val state by viewModel.uiState.collectAsState()
     SettingsPage(SettingsSection.Translation.title, SettingsSection.Translation.description, onBack) {
+        TargetLanguagePanel(state.targetLanguage, viewModel::setTargetLanguage)
         ModelSlot(state, viewModel, ModelType.LLM, "Model", "The on-device model that translates each bubble.")
         state.recoveryWarning?.let { RecoveryWarning(it) }
         AdvancedGenerationPanel(
@@ -26,6 +30,28 @@ fun TranslationSettings(viewModel: SettingsViewModel, onBack: () -> Unit) {
             onReset = viewModel::resetGeneration
         )
         PageRecallPanel(state.pageRecall, viewModel::setPageRecall)
+    }
+}
+
+@Composable
+private fun TargetLanguagePanel(selected: TargetLanguage, onChange: (TargetLanguage) -> Unit) {
+    PaperSurface(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp)) {
+            SettingRow("Language", "The language pages are translated into. English only models write English alone.") {
+                Column(Modifier.selectableGroup()) {
+                    TargetLanguage.entries.forEach { language ->
+                        Row(
+                            Modifier.fillMaxWidth()
+                                .selectable(language == selected, role = Role.RadioButton, onClick = { onChange(language) }),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(selected = language == selected, onClick = null)
+                            Text(language.promptName, style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
