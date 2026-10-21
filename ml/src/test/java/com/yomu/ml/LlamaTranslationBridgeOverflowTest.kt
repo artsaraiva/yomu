@@ -1,6 +1,7 @@
 package com.yomu.ml
 
 import com.yomu.core.ModelProfile
+import com.yomu.core.TargetLanguage
 import com.yomu.core.TranslatableBubble
 import com.yomu.core.TranslatablePage
 import com.yomu.core.TranslationOutcome
@@ -91,6 +92,22 @@ class LlamaTranslationBridgeOverflowTest {
         val result = slot.translatePage(page(1 to "こんにちは"))
 
         assertFalse(result.batchOverflowFallback)
+        model.delete()
+    }
+
+    @Test
+    fun translatePage_batchOverflowFallbackKeepsTheTargetLanguage() = runTest {
+        val model = File.createTempFile("model", ".gguf")
+        val native = FakeLlamaBridge { prompt ->
+            if (prompt.contains("Panels are separated")) GenerationResult.Overflow(5L) else GenerationResult.Success("Hallo", 10L)
+        }
+        val profile = ModelProfile(model.absolutePath, true, TranslationPromptMode.TRANSLATION_ONLY, multilingual = true)
+        val slot = LlamaTranslationBridge(native, profile)
+
+        slot.translatePage(TranslatablePage(listOf(listOf(TranslatableBubble(1, "こんにちは"))), TargetLanguage.GERMAN))
+
+        assertTrue(native.prompts[0].startsWith("Translate each Japanese line to German."))
+        assertTrue(native.prompts[1].startsWith("Translate the target Japanese manga text into natural German."))
         model.delete()
     }
 

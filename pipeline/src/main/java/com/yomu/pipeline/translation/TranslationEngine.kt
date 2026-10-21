@@ -1,6 +1,8 @@
 package com.yomu.pipeline.translation
 
+import com.yomu.core.ERROR_ENGLISH_ONLY
 import com.yomu.core.ERROR_MODEL_MISSING
+import com.yomu.core.TargetLanguage
 import com.yomu.core.TranslatableBubble
 import com.yomu.core.TranslatablePage
 import com.yomu.core.TranslationOutcome
@@ -63,15 +65,19 @@ data class TranslationResult(
     val translationTimeMs: Long,
     val outcome: TranslationOutcome = TranslationOutcome.SUCCESS,
     val errorCode: String? = null,
-    val batchOverflowFallback: Boolean = false
+    val batchOverflowFallback: Boolean = false,
+    /** The language the page was asked for, which is what history records. */
+    val targetLanguage: TargetLanguage = TargetLanguage.ENGLISH
 )
 
 /**
- * What to tell the reader when the page came back untranslated because the slot could not load,
- * or null when the model ran. A NOT_LOADED page still renders every bubble's source text, which
- * reads as a capture that silently did nothing (#308) — the caller shows this instead.
+ * What to tell the reader when the page came back untranslated because the slot could not load or
+ * its English-only model refused the target language, or null when the model ran. Such a page still
+ * renders every bubble's source text, which reads as a capture that silently did nothing (#308) —
+ * the caller shows this instead.
  */
 fun TranslationResult.readerFailure(): String? = when {
+    errorCode == ERROR_ENGLISH_ONLY -> "This model is English only — pick a Multilingual model or English in Settings"
     outcome != TranslationOutcome.NOT_LOADED -> null
     errorCode == ERROR_MODEL_MISSING -> "Translation model is missing — download it again in Settings"
     else -> "Translation model could not be loaded (${errorCode ?: "not_ready"})"
@@ -103,11 +109,12 @@ class TranslationEngine(
      */
     suspend fun translate(
         blocks: List<ConversationBlock>,
+        targetLanguage: TargetLanguage = TargetLanguage.ENGLISH,
         onBubble: (TranslatedBubble) -> Unit = {}
     ): TranslationResult {
-        val page = project(blocks)
+        val page = project(blocks, targetLanguage)
         val bubbles = page.panels.flatten()
-        if (bubbles.isEmpty()) return TranslationResult(emptyList(), "", 0L)
+        if (bubbles.isEmpty()) return TranslationResult(emptyList(), "", 0L, targetLanguage = targetLanguage)
 
         val sourceById = bubbles.associate { it.bubbleId to it.sourceText }
         val forwarded = mutableMapOf<Int, String>()
@@ -134,11 +141,12 @@ class TranslationEngine(
             translationTimeMs = output.durationMs,
             outcome = output.outcome,
             errorCode = output.errorCode,
-            batchOverflowFallback = output.batchOverflowFallback
+            batchOverflowFallback = output.batchOverflowFallback,
+            targetLanguage = targetLanguage
         )
     }
 
-    private fun project(blocks: List<ConversationBlock>): TranslatablePage = TranslatablePage(
+    private fun project(blocks: List<ConversationBlock>, targetLanguage: TargetLanguage): TranslatablePage = TranslatablePage(
         blocks.map { block ->
             block.readingOrder.mapNotNull { bubbleId ->
                 block.textByBubbleId[bubbleId]?.text
@@ -146,7 +154,8 @@ class TranslationEngine(
                     ?.takeIf { it.isNotBlank() }
                     ?.let { TranslatableBubble(bubbleId, it) }
             }
-        }.filter { it.isNotEmpty() }
+        }.filter { it.isNotEmpty() },
+        targetLanguage
     )
 
     fun endSession() {

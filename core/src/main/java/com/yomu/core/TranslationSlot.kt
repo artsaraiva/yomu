@@ -11,7 +11,10 @@ enum class TranslationPromptMode { MODEL_CARD, TRANSLATION_ONLY, HY_MT2 }
 
 data class TranslatableBubble(val bubbleId: Int, val sourceText: String)
 
-data class TranslatablePage(val panels: List<List<TranslatableBubble>>)
+data class TranslatablePage(
+    val panels: List<List<TranslatableBubble>>,
+    val targetLanguage: TargetLanguage = TargetLanguage.ENGLISH
+)
 
 /**
  * Every knob the sampler and the generation loop read, in one place.
@@ -145,7 +148,9 @@ data class ModelProfile(
      * anonymous memory the kernel cannot drop, unlike the mmapped GGUF, so a model repacked on a
      * phone it barely fits is killed by lmkd.
      */
-    val repackWeights: Boolean = true
+    val repackWeights: Boolean = true,
+    /** Whether the deliverable writes every [TargetLanguage]; an English-only one refuses any other (#337). */
+    val multilingual: Boolean = false
 )
 
 /** How much of the device the loaded model may use (#79). Changing either means reloading the model. */
@@ -177,6 +182,9 @@ enum class TranslationOutcome { SUCCESS, BLANK, TIMEOUT, OVERFLOW, ERROR, NOT_LO
 
 /** The slot could not be made ready because its weights are not on disk (#308). */
 const val ERROR_MODEL_MISSING = "model_missing"
+
+/** An English-only model was asked for another [TargetLanguage] and refused, rather than write English (#337). */
+const val ERROR_ENGLISH_ONLY = "english_only"
 
 data class PageTranslation(
     val byId: Map<Int, String>,

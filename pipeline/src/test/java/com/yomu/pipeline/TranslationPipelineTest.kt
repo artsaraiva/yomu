@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.RectF
 import com.yomu.core.PageTranslation
+import com.yomu.core.TargetLanguage
 import com.yomu.pipeline.bubble.Bubble
 import com.yomu.pipeline.bubble.BubbleDetector
 import com.yomu.pipeline.context.ContextAssembler
@@ -72,7 +73,7 @@ class TranslationPipelineTest {
 
     @Test
     fun `a box centered in an ignored region never reaches OCR`() = runTest {
-        pipeline(clock, speech).processPage(page(), ignoredRegions = listOf(statusBar))
+        pipeline(clock, speech).processPage(page(), ignoredRegions = listOf(statusBar), targetLanguage = TargetLanguage.ENGLISH)
 
         assertEquals(listOf("こんにちは"), reads)
     }
@@ -85,7 +86,8 @@ class TranslationPipelineTest {
         pipeline(speech, sfx).processPage(
             page(),
             onOcrComplete = { bubbleId, _, _ -> previewed += bubbleId },
-            onBubble = { drawn += it.bubbleId }
+            onBubble = { drawn += it.bubbleId },
+            targetLanguage = TargetLanguage.ENGLISH
         )
 
         assertEquals(listOf(2), previewed)
@@ -101,7 +103,8 @@ class TranslationPipelineTest {
         val result = pipeline(speech, caption).processPage(
             page(),
             onOcrComplete = { bubbleId, _, _ -> previewed += bubbleId },
-            onBubble = { drawn += it.bubbleId }
+            onBubble = { drawn += it.bubbleId },
+            targetLanguage = TargetLanguage.ENGLISH
         )
 
         assertEquals(listOf(2), previewed)
@@ -115,9 +118,17 @@ class TranslationPipelineTest {
 
     @Test
     fun `a clean read the decoder is less sure of is still translated`() = runTest {
-        pipeline(terse).processPage(page())
+        pipeline(terse).processPage(page(), targetLanguage = TargetLanguage.ENGLISH)
 
         assertEquals(listOf(listOf(5 to "御意")), slot.pagePairs())
+    }
+
+    @Test
+    fun `the page is translated into the language it was asked for`() = runTest {
+        val result = pipeline(speech).processPage(page(), targetLanguage = TargetLanguage.FRENCH)
+
+        assertEquals(TargetLanguage.FRENCH, slot.pages.single().targetLanguage)
+        assertEquals(TargetLanguage.FRENCH, result?.translationResult?.targetLanguage)
     }
 
     @Test
@@ -131,7 +142,7 @@ class TranslationPipelineTest {
             override fun onComplete(result: PipelineResult) = Unit
         }
 
-        val result = pipeline(clock).processPage(page(), callback, ignoredRegions = listOf(statusBar))
+        val result = pipeline(clock).processPage(page(), callback, ignoredRegions = listOf(statusBar), targetLanguage = TargetLanguage.ENGLISH)
 
         assertNull(result)
         assertEquals(listOf(TranslationPipeline.Stage.BUBBLE_DETECTION to "No bubbles detected on the page"), errors)

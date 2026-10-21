@@ -3,6 +3,7 @@ package com.yomu.pipeline
 import android.graphics.Bitmap
 import android.graphics.RectF
 import android.util.Log
+import com.yomu.core.TargetLanguage
 import com.yomu.pipeline.bubble.BubbleDetector
 import com.yomu.pipeline.bubble.bubbleRenderBoxes
 import com.yomu.pipeline.bubble.centeredOutside
@@ -10,7 +11,6 @@ import com.yomu.pipeline.context.ContextAssembler
 import com.yomu.pipeline.ocr.OcrEngine
 import com.yomu.pipeline.ocr.OcrResult
 import com.yomu.pipeline.translation.TranslationEngine
-import com.yomu.pipeline.translation.TranslationResult
 import com.yomu.pipeline.translation.hasJapaneseScript
 import com.yomu.pipeline.typesetting.TypesetBubble
 import com.yomu.pipeline.typesetting.Typesetter
@@ -27,24 +27,6 @@ data class ModelPaths(
     val ocrEncoderPath: String,
     val ocrDecoderPath: String,
     val ocrVocabPath: String
-)
-
-data class PipelineResult(
-    val typesetBubbles: List<TypesetBubble>,
-    val translationResult: TranslationResult,
-    val pageWidth: Int,
-    val pageHeight: Int,
-    val totalTimeMs: Long,
-    /** From the page reaching the pipeline to its first bubble being ready to draw; null when none was. */
-    val timeToFirstBubbleMs: Long? = null,
-    /** Each stage that ran, in order. Loading the vision models is left out; a translation model load is in TRANSLATION. */
-    val stageTimesMs: Map<TranslationPipeline.Stage, Long> = emptyMap(),
-    /** Every detected bubble's glyph box as left, top, right, bottom, in detection order. */
-    val bubbleBounds: Map<Int, FloatArray> = emptyMap(),
-    /** Every read with kana or kanji in it, by bubble id, including the [OcrResult.unsure] ones never translated. */
-    val reads: Map<Int, OcrResult> = emptyMap(),
-    /** OCR text with no kana or kanji, by bubble id. Only the page report reads it; it is never previewed, translated or drawn. */
-    val droppedReads: Map<Int, String> = emptyMap()
 )
 
 class TranslationPipeline(
@@ -101,6 +83,7 @@ class TranslationPipeline(
     /**
      * Serializes page processing with model unloading and emits OCR previews followed by typeset bubbles.
      * A bubble centered in one of [ignoredRegions], such as the status bar, is never read.
+     * The page is translated into [targetLanguage].
      * Callbacks run in the processing coroutine; UI callers must dispatch to the main thread.
      * Returns null on processing failure and propagates cancellation.
      */
@@ -109,8 +92,9 @@ class TranslationPipeline(
         callback: PipelineCallback? = null,
         onOcrComplete: ((bubbleId: Int, ocrText: String, bounds: RectF) -> Unit)? = null,
         onBubble: ((TypesetBubble) -> Unit)? = null,
-        ignoredRegions: List<RectF> = emptyList()
-    ): PipelineResult? = inference.withLock { runPage(bitmap, callback, onOcrComplete, onBubble, ignoredRegions) }
+        ignoredRegions: List<RectF> = emptyList(),
+        targetLanguage: TargetLanguage
+    ): PipelineResult? = inference.withLock { runPage(bitmap, callback, onOcrComplete, onBubble, ignoredRegions, targetLanguage) }
 
     /** Releases the detector after any active page finishes using its native session. */
     suspend fun unloadDetection() = inference.withLock { bubbleDetector.release() }
@@ -128,7 +112,8 @@ class TranslationPipeline(
         callback: PipelineCallback?,
         onOcrComplete: ((bubbleId: Int, ocrText: String, bounds: RectF) -> Unit)?,
         onBubble: ((TypesetBubble) -> Unit)?,
-        ignoredRegions: List<RectF>
+        ignoredRegions: List<RectF>,
+        targetLanguage: TargetLanguage
     ): PipelineResult? {
         val startTime = System.currentTimeMillis()
         val pageWidth = bitmap.width
@@ -248,7 +233,7 @@ class TranslationPipeline(
             // the art under it (#330).
             val arrived = mutableMapOf<Int, TypesetBubble>()
             var firstBubbleAt: Long? = null
-            val translationResult = translationEngine.translate(pageContext.blocks) { translated ->
+            val translationResult = translationEngine.translate(pageContext.blocks, targetLanguage) { translated ->
                 val typeset = typesetter.typeset(listOf(translated), bubbleBounds).single()
                 if (firstBubbleAt == null) firstBubbleAt = System.currentTimeMillis()
                 arrived[typeset.bubbleId] = typeset

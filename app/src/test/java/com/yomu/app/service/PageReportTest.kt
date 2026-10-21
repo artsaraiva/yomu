@@ -5,6 +5,7 @@ import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.yomu.core.GenerationParams
 import com.yomu.core.RuntimeLimits
+import com.yomu.core.TargetLanguage
 import com.yomu.core.TranslationOutcome
 import com.yomu.pipeline.PipelineResult
 import com.yomu.pipeline.TranslationPipeline.Stage
@@ -28,7 +29,8 @@ class PageReportTest {
         generation = GenerationParams(temperature = 0.3f),
         runtime = RuntimeLimits(threads = 4, contextTokens = 2048),
         detectionThreshold = 0.25f,
-        fontScale = 1.2f
+        fontScale = 1.2f,
+        targetLanguage = TargetLanguage.SPANISH
     )
 
     private fun page(
@@ -110,6 +112,7 @@ class PageReportTest {
         assertEquals(2048, recorded.getAsJsonObject("runtime")["contextTokens"].asInt)
         assertEquals(0.25f, recorded["detectionThreshold"].asFloat)
         assertEquals(1.2f, recorded["fontScale"].asFloat)
+        assertEquals("SPANISH", recorded["targetLanguage"].asString)
     }
 
     @Test

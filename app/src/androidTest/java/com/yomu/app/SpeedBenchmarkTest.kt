@@ -10,6 +10,7 @@ import com.yomu.app.translation.FitBudget
 import com.yomu.app.translation.LlmModelCatalog
 import com.yomu.core.Constants
 import com.yomu.core.RuntimeLimits
+import com.yomu.core.TargetLanguage
 import com.yomu.ml.LlamaBridge
 import com.yomu.ml.LlamaTranslationBridge
 import com.yomu.ml.OnnxRuntime
@@ -150,7 +151,7 @@ class SpeedBenchmarkTest {
         }
         sampler.takePeak()
         val result = try {
-            pipeline.processPage(bitmap, callback)
+            pipeline.processPage(bitmap, callback, targetLanguage = TargetLanguage.ENGLISH)
         } finally {
             bitmap.recycle()
         }

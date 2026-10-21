@@ -1,7 +1,9 @@
 package com.yomu.pipeline.translation
 
 import android.graphics.RectF
+import com.yomu.core.ERROR_ENGLISH_ONLY
 import com.yomu.core.PageTranslation
+import com.yomu.core.TargetLanguage
 import com.yomu.core.TranslationOutcome
 import com.yomu.core.TranslationStatus
 import com.yomu.pipeline.bubble.Bubble
@@ -360,6 +362,35 @@ class TranslationEngineTest {
         val result = TranslationEngine { slot }.translate(listOf(block(1 to "\u3053\u3093\u306b\u3061\u306f")))
 
         assertNull(result.readerFailure())
+    }
+
+    @Test
+    fun translate_asksForTheTargetLanguageAndRecordsIt() = runTest {
+        val slot = FakeTranslationSlot(PageTranslation(mapOf(1 to "Hola"), "", 1L))
+
+        val result = TranslationEngine { slot }.translate(listOf(block(1 to "\u3053\u3093\u306b\u3061\u306f")), TargetLanguage.SPANISH)
+
+        assertEquals(TargetLanguage.SPANISH, slot.pages.single().targetLanguage)
+        assertEquals(TargetLanguage.SPANISH, result.targetLanguage)
+    }
+
+    @Test
+    fun translate_withoutALanguageIsEnglish() = runTest {
+        val slot = FakeTranslationSlot(PageTranslation(mapOf(1 to "Hello"), "", 1L))
+
+        val result = TranslationEngine { slot }.translate(listOf(block(1 to "\u3053\u3093\u306b\u3061\u306f")))
+
+        assertEquals(TargetLanguage.ENGLISH, slot.pages.single().targetLanguage)
+        assertEquals(TargetLanguage.ENGLISH, result.targetLanguage)
+    }
+
+    @Test
+    fun readerFailure_saysAnEnglishOnlyModelCannotWriteTheLanguage() = runTest {
+        val slot = FakeTranslationSlot(PageTranslation(emptyMap(), "", 0L, TranslationOutcome.ERROR, ERROR_ENGLISH_ONLY))
+
+        val result = TranslationEngine { slot }.translate(listOf(block(1 to "\u3053\u3093\u306b\u3061\u306f")), TargetLanguage.GERMAN)
+
+        assertEquals("This model is English only \u2014 pick a Multilingual model or English in Settings", result.readerFailure())
     }
 
     /** Builds a panel with synthetic bounds, OCR text keyed by bubble ID, and the requested reading order. */

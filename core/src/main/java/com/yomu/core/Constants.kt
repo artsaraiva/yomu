@@ -124,7 +124,6 @@ object Constants {
     const val PREF_OCR_MODEL = "ocr_model"
     const val PREF_FONT_SIZE_SCALE = "font_size_scale"
     
-    const val DEFAULT_TARGET_LANGUAGE = "en"
     const val DEFAULT_SOURCE_LANGUAGE = "ja"
     const val DEFAULT_AUTO_DETECT = true
     const val DEFAULT_FONT_SIZE_SCALE = 1.0f

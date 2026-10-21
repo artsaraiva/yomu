@@ -2,6 +2,7 @@ package com.yomu.app.service
 
 import com.yomu.core.GenerationParams
 import com.yomu.core.RuntimeLimits
+import com.yomu.core.TargetLanguage
 import com.yomu.core.TranslationOutcome
 import com.yomu.pipeline.PipelineResult
 
@@ -13,7 +14,8 @@ data class PageSettings(
     val generation: GenerationParams,
     val runtime: RuntimeLimits,
     val detectionThreshold: Float,
-    val fontScale: Float
+    val fontScale: Float,
+    val targetLanguage: TargetLanguage
 )
 
 /**

@@ -408,7 +408,8 @@ object LlmModelCatalog {
             generation = generation,
             runtime = runtime,
             systemMessage = option.systemMessage,
-            repackWeights = repacksWeights(option, budget)
+            repackWeights = repacksWeights(option, budget),
+            multilingual = option.multilingual
         )
 
     // The repacked copy is anonymous memory lmkd counts against the app, so repack only when a second
