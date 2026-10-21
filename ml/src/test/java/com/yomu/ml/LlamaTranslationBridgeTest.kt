@@ -1,8 +1,10 @@
 package com.yomu.ml
 
+import com.yomu.core.ERROR_ENGLISH_ONLY
 import com.yomu.core.GenerationParams
 import com.yomu.core.ModelProfile
 import com.yomu.core.RuntimeLimits
+import com.yomu.core.TargetLanguage
 import com.yomu.core.TranslatableBubble
 import com.yomu.core.TranslatablePage
 import com.yomu.core.TranslationOutcome
@@ -423,12 +425,109 @@ class LlamaTranslationBridgeTest {
         model.delete()
     }
 
+    @Test
+    fun translatePage_batchPromptNamesTheTargetLanguage() = runTest {
+        val model = File.createTempFile("model", ".gguf")
+        val native = FakeLlamaBridge { GenerationResult.Success("[1] Olá\n", 1L) }
+        val slot = LlamaTranslationBridge(native, profile(model, idKeyedBatch = true, multilingual = true))
+
+        slot.translatePage(page(1 to "こんにちは", language = TargetLanguage.BRAZILIAN_PORTUGUESE))
+
+        assertEquals(
+            "Translate each Japanese line to Brazilian Portuguese. Keep the [id] tag before each line. " +
+                "Panels are separated by ---.\n[1] こんにちは\n",
+            native.prompts.single()
+        )
+        model.delete()
+    }
+
+    @Test
+    fun translatePage_englishBatchPromptIsUnchanged() = runTest {
+        val model = File.createTempFile("model", ".gguf")
+        val native = FakeLlamaBridge { GenerationResult.Success("[1] Hello\n", 1L) }
+        val slot = LlamaTranslationBridge(native, profile(model, idKeyedBatch = true))
+
+        slot.translatePage(page(1 to "こんにちは"))
+
+        assertEquals(
+            "Translate each Japanese line to English. Keep the [id] tag before each line. " +
+                "Panels are separated by ---.\n[1] こんにちは\n",
+            native.prompts.single()
+        )
+        model.delete()
+    }
+
+    @Test
+    fun translatePage_translationOnlyPromptNamesTheTargetLanguage() = runTest {
+        val model = File.createTempFile("model", ".gguf")
+        val native = FakeLlamaBridge { GenerationResult.Success("Hola", 1L) }
+        val slot = LlamaTranslationBridge(native, profile(model, TranslationPromptMode.TRANSLATION_ONLY, multilingual = true))
+
+        slot.translatePage(page(1 to "こんにちは", language = TargetLanguage.SPANISH))
+
+        assertEquals(
+            "Translate the target Japanese manga text into natural Spanish. Return only the translation.\n" +
+                "No introductions, explanations, labels, or added quotes. Preserve meaning and tone.\n" +
+                "Target text (translate this only):\nこんにちは",
+            native.prompts.single()
+        )
+        model.delete()
+    }
+
+    @Test
+    fun translatePage_hyMt2PromptNamesTheTargetLanguage() = runTest {
+        val model = File.createTempFile("model", ".gguf")
+        val native = FakeLlamaBridge { GenerationResult.Success("Bonjour", 1L) }
+        val slot = LlamaTranslationBridge(native, profile(model, TranslationPromptMode.HY_MT2, multilingual = true))
+
+        slot.translatePage(page(1 to "こんにちは", language = TargetLanguage.FRENCH))
+
+        assertEquals(
+            "Translate the following text into French. Note that you should only output the " +
+                "translated result without any additional explanation:\n\nこんにちは",
+            native.prompts.single()
+        )
+        model.delete()
+    }
+
+    @Test
+    fun translatePage_modelCardPromptIsUnchanged() = runTest {
+        val model = File.createTempFile("model", ".gguf")
+        val native = FakeLlamaBridge { GenerationResult.Success("Hello", 1L) }
+        val slot = LlamaTranslationBridge(native, profile(model, TranslationPromptMode.MODEL_CARD))
+
+        slot.translatePage(page(1 to "こんにちは"))
+
+        assertEquals("Translate the following Japanese text into English.\n\nこんにちは", native.prompts.single())
+        model.delete()
+    }
+
+    @Test
+    fun translatePage_englishOnlyModelRefusesAnotherLanguage() = runTest {
+        val model = File.createTempFile("model", ".gguf")
+        val native = FakeLlamaBridge { GenerationResult.Success("Hello", 1L) }
+        TranslationPromptMode.entries.forEach { mode ->
+            listOf(false, true).forEach { batch ->
+                val slot = LlamaTranslationBridge(native, profile(model, mode, idKeyedBatch = batch))
+
+                val result = slot.translatePage(page(1 to "こんにちは", language = TargetLanguage.GERMAN))
+
+                assertEquals("$mode batch=$batch", TranslationOutcome.ERROR, result.outcome)
+                assertEquals("$mode batch=$batch", ERROR_ENGLISH_ONLY, result.errorCode)
+                assertTrue("$mode batch=$batch", result.byId.isEmpty())
+            }
+        }
+        assertTrue(native.prompts.isEmpty())
+        model.delete()
+    }
+
     private fun profile(
         model: File,
         promptMode: TranslationPromptMode = TranslationPromptMode.MODEL_CARD,
-        idKeyedBatch: Boolean = false
-    ): ModelProfile = ModelProfile(model.absolutePath, idKeyedBatch, promptMode)
+        idKeyedBatch: Boolean = false,
+        multilingual: Boolean = false
+    ): ModelProfile = ModelProfile(model.absolutePath, idKeyedBatch, promptMode, multilingual = multilingual)
 
-    private fun page(vararg bubbles: Pair<Int, String>): TranslatablePage =
-        TranslatablePage(listOf(bubbles.map { (id, source) -> TranslatableBubble(id, source) }))
+    private fun page(vararg bubbles: Pair<Int, String>, language: TargetLanguage = TargetLanguage.ENGLISH): TranslatablePage =
+        TranslatablePage(listOf(bubbles.map { (id, source) -> TranslatableBubble(id, source) }), language)
 }

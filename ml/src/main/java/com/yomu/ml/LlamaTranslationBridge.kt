@@ -1,9 +1,11 @@
 package com.yomu.ml
 
 import android.util.Log
+import com.yomu.core.ERROR_ENGLISH_ONLY
 import com.yomu.core.ERROR_MODEL_MISSING
 import com.yomu.core.ModelProfile
 import com.yomu.core.PageTranslation
+import com.yomu.core.TargetLanguage
 import com.yomu.core.TranslatablePage
 import com.yomu.core.TranslationOutcome
 import com.yomu.core.TranslationPromptMode
@@ -107,6 +109,7 @@ class LlamaTranslationBridge(
 
     /**
      * Prepares the model and translates with its configured call shape, recording the page duration.
+     * An English-only profile asked for another language returns an ERROR page without generating.
      * [onBubble] receives each successful per-line result, including overflow fallback, and each finished batch line.
      */
     override suspend fun translatePage(
@@ -114,6 +117,9 @@ class LlamaTranslationBridge(
         onBubble: (bubbleId: Int, text: String) -> Unit
     ): PageTranslation {
         if (page.panels.flatten().isEmpty()) return PageTranslation(emptyMap(), "", 0L)
+        if (!profile.multilingual && page.targetLanguage != TargetLanguage.ENGLISH) {
+            return PageTranslation(emptyMap(), "", 0L, TranslationOutcome.ERROR, ERROR_ENGLISH_ONLY)
+        }
         if (status !is TranslationStatus.Ready && !ensureReady()) {
             return PageTranslation.notLoaded(status)
         }
@@ -134,8 +140,8 @@ class LlamaTranslationBridge(
         val generated = bubbles.map { bubble ->
             val prompt = when (profile.promptMode) {
                 TranslationPromptMode.MODEL_CARD -> modelCardPrompt(bubble.sourceText)
-                TranslationPromptMode.TRANSLATION_ONLY -> translationOnlyPrompt(bubble.sourceText)
-                TranslationPromptMode.HY_MT2 -> hyMt2Prompt(bubble.sourceText)
+                TranslationPromptMode.TRANSLATION_ONLY -> translationOnlyPrompt(bubble.sourceText, page.targetLanguage)
+                TranslationPromptMode.HY_MT2 -> hyMt2Prompt(bubble.sourceText, page.targetLanguage)
             }
             val output = generate(prompt, profile.generation.maxTokens, TIMEOUT_MS)
             if (output.outcome == TranslationOutcome.SUCCESS) onBubble(bubble.bubbleId, output.text)
@@ -206,24 +212,25 @@ class LlamaTranslationBridge(
         )
     }
 
+    /** CAT-Translate's model-card prompt, byte-identical and English only. */
     private fun modelCardPrompt(target: String): String =
         "Translate the following Japanese text into English.\n\n$target"
 
-    private fun translationOnlyPrompt(target: String): String = buildString {
-        appendLine("Translate the target Japanese manga text into natural English. Return only the translation.")
+    private fun translationOnlyPrompt(target: String, language: TargetLanguage): String = buildString {
+        appendLine("Translate the target Japanese manga text into natural ${language.promptName}. Return only the translation.")
         appendLine("No introductions, explanations, labels, or added quotes. Preserve meaning and tone.")
         appendLine("Target text (translate this only):")
         append(target)
     }
 
     /** Tencent's documented "Default Translation" prompt, verbatim, with the full target language name. */
-    private fun hyMt2Prompt(target: String): String =
-        "Translate the following text into English. Note that you should only output the " +
+    private fun hyMt2Prompt(target: String, language: TargetLanguage): String =
+        "Translate the following text into ${language.promptName}. Note that you should only output the " +
             "translated result without any additional explanation:\n\n$target"
 
     private fun buildBatchPrompt(page: TranslatablePage): String = buildString {
         appendLine(
-            "Translate each Japanese line to English. Keep the [id] tag before each line. " +
+            "Translate each Japanese line to ${page.targetLanguage.promptName}. Keep the [id] tag before each line. " +
                 "Panels are separated by ---."
         )
         page.panels.forEachIndexed { index, panel ->
