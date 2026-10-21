@@ -31,6 +31,7 @@ import com.yomu.app.overlay.boundsOnScreen
 import com.yomu.app.db.entities.ModelType
 import com.yomu.app.db.entities.TranslationSessionEntity
 import com.yomu.app.translation.ResourceLimitsStore
+import com.yomu.app.translation.TargetLanguageStore
 import com.yomu.app.translation.TranslationModelSelection
 import com.yomu.core.Constants
 import com.yomu.pipeline.ModelPaths
@@ -454,7 +455,8 @@ class OverlayService : Service() {
                         if (job.isActive) translationRenderOverlay.showTypesetBubble(bubble)
                     }
                 },
-                ignoredRegions = ignored.map { RectF(it.left, it.top, it.right, it.bottom) }
+                ignoredRegions = ignored.map { RectF(it.left, it.top, it.right, it.bottom) },
+                targetLanguage = settings.targetLanguage
             )
             if (result != null) lastPage = PageRecord(bitmap, result, settings, recalled = false)
             val failure = result?.translationResult?.readerFailure()
@@ -534,7 +536,7 @@ class OverlayService : Service() {
         }
     }
 
-    /** Snapshots the model choices, generation and runtime limits, and rendering settings used as the recall key. */
+    /** Snapshots the model choices, generation and runtime limits, rendering settings and target language used as the recall key. */
     private fun pageSettings() = PageSettings(
         translationModel = slotSelection.selectedId(ModelType.LLM),
         detectionModel = slotSelection.selectedId(ModelType.DETECTION),
@@ -542,7 +544,8 @@ class OverlayService : Service() {
         generation = translationSelection.generationProfile().params,
         runtime = ResourceLimitsStore(sharedPreferences).runtime(),
         detectionThreshold = translationPipeline.confidenceThreshold,
-        fontScale = translationPipeline.fontSizeScale
+        fontScale = translationPipeline.fontSizeScale,
+        targetLanguage = TargetLanguageStore(sharedPreferences).load()
     )
 
     private suspend fun saveSessionResult(session: TranslationSessionEntity, result: PipelineResult) {
@@ -555,7 +558,7 @@ class OverlayService : Service() {
             sourceImagePath = "",
             translatedText = translatedText,
             sourceLanguage = Constants.DEFAULT_SOURCE_LANGUAGE,
-            targetLanguage = Constants.DEFAULT_TARGET_LANGUAGE,
+            targetLanguage = result.translationResult.targetLanguage.code,
             bubbleCount = result.translationResult.translations.size,
             translationTimeMs = result.totalTimeMs
         )
