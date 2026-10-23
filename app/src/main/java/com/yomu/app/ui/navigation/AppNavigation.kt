@@ -38,6 +38,7 @@ import com.yomu.app.ui.settings.PerformanceSettings
 import com.yomu.app.ui.settings.PipelineSettings
 import com.yomu.app.ui.settings.SettingsScreen
 import com.yomu.app.ui.settings.LanguageOfferDialog
+import com.yomu.app.ui.settings.NameGlossarySettings
 import com.yomu.app.ui.settings.SettingsSection
 import com.yomu.app.ui.settings.SettingsViewModel
 import com.yomu.app.ui.settings.TranslationSettings
@@ -148,6 +149,7 @@ fun AppNavigation(
                             val onBack: () -> Unit = { navController.popBackStack() }
                             when (section) {
                                 SettingsSection.Translation -> TranslationSettings(settings, onBack)
+                                SettingsSection.NameGlossary -> NameGlossarySettings(hiltViewModel(), onBack)
                                 SettingsSection.Pipeline -> PipelineSettings(settings, onBack)
                                 SettingsSection.Typesetting -> TypesettingSettings(settings, onBack)
                                 SettingsSection.Performance -> PerformanceSettings(settings, onBack)
