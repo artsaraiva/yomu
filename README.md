@@ -126,7 +126,7 @@ Download `yomu-<version>.apk` from the [latest release](https://github.com/artsa
 #### Build
 
 ```bash
-git clone --recursive git@github.com:artsaraiva/yomu.git
+git clone --recursive https://github.com/artsaraiva/yomu.git
 cd yomu
 
 # Already cloned without --recursive? Fetch llama.cpp:
@@ -183,14 +183,7 @@ The speed benchmark only reports numbers and never fails on them. Run it on a re
 
 ## Contributing
 
-Work is tracked as [GitHub issues](https://github.com/artsaraiva/yomu/issues).
-
-1. Open an issue that describes the behaviour and its acceptance criteria.
-2. Branch as `feat/<issue>-<short-name>` or `fix/<issue>-<short-name>`.
-3. Write the failing test first, then commit with [Conventional Commits](https://www.conventionalcommits.org/).
-4. Open a PR whose body starts with `Closes #<issue>`.
-
-See [`AGENTS.md`](AGENTS.md) for the full conventions.
+Bug reports, ideas and pull requests are welcome. Ask questions in [Discussions](https://github.com/artsaraiva/yomu/discussions). [`CONTRIBUTING.md`](CONTRIBUTING.md) covers building, the issue-first workflow and what CI checks.
 
 ## License
 
