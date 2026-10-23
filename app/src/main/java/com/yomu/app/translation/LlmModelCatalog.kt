@@ -90,7 +90,7 @@ internal fun SharedPreferences.storedLlmModelId(): String? =
 object LlmModelCatalog {
 
     // Resident cost of everything held alongside the LLM (detection + OCR + app), added to the GGUF
-    // file size to predict peak footprint. ponytail: fixed estimate, not GGUF-parsed; ADR-0001's
+    // file size to predict peak footprint. A fixed estimate, not GGUF-parsed; ADR-0001's
     // exact param×quant math can replace it if the coarse fit gate proves wrong on a real device.
     const val RESIDENT_OVERHEAD_BYTES = 800L * 1024 * 1024
 

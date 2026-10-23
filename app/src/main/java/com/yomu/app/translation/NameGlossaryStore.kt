@@ -9,7 +9,7 @@ import javax.inject.Inject
  * The reader's name glossary (#327), kept as one JSON array: empty unless entries are added, and
  * empty again for an unreadable stored value.
  */
-// ponytail: one JSON string in SharedPreferences; move to Room if the glossary gets per-series scope or grows to thousands of entries.
+// One JSON string in SharedPreferences; move to Room if the glossary gets per-series scope or grows to thousands of entries.
 class NameGlossaryStore @Inject constructor(private val prefs: SharedPreferences) {
 
     /** The entries in the order they were added. A stored entry missing a field makes the whole value unreadable. */

@@ -179,7 +179,6 @@ The speed benchmark only reports numbers and never fails on them. Run it on a re
 | [`CONTEXT.md`](CONTEXT.md) | Domain language: deliverable, fit budget, translation slot, typeset bubble |
 | [`docs/adr/`](docs/adr) | Architecture decision records: why each model, threshold and trade-off was chosen |
 | [`docs/design/paper-mache-visual-system.md`](docs/design/paper-mache-visual-system.md) | The paper-mâché visual system for the app's screens and overlay controls |
-| [`product-spec.md`](product-spec.md) | Product vision and long-term direction |
 | [`AGENTS.md`](AGENTS.md) | Git, issue and code conventions |
 
 ## Contributing

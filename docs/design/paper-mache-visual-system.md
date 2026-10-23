@@ -1,7 +1,6 @@
 # Yomu — Paper-mâché Visual System
 
 **Status:** Defined (issue [#19](https://github.com/artsaraiva/yomu/issues/19)). Implementation is a follow-up; this document is the spec that implementation maps to.
-**Roadmap:** [`docs/roadmap/phase-7-ui-ux-redesign.md`](../roadmap/phase-7-ui-ux-redesign.md)
 
 A reading-focused visual and interaction language for Yomu, inspired by Paper Mario and paper craft. This document is concrete enough to implement the core surfaces without inventing per-screen styles.
 

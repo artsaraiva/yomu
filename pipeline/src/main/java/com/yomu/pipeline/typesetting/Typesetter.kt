@@ -33,7 +33,7 @@ class Typesetter(var fontSizeScale: Float = 1.0f) {
         // CJK punctuation, kana and ideographs all sit at or above U+3000.
         private const val CJK_START = 0x3000
         private const val PADDING = 0.1f
-        // ponytail: fixed growth budget, take page bounds into the Typesetter if bubbles need
+        // Fixed growth budget, take page bounds into the Typesetter if bubbles need
         // to grow against real page room rather than a multiple of their own box.
         private const val MAX_BOX_GROWTH = 3f
         private const val ELLIPSIS = "\u2026"

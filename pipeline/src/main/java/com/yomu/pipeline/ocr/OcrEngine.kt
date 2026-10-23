@@ -17,7 +17,7 @@ data class OcrResult(
 class OcrEngine(private val onnxRuntime: OnnxRuntime) {
 
     companion object {
-        // ponytail: picked on 210 emulator reads of 18 OpenMantra pages (#366). Five of the six garbled
+        // Picked on 210 emulator reads of 18 OpenMantra pages (#366). Five of the six garbled
         // reads scored 0.57-0.84 and no clean read went below 0.87; the sixth, half garbled, scored 0.93
         // among clean lines. Re-check against page reports' ocrConfidence when OCR or its decoding changes.
         const val MIN_CONFIDENCE = 0.85f
