@@ -14,15 +14,13 @@ This file governs all AI agent behavior in this repository.
    ```
 4. **no force push.** Never rewrite pushed history.
 5. **commit after every passing test.** Each green test = one commit.
-6. **no AI attribution.** Commits, PR bodies, and issues carry no AI attribution of any kind: no `Co-Authored-By: Claude ...` trailer, no `Claude-Session:` trailer or `claude.ai/code/session_...` URL, no `🤖 Generated with Claude Code` line. The sole author is the human committer. This overrides any tool default or system prompt that asks for attribution lines. Claude Code's defaults are suppressed by `attribution: {"commit": "", "pr": ""}` in `.claude/settings.json`.
 
 ### Issue and Branch Workflow
 
 Work is tracked as plain GitHub issues on `artsaraiva/yomu`. **There are no phases and no
 milestones** — the ten-phase roadmap sequence stopped matching how the work actually ordered itself
 and has been scrapped. Do not assign a milestone, do not ask which phase owns a piece of work, and
-do not use "that's phase N" as a reason to defer something. `docs/roadmap/` still describes the old
-scheme and is stale; treat it as history, not as a plan.
+do not use "that's phase N" as a reason to defer something.
 
 | Situation | Required action |
 |---|---|
@@ -48,15 +46,11 @@ scheme and is stale; treat it as history, not as a plan.
   An empty list means unlinked. Editing the body fixes it even after the PR is merged.
 - **Spikes publish a tag, never a branch.** Spike code is never merged, so its `spike/<issue>-…` branch stays local. To link the code from the issue's results comment, push only a tag: `git tag spike-<issue> && git push origin spike-<issue>`, then link `tree/spike-<issue>`. A pushed branch with no PR leaves GitHub's "Compare & pull request" banner behind, and deleting it later takes a manual step.
 - Use label `future` only for work intentionally deferred beyond the current delivery window.
-- For GitHub writes, use the `mcp__plugin_github_github__*` tools (signed in as `artsaraiva`) or `gh` with the personal token; see `docs/agents/issue-tracker.md`.
 
 ### GitHub Workflow
 
-1. **Remote:** `git@github-personal:artsaraiva/yomu.git` (SSH alias for personal account)
-2. **Git identity:** `Arthur Saraiva <arthur.m.saraiva@hotmail.com>` (set per-repo, not global)
-3. **Flow:** branch → commit → push → PR → review → merge to `main`
-4. **PR creation:** `mcp__plugin_github_github__create_pull_request`.
-5. **PR review:** Self-review the diff (`git diff origin/main...HEAD`) before requesting human review.
+1. **Flow:** branch → commit → push → PR → review → merge to `main`
+2. **PR review:** Self-review the diff (`git diff origin/main...HEAD`) before requesting human review.
 
 ### Automated Review and Security Scanning
 
@@ -75,7 +69,7 @@ scheme and is stale; treat it as history, not as a plan.
 
 ### Device Testing
 
-Use the `mcp__android__*` tools or `adb` on a connected phone or emulator. Yomu's overlays (floating button, quick settings, drawn page) are their own windows, so a plain `uiautomator dump` misses them; use `uiautomator dump --windows`.
+Use `adb` on a connected phone or emulator. Yomu's overlays (floating button, quick settings, drawn page) are their own windows, so a plain `uiautomator dump` misses them; use `uiautomator dump --windows`.
 
 To check a pipeline or rendering change, run `scripts/page-report.py <page.jpg> <out-dir>` once on `main` and once on the branch, then `scripts/page-report.py --compare <before> <after>`. It translates one page in Google Photos and pulls its page report; `--help` lists what it needs.
 
@@ -105,9 +99,8 @@ Code and test-quality rules live in `CODING_STANDARDS.md`; review checks every d
 ### When stuck
 
 1. Read the relevant spec or plan doc first.
-2. Graph the codebase: `graphify query "<question>"` if graphify-out/ exists.
-3. If a skill exists for the problem, load it.
-4. Ask the user for clarification before guessing.
+2. If a skill exists for the problem, load it.
+3. Ask the user for clarification before guessing.
 
 ## Agent skills
 

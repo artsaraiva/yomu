@@ -30,7 +30,7 @@ data class PageContext(
  * alone cannot find them: on balloon-dense-dialogue two bubbles of one panel sit further apart
  * than the gutters between tiers, and grouping by box gaps merged the whole page into one panel.
  *
- * ponytail: straight gutters only. A slanted gutter, or art crossing one, keeps those panels
+ * Straight gutters only. A slanted gutter, or art crossing one, keeps those panels
  * together and their bubbles fall back to row order; trace panel borders if that misreads pages.
  */
 class ContextAssembler {

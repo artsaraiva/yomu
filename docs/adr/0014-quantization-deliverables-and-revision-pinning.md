@@ -22,7 +22,7 @@ A consequence worth stating: a model that is redistributable at one quantization
 
 ## The fit budget is measured, not parsed
 
-`sizeBytes + RESIDENT_OVERHEAD_BYTES ≤ totalMem × USABLE_RAM_FRACTION` stays. The `ponytail:` note offering ADR-0001's exact GGUF math as the upgrade is **retargeted**: that math parses a GGUF header, which requires the file already on disk — exactly what is absent when deciding whether to offer a download. It cannot serve this gate at any resolution.
+`sizeBytes + RESIDENT_OVERHEAD_BYTES ≤ totalMem × USABLE_RAM_FRACTION` stays. The code note offering ADR-0001's exact GGUF math as the upgrade is **retargeted**: that math parses a GGUF header, which requires the file already on disk — exactly what is absent when deciding whether to offer a download. It cannot serve this gate at any resolution.
 
 `sizeBytes` is already exact and already per-quantization, so the only imprecision is the 800 MB / 0.6 pair, and imprecise constants are fixed by measuring devices, not by parsing files. The named upgrade is a per-entry `peakRssBytes` recorded from a real load, with the formula as the fallback for entries that have never been measured.
 
