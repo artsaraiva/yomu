@@ -14,7 +14,9 @@ data class ResourceReadout(
     val deviceTotalBytes: Long,
     /** Null on the first sample: CPU is averaged over the time since the previous one. */
     val cpuPercent: Int?,
-    val lastPageMs: Long?
+    val lastPageMs: Long?,
+    /** The whole last page, capture to typeset, which is the wait a reader sees (#422). */
+    val lastPageTotalMs: Long?
 )
 
 private const val STALE_BASELINE_MS = 5_000L
@@ -25,7 +27,7 @@ class ResourceMonitor(private val context: Context) {
     private var previousCpuMs = 0L
     private var previousWallMs = 0L
 
-    fun sample(lastPageMs: Long?): ResourceReadout {
+    fun sample(lastPageMs: Long?, lastPageTotalMs: Long?): ResourceReadout {
         val cpuMs = Process.getElapsedCpuTime()
         val wallMs = SystemClock.elapsedRealtime()
         // A baseline from before the reader left the screen would average over the time away.
@@ -41,7 +43,8 @@ class ResourceMonitor(private val context: Context) {
             deviceAvailableBytes = memory.availMem,
             deviceTotalBytes = memory.totalMem,
             cpuPercent = cpu,
-            lastPageMs = lastPageMs
+            lastPageMs = lastPageMs,
+            lastPageTotalMs = lastPageTotalMs
         )
     }
 }

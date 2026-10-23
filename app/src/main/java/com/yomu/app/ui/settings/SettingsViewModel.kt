@@ -20,6 +20,7 @@ import com.yomu.core.Constants
 import com.yomu.core.GenerationBound
 import com.yomu.core.GenerationParams
 import com.yomu.core.TargetLanguage
+import com.yomu.pipeline.TranslationPipeline
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -93,7 +94,8 @@ class SettingsViewModel @Inject constructor(
     private val sharedPreferences: SharedPreferences,
     private val modelSelection: TranslationModelSelection,
     private val slotSelection: ModelSlotSelection,
-    private val modelManager: ModelManager
+    private val modelManager: ModelManager,
+    private val translationPipeline: TranslationPipeline
 ) : ViewModel() {
 
     private val detectionThresholdStore = DetectionThresholdStore(sharedPreferences)
@@ -233,7 +235,7 @@ class SettingsViewModel @Inject constructor(
 
     fun refreshResources() {
         viewModelScope.launch {
-            val readout = withContext(Dispatchers.Default) { resourceMonitor.sample(modelSelection.lastPageDurationMs()) }
+            val readout = withContext(Dispatchers.Default) { resourceMonitor.sample(modelSelection.lastPageDurationMs(), translationPipeline.lastPageTotalMs) }
             _uiState.update { it.copy(resources = readout) }
         }
     }
