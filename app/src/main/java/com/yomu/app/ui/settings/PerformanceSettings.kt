@@ -47,6 +47,7 @@ private fun ResourceReadoutPanel(readout: ResourceReadout?) {
                 ReadoutRow("Native heap", bytes(readout.nativeHeapBytes))
                 ReadoutRow("Phone memory free", "${bytes(readout.deviceAvailableBytes)} of ${bytes(readout.deviceTotalBytes)}")
                 ReadoutRow("CPU", readout.cpuPercent?.let { "$it% of all cores" } ?: "Measuring…")
+                ReadoutRow("Page time, last page", readout.lastPageTotalMs?.let { "$it ms" } ?: "No page translated yet")
                 ReadoutRow("Model time, last page", readout.lastPageMs?.let { "$it ms" } ?: "No page translated yet")
             }
         }

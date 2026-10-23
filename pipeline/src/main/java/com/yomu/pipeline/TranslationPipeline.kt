@@ -64,6 +64,11 @@ class TranslationPipeline(
     /** Read at the start of every page, so a Settings change applies on the next capture (#227). */
     @Volatile var confidenceThreshold: Float = BubbleDetector.DEFAULT_CONFIDENCE_THRESHOLD
 
+    /** Capture-to-typeset time of the most recent finished page, for the in-app resource readout (#422); null before any. */
+    @Volatile
+    var lastPageTotalMs: Long? = null
+        private set
+
     fun getCurrentStage(): Stage = currentStage
 
     fun isModelLoaded(): Boolean = bubbleDetector.isModelLoaded() && ocrEngine.isModelLoaded()
@@ -263,6 +268,7 @@ class TranslationPipeline(
                 droppedReads = droppedReads
             )
 
+            lastPageTotalMs = result.totalTimeMs
             callback?.onComplete(result)
             return result
 

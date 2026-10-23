@@ -140,6 +140,26 @@ class TranslationPipelineTest {
     }
 
     @Test
+    fun `the last finished page's whole time is kept for the readout`() = runTest {
+        val pipeline = pipeline(speech)
+        assertNull(pipeline.lastPageTotalMs)
+
+        val result = pipeline.processPage(page(), targetLanguage = TargetLanguage.ENGLISH)
+
+        assertEquals(result?.totalTimeMs, pipeline.lastPageTotalMs)
+    }
+
+    @Test
+    fun `a page that fails keeps the time of the last one that finished`() = runTest {
+        val pipeline = pipeline(speech)
+        val finished = pipeline.processPage(page(), targetLanguage = TargetLanguage.ENGLISH)
+
+        pipeline.processPage(page(), ignoredRegions = listOf(RectF(0f, 0f, 400f, 400f)), targetLanguage = TargetLanguage.ENGLISH)
+
+        assertEquals(finished?.totalTimeMs, pipeline.lastPageTotalMs)
+    }
+
+    @Test
     fun `a page with no bubbles left reports its error without calling the slot`() = runTest {
         val errors = mutableListOf<Pair<TranslationPipeline.Stage, String>>()
         val callback = object : TranslationPipeline.PipelineCallback {
