@@ -1,0 +1,48 @@
+name: Bug report
+description: Something went wrong on your phone
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Phone details matter most. Yomu runs every model on your device, so most bugs depend on the phone.
+  - type: input
+    id: phone
+    attributes:
+      label: Phone model
+      placeholder: Samsung Galaxy S23
+    validations:
+      required: true
+  - type: input
+    id: android
+    attributes:
+      label: Android version
+      placeholder: Android 15
+    validations:
+      required: true
+  - type: input
+    id: ram
+    attributes:
+      label: RAM
+      description: Settings → About phone.
+      placeholder: 8 GB
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Yomu version
+      description: The release you installed, for example v0.1.0.
+    validations:
+      required: true
+  - type: input
+    id: model
+    attributes:
+      label: Translation model and target language
+      placeholder: Qwen2.5 1.5B Instruct, English
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you saw instead. A screenshot helps. Use freely licensed pages if you can.
+    validations:
+      required: true
