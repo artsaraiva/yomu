@@ -127,13 +127,10 @@ class TranslationEngine(
         if (bubbles.isEmpty()) return TranslationResult(emptyList(), "", 0L, targetLanguage = targetLanguage)
 
         val bubbleById = bubbles.associateBy { it.bubbleId }
-        fun translated(bubble: TranslatableBubble, text: String?) = TranslatedBubble(
-            bubbleId = bubble.bubbleId,
-            originalText = ocrById.getValue(bubble.bubbleId),
-            translatedText = text ?: ocrById.getValue(bubble.bubbleId),
-            answered = text != null,
-            sourceText = bubble.sourceText
-        )
+        fun translated(bubble: TranslatableBubble, text: String?): TranslatedBubble {
+            val ocrText = ocrById.getValue(bubble.bubbleId)
+            return TranslatedBubble(bubble.bubbleId, ocrText, text ?: ocrText, answered = text != null, sourceText = bubble.sourceText)
+        }
         val forwarded = mutableMapOf<Int, String>()
         val output = slotProvider().translatePage(page) { bubbleId, text ->
             val bubble = bubbleById[bubbleId] ?: return@translatePage

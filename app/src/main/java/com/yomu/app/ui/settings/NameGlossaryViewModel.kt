@@ -18,10 +18,14 @@ class NameGlossaryViewModel @Inject constructor(private val store: NameGlossaryS
 
     /** Saves the entry under [NameGlossaryStore.save]'s rules; false when it was refused. */
     fun save(term: String, rendering: String, replacing: String?): Boolean =
-        store.save(term, rendering, replacing).also { _entries.value = store.load() }
+        store.save(term, rendering, replacing).also { refresh() }
 
     fun delete(term: String) {
         store.delete(term)
+        refresh()
+    }
+
+    private fun refresh() {
         _entries.value = store.load()
     }
 }

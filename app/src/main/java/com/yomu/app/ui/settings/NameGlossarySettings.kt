@@ -39,15 +39,18 @@ fun NameGlossarySettings(viewModel: NameGlossaryViewModel, onBack: () -> Unit) {
         }
     }
     editing?.let { entry ->
+        // The term being edited, or null for a new entry.
+        val replacing = entry.term.ifEmpty { null }
         GlossaryEntryDialog(
             entry = entry,
-            onSave = { term, rendering -> if (viewModel.save(term, rendering, entry.term.ifEmpty { null })) editing = null },
-            onDelete = if (entry.term.isEmpty()) null else ({ viewModel.delete(entry.term); editing = null }),
+            onSave = { term, rendering -> if (viewModel.save(term, rendering, replacing)) editing = null },
+            onDelete = replacing?.let { { viewModel.delete(it); editing = null } },
             onDismiss = { editing = null }
         )
     }
 }
 
+/** Adds a name when [onDelete] is null, and edits [entry] otherwise. */
 @Composable
 private fun GlossaryEntryDialog(entry: GlossaryEntry, onSave: (String, String) -> Unit, onDelete: (() -> Unit)?, onDismiss: () -> Unit) {
     var term by remember { mutableStateOf(entry.term) }
