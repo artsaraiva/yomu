@@ -8,6 +8,8 @@
 
 > **Revised in part by [ADR-0018](0018-translation-stays-on-the-phone.md).** Cloud credits are no longer the monetized surface: cloud translation and its credits are parked, and Yomu has no paid surface today. The conclusion holds without them. Local translation is free, so an open local slot still costs no revenue.
 
+> **Revised in part by [ADR-0019](0019-yomu-is-agpl-open-source.md).** This ADR never chose a licence, but later ADRs read it as "Yomu ships closed-source". Yomu is open source under AGPL-3.0.
+
 Yomu ships a curated translation model that it selects, downloads, and supports, and additionally lets users load their own GGUF from local storage via the Android file picker. Custom models are labelled "Custom — unsupported" in Settings and that label follows through to translation results, so a screenshot of a bad translation is self-diagnosing. The monetized surface is cloud credits, not local model quality, so an open local slot costs no revenue — which is what makes this permissiveness affordable at all.
 
 ## Considered Options
