@@ -2,17 +2,26 @@
 
 # 読む Yomu
 
-**Read any manga. Offline. Instantly.**
+**Read any manga. Offline. In one tap.**
 
-On-device Japanese → English manga translation for Android.
-Tap once over any manga page, in any app, and read it in English. Nothing leaves your phone.
+On-device Japanese manga translation for Android, into English, Brazilian Portuguese, Spanish, French or German.
+Tap once over any manga page, in any app, and read it in your language. Nothing leaves your phone.
 
 ![Platform](https://img.shields.io/badge/platform-Android%208.0%2B-3DDC84?logo=android&logoColor=white)
 ![Kotlin](https://img.shields.io/badge/Kotlin-Jetpack%20Compose-7F52FF?logo=kotlin&logoColor=white)
 ![Inference](https://img.shields.io/badge/inference-ONNX%20Runtime%20%C2%B7%20llama.cpp-E4572E)
 ![Privacy](https://img.shields.io/badge/cloud-none-2E2A24)
 
+**[Download the latest APK](https://github.com/artsaraiva/yomu/releases/latest)**
+
 </div>
+
+> [!IMPORTANT]
+> **Before you install**
+> - **Android 8.0 or newer on a 64-bit ARM phone.** Tested on an 8 GB phone (Galaxy S23), where the default model peaks at about 2 GB of RAM. Phones with less RAM are untested; [tell us how yours does](https://github.com/artsaraiva/yomu/issues/new?template=bug_report.yml).
+> - **About 1.1 GB of models download on first launch, over Wi-Fi only.** Keep about 1.5 GB free. After that, Yomu never uses the network.
+> - **A page takes seconds, not milliseconds:** about 15 s on a Galaxy S23 with the default model.
+> - **Japanese source only**, read from the screen. Machine translation from a small on-device model makes mistakes.
 
 ---
 
@@ -51,6 +60,7 @@ Tap once over any manga page, in any app, and read it in English. Nothing leaves
 ## Features
 
 - **Works over any app.** A floating button sits on top of your reader, browser or gallery. Yomu captures the screen only when you tap it.
+- **Five target languages.** English, Brazilian Portuguese, Spanish, French or German. Switch from settings or the floating button.
 - **Fully on-device.** Bubble detection, OCR and translation all run locally. No account, no API key, and no usage after the model download.
 - **Page-level context.** Every bubble on the page goes to the LLM in one call, in reading order, so pronouns and tone hold across a conversation.
 - **Manga-aware typesetting.** Font size and line wrapping are fitted to each bubble's bounds.
@@ -98,7 +108,13 @@ Why these models were picked: [ADR-0010](docs/adr/0010-qwen-default-cat-demoted-
 
 ## Getting started
 
-### Requirements
+### Install
+
+Download `yomu-<version>.apk` from the [latest release](https://github.com/artsaraiva/yomu/releases/latest) on your phone and open it. Android asks once to allow installs from your browser or file manager.
+
+### Build from source
+
+#### Requirements
 
 | | |
 |---|---|
@@ -107,7 +123,7 @@ Why these models were picked: [ADR-0010](docs/adr/0010-qwen-default-cat-demoted-
 | Android SDK | compileSdk 36, plus NDK and CMake 3.22.1 (for llama.cpp) |
 | Storage | about 1.5 GB free for the default models |
 
-### Build
+#### Build
 
 ```bash
 git clone --recursive git@github.com:artsaraiva/yomu.git
@@ -129,10 +145,10 @@ echo "sdk.dir=$HOME/Library/Android/sdk" > local.properties
 2. **Grant permissions** when asked: *Display over other apps* for the floating button, and *Screen capture* for reading the page.
 3. **Start the overlay** from the Home screen.
 4. **Open a manga page** in any app.
-5. **Tap the floating button.** Status appears while it runs, then English bubbles cover the Japanese ones.
+5. **Tap the floating button.** Status appears while it runs, then translated bubbles cover the Japanese ones.
 6. **Tap again** to cancel. To stop the overlay, hold the button and tap *Stop service*.
 
-Settings let you switch translation models, adjust the bubble confidence threshold and font scale, and cap the CPU and memory the model uses.
+Settings let you pick the target language, switch translation models, adjust the bubble confidence threshold and font scale, and cap the CPU and memory the model uses.
 
 ## Project structure
 
