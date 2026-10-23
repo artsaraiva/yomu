@@ -12,6 +12,8 @@ private class ReportedBubble(
     val id: Int,
     val bounds: FloatArray,
     val ocrText: String?,
+    /** What the model was given in place of [ocrText], or null where the name glossary changed nothing (#327). */
+    val sourceText: String?,
     val ocrConfidence: Float?,
     /** OCR was too unsure of the read to send it for translation (#366). */
     val skipped: Boolean,
@@ -78,6 +80,7 @@ fun pageReportFiles(
                 id = id,
                 bounds = bounds,
                 ocrText = bubble?.originalText ?: read?.text ?: page.droppedReads[id],
+                sourceText = bubble?.sourceText?.takeIf { it != bubble.originalText },
                 ocrConfidence = read?.confidence,
                 skipped = read?.unsure == true,
                 ocrDropped = id in page.droppedReads,

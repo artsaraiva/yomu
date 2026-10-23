@@ -2,11 +2,13 @@ package com.yomu.pipeline.translation
 
 import com.yomu.core.ERROR_ENGLISH_ONLY
 import com.yomu.core.ERROR_MODEL_MISSING
+import com.yomu.core.GlossaryEntry
 import com.yomu.core.TargetLanguage
 import com.yomu.core.TranslatableBubble
 import com.yomu.core.TranslatablePage
 import com.yomu.core.TranslationOutcome
 import com.yomu.core.TranslationSlot
+import com.yomu.core.applyTo
 import com.yomu.pipeline.context.ConversationBlock
 
 private val NON_TRANSLATION_PATTERNS = listOf(
@@ -51,12 +53,17 @@ internal fun String.hasJapaneseScript(): Boolean = CJK.containsMatchIn(this)
 
 private fun String?.usableTranslation(): String? = this?.takeIf { deadTranslationReason(it) == null }
 
-/** [answered] is false when the model gave this bubble nothing usable; [translatedText] is then its source. */
+/**
+ * [originalText] is the bubble's OCR text as read; [sourceText] is what the model was given, which
+ * differs only where the name glossary replaced a term. [answered] is false when the model gave this
+ * bubble nothing usable; [translatedText] is then its OCR text.
+ */
 data class TranslatedBubble(
     val bubbleId: Int,
     val originalText: String,
     val translatedText: String,
-    val answered: Boolean
+    val answered: Boolean,
+    val sourceText: String = originalText
 )
 
 data class TranslationResult(
@@ -105,34 +112,33 @@ class TranslationEngine(
     /**
      * [onBubble] hears every answered bubble exactly once: a reported bubble as it arrives, once it
      * passes the same check as the final result, and the rest when the page ends. The returned
-     * page's answered bubbles are exactly the forwarded ones.
+     * page's answered bubbles are exactly the forwarded ones. The model reads each bubble's OCR text
+     * with [glossary] applied.
      */
     suspend fun translate(
         blocks: List<ConversationBlock>,
         targetLanguage: TargetLanguage = TargetLanguage.ENGLISH,
+        glossary: List<GlossaryEntry> = emptyList(),
         onBubble: (TranslatedBubble) -> Unit = {}
     ): TranslationResult {
-        val page = project(blocks, targetLanguage)
+        val ocrById = blocks.flatMap { it.textByBubbleId.entries }.associate { (id, read) -> id to read.text.take(MAX_SOURCE_CHARS) }
+        val page = project(ocrById, blocks, targetLanguage, glossary)
         val bubbles = page.panels.flatten()
         if (bubbles.isEmpty()) return TranslationResult(emptyList(), "", 0L, targetLanguage = targetLanguage)
 
-        val sourceById = bubbles.associate { it.bubbleId to it.sourceText }
+        val bubbleById = bubbles.associateBy { it.bubbleId }
+        fun translated(bubble: TranslatableBubble, text: String?): TranslatedBubble {
+            val ocrText = ocrById.getValue(bubble.bubbleId)
+            return TranslatedBubble(bubble.bubbleId, ocrText, text ?: ocrText, answered = text != null, sourceText = bubble.sourceText)
+        }
         val forwarded = mutableMapOf<Int, String>()
         val output = slotProvider().translatePage(page) { bubbleId, text ->
-            val source = sourceById[bubbleId] ?: return@translatePage
+            val bubble = bubbleById[bubbleId] ?: return@translatePage
             val usable = text.usableTranslation() ?: return@translatePage
-            if (forwarded.putIfAbsent(bubbleId, usable) == null) {
-                onBubble(TranslatedBubble(bubbleId, source, usable, answered = true))
-            }
+            if (forwarded.putIfAbsent(bubbleId, usable) == null) onBubble(translated(bubble, usable))
         }
         val translations = bubbles.map { bubble ->
-            val translated = forwarded[bubble.bubbleId] ?: output.byId[bubble.bubbleId].usableTranslation()
-            TranslatedBubble(
-                bubbleId = bubble.bubbleId,
-                originalText = bubble.sourceText,
-                translatedText = translated ?: bubble.sourceText,
-                answered = translated != null
-            )
+            translated(bubble, forwarded[bubble.bubbleId] ?: output.byId[bubble.bubbleId].usableTranslation())
         }
         translations.filter { it.answered && it.bubbleId !in forwarded }.forEach(onBubble)
         return TranslationResult(
@@ -146,13 +152,18 @@ class TranslationEngine(
         )
     }
 
-    private fun project(blocks: List<ConversationBlock>, targetLanguage: TargetLanguage): TranslatablePage = TranslatablePage(
+    /** Every prompt shape reads the page from here, so the glossary is applied once and no template changes. */
+    private fun project(
+        ocrById: Map<Int, String>,
+        blocks: List<ConversationBlock>,
+        targetLanguage: TargetLanguage,
+        glossary: List<GlossaryEntry>
+    ): TranslatablePage = TranslatablePage(
         blocks.map { block ->
             block.readingOrder.mapNotNull { bubbleId ->
-                block.textByBubbleId[bubbleId]?.text
-                    ?.take(MAX_SOURCE_CHARS)
+                ocrById[bubbleId]
                     ?.takeIf { it.isNotBlank() }
-                    ?.let { TranslatableBubble(bubbleId, it) }
+                    ?.let { TranslatableBubble(bubbleId, glossary.applyTo(it)) }
             }
         }.filter { it.isNotEmpty() },
         targetLanguage

@@ -30,7 +30,8 @@ class PageReportTest {
         runtime = RuntimeLimits(threads = 4, contextTokens = 2048),
         detectionThreshold = 0.25f,
         fontScale = 1.2f,
-        targetLanguage = TargetLanguage.SPANISH
+        targetLanguage = TargetLanguage.SPANISH,
+        glossary = emptyList()
     )
 
     private fun page(
@@ -97,6 +98,22 @@ class PageReportTest {
         assertEquals("Hello", first["translation"].asString)
         assertTrue(first["answered"].asBoolean)
         assertEquals(2, recorded.getAsJsonArray("bubbles").size())
+    }
+
+    @Test
+    fun `a bubble's source text is recorded only where the glossary changed it`() {
+        val recorded = json(report(page(
+            bubbles = listOf(
+                TranslatedBubble(0, "ルフィだ", "It's Luffy", answered = true, sourceText = "Luffyだ"),
+                TranslatedBubble(1, "さようなら", "Goodbye", answered = true)
+            ),
+            bounds = linkedMapOf(0 to floatArrayOf(10f, 20f, 110f, 220f), 1 to floatArrayOf(300f, 40f, 420f, 260f)),
+            rawResponse = ""
+        )))
+
+        assertEquals("ルフィだ", recorded.bubble(0)["ocrText"].asString)
+        assertEquals("Luffyだ", recorded.bubble(0)["sourceText"].asString)
+        assertEquals(JsonNull.INSTANCE, recorded.bubble(1)["sourceText"])
     }
 
     @Test

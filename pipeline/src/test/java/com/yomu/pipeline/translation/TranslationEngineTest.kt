@@ -2,6 +2,7 @@ package com.yomu.pipeline.translation
 
 import android.graphics.RectF
 import com.yomu.core.ERROR_ENGLISH_ONLY
+import com.yomu.core.GlossaryEntry
 import com.yomu.core.PageTranslation
 import com.yomu.core.TargetLanguage
 import com.yomu.core.TranslationOutcome
@@ -30,6 +31,29 @@ class TranslationEngineTest {
         assertTrue(result.translations.single().answered)
         assertEquals("raw model output", result.rawResponse)
         assertEquals(55L, result.translationTimeMs)
+    }
+
+    @Test
+    fun translate_glossaryRenderingReachesTheSourceTextButNotTheOcrText() = runTest {
+        val slot = FakeTranslationSlot(PageTranslation(mapOf(1 to "Luffy is here"), "", 1L))
+
+        val result = TranslationEngine { slot }
+            .translate(listOf(block(1 to "ルフィはここだ")), glossary = listOf(GlossaryEntry("ルフィ", "Luffy")))
+
+        assertEquals(listOf(listOf(1 to "Luffyはここだ")), slot.pagePairs())
+        assertEquals("ルフィはここだ", result.translations.single().originalText)
+        assertEquals("Luffyはここだ", result.translations.single().sourceText)
+    }
+
+    @Test
+    fun translate_emptyGlossaryLeavesEverySourceTextAsOcrRead() = runTest {
+        val slot = FakeTranslationSlot(PageTranslation(emptyMap(), "", 1L))
+
+        val result = TranslationEngine { slot }.translate(listOf(block(1 to "ルフィ", 2 to "ゾロ")))
+
+        assertEquals(listOf(listOf(1 to "ルフィ", 2 to "ゾロ")), slot.pagePairs())
+        assertEquals(listOf("ルフィ", "ゾロ"), result.translations.map { it.sourceText })
+        assertEquals(listOf("ルフィ", "ゾロ"), result.translations.map { it.translatedText })
     }
 
     @Test

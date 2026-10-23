@@ -32,6 +32,7 @@ import com.yomu.app.overlay.boundsOnScreen
 import com.yomu.app.db.entities.ModelType
 import com.yomu.app.db.entities.TranslationSessionEntity
 import com.yomu.app.translation.ResourceLimitsStore
+import com.yomu.app.translation.NameGlossaryStore
 import com.yomu.app.translation.TargetLanguageStore
 import com.yomu.app.translation.TranslationModelSelection
 import com.yomu.core.Constants
@@ -484,7 +485,8 @@ class OverlayService : Service() {
                     }
                 },
                 ignoredRegions = ignored.map { RectF(it.left, it.top, it.right, it.bottom) },
-                targetLanguage = settings.targetLanguage
+                targetLanguage = settings.targetLanguage,
+                glossary = settings.glossary
             )
             if (result != null) lastPage = PageRecord(bitmap, result, settings, recalled = false)
             val failure = result?.translationResult?.readerFailure()
@@ -564,7 +566,7 @@ class OverlayService : Service() {
         }
     }
 
-    /** Snapshots the model choices, generation and runtime limits, rendering settings and target language used as the recall key. */
+    /** Snapshots the model choices, generation and runtime limits, rendering settings, target language and name glossary used as the recall key. */
     private fun pageSettings() = PageSettings(
         translationModel = slotSelection.selectedId(ModelType.LLM),
         detectionModel = slotSelection.selectedId(ModelType.DETECTION),
@@ -573,7 +575,8 @@ class OverlayService : Service() {
         runtime = ResourceLimitsStore(sharedPreferences).runtime(),
         detectionThreshold = translationPipeline.confidenceThreshold,
         fontScale = translationPipeline.fontSizeScale,
-        targetLanguage = TargetLanguageStore(sharedPreferences).load()
+        targetLanguage = TargetLanguageStore(sharedPreferences).load(),
+        glossary = NameGlossaryStore(sharedPreferences).load()
     )
 
     private suspend fun saveSessionResult(session: TranslationSessionEntity, result: PipelineResult) {

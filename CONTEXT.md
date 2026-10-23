@@ -44,6 +44,14 @@ _Avoid_: translation bridge, selected engine wrapper, translation engine
 
 ### Translation context
 
+**Name glossary**:
+The reader's own list of [[glossary entry|glossary entries]], one for every page and every series, so a name comes out the same on every page. An empty glossary changes nothing.
+_Avoid_: dictionary, term base, translation memory
+
+**Glossary entry**:
+A Japanese *term* and the *rendering* that replaces it in a bubble's source text before the page is translated. One rendering per entry, written by the reader in the language they read, and used as written whatever the [[target language]].
+_Avoid_: glossary rule, substitution, mapping
+
 **Panel**:
 A group of bubbles inferred to belong to the same comic frame. Used to order bubbles and to mark grouping inside the page prompt — never to split a page into multiple model calls.
 _Avoid_: conversation block, chunk, frame
