@@ -16,8 +16,6 @@ The current Compose BOM exposes Material3 `surfaceVariant`, mapped to raised pap
 
 Display typography uses the specified bold system sans-serif fallback (extra-bold titles / Home hero). Body, labels, and captions keep the system face and scalable `sp` metrics. No external font or texture asset is shipped. The typeset bubble is unchanged.
 
-The owning Phase 7 milestone was restored as #20 because the roadmap’s former #17 no longer existed.
-
 ## Day paper
 
 | Foreground / background | paper | paperRaised | ink | inkMuted | accent | onAccent | secondary | edge | success | error | warn |

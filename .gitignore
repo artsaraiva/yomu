@@ -1,16 +1,4 @@
 .worktrees/
-.slim/deepwork/
-
-# Local agent state
-.codegraph/
-.headroom/
-.opencode/
-.serena/
-
-# BEGIN oh-my-opencode-slim worktrees
-.slim/worktrees/
-.slim/worktrees.json
-# END oh-my-opencode-slim worktrees
 
 *.iml
 .gradle
@@ -31,9 +19,6 @@ vendor/
 
 # Python cache
 __pycache__/
-
-# Local agent scratch worktrees
-.claude/worktrees/
 
 # Speed benchmark fixtures (#230): OpenMantra pages are CC BY-NC, weights are large; never commit
 scripts/speed-fixtures/

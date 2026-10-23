@@ -16,7 +16,7 @@ private const val OUTLINE_CLOSE_RADIUS = 2
 private const val SEED_PAD = 3
 // The rectangle inscribed in an ellipse is 1/sqrt(2) of its bounding box on each side.
 private const val INSCRIBED_FRACTION = 0.707f
-// ponytail: fixed search cap, a fraction of page width; keeps the per-bubble pixel copy small.
+// Fixed search cap, a fraction of page width; keeps the per-bubble pixel copy small.
 // A bubble reaching further than this from its glyphs falls back to the detector box.
 private const val MAX_SEARCH_MARGIN_OF_PAGE_WIDTH = 0.25f
 
@@ -129,7 +129,7 @@ private fun interiorAround(fillable: BooleanArray, width: Int, height: Int, text
                 if (y < height - 1 && fillable[i + width] && region[i + width] == 0) { region[i + width] = label; queue[tail++] = i + width }
             }
             bounds.add(box)
-            // ponytail: a bubble clipped by the screen edge counts as leaked and falls back;
+            // A bubble clipped by the screen edge counts as leaked and falls back;
             // handle it if captures often cut bubbles.
             leaks.add(box[0] == 0 || box[1] == 0 || box[2] == width || box[3] == height)
             seedCounts.add(0)
