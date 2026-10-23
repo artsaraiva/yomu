@@ -87,7 +87,7 @@ Yomu downloads every model on first launch (Wi-Fi required). Each download is pi
 
 | Slot | Model | Licence |
 |---|---|---|
-| Bubble detection | [`Kiuyha/Manga-Bubble-YOLO`](https://huggingface.co/Kiuyha/Manga-Bubble-YOLO) (yolo26n, ONNX) | see [ADR-0007](docs/adr/0007-bubble-text-detection-approach.md) |
+| Bubble detection | [`Kiuyha/Manga-Bubble-YOLO`](https://huggingface.co/Kiuyha/Manga-Bubble-YOLO) (yolo26n, ONNX) | AGPL-3.0, from its Ultralytics YOLO26 base; see [ADR-0007](docs/adr/0007-bubble-text-detection-approach.md) |
 | OCR | [`artsaraiva/manga-ocr-2025-onnx-past`](https://huggingface.co/artsaraiva/manga-ocr-2025-onnx-past/tree/151898756903f03a2682fa6be4507dfeff71fb7e) (manga-ocr-2025 with past key values) | Apache-2.0 |
 | Translation (default) | **Qwen2.5 1.5B Instruct** Q4_K_M | Apache-2.0 |
 | Translation | CAT-Translate 1.4B Q4_K_M | MIT |
@@ -179,7 +179,7 @@ See [`AGENTS.md`](AGENTS.md) for the full conventions.
 
 ## License
 
-No licence has been published yet, so all rights are reserved. Each model is covered by its own licence (see [Models](#models)).
+Yomu is licensed under the [GNU Affero General Public License v3.0](LICENSE) ([ADR-0019](docs/adr/0019-yomu-is-agpl-open-source.md)). Contributions are accepted under the same licence; there is no CLA. Each model is covered by its own licence (see [Models](#models)).
 
 <div align="center">
 <sub>読む (yomu): "to read"</sub>
