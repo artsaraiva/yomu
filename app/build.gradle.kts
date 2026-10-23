@@ -13,14 +13,28 @@ android {
         applicationId = "com.yomu.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        // The release workflow passes both from the tag (#405); local builds keep the defaults.
+        versionCode = (findProperty("yomu.versionCode") as String?)?.toInt() ?: 1
+        versionName = findProperty("yomu.versionName") as String? ?: "1.0"
         testInstrumentationRunner = "com.yomu.app.CustomTestRunner"
         vectorDrawables { useSupportLibrary = true }
     }
 
+    signingConfigs {
+        // Signs only where the keystore secrets exist (the release workflow); elsewhere assembleRelease stays unsigned.
+        System.getenv("YOMU_KEYSTORE_FILE")?.let { keystore ->
+            create("release") {
+                storeFile = file(keystore)
+                storePassword = System.getenv("YOMU_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("YOMU_KEY_ALIAS")
+                keyPassword = System.getenv("YOMU_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            signingConfig = signingConfigs.findByName("release")
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
