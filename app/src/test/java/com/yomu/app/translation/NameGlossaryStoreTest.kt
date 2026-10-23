@@ -49,12 +49,13 @@ class NameGlossaryStoreTest {
     }
 
     @Test
-    fun `editing an entry's term replaces the old entry`() {
+    fun `editing an entry's term replaces the old entry where it stood`() {
         store.save("ルフイ", "Luffy")
+        store.save("ゾロ", "Zoro")
 
         store.save("ルフィ", "Luffy", replacing = "ルフイ")
 
-        assertEquals(listOf(GlossaryEntry("ルフィ", "Luffy")), store.load())
+        assertEquals(listOf(GlossaryEntry("ルフィ", "Luffy"), GlossaryEntry("ゾロ", "Zoro")), store.load())
     }
 
     @Test

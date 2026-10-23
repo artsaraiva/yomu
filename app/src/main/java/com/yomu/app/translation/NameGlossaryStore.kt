@@ -22,14 +22,18 @@ class NameGlossaryStore @Inject constructor(private val prefs: SharedPreferences
 
     /**
      * Saves [term] as [rendering], both trimmed, in place of the entry for [replacing] when given.
-     * A term already listed has its entry edited rather than a second one added. Returns false, saving
-     * nothing, when either field is blank.
+     * A term already listed has its entry edited rather than a second one added. An edited entry keeps
+     * its place; a new one goes last. Returns false, saving nothing, when either field is blank.
      */
     fun save(term: String, rendering: String, replacing: String? = null): Boolean {
         val entry = GlossaryEntry(term.trim(), rendering.trim())
         if (entry.term.isEmpty() || entry.rendering.isEmpty()) return false
-        val kept = load().filter { it.term != replacing }
-        write(if (kept.any { it.term == entry.term }) kept.map { if (it.term == entry.term) entry else it } else kept + entry)
+        val entries = load().toMutableList()
+        val edited: (GlossaryEntry) -> Boolean = { it.term == replacing || it.term == entry.term }
+        val at = entries.indexOfFirst(edited)
+        entries.removeAll(edited)
+        if (at < 0) entries += entry else entries.add(at, entry)
+        write(entries)
         return true
     }
 
