@@ -33,7 +33,7 @@ Tap once over any manga page, in any app, and read it in English. Nothing leaves
   </tr>
 </table>
 
-<sub>Unedited output from the default model (Qwen2.5 1.5B) running on an Android emulator. Manga: ブラックジャックによろしく 佐藤秀峰 (Give My Regards to Black Jack, SHUHO SATO), used under the author's free secondary-use licence.</sub>
+<sub>Unedited output from the default model (Qwen2.5 1.5B), recorded in real time on an Android emulator. The emulator runs on a desktop CPU, so a phone takes longer. Manga: ブラックジャックによろしく 佐藤秀峰 (Give My Regards to Black Jack, SHUHO SATO), used under the author's free secondary-use licence.</sub>
 
 ## Table of contents
 
