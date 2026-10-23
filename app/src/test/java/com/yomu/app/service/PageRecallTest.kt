@@ -2,6 +2,7 @@ package com.yomu.app.service
 
 import com.yomu.app.overlay.OverlayBounds
 import com.yomu.core.GenerationParams
+import com.yomu.core.GlossaryEntry
 import com.yomu.core.RuntimeLimits
 import com.yomu.core.TargetLanguage
 import com.yomu.core.TranslationOutcome
@@ -27,7 +28,8 @@ class PageRecallTest {
         runtime = RuntimeLimits(threads = 4, contextTokens = 2048),
         detectionThreshold = 0.25f,
         fontScale = 1.0f,
-        targetLanguage = TargetLanguage.ENGLISH
+        targetLanguage = TargetLanguage.ENGLISH,
+        glossary = emptyList()
     )
 
     /** Encodes a grayscale level as an opaque ARGB pixel for synthetic captures. */
@@ -148,7 +150,8 @@ class PageRecallTest {
             settings.copy(runtime = RuntimeLimits(threads = 4, contextTokens = 4096)),
             settings.copy(detectionThreshold = 0.3f),
             settings.copy(fontScale = 1.2f),
-            settings.copy(targetLanguage = TargetLanguage.BRAZILIAN_PORTUGUESE)
+            settings.copy(targetLanguage = TargetLanguage.BRAZILIAN_PORTUGUESE),
+            settings.copy(glossary = listOf(GlossaryEntry("ルフィ", "Luffy")))
         )
 
         for (setting in changed) assertNull("$setting", recall.recall(fingerprint(page(0)), setting))

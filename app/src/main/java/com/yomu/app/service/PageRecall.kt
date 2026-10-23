@@ -1,6 +1,7 @@
 package com.yomu.app.service
 
 import com.yomu.core.GenerationParams
+import com.yomu.core.GlossaryEntry
 import com.yomu.core.RuntimeLimits
 import com.yomu.core.TargetLanguage
 import com.yomu.core.TranslationOutcome
@@ -15,7 +16,8 @@ data class PageSettings(
     val runtime: RuntimeLimits,
     val detectionThreshold: Float,
     val fontScale: Float,
-    val targetLanguage: TargetLanguage
+    val targetLanguage: TargetLanguage,
+    val glossary: List<GlossaryEntry>
 )
 
 /**

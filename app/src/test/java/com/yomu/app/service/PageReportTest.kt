@@ -30,7 +30,8 @@ class PageReportTest {
         runtime = RuntimeLimits(threads = 4, contextTokens = 2048),
         detectionThreshold = 0.25f,
         fontScale = 1.2f,
-        targetLanguage = TargetLanguage.SPANISH
+        targetLanguage = TargetLanguage.SPANISH,
+        glossary = emptyList()
     )
 
     private fun page(

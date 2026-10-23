@@ -3,6 +3,7 @@ package com.yomu.pipeline
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.RectF
+import com.yomu.core.GlossaryEntry
 import com.yomu.core.PageTranslation
 import com.yomu.core.TargetLanguage
 import com.yomu.pipeline.bubble.Bubble
@@ -129,6 +130,13 @@ class TranslationPipelineTest {
 
         assertEquals(TargetLanguage.FRENCH, slot.pages.single().targetLanguage)
         assertEquals(TargetLanguage.FRENCH, result?.translationResult?.targetLanguage)
+    }
+
+    @Test
+    fun `the page reaches the slot with the glossary applied`() = runTest {
+        pipeline(speech).processPage(page(), targetLanguage = TargetLanguage.ENGLISH, glossary = listOf(GlossaryEntry("こんにちは", "Hello")))
+
+        assertEquals(listOf(listOf(2 to "Hello")), slot.pagePairs())
     }
 
     @Test
