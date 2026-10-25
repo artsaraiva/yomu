@@ -2,7 +2,6 @@ package com.yomu.app.service
 import android.app.ActivityManager
 import android.content.Context
 import android.net.ConnectivityManager
-import android.net.NetworkCapabilities
 import android.os.StatFs
 import com.yomu.app.db.ModelDao
 import com.yomu.app.db.entities.ModelEntity
@@ -411,12 +410,8 @@ class ModelManager @Inject constructor(
         return ActivityManager.MemoryInfo().also { am.getMemoryInfo(it) }.totalMem
     }
 
-    fun isOnWifi(): Boolean {
-        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        val network = cm.activeNetwork ?: return false
-        val caps = cm.getNetworkCapabilities(network) ?: return false
-        return caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
-    }
+    fun isOnMeteredNetwork(): Boolean =
+        (context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager).isActiveNetworkMetered
 
     private fun hasEnoughSpace(requiredBytes: Long): Boolean {
         val dir = File(context.filesDir, Constants.MODELS_DIR)
@@ -428,10 +423,6 @@ class ModelManager @Inject constructor(
         modelId: String,
         onProgress: (DownloadProgress) -> Unit = {}
     ): Boolean = withContext(Dispatchers.IO) {
-        if (!isOnWifi()) {
-            return@withContext false
-        }
-
         val model = modelDao.getModelById(modelId) ?: return@withContext false
         val additionalFiles = additionalFiles(model.id)
         val totalRequiredBytes = model.fileSize + additionalFiles.sumOf { it.size }

@@ -21,7 +21,7 @@ Tap once over any manga page, in any app, and read it in your language. Nothing 
 > [!IMPORTANT]
 > **Before you install**
 > - **Android 8.0 or newer on a 64-bit ARM phone.** Tested on an 8 GB phone (Galaxy S23), where the default model peaks at about 2 GB of RAM. Phones with less RAM are untested; [tell us how yours does](https://github.com/artsaraiva/yomu/issues/new?template=bug_report.yml).
-> - **About 1.1 GB of models download on first launch, over Wi-Fi only.** Keep about 1.5 GB free. After that, Yomu never uses the network.
+> - **About 1.1 GB of models download on first launch, over Wi-Fi or mobile data.** Keep about 1.5 GB free. After that, Yomu never uses the network.
 > - **A page takes seconds, not milliseconds:** about 15 s on a Galaxy S23 with the default model.
 > - **Japanese source only**, read from the screen. Machine translation from a small on-device model makes mistakes.
 
@@ -95,7 +95,7 @@ flowchart LR
 
 ## Models
 
-Yomu downloads every model on first launch (Wi-Fi required). Each download is pinned to an exact Hugging Face revision.
+Yomu downloads every model on first launch. Each download is pinned to an exact Hugging Face revision.
 
 | Slot | Model | Licence |
 |---|---|---|

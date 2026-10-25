@@ -34,7 +34,7 @@ data class HomeUiState(
     val languageOffer: LanguageSwitch.Offer? = null,
     val setupDownloadBytes: Long = 0L,
     val fitBudget: FitBudget = FitBudget(0L, LlmModelCatalog.DEFAULT_FIT_BUDGET_PERCENT, RuntimeLimits.DEFAULT_CONTEXT_TOKENS),
-    val onWifi: Boolean = true,
+    val onMeteredNetwork: Boolean = false,
     val pagesTranslatedToday: Int = 0,
     val translations: List<TranslationEntity> = emptyList(),
     val hasRead: Boolean = false,

@@ -133,7 +133,7 @@ class HomeViewModel @Inject constructor(
         _uiState.update {
             it.withSlots().copy(
                 isServiceRunning = running,
-                onWifi = modelManager.isOnWifi(),
+                onMeteredNetwork = modelManager.isOnMeteredNetwork(),
                 fitBudget = slotSelection.fitBudget(it.fitBudget.totalMemBytes)
             )
         }
@@ -212,7 +212,7 @@ class HomeViewModel @Inject constructor(
         if (setupJob?.isActive == true) return
         setupJob = viewModelScope.launch {
             _uiState.update {
-                it.copy(setupStarted = true, setupError = false, setupBlockedBy = null, setupDownloadsReady = false, onWifi = modelManager.isOnWifi())
+                it.copy(setupStarted = true, setupError = false, setupBlockedBy = null, setupDownloadsReady = false, onMeteredNetwork = modelManager.isOnMeteredNetwork())
             }
             try {
                 modelManager.refreshModelList()
