@@ -18,7 +18,7 @@ ADR-0008 kept the floors for devices that cannot run an LLM. Neither floor deliv
 
 **No migration.** Nobody uses the app yet. A stored `translation_engine` preference is ignored. The floor rows leave the model registry, so `refreshModelList` drops them and deletes each row's primary file; OPUS-MT's decoder and tokenizer files are left on the device.
 
-**Setup needs Wi-Fi for all three downloads.** ML Kit's download went through Play Services and skipped the Wi-Fi check; the LLM download does not.
+**Setup needs Wi-Fi for all three downloads.** ML Kit's download went through Play Services and skipped the Wi-Fi check; the LLM download does not. (Since #425 downloads run on any network; setup warns on mobile data.)
 
 **ONNX Runtime stays.** Detection and OCR still use it. The DJL tokenizer dependency, which only OPUS-MT used, is removed.
 

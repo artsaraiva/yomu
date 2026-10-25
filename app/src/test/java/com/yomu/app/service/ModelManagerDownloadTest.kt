@@ -23,6 +23,8 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.mockito.Mockito.mock
+import org.mockito.Mockito.never
+import org.mockito.Mockito.verify
 import java.io.File
 import java.io.InputStream
 
@@ -45,7 +47,15 @@ class ModelManagerDownloadTest {
         }
         .build()
 
-    private val manager = ModelManager(mock(Context::class.java), dao, endlessDownload)
+    private val context = mock(Context::class.java)
+    private val manager = ModelManager(context, dao, endlessDownload)
+
+    @Test
+    fun `a download does not check which network is connected`() = runBlocking<Unit> {
+        manager.downloadModel("model")
+
+        verify(context, never()).getSystemService(Context.CONNECTIVITY_SERVICE)
+    }
 
     @Test
     fun `cancelling a download deletes its partial files and makes the model available again`() = runBlocking {

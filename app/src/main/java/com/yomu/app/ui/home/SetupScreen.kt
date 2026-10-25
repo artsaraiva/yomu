@@ -49,7 +49,7 @@ fun SetupScreen(state: HomeUiState, viewModel: HomeViewModel) {
                 viewModel::prepareSetup
             )
             state.setupError -> PaperError(
-                "Setup couldn't finish. Check Wi-Fi and available storage, then try again. Completed downloads are kept.",
+                "Setup couldn't finish. Check your connection and available storage, then try again. Completed downloads are kept.",
                 viewModel::prepareSetup
             )
             !state.setupStarted -> Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -58,8 +58,8 @@ fun SetupScreen(state: HomeUiState, viewModel: HomeViewModel) {
                     else "Every chosen model is already downloaded.",
                     style = MaterialTheme.typography.titleMedium
                 )
-                if (!state.onWifi) {
-                    Text("You're not on Wi-Fi. Connect to Wi-Fi to download.", color = MaterialTheme.colorScheme.error)
+                if (state.onMeteredNetwork && state.setupDownloadBytes > 0) {
+                    Text("You're on mobile data. This ${state.setupDownloadBytes.toFileSizeString()} download will count toward your data plan.")
                 }
                 PaperButton("Download", viewModel::prepareSetup, Modifier.fillMaxWidth())
             }
