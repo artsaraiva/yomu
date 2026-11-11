@@ -9,6 +9,7 @@ import ai.onnxruntime.OrtSession
 import ai.onnxruntime.TensorInfo
 import java.io.File
 import java.nio.FloatBuffer
+import java.nio.LongBuffer
 
 class OnnxRuntime(private val context: Context) {
 
@@ -21,6 +22,8 @@ class OnnxRuntime(private val context: Context) {
         private const val YOLO_FIELDS_PER_DETECTION = 6
         private const val YOLO_EXPECTED_DETECTIONS = 300
         private const val YOLO_EXPECTED_OUTPUT_SIZE = YOLO_EXPECTED_DETECTIONS * YOLO_FIELDS_PER_DETECTION
+        private const val RTDETR_INPUT_SIZE = 640
+        private const val RTDETR_SIZES_INPUT = "orig_target_sizes"
     }
 
     data class Detection(
@@ -149,7 +152,13 @@ class OnnxRuntime(private val context: Context) {
         val session = loadedModels[modelName] ?: return emptyList()
         val env = ortEnv ?: return emptyList()
 
+        // Spike #437: the ogkalu RT-DETR v4-s takes a second input and returns page-pixel boxes.
+        if (session.inputNames.contains(RTDETR_SIZES_INPUT)) {
+            return runRtDetrInference(session, env, bitmap, confidenceThreshold)
+        }
+
         return try {
+            val startNs = System.nanoTime()
             val letterbox = Letterbox(bitmap.width, bitmap.height, YOLO_INPUT_SIZE)
             val resized = Bitmap.createScaledBitmap(bitmap, letterbox.scaledWidth, letterbox.scaledHeight, true)
             val pixels = IntArray(letterbox.inputWidth * letterbox.inputHeight) { Letterbox.PAD_COLOR }
@@ -182,6 +191,7 @@ class OnnxRuntime(private val context: Context) {
                             emptyList()
                         } else {
                             val detections = parseYoloDetections(outputArray, YOLO_FIELDS_PER_DETECTION, confidenceThreshold)
+                            Log.i(TAG, "YOLO_DETECT ms=${(System.nanoTime() - startNs) / 1_000_000} kept=${detections.size}")
                             if (detections.isEmpty()) {
                                 Log.d(TAG, "YOLO inference produced zero detections above threshold")
                             }
@@ -199,6 +209,62 @@ class OnnxRuntime(private val context: Context) {
             }
         } catch (e: Exception) {
             Log.e(TAG, "runBitmapInference failed for $modelName: ${e.message}", e)
+            emptyList()
+        }
+    }
+
+    /**
+     * Spike #437: `ogkalu/comic-text-and-bubble-detector` v4-s. A plain 640x640 stretch, RGB/255,
+     * `orig_target_sizes` = [width, height]; `labels`/`boxes`/`scores` come back in page pixels.
+     * Classes 1 (`text_bubble`) and 2 (`text_free`) are Yomu's text; class 0 (`bubble`) is dropped.
+     */
+    private fun runRtDetrInference(
+        session: OrtSession,
+        env: OrtEnvironment,
+        bitmap: Bitmap,
+        confidenceThreshold: Float
+    ): List<Detection> {
+        return try {
+            val startNs = System.nanoTime()
+            val resized = Bitmap.createScaledBitmap(bitmap, RTDETR_INPUT_SIZE, RTDETR_INPUT_SIZE, true)
+            val pixels = IntArray(RTDETR_INPUT_SIZE * RTDETR_INPUT_SIZE)
+            resized.getPixels(pixels, 0, RTDETR_INPUT_SIZE, 0, 0, RTDETR_INPUT_SIZE, RTDETR_INPUT_SIZE)
+            val floatArray = bitmapPixelsToCHW(pixels, RTDETR_INPUT_SIZE, RTDETR_INPUT_SIZE)
+            val images = OnnxTensor.createTensor(
+                env, FloatBuffer.wrap(floatArray), longArrayOf(1, 3, RTDETR_INPUT_SIZE.toLong(), RTDETR_INPUT_SIZE.toLong())
+            )
+            val sizes = OnnxTensor.createTensor(
+                env, LongBuffer.wrap(longArrayOf(bitmap.width.toLong(), bitmap.height.toLong())), longArrayOf(1, 2)
+            )
+            try {
+                val result = session.run(mapOf("images" to images, RTDETR_SIZES_INPUT to sizes))
+                try {
+                    val labels = readLongBuffer((result.get("labels").get() as OnnxTensor).longBuffer)
+                    val boxes = readFloatBuffer((result.get("boxes").get() as OnnxTensor).floatBuffer)
+                    val scores = readFloatBuffer((result.get("scores").get() as OnnxTensor).floatBuffer)
+                    val detections = mutableListOf<Detection>()
+                    for (i in scores.indices) {
+                        if (scores[i] >= confidenceThreshold && labels[i] != 0L) {
+                            detections.add(
+                                Detection(
+                                    label = "bubble",
+                                    confidence = scores[i],
+                                    bbox = floatArrayOf(boxes[i * 4], boxes[i * 4 + 1], boxes[i * 4 + 2], boxes[i * 4 + 3])
+                                )
+                            )
+                        }
+                    }
+                    Log.i(TAG, "RTDETR_DETECT ms=${(System.nanoTime() - startNs) / 1_000_000} kept=${detections.size}")
+                    detections.sortedByDescending { it.confidence }
+                } finally {
+                    result.close()
+                }
+            } finally {
+                images.close()
+                sizes.close()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "runRtDetrInference failed: ${e.message}", e)
             emptyList()
         }
     }
@@ -242,6 +308,14 @@ internal fun readFloatBuffer(buffer: FloatBuffer): FloatArray {
     val copy = buffer.duplicate()
     copy.rewind()
     val output = FloatArray(copy.remaining())
+    copy.get(output)
+    return output
+}
+
+internal fun readLongBuffer(buffer: LongBuffer): LongArray {
+    val copy = buffer.duplicate()
+    copy.rewind()
+    val output = LongArray(copy.remaining())
     copy.get(output)
     return output
 }
