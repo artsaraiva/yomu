@@ -294,3 +294,18 @@ internal fun parseYoloDetections(
     }
     return detections.sortedByDescending { it.confidence }
 }
+
+/** The ogkalu RT-DETR's text classes by label id; class 0, `bubble`, frames a balloon rather than its text. */
+private val RT_DETR_TEXT_CLASSES = mapOf(1L to "text_bubble", 2L to "text_free")
+
+/** Turns the RT-DETR's `labels`, `boxes` (xyxy, page pixels, four per box) and `scores` into text detections. */
+internal fun parseRtDetrDetections(
+    labels: LongArray,
+    boxes: FloatArray,
+    scores: FloatArray,
+    confidenceThreshold: Float
+): List<OnnxRuntime.Detection> = scores.indices.mapNotNull { i ->
+    val label = RT_DETR_TEXT_CLASSES[labels[i]]
+    if (label == null || scores[i] < confidenceThreshold) null
+    else OnnxRuntime.Detection(label, scores[i], boxes.copyOfRange(i * 4, i * 4 + 4))
+}
