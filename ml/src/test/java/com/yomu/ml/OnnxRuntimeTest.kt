@@ -41,6 +41,18 @@ class OnnxRuntimeTest {
     }
 
     @Test
+    fun parseRtDetrDetections_holdsTextFreeToAFloorOfOneHalf() {
+        val detections = parseRtDetrDetections(
+            labels = longArrayOf(1, 2, 2),
+            boxes = FloatArray(12),
+            scores = floatArrayOf(0.30f, 0.49f, 0.50f),
+            confidenceThreshold = 0.25f
+        )
+
+        assertEquals(listOf("text_bubble" to 0.30f, "text_free" to 0.50f), detections.map { it.label to it.confidence })
+    }
+
+    @Test
     fun parseYoloDetections_preservesXyxy_filtersAndSortsByConfidenceDesc() {
         val output = floatArrayOf(
             10f, 20f, 30f, 40f, 0.60f, 0f,
