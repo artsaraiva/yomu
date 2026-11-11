@@ -56,7 +56,7 @@ class BubbleDetector(private val onnxRuntime: OnnxRuntime) {
         detections.forEachIndexed { index, detection ->
             Log.d(
                 TAG,
-                "Bubble kept index=$index confidence=${detection.confidence} bbox=${detection.bbox.joinToString(",") }"
+                "Bubble kept index=$index label=${detection.label} confidence=${detection.confidence} bbox=${detection.bbox.joinToString(",") }"
             )
         }
 
