@@ -305,6 +305,7 @@ class OverlayService : Service() {
 
     private fun showQuickSettings() {
         val thresholdStore = DetectionThresholdStore(sharedPreferences)
+        val pageRecallStore = PageRecallStore(sharedPreferences)
         val popup = quickSettingsPopup ?: QuickSettingsPopup(
             context = this,
             windowManager = windowManager,
@@ -314,6 +315,8 @@ class OverlayService : Service() {
                 sharedPreferences.edit().putFloat(Constants.PREF_FONT_SIZE_SCALE, scale).apply()
             },
             onThresholdChanged = { thresholdStore.save(it) },
+            // The preference listener turns the recall off, so the quick switch forgets pages exactly as the Settings one does.
+            onPageRecallChanged = { pageRecallStore.save(it) },
             hasLastPage = { lastPage != null },
             onReportRequested = ::reportLastPage,
             onOpenAppRequested = ::openApp,
@@ -321,11 +324,12 @@ class OverlayService : Service() {
             blockTouchesBelow = floatingButtonOverlay::blockTouchesBelow,
             unblockTouchesBelow = floatingButtonOverlay::unblockTouchesBelow
         ).also { quickSettingsPopup = it }
-        // The app can change either value while the service runs, so re-read both on every long-press.
+        // The app can change any of these while the service runs, so re-read them on every long-press.
         popup.updateFontSizeScale(
             sharedPreferences.getFloat(Constants.PREF_FONT_SIZE_SCALE, Constants.DEFAULT_FONT_SIZE_SCALE)
         )
         popup.updateThreshold(thresholdStore.load())
+        popup.updatePageRecall(pageRecallStore.load())
         popup.show(buttonPositionX, buttonPositionY)
     }
 
@@ -576,7 +580,7 @@ class OverlayService : Service() {
         detectionThreshold = translationPipeline.confidenceThreshold,
         fontScale = translationPipeline.fontSizeScale,
         targetLanguage = TargetLanguageStore(sharedPreferences).load(),
-        glossary = NameGlossaryStore(sharedPreferences).load()
+        glossary = NameGlossaryStore(sharedPreferences).active()
     )
 
     private suspend fun saveSessionResult(session: TranslationSessionEntity, result: PipelineResult) {
