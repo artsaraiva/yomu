@@ -99,19 +99,19 @@ class NameGlossaryStoreTest {
     }
 
     @Test
-    fun `while off the active glossary is empty and the entries are untouched`() {
+    fun `while off the entries in use are empty and the entries are untouched`() {
         store.save("ルフィ", "Luffy")
 
         store.setEnabled(false)
 
-        assertEquals(emptyList<GlossaryEntry>(), store.active())
+        assertEquals(emptyList<GlossaryEntry>(), store.entriesInUse())
         assertEquals(listOf(GlossaryEntry("ルフィ", "Luffy")), store.load())
     }
 
     @Test
-    fun `while on the active glossary is the entries`() {
+    fun `while on the entries in use are the entries`() {
         store.save("ルフィ", "Luffy")
 
-        assertEquals(listOf(GlossaryEntry("ルフィ", "Luffy")), store.active())
+        assertEquals(listOf(GlossaryEntry("ルフィ", "Luffy")), store.entriesInUse())
     }
 }

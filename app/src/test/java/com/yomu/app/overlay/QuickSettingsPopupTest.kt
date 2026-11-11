@@ -30,6 +30,7 @@ class QuickSettingsPopupTest {
     private var unavailable: String? = null
     private val chosen = mutableListOf<TargetLanguage>()
     private val recallChanges = mutableListOf<Boolean>()
+    private val recallSwitch = OverlayRecallSwitch(RuntimeEnvironment.getApplication()) { recallChanges += it }
     private val popup = QuickSettingsPopup(
         context = RuntimeEnvironment.getApplication(),
         windowManager = windowManager,
@@ -40,9 +41,9 @@ class QuickSettingsPopupTest {
             unavailable = { language -> unavailable.takeIf { language != TargetLanguage.ENGLISH } },
             onChosen = { chosen += it }
         ),
+        recallSwitch = recallSwitch,
         onFontSizeChanged = {},
         onThresholdChanged = {},
-        onPageRecallChanged = { recallChanges += it },
         hasLastPage = { false },
         onReportRequested = {},
         onOpenAppRequested = {},
@@ -102,19 +103,20 @@ class QuickSettingsPopupTest {
         assertTrue((checkNotNull(content.withText("English")) as RadioButton).isChecked)
     }
 
-    private fun View.recallSwitch(): Switch = checkNotNull(withText("Page recall")!!.parent as ViewGroup).let { row ->
-        (0 until row.childCount).map(row::getChildAt).filterIsInstance<Switch>().single()
+    private fun View.recallSwitch(): Switch {
+        val row = checkNotNull(withText("Page recall")).parent as ViewGroup
+        return (0 until row.childCount).map(row::getChildAt).filterIsInstance<Switch>().single()
     }
 
     /** The switch shows the stored value and only a tap by the reader reports a change (#401). */
     @Test
     fun thePageRecallSwitchShowsTheStoredValueAndReportsOnlyTheReadersFlips() {
-        popup.updatePageRecall(false)
+        recallSwitch.update(false)
         val content = shownContent()
         val recall = content.recallSwitch()
         assertFalse(recall.isChecked)
 
-        popup.updatePageRecall(true)
+        recallSwitch.update(true)
         assertTrue(recall.isChecked)
         assertEquals(emptyList<Boolean>(), recallChanges)
 

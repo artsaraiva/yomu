@@ -11,10 +11,8 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.SeekBar
-import android.widget.Switch
 import android.widget.TextView
 import com.yomu.app.detection.DetectionThresholdStore
-import com.yomu.app.service.PageRecallStore
 import com.yomu.app.ui.theme.paperBackground
 import com.yomu.app.ui.theme.paperColors
 import com.yomu.core.Constants
@@ -25,9 +23,9 @@ class QuickSettingsPopup(
     private val windowManager: WindowManager,
     private val modelName: () -> String,
     private val languageSwitch: OverlayLanguageSwitch,
+    private val recallSwitch: OverlayRecallSwitch,
     private val onFontSizeChanged: (Float) -> Unit,
     private val onThresholdChanged: (Float) -> Unit,
-    private val onPageRecallChanged: (Boolean) -> Unit,
     private val hasLastPage: () -> Boolean,
     private val onReportRequested: () -> Unit,
     private val onOpenAppRequested: () -> Unit,
@@ -47,8 +45,6 @@ class QuickSettingsPopup(
     private var fontSizeReset: Button? = null
     private var thresholdReset: Button? = null
     private var reportButton: Button? = null
-    private var pageRecallSwitch: Switch? = null
-    private var pageRecall = PageRecallStore.DEFAULT
     private var fontSizeScale = Constants.DEFAULT_FONT_SIZE_SCALE
     private var threshold = DetectionThresholdStore.DEFAULT
     private val density = context.resources.displayMetrics.density
@@ -103,7 +99,6 @@ class QuickSettingsPopup(
         fontSizeReset = null
         thresholdReset = null
         reportButton = null
-        pageRecallSwitch = null
     }
 
     fun updateAppearance() {
@@ -118,8 +113,7 @@ class QuickSettingsPopup(
         )
         dimmableButtons.forEach { it.setTextColor(dimmableColors) }
         languageSwitch.applyColors(colors)
-        pageRecallSwitch?.thumbTintList = ColorStateList.valueOf(colors.accent)
-        pageRecallSwitch?.trackTintList = ColorStateList.valueOf(colors.inkMuted)
+        recallSwitch.applyColors(colors)
         seekBars.forEach {
             it.thumbTintList = ColorStateList.valueOf(colors.accent)
             it.progressTintList = ColorStateList.valueOf(colors.accent)
@@ -134,11 +128,6 @@ class QuickSettingsPopup(
     }
 
     fun refreshReportAvailability() { reportButton?.isEnabled = hasLastPage() }
-
-    fun updatePageRecall(enabled: Boolean) {
-        pageRecall = enabled
-        pageRecallSwitch?.isChecked = enabled
-    }
 
     fun updateThreshold(value: Float) {
         threshold = DetectionThresholdStore.snap(value)
@@ -208,17 +197,7 @@ class QuickSettingsPopup(
                 override fun onStopTrackingTouch(seekBar: SeekBar?) = onThresholdChanged(threshold)
             })
         })
-        addView(row().apply {
-            setPadding(0, dp(16), 0, 0)
-            addView(sectionLabel("Page recall"))
-            addView(Switch(context).apply {
-                isChecked = pageRecall
-                minHeight = dp(48)
-                contentDescription = "Page recall"
-                setOnCheckedChangeListener { _, checked -> if (checked != pageRecall) { pageRecall = checked; onPageRecallChanged(checked) } }
-                pageRecallSwitch = this
-            })
-        })
+        addView(recallSwitch.createView())
         addView(textButton("Report last page") { remove(); onReportRequested() }.apply {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) }
             dimmableButtons.add(this)

@@ -41,7 +41,7 @@ class NameGlossaryStore @Inject constructor(private val prefs: SharedPreferences
     fun delete(term: String) = write(load().filter { it.term != term })
 
     /** The entries a page is translated with: [load] while the glossary is on, nothing while it is off. */
-    fun active(): List<GlossaryEntry> = if (isEnabled()) load() else emptyList()
+    fun entriesInUse(): List<GlossaryEntry> = if (isEnabled()) load() else emptyList()
 
     fun isEnabled(): Boolean = runCatching { prefs.getBoolean(ENABLED_KEY, ENABLED_DEFAULT) }.getOrDefault(ENABLED_DEFAULT)
 
