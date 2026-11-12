@@ -200,7 +200,7 @@ class QuickSettingsPopup(
         })
         addView(recallSwitch.createView())
         addView(lastPageButton("Translate again", onTranslateAgainRequested).apply {
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) }
+            (layoutParams as LinearLayout.LayoutParams).topMargin = dp(8)
         })
         addView(lastPageButton("Report last page", onReportRequested))
         addView(row().apply {
@@ -264,6 +264,7 @@ class QuickSettingsPopup(
     /** A button that acts on the last page: it closes the popup first and is dimmed until a page exists. */
     private fun lastPageButton(label: String, action: () -> Unit): Button =
         textButton(label) { remove(); action() }.apply {
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
             dimmableButtons.add(this)
             lastPageButtons.add(this)
         }
