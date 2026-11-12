@@ -27,6 +27,7 @@ class QuickSettingsPopup(
     private val onFontSizeChanged: (Float) -> Unit,
     private val onThresholdChanged: (Float) -> Unit,
     private val hasLastPage: () -> Boolean,
+    private val onTranslateAgainRequested: () -> Unit,
     private val onReportRequested: () -> Unit,
     private val onOpenAppRequested: () -> Unit,
     private val onStopRequested: () -> Unit,
@@ -44,7 +45,7 @@ class QuickSettingsPopup(
     private var thresholdLabel: TextView? = null
     private var fontSizeReset: Button? = null
     private var thresholdReset: Button? = null
-    private var reportButton: Button? = null
+    private val lastPageButtons = mutableListOf<Button>()
     private var fontSizeScale = Constants.DEFAULT_FONT_SIZE_SCALE
     private var threshold = DetectionThresholdStore.DEFAULT
     private val density = context.resources.displayMetrics.density
@@ -98,7 +99,7 @@ class QuickSettingsPopup(
         thresholdLabel = null
         fontSizeReset = null
         thresholdReset = null
-        reportButton = null
+        lastPageButtons.clear()
     }
 
     fun updateAppearance() {
@@ -127,7 +128,7 @@ class QuickSettingsPopup(
         refreshFontSize()
     }
 
-    fun refreshReportAvailability() { reportButton?.isEnabled = hasLastPage() }
+    fun refreshLastPageAvailability() = lastPageButtons.forEach { it.isEnabled = hasLastPage() }
 
     fun updateThreshold(value: Float) {
         threshold = DetectionThresholdStore.snap(value)
@@ -198,11 +199,10 @@ class QuickSettingsPopup(
             })
         })
         addView(recallSwitch.createView())
-        addView(textButton("Report last page") { remove(); onReportRequested() }.apply {
+        addView(lastPageButton("Translate again", onTranslateAgainRequested).apply {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) }
-            dimmableButtons.add(this)
-            reportButton = this
         })
+        addView(lastPageButton("Report last page", onReportRequested))
         addView(row().apply {
             addView(textButton("Open Yomu") { remove(); onOpenAppRequested() }.apply {
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
@@ -215,7 +215,7 @@ class QuickSettingsPopup(
         })
         refreshThreshold()
         refreshFontSize()
-        refreshReportAvailability()
+        refreshLastPageAvailability()
     }
 
     private fun resetFontSize() {
@@ -260,6 +260,13 @@ class QuickSettingsPopup(
         layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         labels.add(this)
     }
+
+    /** A button that acts on the last page: it closes the popup first and is dimmed until a page exists. */
+    private fun lastPageButton(label: String, action: () -> Unit): Button =
+        textButton(label) { remove(); action() }.apply {
+            dimmableButtons.add(this)
+            lastPageButtons.add(this)
+        }
 
     private fun resetButton(onReset: () -> Unit): Button =
         textButton("Reset", onReset).apply { dimmableButtons.add(this) }
