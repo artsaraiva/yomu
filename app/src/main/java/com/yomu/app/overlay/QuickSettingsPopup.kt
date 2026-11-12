@@ -199,10 +199,13 @@ class QuickSettingsPopup(
             })
         })
         addView(recallSwitch.createView())
-        addView(lastPageButton("Translate again", onTranslateAgainRequested).apply {
-            (layoutParams as LinearLayout.LayoutParams).topMargin = dp(8)
-        })
-        addView(lastPageButton("Report last page", onReportRequested))
+        for ((label, action) in listOf("Translate again" to onTranslateAgainRequested, "Report last page" to onReportRequested)) {
+            addView(textButton(label) { remove(); action() }.apply {
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) }
+                dimmableButtons.add(this)
+                lastPageButtons.add(this)
+            })
+        }
         addView(row().apply {
             addView(textButton("Open Yomu") { remove(); onOpenAppRequested() }.apply {
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
@@ -260,14 +263,6 @@ class QuickSettingsPopup(
         layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         labels.add(this)
     }
-
-    /** A button that acts on the last page: it closes the popup first and is dimmed until a page exists. */
-    private fun lastPageButton(label: String, action: () -> Unit): Button =
-        textButton(label) { remove(); action() }.apply {
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-            dimmableButtons.add(this)
-            lastPageButtons.add(this)
-        }
 
     private fun resetButton(onReset: () -> Unit): Button =
         textButton("Reset", onReset).apply { dimmableButtons.add(this) }
