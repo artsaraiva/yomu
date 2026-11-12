@@ -255,9 +255,9 @@ internal fun bitmapPixelsToCHW(pixels: IntArray, width: Int, height: Int): Float
     return floatArray
 }
 
-/** The ogkalu RT-DETR's text classes by label id; class 0, `bubble`, frames a balloon rather than its text. */
-private val RT_DETR_TEXT_CLASSES = mapOf(1L to "text_bubble", 2L to "text_free")
 private const val RT_DETR_TEXT_FREE = 2L
+/** The ogkalu RT-DETR's text classes by label id; class 0, `bubble`, frames a balloon rather than its text. */
+private val RT_DETR_TEXT_CLASSES = mapOf(1L to "text_bubble", RT_DETR_TEXT_FREE to "text_free")
 // Below this, `text_free` boxes sound effects and the viewing app's own toolbar labels (#437).
 private const val RT_DETR_TEXT_FREE_FLOOR = 0.5f
 
