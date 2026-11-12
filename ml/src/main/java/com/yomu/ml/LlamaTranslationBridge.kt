@@ -5,6 +5,7 @@ import com.yomu.core.ERROR_ENGLISH_ONLY
 import com.yomu.core.ERROR_MODEL_MISSING
 import com.yomu.core.ModelProfile
 import com.yomu.core.PageTranslation
+import com.yomu.core.SpokenLanguage
 import com.yomu.core.TargetLanguage
 import com.yomu.core.TranslatablePage
 import com.yomu.core.TranslationOutcome
@@ -66,11 +67,11 @@ class LlamaTranslationBridge(
         /**
          * Longest line the batch grammar will let the model write, a backstop for a line that loops.
          * 160 is ~2x the longest human reference line on the fixture pages. A knob co-owned with the
-         * sampler (ADR-0013), not a pinned constant.
+         * sampler (ADR-0013), not a pinned constant. A page with a longer source line (a visual novel's
+         * paragraph) gets twice that line instead, since a reply can't be shorter than its source and
+         * a fixed 160 cuts the translation off mid-sentence.
          */
         private const val MAX_LINE_CHARS = 160
-
-        private val ID_KEYED_LINE = "^\\s*\\[(\\d+)]\\s*(.*)$".toRegex()
 
         private const val TIMEOUT_MS = 15_000
         private const val BATCH_TIMEOUT_MS = 120_000
@@ -139,9 +140,10 @@ class LlamaTranslationBridge(
         val bubbles = page.panels.flatten()
         val generated = bubbles.map { bubble ->
             val prompt = when (profile.promptMode) {
-                TranslationPromptMode.MODEL_CARD -> modelCardPrompt(bubble.sourceText)
-                TranslationPromptMode.TRANSLATION_ONLY -> translationOnlyPrompt(bubble.sourceText, page.targetLanguage)
+                TranslationPromptMode.MODEL_CARD -> modelCardPrompt(bubble.sourceText, page.spoken)
+                TranslationPromptMode.TRANSLATION_ONLY -> translationOnlyPrompt(bubble.sourceText, page)
                 TranslationPromptMode.HY_MT2 -> hyMt2Prompt(bubble.sourceText, page.targetLanguage)
+                TranslationPromptMode.TRANSLATEGEMMA -> translateGemmaPrompt(bubble.sourceText, page)
             }
             val output = generate(prompt, profile.generation.maxTokens, TIMEOUT_MS)
             if (output.outcome == TranslationOutcome.SUCCESS) onBubble(bubble.bubbleId, output.text)
@@ -184,7 +186,7 @@ class LlamaTranslationBridge(
             if (id in pageIds && byId.putIfAbsent(id, text) == null) onBubble(id, text)
         }
         val output = generate(
-            buildBatchPrompt(page),
+            page.batchPrompt(),
             MAX_BATCH_OUTPUT,
             BATCH_TIMEOUT_MS,
             buildBatchGrammar(page),
@@ -212,12 +214,15 @@ class LlamaTranslationBridge(
         )
     }
 
-    /** CAT-Translate's model-card prompt, byte-identical and English only. */
-    private fun modelCardPrompt(target: String): String =
-        "Translate the following Japanese text into English.\n\n$target"
+    /** CAT-Translate's model-card prompt, byte-identical and English only; an unnamed source drops "Japanese". */
+    private fun modelCardPrompt(target: String, source: SpokenLanguage?): String =
+        "Translate the following ${source.promptPrefix()}text into English.\n\n$target"
 
-    private fun translationOnlyPrompt(target: String, language: TargetLanguage): String = buildString {
-        appendLine("Translate the target Japanese manga text into natural ${language.promptName}. Return only the translation.")
+    private fun translationOnlyPrompt(target: String, page: TranslatablePage): String = buildString {
+        appendLine(
+            "Translate the target ${page.spoken.promptPrefix()}manga text into natural ${page.targetLanguage.promptName}. " +
+                "Return only the translation."
+        )
         appendLine("No introductions, explanations, labels, or added quotes. Preserve meaning and tone.")
         appendLine("Target text (translate this only):")
         append(target)
@@ -228,15 +233,23 @@ class LlamaTranslationBridge(
         "Translate the following text into ${language.promptName}. Note that you should only output the " +
             "translated result without any additional explanation:\n\n$target"
 
-    private fun buildBatchPrompt(page: TranslatablePage): String = buildString {
-        appendLine(
-            "Translate each Japanese line to ${page.targetLanguage.promptName}. Keep the [id] tag before each line. " +
-                "Panels are separated by ---."
-        )
-        page.panels.forEachIndexed { index, panel ->
-            if (index > 0) appendLine("---")
-            panel.forEach { bubble -> appendLine("[${bubble.bubbleId}] ${bubble.sourceText}") }
-        }
+    /**
+     * The instruction TranslateGemma's own template renders from a structured turn, with its language
+     * names: it calls pt-BR "Portuguese". A script family has no language code, so that prompt names
+     * only the target, as [translationOnlyPrompt] does.
+     */
+    private fun translateGemmaPrompt(target: String, page: TranslatablePage): String {
+        val language = page.targetLanguage
+        val to = if (language == TargetLanguage.BRAZILIAN_PORTUGUESE) "Portuguese" else language.promptName
+        val from = page.spoken?.promptName
+        val role = if (from == null) "translator into $to (${language.code})"
+        else "$from (${page.spoken?.code}) to $to (${language.code}) translator"
+        val original = if (from == null) "original" else "original $from"
+        val following = if (from == null) "following" else "following $from"
+        return "You are a professional $role. Your goal is to accurately convey the meaning and nuances of the " +
+            "$original text while adhering to $to grammar, vocabulary, and cultural sensitivities.\n" +
+            "Produce only the $to translation, without any additional explanations or commentary. " +
+            "Please translate the $following text into $to:\n\n\n${target.trim()}"
     }
 
     /**
@@ -254,13 +267,8 @@ class LlamaTranslationBridge(
     private fun buildBatchGrammar(page: TranslatablePage): String {
         val root = page.panels.flatten().joinToString(" ") { "\"[${it.bubbleId}] \" line \"\\n\"" } + "?"
         val excluded = if (profile.generation.lineExcludesIdBracket) "\\r\\n\\[" else "\\r\\n"
-        return "root ::= $root\nline ::= [^$excluded]{1,$MAX_LINE_CHARS}\n"
-    }
-
-    private fun parseIdKeyedLine(line: String): Pair<Int, String>? {
-        val match = ID_KEYED_LINE.matchEntire(line) ?: return null
-        val id = match.groupValues[1].toIntOrNull() ?: return null
-        return id to match.groupValues[2].trim()
+        val longestSource = page.panels.flatten().maxOfOrNull { it.sourceText.length } ?: 0
+        return "root ::= $root\nline ::= [^$excluded]{1,${maxOf(MAX_LINE_CHARS, 2 * longestSource)}}\n"
     }
 
     /**

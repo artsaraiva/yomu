@@ -7,13 +7,16 @@ sealed class TranslationStatus {
     data class Error(val reason: String) : TranslationStatus()
 }
 
-enum class TranslationPromptMode { MODEL_CARD, TRANSLATION_ONLY, HY_MT2 }
+enum class TranslationPromptMode { MODEL_CARD, TRANSLATION_ONLY, HY_MT2, TRANSLATEGEMMA }
 
 data class TranslatableBubble(val bubbleId: Int, val sourceText: String)
 
 data class TranslatablePage(
     val panels: List<List<TranslatableBubble>>,
-    val targetLanguage: TargetLanguage = TargetLanguage.ENGLISH
+    val targetLanguage: TargetLanguage = TargetLanguage.ENGLISH,
+    val sourceLanguage: SourceLanguage = SourceLanguage.JAPANESE,
+    /** The source the prompt names; null (Auto) names none. Defaults to the language its script alone fixes. */
+    val spoken: SpokenLanguage? = SpokenLanguage.ofScript(sourceLanguage)
 )
 
 /**

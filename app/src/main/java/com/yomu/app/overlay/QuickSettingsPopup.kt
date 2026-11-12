@@ -12,6 +12,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.TextView
+import com.yomu.app.R
 import com.yomu.app.detection.DetectionThresholdStore
 import com.yomu.app.ui.theme.paperBackground
 import com.yomu.app.ui.theme.paperColors
@@ -141,7 +142,7 @@ class QuickSettingsPopup(
         setPadding(dp(16), dp(16), dp(16), dp(16))
         addView(row().apply {
             addView(TextView(context).apply {
-                text = "Quick settings"
+                text = context.getString(R.string.overlay_quick_settings)
                 textSize = 20f
                 setTypeface(typeface, android.graphics.Typeface.BOLD)
                 gravity = Gravity.CENTER_VERTICAL
@@ -149,18 +150,18 @@ class QuickSettingsPopup(
                 labels.add(this)
             })
             addView(textButton("✕") { remove() }.apply {
-                contentDescription = "Close quick settings"
+                contentDescription = context.getString(R.string.overlay_quick_settings_close)
                 labels.add(this)
             })
         })
         addView(mutedLabel(modelName()))
         addView(languageSwitch.createView())
-        addView(labelRow(sectionLabel("Font size"), resetButton { resetFontSize() }.also { fontSizeReset = it }))
+        addView(labelRow(sectionLabel(context.getString(R.string.overlay_font_size)), resetButton { resetFontSize() }.also { fontSizeReset = it }))
         addView(SeekBar(context).apply {
             max = 100
             progress = fontSizeProgress(fontSizeScale)
             minimumHeight = dp(48)
-            contentDescription = "Translation font size"
+            contentDescription = context.getString(R.string.overlay_font_size_description)
             fontSizeSeekBar = this
             seekBars.add(this)
             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
@@ -183,7 +184,7 @@ class QuickSettingsPopup(
             max = DetectionThresholdStore.STEPS
             progress = DetectionThresholdStore.stepOf(threshold)
             minimumHeight = dp(48)
-            contentDescription = "Bubble threshold"
+            contentDescription = context.getString(R.string.overlay_threshold_description)
             thresholdSeekBar = this
             seekBars.add(this)
             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
@@ -199,19 +200,23 @@ class QuickSettingsPopup(
             })
         })
         addView(recallSwitch.createView())
-        for ((label, action) in listOf("Translate again" to onTranslateAgainRequested, "Report last page" to onReportRequested)) {
-            addView(textButton(label) { remove(); action() }.apply {
+        val lastPageActions = listOf(
+            R.string.overlay_translate_again to onTranslateAgainRequested,
+            R.string.overlay_report_last_page to onReportRequested,
+        )
+        for ((label, action) in lastPageActions) {
+            addView(textButton(context.getString(label)) { remove(); action() }.apply {
                 layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) }
                 dimmableButtons.add(this)
                 lastPageButtons.add(this)
             })
         }
         addView(row().apply {
-            addView(textButton("Open Yomu") { remove(); onOpenAppRequested() }.apply {
+            addView(textButton(context.getString(R.string.overlay_open_yomu)) { remove(); onOpenAppRequested() }.apply {
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
                 labels.add(this)
             })
-            addView(textButton("Stop service", onStopRequested).apply {
+            addView(textButton(context.getString(R.string.overlay_stop_service), onStopRequested).apply {
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
                 accentLabels.add(this)
             })
@@ -245,7 +250,7 @@ class QuickSettingsPopup(
         thresholdReset?.isEnabled = threshold != DetectionThresholdStore.DEFAULT
     }
 
-    private fun thresholdText(): String = "Bubble threshold · %.2f".format(threshold)
+    private fun thresholdText(): String = context.getString(R.string.overlay_threshold, threshold)
 
     private fun fontSizeProgress(scale: Float): Int = ((scale - 0.5f) / 1.5f * 100).toInt()
 
@@ -265,7 +270,7 @@ class QuickSettingsPopup(
     }
 
     private fun resetButton(onReset: () -> Unit): Button =
-        textButton("Reset", onReset).apply { dimmableButtons.add(this) }
+        textButton(context.getString(R.string.overlay_reset), onReset).apply { dimmableButtons.add(this) }
 
     private fun mutedLabel(text: String): TextView = TextView(context).apply {
         this.text = text

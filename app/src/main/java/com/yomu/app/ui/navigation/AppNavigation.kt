@@ -1,5 +1,6 @@
 package com.yomu.app.ui.navigation
 
+import androidx.annotation.StringRes
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -15,7 +16,9 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.yomu.app.R
 import com.yomu.app.ui.theme.rememberReduceMotion
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -24,8 +27,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.yomu.app.ui.theme.ChromeContent
-import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.yomu.app.ui.home.HomeViewModel
@@ -34,6 +37,7 @@ import com.yomu.app.ui.theme.PaperLoading
 import com.yomu.app.ui.home.HomeScreen
 import androidx.navigation.compose.navigation
 import com.yomu.app.ui.settings.AppearanceSettings
+import com.yomu.app.ui.settings.ProvidersSettings
 import com.yomu.app.ui.settings.PerformanceSettings
 import com.yomu.app.ui.settings.PipelineSettings
 import com.yomu.app.ui.settings.SettingsScreen
@@ -47,9 +51,9 @@ import com.yomu.core.TargetLanguage
 
 private const val SETTINGS_ROOT = "settings/root"
 
-sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
-    data object Home : Screen("home", "Home", Icons.Default.Home)
-    data object Settings : Screen("settings", "Settings", Icons.Default.Settings)
+sealed class Screen(val route: String, @StringRes val title: Int, val icon: ImageVector) {
+    data object Home : Screen("home", R.string.nav_home, Icons.Default.Home)
+    data object Settings : Screen("settings", R.string.nav_settings, Icons.Default.Settings)
 }
 
 val bottomNavItems = listOf(Screen.Home, Screen.Settings)
@@ -80,7 +84,7 @@ fun AppNavigation(
     }
     if (state.modelsLoading || state.setupVisible) {
         ChromeContent(Modifier.safeDrawingPadding()) {
-            if (state.modelsLoading) PaperLoading("Getting Yomu ready…")
+            if (state.modelsLoading) PaperLoading(stringResource(R.string.nav_getting_ready))
             else SetupScreen(state, viewModel)
         }
         return
@@ -100,7 +104,7 @@ fun AppNavigation(
                     bottomNavItems.forEach { screen ->
                         NavigationBarItem(
                             icon = { Icon(screen.icon, contentDescription = null) },
-                            label = { Text(screen.title, style = MaterialTheme.typography.labelMedium) },
+                            label = { Text(stringResource(screen.title), style = MaterialTheme.typography.labelMedium) },
                             selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
                             colors = NavigationBarItemDefaults.colors(
                                 selectedIconColor = scheme.onPrimary,
@@ -148,12 +152,16 @@ fun AppNavigation(
                             val settings: SettingsViewModel = hiltViewModel(parent)
                             val onBack: () -> Unit = { navController.popBackStack() }
                             when (section) {
-                                SettingsSection.Translation -> TranslationSettings(settings, onBack)
+                                SettingsSection.Translation -> TranslationSettings(
+                                    settings, onBack,
+                                    onOpenProviders = { navController.navigate(SettingsSection.Providers.route) { launchSingleTop = true } }
+                                )
                                 SettingsSection.NameGlossary -> NameGlossarySettings(hiltViewModel(), onBack)
                                 SettingsSection.Pipeline -> PipelineSettings(settings, onBack)
                                 SettingsSection.Typesetting -> TypesettingSettings(settings, onBack)
                                 SettingsSection.Performance -> PerformanceSettings(settings, onBack)
-                                SettingsSection.Appearance -> AppearanceSettings(settings, onBack)
+                                SettingsSection.Appearance -> AppearanceSettings(settings, hiltViewModel(), onBack)
+                                SettingsSection.Providers -> ProvidersSettings(settings, onBack)
                             }
                         }
                     }

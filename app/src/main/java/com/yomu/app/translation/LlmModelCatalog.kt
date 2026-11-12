@@ -1,6 +1,8 @@
 package com.yomu.app.translation
 
 import android.content.SharedPreferences
+import androidx.annotation.StringRes
+import com.yomu.app.R
 import com.yomu.core.Constants
 import com.yomu.core.GenerationParams
 import com.yomu.core.ModelProfile
@@ -36,8 +38,9 @@ data class LlmModelOption(
     val licence: String,
     /**
      * The language label (#336): true only when the model card or the maker's own documentation names
-     * every target language Yomu offers (English, Portuguese, Spanish, French, German). A count alone
-     * ("201 languages", "35+ languages") names none of them, so its entry is English only. Checked 2026-10-20.
+     * every target language Yomu offers (English, Portuguese, Spanish, French, German, Russian). A count
+     * alone ("201 languages", "35+ languages") names none of them, so its entry is English only. Checked
+     * 2026-10-20. Gemma 4 is the one exception, made on readers' results rather than a document (see its entry).
      */
     val multilingual: Boolean,
     /** Per-model (#84): a model that can emit one id-keyed reply for the whole page carries true and
@@ -78,7 +81,11 @@ data class LlmModelOption(
 }
 
 /** The speed label a deliverable shows in the picker (ADR-0017). */
-enum class DeliverableSpeed(val label: String) { FAST("Fast"), MEDIUM("Medium"), SLOW("Slow") }
+enum class DeliverableSpeed(@StringRes val labelRes: Int) {
+    FAST(R.string.settings_speed_fast),
+    MEDIUM(R.string.settings_speed_medium),
+    SLOW(R.string.settings_speed_slow)
+}
 
 /** The RAM a translation model must fit inside on this device: [percent] of [totalMemBytes], at [contextTokens]. */
 data class FitBudget(val totalMemBytes: Long, val percent: Int, val contextTokens: Int)
@@ -110,6 +117,7 @@ object LlmModelCatalog {
         ggufFileName = Constants.QWEN25_15B_MODEL,
         sizeBytes = Constants.QWEN25_15B_SIZE,
         licence = "Apache-2.0",
+        // The card's language list names all six target languages.
         multilingual = true,
         idKeyedBatch = true,
         promptMode = TranslationPromptMode.TRANSLATION_ONLY,
@@ -153,7 +161,8 @@ object LlmModelCatalog {
      * The curated selectable shortlist. Every entry is redistributable and hosted.
      *
      * Gemma 4 is Apache-2.0 and ungated, so it needs none of that and is curated like any other
-     * entry. What follows is about Gemma 2/3 and TranslateGemma, which stay out:
+     * entry. TranslateGemma 4B is curated too, from an ungated re-host under the Gemma Terms, whose
+     * redistribution conditions it carries in its credit. What follows is about Gemma 2/3, which stay out:
      *
      * Gemma / TranslateGemma were the intended gated-download members, but there is no usable
      * licence-clean gated GGUF for them: the official gated repo ships only a 10.5 GB f32 file, and
@@ -196,7 +205,7 @@ object LlmModelCatalog {
             sizeBytes = Constants.QWEN35_08B_SIZE,
             licence = "Apache-2.0",
             // Every Qwen3.5 card gives only "201 languages"; the family's launch post
-            // (qwen.ai/blog?id=qwen3.5, "Multilingual Support") names all five.
+            // (qwen.ai/blog?id=qwen3.5, "Multilingual Support") names all six.
             multilingual = true,
             idKeyedBatch = true,
             promptMode = TranslationPromptMode.TRANSLATION_ONLY,
@@ -260,7 +269,7 @@ object LlmModelCatalog {
             sizeBytes = Constants.QWEN3_4B_2507_SIZE,
             licence = "Apache-2.0",
             // The card names no languages; the Qwen3 technical report (arXiv 2505.09388, §A.1.2 and
-            // its per-language tables) names all five, with Qwen3-4B rows.
+            // its per-language tables) names all six, with Qwen3-4B rows.
             multilingual = true,
             idKeyedBatch = true,
             promptMode = TranslationPromptMode.TRANSLATION_ONLY,
@@ -280,6 +289,8 @@ object LlmModelCatalog {
             ggufFileName = Constants.MINISTRAL3_3B_MODEL,
             sizeBytes = Constants.MINISTRAL3_3B_SIZE,
             licence = "Apache-2.0",
+            // The card names five of the six; Mistral's own language list
+            // (docs.mistral.ai/resources/languages) adds Russian for its language models.
             multilingual = true,
             idKeyedBatch = true,
             promptMode = TranslationPromptMode.TRANSLATION_ONLY,
@@ -314,7 +325,10 @@ object LlmModelCatalog {
             ggufFileName = Constants.GEMMA4_E2B_MODEL,
             sizeBytes = Constants.GEMMA4_E2B_SIZE,
             licence = "Apache-2.0",
-            multilingual = false,
+            // The exception to the #336 rule: Google gives only a count ("35+ languages out of the box,
+            // 140+ pre-trained", no list, checked 2026-10-25), but readers find its Russian and the
+            // other targets good, so it is labelled Multilingual on results, not on a document.
+            multilingual = true,
             idKeyedBatch = true,
             promptMode = TranslationPromptMode.TRANSLATION_ONLY,
             // KV sharing: only the first 35 − 20 = 15 layers own a KV cache, and of those 12 slide
@@ -330,7 +344,7 @@ object LlmModelCatalog {
             ggufFileName = Constants.GEMMA4_E4B_MODEL,
             sizeBytes = Constants.GEMMA4_E4B_SIZE,
             licence = "Apache-2.0",
-            multilingual = false,
+            multilingual = true,
             idKeyedBatch = true,
             promptMode = TranslationPromptMode.TRANSLATION_ONLY,
             // 42 layers, 18 KV-shared, so 24 own a cache: 20 sliding (2 KV heads × 256) + 4 global (× 512).
@@ -362,6 +376,29 @@ object LlmModelCatalog {
             // both say top_p 0.8; the card wins, because the card is also where the prompt comes from.
             generationDefaults = GenerationParams(temperature = 0.7f, topK = 20, topP = 0.6f, penaltyRepeat = 1.05f),
             experimental = true
+        ),
+        // Google's translation-specialised Gemma 3 4B, as mradermacher's Q4_K_M: Google publishes no
+        // GGUF. Per-line like Hy-MT2: it is trained on one text per turn and its card gives a 2K input
+        // context. The Gemma Terms allow redistribution with conditions (§3.1); the notice they ask
+        // for is the credit. Its template names all six targets among its 55 languages.
+        LlmModelOption(
+            id = Constants.TRANSLATEGEMMA_4B_MODEL_ID,
+            displayName = "TranslateGemma 4B",
+            ggufFileName = Constants.TRANSLATEGEMMA_4B_MODEL,
+            sizeBytes = Constants.TRANSLATEGEMMA_4B_SIZE,
+            licence = "Gemma Terms of Use",
+            multilingual = true,
+            idKeyedBatch = false,
+            promptMode = TranslationPromptMode.TRANSLATEGEMMA,
+            // 34 layers, 4 KV heads, head dim 256 (GGUF header); swa_full keeps every layer's cache.
+            kvCacheBytesPerToken = 34L * 2 * 4 * 256 * 2,
+            // The GGUF header's top-k and top-p, from Google's generation_config; it gives no
+            // temperature, so the shipped floor's stays.
+            generationDefaults = GenerationParams(topK = 64, topP = 0.95f),
+            experimental = true,
+            credit = "Gemma is provided under and subject to the Gemma Terms of Use found at ai.google.dev/gemma/terms",
+            // ADR-0009 measured ~52 s a page; its size alone would read as Medium.
+            speed = DeliverableSpeed.SLOW
         ),
         ternaryBonsai(Constants.TERNARY_BONSAI_4B_MODEL_ID, "Ternary-Bonsai 4B", Constants.TERNARY_BONSAI_4B_MODEL, Constants.TERNARY_BONSAI_4B_SIZE),
         ternaryBonsai(Constants.TERNARY_BONSAI_8B_MODEL_ID, "Ternary-Bonsai 8B", Constants.TERNARY_BONSAI_8B_MODEL, Constants.TERNARY_BONSAI_8B_SIZE)

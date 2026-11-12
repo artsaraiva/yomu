@@ -18,14 +18,16 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalAccessibilityManager
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.yomu.app.R
 import kotlinx.coroutines.delay
 
 @Composable
-fun PaperLoading(message: String = "Loading…") {
+fun PaperLoading(message: String = stringResource(R.string.paper_loading)) {
     val colors = LocalYomuColors.current
     val shimmer = remember { Animatable(0f) }
     val reduceMotion = rememberReduceMotion()
@@ -55,21 +57,20 @@ fun PaperError(message: String, onRetry: () -> Unit) {
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Icon(Icons.Default.Warning, contentDescription = "Error", tint = MaterialTheme.colorScheme.error)
+                Icon(Icons.Default.Warning, contentDescription = stringResource(R.string.paper_error), tint = MaterialTheme.colorScheme.error)
                 Text(message, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
             }
-            PaperButton("Try again", onRetry)
+            PaperButton(stringResource(R.string.paper_try_again), onRetry)
         }
     }
 }
 
 @Composable
-fun PaperEmpty(message: String, action: String, onAction: () -> Unit) {
+fun PaperEmpty(message: String) {
     PaperSurface(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Icon(Icons.Default.DateRange, contentDescription = null)
             Text(message, style = MaterialTheme.typography.bodyMedium)
-            PaperButton(action, onAction)
         }
     }
 }
@@ -87,7 +88,7 @@ fun PaperSuccess(message: String, onDismiss: () -> Unit) {
             Modifier.padding(16.dp).semantics { liveRegion = LiveRegionMode.Polite },
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Icon(Icons.Default.Check, contentDescription = "Success", tint = MaterialTheme.colorScheme.primary)
+            Icon(Icons.Default.Check, contentDescription = stringResource(R.string.paper_success), tint = MaterialTheme.colorScheme.primary)
             Text(message, style = MaterialTheme.typography.bodyMedium)
         }
     }

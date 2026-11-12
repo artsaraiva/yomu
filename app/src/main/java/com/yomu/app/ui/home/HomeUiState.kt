@@ -1,18 +1,26 @@
 package com.yomu.app.ui.home
 
+import com.yomu.app.R
 import com.yomu.app.db.entities.ModelEntity
 import com.yomu.app.db.entities.ModelType
 import com.yomu.app.db.entities.TranslationEntity
 import com.yomu.app.service.LanguageSwitch
 import com.yomu.app.service.ModelSlotSelection
 import com.yomu.app.service.SlotDeliverable
+import com.yomu.app.service.TriggerMode
+import com.yomu.app.service.TriggerModeStore
 import com.yomu.app.translation.FitBudget
 import com.yomu.app.translation.LlmModelCatalog
+import com.yomu.app.ui.UiText
+import com.yomu.app.ui.labelRes
 import com.yomu.core.RuntimeLimits
+import com.yomu.core.SpokenLanguage
 import com.yomu.core.TargetLanguage
 
 data class HomeUiState(
     val isServiceRunning: Boolean = false,
+    /** Where reading starts a translation, for the hint under the reading control. */
+    val triggerMode: TriggerMode = TriggerModeStore.DEFAULT,
     val readiness: Readiness = Readiness.NeedsBoth,
     val models: List<ModelEntity> = emptyList(),
     val modelsLoading: Boolean = true,
@@ -20,16 +28,23 @@ data class HomeUiState(
     val setupVisible: Boolean = false,
     val setupStarted: Boolean = false,
     val setupDownloadsReady: Boolean = false,
-    val downloading: String? = null,
+    val downloading: UiText? = null,
     val downloadProgress: Int = 0,
     val setupError: Boolean = false,
     /** Name of the chosen model setup refused to download because it is outside the fit budget, or null. */
     val setupBlockedBy: String? = null,
     val deliverables: Map<ModelType, List<SlotDeliverable>> = emptyMap(),
     val chosenIds: Map<ModelType, String> = emptyMap(),
-    val translationSelectedId: String? = null,
-    val translationPendingId: String? = null,
+    /** The model in use per slot, and the one waiting for its download to take over. */
+    val selectedIds: Map<ModelType, String> = emptyMap(),
+    val pendingIds: Map<ModelType, String> = emptyMap(),
     val targetLanguage: TargetLanguage = TargetLanguage.ENGLISH,
+    /** Whether pages are translated by the network model, which writes every target language and has its own name. */
+    val networkModel: String? = null,
+    /** Whether translated pages are kept in Recent; the empty list says so when they are not. */
+    val saveHistory: Boolean = true,
+    /** The source language the reader named (#444); null is Auto. */
+    val spoken: SpokenLanguage? = null,
     /** The model switch a language choice is waiting on the reader to accept or decline (#338), or null. */
     val languageOffer: LanguageSwitch.Offer? = null,
     val setupDownloadBytes: Long = 0L,
@@ -42,7 +57,7 @@ data class HomeUiState(
     val historyError: Boolean = false,
     val clearError: Boolean = false,
     val serviceError: Boolean = false,
-    val confirmation: String? = null
+    val confirmation: UiText? = null
 ) {
     val readingStatus: ReadingStatus
         get() = resolveReadingStatus(readiness == Readiness.Ready && setupComplete, isServiceRunning)
@@ -52,16 +67,26 @@ data class HomeUiState(
     fun needsSlowWarning(deliverable: SlotDeliverable): Boolean =
         ModelSlotSelection.needsSlowWarning(deliverable, fitBudget)
 
-    fun languageBlock(deliverable: SlotDeliverable): String? = ModelSlotSelection.languageBlock(deliverable, targetLanguage)
+    fun languageBlock(deliverable: SlotDeliverable): UiText? = ModelSlotSelection.languageBlock(deliverable, targetLanguage)
 
-    fun languageUnavailable(language: TargetLanguage): String? =
-        ModelSlotSelection.languageUnavailable(language, deliverables[ModelType.LLM].orEmpty(), ::fits)
+    /** "Auto → Russian": the language pages are written in, as far as the reader said, and the one they are translated into. */
+    fun languagesSummary(): UiText =
+        UiText(R.string.home_selection_languages, UiText(spoken?.labelRes() ?: R.string.language_auto), UiText(targetLanguage.labelRes()))
 
-    fun languageChipLabel(): String = "Japanese → ${targetLanguage.promptName}"
+    /** Which engine translates and with which model: the network model by its name, or the on-device one. */
+    fun engineSummary(): UiText = networkModel?.let { UiText(R.string.home_selection_network, it) }
+        ?: UiText(R.string.home_selection_device, modelName(ModelType.LLM))
 
-    fun translationChipLabel(): String {
-        val options = deliverables[ModelType.LLM].orEmpty()
-        val selected = options.firstOrNull { it.id == translationSelectedId }?.name ?: "No model selected"
-        return options.firstOrNull { it.id == translationPendingId }?.let { "$selected · ${it.name} when downloaded" } ?: selected
+    fun detectorSummary(): UiText = UiText(R.string.home_selection_detector, modelName(ModelType.DETECTION))
+
+    fun ocrSummary(): UiText = UiText(R.string.home_selection_ocr, modelName(ModelType.OCR))
+
+    /** The slot's model in use, with the one that takes over when its download finishes. */
+    private fun modelName(type: ModelType): UiText {
+        val options = deliverables[type].orEmpty()
+        val selected = options.firstOrNull { it.id == selectedIds[type] }?.name
+            ?.let { UiText(R.string.home_verbatim, it) } ?: UiText(R.string.home_chip_no_model)
+        return options.firstOrNull { it.id == pendingIds[type] }
+            ?.let { UiText(R.string.home_chip_pending, selected, it.name) } ?: selected
     }
 }

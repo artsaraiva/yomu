@@ -3,6 +3,8 @@ package com.yomu.app.service
 import com.yomu.app.db.entities.ModelType
 import com.yomu.app.translation.MapSharedPreferences
 import com.yomu.core.Constants
+import com.yomu.core.SourceLanguage
+import com.yomu.core.SpokenLanguage
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -15,7 +17,7 @@ class ReadingModelSelectionTest {
 
     @Test
     fun `an unset slot falls back to its curated default`() {
-        assertEquals(Constants.BUBBLE_DETECTION_MODEL_ID, selection.selected(ModelType.DETECTION).id)
+        assertEquals(Constants.COMIC_TEXT_DETECTOR_MODEL_ID, selection.selected(ModelType.DETECTION).id)
         assertEquals(Constants.MANGA_OCR_MODEL_ID, selection.selected(ModelType.OCR).id)
     }
 
@@ -47,7 +49,7 @@ class ReadingModelSelectionTest {
         prefs.values[Constants.PREF_DETECTION_MODEL] = "retired-model"
         prefs.values[Constants.PREF_OCR_MODEL] = Constants.BUBBLE_DETECTION_MODEL_ID
 
-        assertEquals(Constants.BUBBLE_DETECTION_MODEL_ID, selection.selected(ModelType.DETECTION).id)
+        assertEquals(Constants.COMIC_TEXT_DETECTOR_MODEL_ID, selection.selected(ModelType.DETECTION).id)
         assertEquals(Constants.MANGA_OCR_MODEL_ID, selection.selected(ModelType.OCR).id)
     }
 
@@ -55,6 +57,55 @@ class ReadingModelSelectionTest {
     fun `a wrongly typed stored id falls back to the slot default`() {
         prefs.values[Constants.PREF_DETECTION_MODEL] = 42
 
-        assertEquals(Constants.BUBBLE_DETECTION_MODEL_ID, selection.selected(ModelType.DETECTION).id)
+        assertEquals(Constants.COMIC_TEXT_DETECTOR_MODEL_ID, selection.selected(ModelType.DETECTION).id)
+    }
+
+    @Test
+    fun `the selected OCR model fixes the language a page is read in`() {
+        assertEquals(SourceLanguage.JAPANESE, selection.source())
+
+        selection.select(ModelManager.REGISTRY.single { it.id == Constants.PPOCR_CYRILLIC_MODEL_ID })
+
+        assertEquals(SourceLanguage.CYRILLIC_SCRIPT, selection.source())
+    }
+
+    @Test
+    fun `every OCR model in the registry reads a known source`() {
+        val sources = ModelManager.REGISTRY.filter { it.type == ModelType.OCR }.map { ReadingModelSelection.sourceOf(it.id) }
+
+        assertEquals(SourceLanguage.entries.toSet(), sources.toSet())
+    }
+
+    @Test
+    fun `every script has the OCR model that reads it`() {
+        SourceLanguage.entries.forEach { assertEquals(it, ReadingModelSelection.sourceOf(ReadingModelSelection.ocrModelFor(it))) }
+    }
+
+    @Test
+    fun `each source language picks the OCR model that reads its script`() {
+        val expected = mapOf(
+            SpokenLanguage.JAPANESE to Constants.MANGA_OCR_MODEL_ID,
+            SpokenLanguage.CHINESE to Constants.PPOCR_CHINESE_MODEL_ID,
+            SpokenLanguage.KOREAN to Constants.PPOCR_KOREAN_MODEL_ID,
+            SpokenLanguage.ENGLISH to Constants.PPOCR_LATIN_MODEL_ID,
+            SpokenLanguage.SPANISH to Constants.PPOCR_LATIN_MODEL_ID,
+            SpokenLanguage.FRENCH to Constants.PPOCR_LATIN_MODEL_ID,
+            SpokenLanguage.GERMAN to Constants.PPOCR_LATIN_MODEL_ID,
+            SpokenLanguage.ITALIAN to Constants.PPOCR_LATIN_MODEL_ID,
+            SpokenLanguage.PORTUGUESE to Constants.PPOCR_LATIN_MODEL_ID,
+            SpokenLanguage.RUSSIAN to Constants.PPOCR_CYRILLIC_MODEL_ID,
+            SpokenLanguage.UKRAINIAN to Constants.PPOCR_CYRILLIC_MODEL_ID
+        )
+
+        assertEquals(SpokenLanguage.entries.toSet(), expected.keys)
+        expected.forEach { (language, id) -> assertEquals(language.name, id, ReadingModelSelection.ocrModelFor(language.script)) }
+    }
+
+    @Test
+    fun `a line reader downloads its dictionary with it`() {
+        val files = ModelManager.additionalFiles(Constants.PPOCR_LATIN_MODEL_ID)
+
+        assertEquals(listOf("ppocr_v5_latin_rec.yml"), files.map { it.fileName })
+        assertTrue(files.single().url.endsWith("/inference.yml"))
     }
 }

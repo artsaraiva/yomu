@@ -6,6 +6,8 @@ import android.view.WindowManager
 import android.widget.RadioButton
 import android.widget.Switch
 import android.widget.TextView
+import com.yomu.app.R
+import com.yomu.app.ui.UiText
 import com.yomu.core.TargetLanguage
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -27,7 +29,7 @@ class QuickSettingsPopupTest {
     private val windowManager = mock(WindowManager::class.java)
     private var releaseOutside: (() -> Unit)? = null
     private var unblocks = 0
-    private var unavailable: String? = null
+    private var unavailable: UiText? = null
     private val chosen = mutableListOf<TargetLanguage>()
     private val recallChanges = mutableListOf<Boolean>()
     private val recallSwitch = OverlayRecallSwitch(RuntimeEnvironment.getApplication()) { recallChanges += it }
@@ -39,6 +41,7 @@ class QuickSettingsPopupTest {
         modelName = { "Model" },
         languageSwitch = OverlayLanguageSwitch(
             RuntimeEnvironment.getApplication(),
+            sourceName = { "Auto" },
             targetLanguage = { TargetLanguage.ENGLISH },
             unavailable = { language -> unavailable.takeIf { language != TargetLanguage.ENGLISH } },
             onChosen = { chosen += it }
@@ -90,7 +93,7 @@ class QuickSettingsPopupTest {
         val languages = spanish.parent as View
         assertEquals(View.GONE, languages.visibility)
 
-        checkNotNull(content.withText("Japanese → English")).performClick()
+        checkNotNull(content.withText("Auto → English")).performClick()
         assertEquals(View.VISIBLE, languages.visibility)
         spanish.performClick()
 
@@ -99,10 +102,10 @@ class QuickSettingsPopupTest {
 
     @Test
     fun otherLanguagesAreDisabledWithTheReasonWhenNoMultilingualModelFits() {
-        unavailable = "No Multilingual model fits this device"
+        unavailable = UiText(R.string.service_no_model_selected)
         val content = shownContent()
 
-        assertFalse(checkNotNull(content.withText("French · No Multilingual model fits this device")).isEnabled)
+        assertFalse(checkNotNull(content.withText("French · No model selected")).isEnabled)
         assertTrue((checkNotNull(content.withText("English")) as RadioButton).isChecked)
     }
 

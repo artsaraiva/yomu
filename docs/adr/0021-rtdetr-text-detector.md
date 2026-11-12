@@ -1,5 +1,7 @@
 # Yomu detects text with the ogkalu RT-DETR v4-s
 
+> **Fork note.** This is upstream's ADR, renumbered because this fork already has [ADR-0020](0020-selectable-text-detector.md). Here the RT-DETR v4-s is the Experimental, selectable entry beside YOLO26n, which stays the default, so the replacement and the migration below are not applied. The `text_free` floor of 0.5 and the Latin-majority rule for Japanese reads are applied.
+
 **Status:** accepted, 2026-11-12. Decides [#442](https://github.com/artsaraiva/yomu/issues/442) on the evidence of spike [#437](https://github.com/artsaraiva/yomu/issues/437). Revises [ADR-0007](0007-bubble-text-detection-approach.md) under its own clause: "revisit only if a multi-class manga detector with published weights appears".
 
 The detection slot downloads `detector-v4-s_int8.onnx` from [`ogkalu/comic-text-and-bubble-detector`](https://huggingface.co/ogkalu/comic-text-and-bubble-detector/tree/16e8a622f91fabc6b5b65c96d32d1183f8843546) at revision `16e8a62` (11,120,765 bytes) in place of `Kiuyha/Manga-Bubble-YOLO` yolo26n. It is an int8 RT-DETR-v2 with a ResNet-50-vd backbone and three classes: `bubble` (the balloon), `text_bubble` (text inside a balloon) and `text_free` (text outside one).

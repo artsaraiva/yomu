@@ -61,11 +61,12 @@ class ModelManager @Inject constructor(
     companion object {
         /** Every model Yomu ships. [refreshModelList] upserts these rows; plain data so JVM tests can read it. */
         internal val REGISTRY = listOf(
+            // The default: RT-DETR-v2 trained on manga, webtoons and Western comics, so it also finds text in rectangular captions.
             ModelEntity(
-                id = Constants.BUBBLE_DETECTION_MODEL_ID,
-                name = "Bubble Detection (RT-DETR v4-s)",
+                id = Constants.COMIC_TEXT_DETECTOR_MODEL_ID,
+                name = "Comic Text Detector (RT-DETR v4-s)",
                 type = ModelType.DETECTION,
-                fileName = Constants.BUBBLE_DETECTION_MODEL,
+                fileName = Constants.COMIC_TEXT_DETECTOR_MODEL,
                 fileSize = 11_120_765L,
                 downloadUrl = "https://huggingface.co/ogkalu/comic-text-and-bubble-detector/resolve/16e8a622f91fabc6b5b65c96d32d1183f8843546/detector-v4-s_int8.onnx",
                 checksum = "5fe9e4f576e49d4e7e8b0e029d6d3cdc252abd4694113e1cae120e62c931ea79",
@@ -74,8 +75,20 @@ class ModelManager @Inject constructor(
                 isRequired = true
             ),
             ModelEntity(
+                id = Constants.BUBBLE_DETECTION_MODEL_ID,
+                name = "Bubble Detection (YOLO26 Nano Manga)",
+                type = ModelType.DETECTION,
+                fileName = Constants.BUBBLE_DETECTION_MODEL,
+                fileSize = 6_070_000L,
+                downloadUrl = "https://huggingface.co/Kiuyha/Manga-Bubble-YOLO/resolve/fb646500455e8a8a3a807fd27b855c8e4fc63766/onnx/yolo26n.onnx",
+                checksum = "b45c2e12cf0c3c1d2abfbbb9123c9f96f040f2ac36a0842382ecd9d859c851c7",
+                status = ModelStatus.AVAILABLE,
+                version = "1.0",
+                isRequired = false
+            ),
+            ModelEntity(
                 id = Constants.MANGA_OCR_MODEL_ID,
-                name = "MangaOCR (Encoder + Decoder)",
+                name = "MangaOCR Japanese (Encoder + Decoder)",
                 type = ModelType.OCR,
                 fileName = Constants.OCR_ENCODER_MODEL,
                 fileSize = 22_279_960L,
@@ -84,6 +97,55 @@ class ModelManager @Inject constructor(
                 status = ModelStatus.AVAILABLE,
                 version = "1.0",
                 isRequired = true
+            ),
+            // Official PaddlePaddle ONNX exports, Apache-2.0. Each recognizer's dictionary is in its inference.yml.
+            ModelEntity(
+                id = Constants.PPOCR_CHINESE_MODEL_ID,
+                name = "PP-OCRv5 Chinese and English",
+                type = ModelType.OCR,
+                fileName = Constants.PPOCR_CHINESE_MODEL,
+                fileSize = 16_534_782L,
+                downloadUrl = "https://huggingface.co/PaddlePaddle/PP-OCRv5_mobile_rec_onnx/resolve/ed152b8b495f84de93cda5709d768548a9127622/inference.onnx",
+                checksum = "da72dc72ca4dc220df0dfde68c1dedc31c58d3e76a25871122e5056227d50092",
+                status = ModelStatus.AVAILABLE,
+                version = "1.0",
+                isRequired = false
+            ),
+            ModelEntity(
+                id = Constants.PPOCR_KOREAN_MODEL_ID,
+                name = "PP-OCRv5 Korean",
+                type = ModelType.OCR,
+                fileName = Constants.PPOCR_KOREAN_MODEL,
+                fileSize = 13_418_787L,
+                downloadUrl = "https://huggingface.co/PaddlePaddle/korean_PP-OCRv5_mobile_rec_onnx/resolve/5c6f574b8e2230adf4287b33e736d71b9fabd28e/inference.onnx",
+                checksum = "92f0b7785e64fc9090106a241cf4c1eb97472824558272751b88a2a4476d3a08",
+                status = ModelStatus.AVAILABLE,
+                version = "1.0",
+                isRequired = false
+            ),
+            ModelEntity(
+                id = Constants.PPOCR_LATIN_MODEL_ID,
+                name = "PP-OCRv5 Latin script (English, Spanish, French, German…)",
+                type = ModelType.OCR,
+                fileName = Constants.PPOCR_LATIN_MODEL,
+                fileSize = 8_042_023L,
+                downloadUrl = "https://huggingface.co/PaddlePaddle/latin_PP-OCRv5_mobile_rec_onnx/resolve/89d3a50e2c27e2e7cceeab0e944c25c807d5db4f/inference.onnx",
+                checksum = "7888113072263cb471b93f66dd5e2ad70548dc526fa1ace760d0d973dd121498",
+                status = ModelStatus.AVAILABLE,
+                version = "1.0",
+                isRequired = false
+            ),
+            ModelEntity(
+                id = Constants.PPOCR_CYRILLIC_MODEL_ID,
+                name = "PP-OCRv5 Cyrillic (Russian, Ukrainian, Serbian…)",
+                type = ModelType.OCR,
+                fileName = Constants.PPOCR_CYRILLIC_MODEL,
+                fileSize = 8_048_799L,
+                downloadUrl = "https://huggingface.co/PaddlePaddle/cyrillic_PP-OCRv5_mobile_rec_onnx/resolve/2cef88145434beb8afa9dd82d77d799eb1ad7b29/inference.onnx",
+                checksum = "5371ee1ddaa7983cc62d0818d99e982b6804638c85e4f960d59a574094e172e5",
+                status = ModelStatus.AVAILABLE,
+                version = "1.0",
+                isRequired = false
             ),
             ModelEntity(
                 id = Constants.CAT_TRANSLATION_MODEL_ID,
@@ -244,6 +306,19 @@ class ModelManager @Inject constructor(
                 version = "1.0",
                 isRequired = false
             ),
+            // Google publishes no TranslateGemma GGUF; mradermacher's static quant of google/translategemma-4b-it.
+            ModelEntity(
+                id = Constants.TRANSLATEGEMMA_4B_MODEL_ID,
+                name = "TranslateGemma 4B (Q4_K_M)",
+                type = ModelType.LLM,
+                fileName = Constants.TRANSLATEGEMMA_4B_MODEL,
+                fileSize = Constants.TRANSLATEGEMMA_4B_SIZE,
+                downloadUrl = "https://huggingface.co/mradermacher/translategemma-4b-it-GGUF/resolve/d37868f759d2f817a43d28dd80cf9f982ffa62fd/translategemma-4b-it.Q4_K_M.gguf",
+                checksum = "81200d03e843d2ec1ece6eeafe7d13cb6e5211e1fcd336ade55790b683a08330",
+                status = ModelStatus.AVAILABLE,
+                version = "1.0",
+                isRequired = false
+            ),
             ModelEntity(
                 id = Constants.TERNARY_BONSAI_4B_MODEL_ID,
                 name = "Ternary-Bonsai 4B (Q2_0)",
@@ -334,14 +409,14 @@ class ModelManager @Inject constructor(
 
         /** The curated model each slot holds when nothing (or an unknown id) is selected. */
         val SLOT_DEFAULTS: Map<ModelType, String> = mapOf(
-            ModelType.DETECTION to Constants.BUBBLE_DETECTION_MODEL_ID,
+            ModelType.DETECTION to Constants.COMIC_TEXT_DETECTOR_MODEL_ID,
             ModelType.OCR to Constants.MANGA_OCR_MODEL_ID,
             ModelType.LLM to LlmModelCatalog.DEFAULT.id
         )
 
         /**
          * Extra files downloaded with a model, in the order its consumer reads them from
-         * [modelFiles]: MangaOCR's decoder, then its vocabulary.
+         * [modelFiles]: MangaOCR's decoder, then its vocabulary; a PP-OCR recognizer's inference.yml.
          */
         internal fun additionalFiles(modelId: String): List<AdditionalFile> = when (modelId) {
             Constants.MANGA_OCR_MODEL_ID -> listOf(
@@ -358,8 +433,41 @@ class ModelManager @Inject constructor(
                     size = 24_072L
                 )
             )
+            Constants.PPOCR_CHINESE_MODEL_ID -> ppOcrConfig(
+                Constants.PPOCR_CHINESE_MODEL,
+                "PP-OCRv5_mobile_rec_onnx/resolve/ed152b8b495f84de93cda5709d768548a9127622",
+                "5dfeb2777f6d0db8177d8128a8acfcf6e6276dc4ac73ea3bf0dc06d6a5e85d8e",
+                148_345L
+            )
+            Constants.PPOCR_KOREAN_MODEL_ID -> ppOcrConfig(
+                Constants.PPOCR_KOREAN_MODEL,
+                "korean_PP-OCRv5_mobile_rec_onnx/resolve/5c6f574b8e2230adf4287b33e736d71b9fabd28e",
+                "f757fa1c40e99edcf27e9cce879b93eb2a51fa46f5ef39095689b8c37dd75998",
+                96_039L
+            )
+            Constants.PPOCR_LATIN_MODEL_ID -> ppOcrConfig(
+                Constants.PPOCR_LATIN_MODEL,
+                "latin_PP-OCRv5_mobile_rec_onnx/resolve/89d3a50e2c27e2e7cceeab0e944c25c807d5db4f",
+                "0bbe984570f597af3638e50bdf2e8276f3ab26a61966096538b3b0d1849f5c84",
+                6_817L
+            )
+            Constants.PPOCR_CYRILLIC_MODEL_ID -> ppOcrConfig(
+                Constants.PPOCR_CYRILLIC_MODEL,
+                "cyrillic_PP-OCRv5_mobile_rec_onnx/resolve/2cef88145434beb8afa9dd82d77d799eb1ad7b29",
+                "5c76cc91fa98410178a09f498db10050d0ec1634a660053d3005ab7be581f501",
+                6_991L
+            )
             else -> emptyList()
         }
+
+        private fun ppOcrConfig(modelFile: String, revision: String, checksum: String, size: Long) = listOf(
+            AdditionalFile(
+                fileName = modelFile.removeSuffix(".onnx") + ".yml",
+                url = "https://huggingface.co/PaddlePaddle/$revision/inference.yml",
+                checksum = checksum,
+                size = size
+            )
+        )
     }
 
     suspend fun refreshModelList() = withContext(Dispatchers.IO) {
@@ -526,7 +634,7 @@ class ModelManager @Inject constructor(
             return@withContext false
         }
 
-        val body = response.body ?: return@withContext false
+        val body = response.body
 
         body.byteStream().use { input ->
             FileOutputStream(outputFile).use { output ->

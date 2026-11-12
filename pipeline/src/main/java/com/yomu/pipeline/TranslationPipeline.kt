@@ -4,15 +4,17 @@ import android.graphics.Bitmap
 import android.graphics.RectF
 import android.util.Log
 import com.yomu.core.GlossaryEntry
+import com.yomu.core.SourceLanguage
+import com.yomu.core.SpokenLanguage
 import com.yomu.core.TargetLanguage
 import com.yomu.pipeline.bubble.BubbleDetector
 import com.yomu.pipeline.bubble.bubbleRenderBoxes
 import com.yomu.pipeline.bubble.centeredOutside
 import com.yomu.pipeline.context.ContextAssembler
+import com.yomu.pipeline.ocr.LineOcrEngine
 import com.yomu.pipeline.ocr.OcrEngine
 import com.yomu.pipeline.ocr.OcrResult
 import com.yomu.pipeline.translation.TranslationEngine
-import com.yomu.pipeline.translation.readsAsJapanese
 import com.yomu.pipeline.typesetting.TypesetBubble
 import com.yomu.pipeline.typesetting.Typesetter
 import kotlin.coroutines.coroutineContext
@@ -23,21 +25,15 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
-data class ModelPaths(
-    val bubbleDetectionPath: String,
-    val ocrEncoderPath: String,
-    val ocrDecoderPath: String,
-    val ocrVocabPath: String
-)
-
 class TranslationPipeline(
     private val bubbleDetector: BubbleDetector,
     private val ocrEngine: OcrEngine,
     private val contextAssembler: ContextAssembler,
     private val translationEngine: TranslationEngine,
-    private val typesetter: Typesetter
+    private val typesetter: Typesetter,
+    /** Reads every source but Japanese; without it only Japanese pages can be read. */
+    private val lineOcrEngine: LineOcrEngine? = null
 ) {
-
     companion object {
         private const val TAG = "TranslationPipeline"
     }
@@ -65,21 +61,21 @@ class TranslationPipeline(
     @Volatile var confidenceThreshold: Float = BubbleDetector.DEFAULT_CONFIDENCE_THRESHOLD
 
     /** Capture-to-typeset time of the most recent finished page, for the in-app resource readout (#422); null before any. */
-    @Volatile
-    var lastPageTotalMs: Long? = null
+    @Volatile var lastPageTotalMs: Long? = null
         private set
 
     fun getCurrentStage(): Stage = currentStage
 
-    fun isModelLoaded(): Boolean = bubbleDetector.isModelLoaded() && ocrEngine.isModelLoaded()
+    fun isModelLoaded(source: SourceLanguage = SourceLanguage.JAPANESE): Boolean = bubbleDetector.isModelLoaded() &&
+        if (source == SourceLanguage.JAPANESE) ocrEngine.isModelLoaded() else lineOcrEngine?.isModelLoaded() == true
 
     suspend fun loadModels(paths: ModelPaths): Boolean = withContext(Dispatchers.IO) {
-        val bubbleLoaded = bubbleDetector.loadModel(paths.bubbleDetectionPath)
-        val ocrLoaded = ocrEngine.loadModel(
-            paths.ocrEncoderPath,
-            paths.ocrDecoderPath,
-            paths.ocrVocabPath
-        )
+        val bubbleLoaded = bubbleDetector.isModelLoaded() || bubbleDetector.loadModel(paths.bubbleDetectionPath)
+        val ocrLoaded = if (paths.ocrSource == SourceLanguage.JAPANESE) {
+            ocrEngine.loadModel(paths.ocrEncoderPath, paths.ocrDecoderPath, paths.ocrVocabPath)
+        } else {
+            lineOcrEngine?.loadModel(paths.ocrEncoderPath, paths.ocrVocabPath, paths.ocrSource) == true
+        }
         bubbleLoaded && ocrLoaded
     }
 
@@ -89,7 +85,7 @@ class TranslationPipeline(
     /**
      * Serializes page processing with model unloading and emits OCR previews followed by typeset bubbles.
      * A bubble centered in one of [ignoredRegions], such as the status bar, is never read.
-     * The page is translated into [targetLanguage], with [glossary] applied to its source text.
+     * The page is read as [sourceLanguage]; [spokenLanguage] names the source in the prompt, null names none. It is translated into [targetLanguage], with [glossary] applied to its source text.
      * Callbacks run in the processing coroutine; UI callers must dispatch to the main thread.
      * Returns null on processing failure and propagates cancellation.
      */
@@ -100,13 +96,24 @@ class TranslationPipeline(
         onBubble: ((TypesetBubble) -> Unit)? = null,
         ignoredRegions: List<RectF> = emptyList(),
         targetLanguage: TargetLanguage,
-        glossary: List<GlossaryEntry> = emptyList()
-    ): PipelineResult? = inference.withLock { runPage(bitmap, callback, onOcrComplete, onBubble, ignoredRegions, targetLanguage, glossary) }
+        glossary: List<GlossaryEntry> = emptyList(),
+        sourceLanguage: SourceLanguage = SourceLanguage.JAPANESE,
+        spokenLanguage: SpokenLanguage? = SpokenLanguage.ofScript(sourceLanguage)
+    ): PipelineResult? = inference.withLock {
+        runPage(bitmap, callback, onOcrComplete, onBubble, ignoredRegions, PageLanguages(sourceLanguage, targetLanguage, spokenLanguage), glossary)
+    }
+
+    /** Translates pasted [lines] with the model in use, under the lock a page run holds. */
+    suspend fun translateLines(lines: List<String>, target: TargetLanguage, spoken: SpokenLanguage?, glossary: List<GlossaryEntry>) =
+        inference.withLock { translationEngine.translateLines(lines, target, spoken, glossary) }
 
     /** Releases the detector after any active page finishes using its native session. */
     suspend fun unloadDetection() = inference.withLock { bubbleDetector.release() }
 
-    suspend fun unloadOcr() = inference.withLock { ocrEngine.release() }
+    suspend fun unloadOcr() = inference.withLock {
+        ocrEngine.release()
+        lineOcrEngine?.release()
+    }
 
     suspend fun unloadTranslation() = inference.withLock { translationEngine.close() }
 
@@ -120,9 +127,10 @@ class TranslationPipeline(
         onOcrComplete: ((bubbleId: Int, ocrText: String, bounds: RectF) -> Unit)?,
         onBubble: ((TypesetBubble) -> Unit)?,
         ignoredRegions: List<RectF>,
-        targetLanguage: TargetLanguage,
+        languages: PageLanguages,
         glossary: List<GlossaryEntry>
     ): PipelineResult? {
+        val source = languages.source
         val startTime = System.currentTimeMillis()
         val pageWidth = bitmap.width
         val pageHeight = bitmap.height
@@ -135,7 +143,7 @@ class TranslationPipeline(
         }
 
         try {
-            if (!isModelLoaded()) {
+            if (!isModelLoaded(source)) {
                 val paths = modelPaths
                 if (paths == null) {
                     callback?.onError(Stage.BUBBLE_DETECTION, "Model paths not configured")
@@ -146,10 +154,10 @@ class TranslationPipeline(
                 callback?.onStageProgress(Stage.BUBBLE_DETECTION, 0.0f)
                 Log.i(TAG, "loadModels start")
                 loadModels(paths)
-                Log.i(TAG, "loadModels complete modelsLoaded=${isModelLoaded()}")
+                Log.i(TAG, "loadModels complete modelsLoaded=${isModelLoaded(source)}")
             }
 
-            if (!isModelLoaded()) {
+            if (!isModelLoaded(source)) {
                 callback?.onError(Stage.BUBBLE_DETECTION, "Failed to load models")
                 currentStage = Stage.ERROR
                 return null
@@ -192,9 +200,9 @@ class TranslationPipeline(
                     cropBounds.height
                 )
 
-                val result = ocrEngine.extractText(bubbleBitmap)
+                val result = if (source == SourceLanguage.JAPANESE) ocrEngine.extractText(bubbleBitmap) else lineOcrEngine?.extractText(bubbleBitmap)
                 coroutineContext.ensureActive()
-                if (result != null && result.text.readsAsJapanese()) {
+                if (result != null && source.isReadable(result.text)) {
                     reads[bubble.id] = result
                     // A garbled read comes back as confident wrong English, so its bubble keeps its art (#366).
                     if (result.unsure) {
@@ -241,7 +249,7 @@ class TranslationPipeline(
             // the art under it (#330).
             val arrived = mutableMapOf<Int, TypesetBubble>()
             var firstBubbleAt: Long? = null
-            val translationResult = translationEngine.translate(pageContext.blocks, targetLanguage, glossary) { translated ->
+            val translationResult = translationEngine.translate(pageContext.blocks, languages.target, glossary, source, languages.spoken) { translated ->
                 val typeset = typesetter.typeset(listOf(translated), bubbleBounds).single()
                 if (firstBubbleAt == null) firstBubbleAt = System.currentTimeMillis()
                 arrived[typeset.bubbleId] = typeset
@@ -254,7 +262,6 @@ class TranslationPipeline(
             callback?.onStageProgress(Stage.TRANSLATION, 1.0f)
 
             currentStage = Stage.DONE
-
             val result = PipelineResult(
                 typesetBubbles = typesetBubbles,
                 translationResult = translationResult,
@@ -271,7 +278,6 @@ class TranslationPipeline(
             lastPageTotalMs = result.totalTimeMs
             callback?.onComplete(result)
             return result
-
         } catch (e: CancellationException) {
             // A reader cancel (#76), not a failure: no error callback, no "Translation failed".
             throw e
@@ -282,13 +288,12 @@ class TranslationPipeline(
         }
     }
 
-    fun release() {
-        translationEngine.endSession()
-    }
+    fun release() = translationEngine.endSession()
 
     fun close() {
         bubbleDetector.release()
         ocrEngine.release()
+        lineOcrEngine?.release()
         translationEngine.close()
     }
 }

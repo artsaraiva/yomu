@@ -2,19 +2,21 @@
 
 # 読む Yomu
 
+**English** · [Русский](README.ru.md)
+
 **Read any manga. Offline. In one tap.**
 
-On-device Japanese manga translation for Android, into English, Brazilian Portuguese, Spanish, French or German.
-Tap once over any manga page, in any app, and read it in your language. Nothing leaves your phone.
+On-device manga and comics translation for Android, from Japanese, Chinese, Korean, Latin-script or Cyrillic-script pages into English, Brazilian Portuguese, Spanish, French, German or Russian.
+Tap once over any manga page, in any app, and read it in your language. By default nothing leaves your phone.
 
 ![Platform](https://img.shields.io/badge/platform-Android%208.0%2B-3DDC84?logo=android&logoColor=white)
 ![Kotlin](https://img.shields.io/badge/Kotlin-Jetpack%20Compose-7F52FF?logo=kotlin&logoColor=white)
 ![Inference](https://img.shields.io/badge/inference-ONNX%20Runtime%20%C2%B7%20llama.cpp-E4572E)
 ![Privacy](https://img.shields.io/badge/cloud-none-2E2A24)
 
-**[Download the latest APK](https://github.com/artsaraiva/yomu/releases/latest)**
+**[Download the latest APK](https://github.com/iBog/yomu/releases/latest)**
 
-<a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22com.yomu.app%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2Fartsaraiva%2Fyomu%22%2C%22author%22%3A%22artsaraiva%22%2C%22name%22%3A%22Yomu%22%7D"><img src="docs/images/badge-obtainium.png" alt="Get it on Obtainium" height="48"></a>
+<a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22com.yomu.app%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2FiBog%2Fyomu%22%2C%22author%22%3A%22iBog%22%2C%22name%22%3A%22Yomu%22%7D"><img src="docs/images/badge-obtainium.png" alt="Get it on Obtainium" height="48"></a>
 
 </div>
 
@@ -23,9 +25,37 @@ Tap once over any manga page, in any app, and read it in your language. Nothing 
 > - **Android 8.0 or newer on a 64-bit ARM phone.** Tested on an 8 GB phone (Galaxy S23), where the default model peaks at about 2 GB of RAM. Phones with less RAM are untested; [tell us how yours does](https://github.com/artsaraiva/yomu/issues/new?template=bug_report.yml).
 > - **About 1.1 GB of models download on first launch, over Wi-Fi or mobile data.** Keep about 1.5 GB free. After that, Yomu never uses the network.
 > - **A page takes seconds, not milliseconds:** about 15 s on a Galaxy S23 with the default model.
-> - **Japanese source only**, read from the screen. Machine translation from a small on-device model makes mistakes.
+> - **Japanese reads best.** Other sources use a PP-OCRv5 line reader for horizontal text; pick it in the OCR slot. Machine translation from a small on-device model makes mistakes.
 
 ---
+
+## What's new
+
+Changes in this fork since it branched from [`artsaraiva/yomu`](https://github.com/artsaraiva/yomu) at [`ba91c31`](https://github.com/artsaraiva/yomu/commit/ba91c31).
+
+**0.3.6**
+
+- **Translate from the notification shade.** Settings → Appearance offers a second way to start a translation: from Yomu's notification instead of the floating button, so nothing sits over the page. The notification has Translate and Stop buttons, and the shade closes before the page is captured.
+- **ONNX Runtime 1.31.1** for detection and OCR, with the newer Arm KleidiAI kernels, including SME2.
+- **Build:** Android Gradle Plugin 9.5, Gradle 9.8.2, Kotlin 2.4.21, Hilt 2.60.1, KSP 2.3.12, Compose BOM 2026.09.00, OkHttp 5 and current AndroidX libraries; compileSdk 37.
+
+**0.3.5**
+
+- **Many-column narration boxes are read.** manga-ocr squeezes every crop to 224 × 224 px, so a caption with a dozen vertical columns came back garbled and was skipped as unsure. A block of four or more vertical columns is now read two columns at a time, right to left. A 13-column box went from 0.74 confidence and garbage to 0.93 and clean text.
+- **Long one-line captions are read.** A single line many times wider than tall, such as white text on a black bar, was squeezed flat the same way. It is now cut between characters into pieces about five characters long. A test caption went from 0.68 to 0.93.
+
+**0.3.1**
+
+- **Choice of bubble detector.** The Detection slot also offers [`ogkalu/comic-text-and-bubble-detector`](https://huggingface.co/ogkalu/comic-text-and-bubble-detector) (RT-DETR-v2 v4-s, int8, 11 MB, Apache-2.0), marked Experimental. It finds text in rectangular captions that the default YOLO26n misses, for example 0.95 against 0.09 on a boxed monologue. YOLO26n stays the default. See [ADR-0020](docs/adr/0020-selectable-text-detector.md).
+- **A new detector takes over at once.** Picking another detector used to need an overlay restart; now the next page uses it.
+
+**0.2.35**
+
+- **Russian target.** Russian joins English, Brazilian Portuguese, Spanish, French and German.
+- **More source scripts.** Chinese and English, Korean, Latin-script and Cyrillic-script pages are read with PP-OCRv5 line recognizers. The OCR model you pick sets the source language, and Japanese keeps manga-ocr.
+- **TranslateGemma 4B** joins the translation catalog as Experimental and Multilingual, translating line by line in its own trained prompt format.
+- **Gemma 4 is labelled Multilingual**, so it can be picked for every target language, Russian included.
+- **Build:** Android Gradle Plugin 9.1, Gradle 9.3.1, built-in Kotlin, Hilt 2.59.2, KSP 2.3.6 and Room 2.8.5.
 
 ## See it in action
 
@@ -48,6 +78,7 @@ Tap once over any manga page, in any app, and read it in your language. Nothing 
 
 ## Table of contents
 
+- [What's new](#whats-new)
 - [Features](#features)
 - [How it works](#how-it-works)
 - [Models](#models)
@@ -62,8 +93,9 @@ Tap once over any manga page, in any app, and read it in your language. Nothing 
 ## Features
 
 - **Works over any app.** A floating button sits on top of your reader, browser or gallery. Yomu captures the screen only when you tap it.
-- **Five target languages.** English, Brazilian Portuguese, Spanish, French or German. Switch from settings or the floating button.
-- **Fully on-device.** Bubble detection, OCR and translation all run locally. No account, no API key, and no usage after the model download.
+- **Six target languages.** English, Brazilian Portuguese, Spanish, French, German or Russian. Switch from settings or the floating button.
+- **Five source families.** Japanese (manga-ocr), Chinese and English, Korean, Latin script and Cyrillic script (PP-OCRv5). The OCR model you pick sets the source.
+- **On-device by default.** Bubble detection, OCR and translation all run locally. No account, no API key, and no usage after the model download. An optional **Network Model** (Settings > Providers) can translate on your own Ollama, llama.cpp or OpenAI-compatible server instead; only the page text is sent (see [ADR-0022](docs/adr/0022-opt-in-network-model.md)).
 - **Page-level context.** Every bubble on the page goes to the LLM in one call, in reading order, so pronouns and tone hold across a conversation.
 - **Manga-aware typesetting.** Font size and line wrapping are fitted to each bubble's bounds.
 - **Choice of model.** Pick from a curated list of GGUF translation models. Models that won't fit your device's RAM are hidden.
@@ -86,8 +118,8 @@ flowchart LR
 | Stage | Where | What it does |
 |---|---|---|
 | Capture | `app/capture` | Grabs a single frame of the screen through `MediaProjection` |
-| Detection | `pipeline/bubble` | Finds text inside and outside speech bubbles with an RT-DETR detector |
-| OCR | `pipeline/ocr` | Reads each cropped bubble with a manga-specialised encoder–decoder |
+| Detection | `pipeline/bubble` | Finds text inside and outside speech bubbles with an RT-DETR detector, or with a single-class YOLO detector if chosen |
+| OCR | `pipeline/ocr` | Reads each cropped bubble: manga-ocr for Japanese, or a PP-OCRv5 recognizer line by line for other sources |
 | Context | `pipeline/context` | Groups bubbles into panels and orders them right-to-left, top-to-bottom |
 | Translation | `ml/` | Sends the whole page to the LLM in the translation slot, using grammar-constrained, id-keyed output where the model supports it |
 | Typesetting | `pipeline/typesetting` | Wraps and sizes the English text to fit each bubble |
@@ -99,8 +131,10 @@ Yomu downloads every model on first launch. Each download is pinned to an exact 
 
 | Slot | Model | Licence |
 |---|---|---|
-| Bubble detection | [`ogkalu/comic-text-and-bubble-detector`](https://huggingface.co/ogkalu/comic-text-and-bubble-detector/tree/16e8a622f91fabc6b5b65c96d32d1183f8843546) (RT-DETR v4-s, int8 ONNX) | Apache-2.0; see [ADR-0020](docs/adr/0020-rtdetr-text-detector.md) |
+| Bubble detection (default) | [`ogkalu/comic-text-and-bubble-detector`](https://huggingface.co/ogkalu/comic-text-and-bubble-detector) (RT-DETR-v2 v4-s, int8 ONNX); also finds text in rectangular captions | Apache-2.0; see [ADR-0020](docs/adr/0020-selectable-text-detector.md) |
+| Bubble detection (alternative) | [`Kiuyha/Manga-Bubble-YOLO`](https://huggingface.co/Kiuyha/Manga-Bubble-YOLO) (yolo26n, ONNX) | AGPL-3.0, from its Ultralytics YOLO26 base; see [ADR-0007](docs/adr/0007-bubble-text-detection-approach.md) |
 | OCR | [`artsaraiva/manga-ocr-2025-onnx-past`](https://huggingface.co/artsaraiva/manga-ocr-2025-onnx-past/tree/151898756903f03a2682fa6be4507dfeff71fb7e) (manga-ocr-2025 with past key values) | Apache-2.0 |
+| OCR (other sources) | [PaddlePaddle PP-OCRv5 mobile recognizers](https://huggingface.co/PaddlePaddle) (Chinese and English, Korean, Latin, Cyrillic; ONNX) | Apache-2.0 |
 | Translation (default) | **Qwen2.5 1.5B Instruct** Q4_K_M | Apache-2.0 |
 | Translation | CAT-Translate 1.4B Q4_K_M | MIT |
 | Translation (low storage) | CAT-Translate 0.8B Q4_K_M | MIT |
@@ -112,9 +146,9 @@ Why these models were picked: [ADR-0010](docs/adr/0010-qwen-default-cat-demoted-
 
 ### Install
 
-Download `yomu-<version>.apk` from the [latest release](https://github.com/artsaraiva/yomu/releases/latest) on your phone and open it. Android asks once to allow installs from your browser or file manager.
+Download `yomu-<version>.apk` from the [latest release](https://github.com/iBog/yomu/releases/latest) on your phone and open it. Android asks once to allow installs from your browser or file manager.
 
-To get updates automatically, install it with [Obtainium](https://github.com/ImranR98/Obtainium) instead: tap the badge above, or add `https://github.com/artsaraiva/yomu` as an app in Obtainium.
+To get updates automatically, install it with [Obtainium](https://github.com/ImranR98/Obtainium) instead: tap the badge above, or add `https://github.com/iBog/yomu` as an app in Obtainium.
 
 ### Build from source
 
@@ -130,7 +164,7 @@ To get updates automatically, install it with [Obtainium](https://github.com/Imr
 #### Build
 
 ```bash
-git clone --recursive https://github.com/artsaraiva/yomu.git
+git clone --recursive https://github.com/iBog/yomu.git
 cd yomu
 
 # Already cloned without --recursive? Fetch llama.cpp:

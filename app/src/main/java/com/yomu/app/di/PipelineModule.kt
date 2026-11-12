@@ -8,9 +8,12 @@ import com.yomu.ml.LlamaTranslationBridge
 import com.yomu.ml.OnnxRuntime
 import com.yomu.app.service.ModelManager
 import com.yomu.app.translation.TranslationModelSelection
+import com.yomu.app.translation.network.NetworkModelStore
+import com.yomu.app.translation.network.NetworkTranslationSlot
 import com.yomu.pipeline.TranslationPipeline
 import com.yomu.pipeline.bubble.BubbleDetector
 import com.yomu.pipeline.context.ContextAssembler
+import com.yomu.pipeline.ocr.LineOcrEngine
 import com.yomu.pipeline.ocr.OcrEngine
 import com.yomu.pipeline.translation.TranslationEngine
 import com.yomu.pipeline.typesetting.Typesetter
@@ -46,6 +49,12 @@ object PipelineModule {
     @Singleton
     fun provideOcrEngine(onnxRuntime: OnnxRuntime): OcrEngine {
         return OcrEngine(onnxRuntime)
+    }
+
+    @Provides
+    @Singleton
+    fun provideLineOcrEngine(onnxRuntime: OnnxRuntime): LineOcrEngine {
+        return LineOcrEngine(onnxRuntime)
     }
 
     @Provides
@@ -87,9 +96,13 @@ object PipelineModule {
         llamaBridge: LlamaTranslationBridge,
         sharedPreferences: SharedPreferences,
         @ApplicationContext context: Context,
-        modelManager: ModelManager
+        modelManager: ModelManager,
+        networkSlot: NetworkTranslationSlot,
+        networkStore: NetworkModelStore
     ): TranslationModelSelection {
-        return TranslationModelSelection(llamaBridge, sharedPreferences, llmModelsDir(context), modelManager.deviceTotalMemBytes())
+        return TranslationModelSelection(
+            llamaBridge, sharedPreferences, llmModelsDir(context), modelManager.deviceTotalMemBytes(), networkSlot, networkStore
+        )
     }
 
     @Provides
@@ -111,14 +124,16 @@ object PipelineModule {
         ocrEngine: OcrEngine,
         contextAssembler: ContextAssembler,
         translationEngine: TranslationEngine,
-        typesetter: Typesetter
+        typesetter: Typesetter,
+        lineOcrEngine: LineOcrEngine
     ): TranslationPipeline {
         return TranslationPipeline(
             bubbleDetector,
             ocrEngine,
             contextAssembler,
             translationEngine,
-            typesetter
+            typesetter,
+            lineOcrEngine
         )
     }
 }
