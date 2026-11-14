@@ -2,6 +2,9 @@ package com.yomu.app.di
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.yomu.app.AppLanguage
+import com.yomu.app.translation.network.NetworkModelStore
+import com.yomu.app.translation.network.SecurePreferences
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -18,8 +21,15 @@ object AppModule {
     @Provides
     @Singleton
     fun provideSharedPreferences(@ApplicationContext context: Context): SharedPreferences {
-        return context.getSharedPreferences("yomu_prefs", Context.MODE_PRIVATE)
+        return context.getSharedPreferences(AppLanguage.PREFS_NAME, Context.MODE_PRIVATE)
     }
+
+    @Provides
+    @Singleton
+    fun provideNetworkModelStore(@ApplicationContext context: Context, sharedPreferences: SharedPreferences): NetworkModelStore =
+        NetworkModelStore(sharedPreferences, SecurePreferences.open(context)).also {
+            it.migrateLegacy(context.getSharedPreferences(NetworkModelStore.LEGACY_SECRETS_FILE, Context.MODE_PRIVATE))
+        }
 
     @Provides
     @Singleton

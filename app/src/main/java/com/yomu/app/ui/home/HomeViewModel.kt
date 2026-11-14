@@ -1,22 +1,26 @@
 package com.yomu.app.ui.home
 
-import android.app.ActivityManager
-import android.content.BroadcastReceiver
 import android.content.Context
-import android.content.Intent
 import android.content.IntentFilter
 import android.content.SharedPreferences
 import android.provider.Settings
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.yomu.app.R
 import com.yomu.app.db.HistoryDao
 import com.yomu.app.db.entities.ModelStatus
 import com.yomu.app.db.entities.ModelType
 import com.yomu.app.service.LanguageSwitch
 import com.yomu.app.service.ModelManager
 import com.yomu.app.service.ModelSlotSelection
+import com.yomu.app.service.SaveHistoryStore
+import com.yomu.app.service.SourceLanguageSelection
+import com.yomu.app.ui.UiText
 import com.yomu.app.service.OverlayService
+import com.yomu.app.service.TriggerModeStore
+import com.yomu.app.translation.network.NetworkModelStore
+import com.yomu.core.Constants
 import com.yomu.core.TargetLanguage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -37,15 +41,27 @@ class HomeViewModel @Inject constructor(
     private val sharedPreferences: SharedPreferences,
     private val modelManager: ModelManager,
     private val historyDao: HistoryDao,
-    private val slotSelection: ModelSlotSelection
+    private val slotSelection: ModelSlotSelection,
+    private val sourceLanguage: SourceLanguageSelection,
+    private val networkStore: NetworkModelStore
 ) : ViewModel() {
+    // Held in a field: SharedPreferences keeps listeners weakly. Settings changes what Home reports without Home resuming.
+    private val selectionListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (key in SELECTION_KEYS) _uiState.update { it.withSlots() }
+    }
+
     private companion object {
+        val SELECTION_KEYS = setOf(
+            NetworkModelStore.KEY_BACKEND, NetworkModelStore.KEY_URL, NetworkModelStore.KEY_MODEL,
+            Constants.PREF_SPOKEN_LANGUAGE, Constants.PREF_TARGET_LANGUAGE, Constants.PREF_LLM_MODEL,
+            Constants.PREF_DETECTION_MODEL, Constants.PREF_OCR_MODEL
+        )
         const val SETUP_COMPLETE = "reading_setup_complete"
         const val HAS_READ = "has_read"
         val DOWNLOAD_LABELS = mapOf(
-            ModelType.DETECTION to "Finding speech bubbles",
-            ModelType.OCR to "Reading Japanese",
-            ModelType.LLM to "Translating into English"
+            ModelType.DETECTION to UiText(R.string.home_download_detection),
+            ModelType.OCR to UiText(R.string.home_download_ocr),
+            ModelType.LLM to UiText(R.string.home_download_translation)
         )
     }
 
@@ -53,28 +69,18 @@ class HomeViewModel @Inject constructor(
         setupComplete = sharedPreferences.getBoolean(SETUP_COMPLETE, false),
         hasRead = sharedPreferences.getBoolean(HAS_READ, false),
         deliverables = ModelType.entries.associateWith(slotSelection::deliverables),
-        fitBudget = slotSelection.fitBudget(modelManager.deviceTotalMemBytes())
+                fitBudget = slotSelection.fitBudget(modelManager.deviceTotalMemBytes())
     ).withSlots())
     val uiState = _uiState.asStateFlow()
     private var historyJob: Job? = null
     private var countJob: Job? = null
     private var setupJob: Job? = null
 
-    private val serviceStateReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            when (intent.action) {
-                OverlayService.ACTION_SERVICE_STARTED -> _uiState.update {
-                    it.copy(isServiceRunning = true, serviceError = false, confirmation = "Reading is on")
-                }
-                OverlayService.ACTION_SERVICE_STOPPED -> _uiState.update { it.copy(isServiceRunning = false) }
-                OverlayService.ACTION_SERVICE_START_FAILED -> _uiState.update {
-                    it.copy(isServiceRunning = false, serviceError = true)
-                }
-            }
-        }
-    }
+    private val serviceStateReceiver = ServiceStateReceiver(_uiState::update)
 
     init {
+        sharedPreferences.registerOnSharedPreferenceChangeListener(selectionListener)
+        networkStore.registerListener(selectionListener)
         ContextCompat.registerReceiver(context, serviceStateReceiver, IntentFilter().apply {
             addAction(OverlayService.ACTION_SERVICE_STARTED)
             addAction(OverlayService.ACTION_SERVICE_STOPPED)
@@ -112,8 +118,7 @@ class HomeViewModel @Inject constructor(
                 state.models.associate { it.id to it.status },
                 slotSelection.selectedId(ModelType.DETECTION),
                 slotSelection.selectedId(ModelType.OCR),
-                slotSelection.selectedId(ModelType.LLM),
-                permission
+                slotSelection.selectedId(ModelType.LLM), permission, !networkStore.active()
             )
             state.copy(
                 readiness = readiness,
@@ -123,16 +128,12 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    @Suppress("DEPRECATION")
     fun refreshEnvironment() {
         refreshReadiness()
-        val manager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
-        val running = manager.getRunningServices(Int.MAX_VALUE).any {
-            it.service.className == OverlayService::class.java.name && it.foreground
-        }
         _uiState.update {
             it.withSlots().copy(
-                isServiceRunning = running,
+                isServiceRunning = OverlayService.isRunning(context),
+                triggerMode = TriggerModeStore(sharedPreferences).load(),
                 onMeteredNetwork = modelManager.isOnMeteredNetwork(),
                 fitBudget = slotSelection.fitBudget(it.fitBudget.totalMemBytes)
             )
@@ -158,16 +159,7 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    /** Home's quick pick: unlike setup, a model that isn't downloaded starts downloading and takes over when READY. */
-    fun pickTranslationModel(id: String) {
-        viewModelScope.launch {
-            val status = modelManager.getModel(id)?.status
-            if (!slotSelection.pick(ModelType.LLM, id, status, _uiState.value.fitBudget.totalMemBytes)) return@launch
-            downloadIfPending(id)
-        }
-    }
-
-    /** From the quick-settings chip here, or from the overlay's when its switch needs the model offer (#338). */
+    /** From the overlay's language switch, which Home answers with the model offer when it needs one (#338). */
     fun chooseLanguage(language: TargetLanguage) {
         viewModelScope.launch {
             val switch = slotSelection.switchLanguage(language)
@@ -201,10 +193,13 @@ class HomeViewModel @Inject constructor(
 
     private fun HomeUiState.withSlots(): HomeUiState = copy(
         chosenIds = ModelType.entries.associateWith(slotSelection::chosenId),
-        translationSelectedId = slotSelection.selectedId(ModelType.LLM),
-        translationPendingId = slotSelection.pendingId(ModelType.LLM),
+        selectedIds = ModelType.entries.mapNotNull { type -> slotSelection.selectedId(type)?.let { type to it } }.toMap(),
+        pendingIds = ModelType.entries.mapNotNull { type -> slotSelection.pendingId(type)?.let { type to it } }.toMap(),
         // With the slots, since a download that never completes can return the language to English.
         targetLanguage = slotSelection.targetLanguage(),
+        spoken = sourceLanguage.current(),
+        saveHistory = SaveHistoryStore(sharedPreferences).load(),
+        networkModel = networkStore.takeIf { it.active() }?.config()?.model,
         setupDownloadBytes = slotSelection.downloadBytes(models.associate { it.id to it.status })
     )
 
@@ -276,7 +271,7 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 historyDao.clearHistory()
-                _uiState.update { it.copy(confirmation = "Recent translations cleared", clearError = false) }
+                _uiState.update { it.copy(confirmation = UiText(R.string.home_recent_cleared), clearError = false) }
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
@@ -294,6 +289,8 @@ class HomeViewModel @Inject constructor(
     }
 
     override fun onCleared() {
+        sharedPreferences.unregisterOnSharedPreferenceChangeListener(selectionListener)
+        networkStore.unregisterListener(selectionListener)
         context.unregisterReceiver(serviceStateReceiver)
         super.onCleared()
     }

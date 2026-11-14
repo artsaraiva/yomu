@@ -1,5 +1,12 @@
 package com.yomu.app.ui.settings
 
+import android.Manifest
+import android.app.Activity
+import android.content.Context
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
@@ -8,71 +15,69 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.yomu.app.AppLanguage
+import com.yomu.app.R
 import com.yomu.app.db.entities.ModelType
 import com.yomu.app.detection.DetectionThresholdStore
+import com.yomu.app.service.TriggerMode
+import com.yomu.app.ui.UiText
+import com.yomu.app.ui.asString
+import com.yomu.app.ui.labelRes
 import com.yomu.app.ui.theme.*
 import com.yomu.core.TargetLanguage
 
 @Composable
-fun TranslationSettings(viewModel: SettingsViewModel, onBack: () -> Unit) {
+fun TranslationSettings(
+    viewModel: SettingsViewModel,
+    onBack: () -> Unit,
+    onOpenProviders: () -> Unit,
+    backendViewModel: BackendViewModel = hiltViewModel()
+) {
     val state by viewModel.uiState.collectAsState()
-    SettingsPage(SettingsSection.Translation.title, SettingsSection.Translation.description, onBack) {
-        TargetLanguagePanel(state.targetLanguage, state::languageUnavailable, viewModel::setTargetLanguage)
+    val backend by backendViewModel.state.collectAsState()
+    SettingsPage(stringResource(SettingsSection.Translation.title), stringResource(SettingsSection.Translation.description), onBack) {
+        SourceLanguagePanel()
+        // The network model writes every language, so the on-device model's limits do not apply while it is in use.
+        TargetLanguagePanel(state.targetLanguage, if (backend.active) { _ -> null } else state::languageUnavailable, viewModel::setTargetLanguage)
         state.languageOffer?.let {
             LanguageOfferDialog(it, state.targetLanguage, viewModel::acceptLanguageOffer, viewModel::declineLanguageOffer)
         }
-        ModelSlot(state, viewModel, ModelType.LLM, "Model", "The on-device model that translates each bubble.")
+        ModelsHint(onOpenProviders)
         state.recoveryWarning?.let { RecoveryWarning(it) }
-        AdvancedGenerationPanel(
-            generation = state.generation,
-            defaults = state.generationDefaults,
-            overridden = state.generationOverridden,
-            onChange = viewModel::setGeneration,
-            onReset = viewModel::resetGeneration
-        )
-        SwitchPanel(
-            "Page recall",
-            "Shows a page already translated while reading at once, instead of translating it again.",
-            state.pageRecall,
-            viewModel::setPageRecall
-        )
+        Dimmed(backend.active) {
+            AdvancedGenerationPanel(
+                generation = state.generation,
+                defaults = state.generationDefaults,
+                overridden = state.generationOverridden,
+                onChange = viewModel::setGeneration,
+                onReset = viewModel::resetGeneration
+            )
+        }
+        PageRecallPanel(state.pageRecall, viewModel::setPageRecall)
+        SaveHistoryPanel()
     }
 }
 
 @Composable
 private fun TargetLanguagePanel(
     selected: TargetLanguage,
-    unavailable: (TargetLanguage) -> String?,
+    unavailable: (TargetLanguage) -> UiText?,
     onChange: (TargetLanguage) -> Unit
 ) {
     PaperSurface(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp)) {
-            SettingRow("Language", "The language pages are translated into. English only models write English alone.") {
-                Column(Modifier.selectableGroup()) {
-                    TargetLanguage.entries.forEach { language ->
-                        val reason = unavailable(language)
-                        Row(
-                            Modifier.fillMaxWidth().selectable(
-                                language == selected, enabled = reason == null, role = Role.RadioButton, onClick = { onChange(language) }
-                            ),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            RadioButton(selected = language == selected, onClick = null, enabled = reason == null)
-                            Column {
-                                Text(
-                                    language.promptName,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = if (reason == null) LocalContentColor.current else MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                reason?.let {
-                                    Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-                            }
-                        }
-                    }
-                }
+            SettingRow(stringResource(R.string.settings_target_language_title), stringResource(R.string.settings_target_language_description)) {
+                CompactDropdown(
+                    selectedLabel = stringResource(selected.labelRes()),
+                    options = TargetLanguage.entries.map { DropdownOption(it, stringResource(it.labelRes()), unavailable(it)?.asString()) },
+                    isSelected = { it == selected },
+                    onPick = onChange
+                )
             }
         }
     }
@@ -97,12 +102,22 @@ internal fun SwitchPanel(title: String, description: String, enabled: Boolean, o
 }
 
 @Composable
+private fun PageRecallPanel(enabled: Boolean, onChange: (Boolean) -> Unit) =
+    SwitchPanel(stringResource(R.string.settings_page_recall_title), stringResource(R.string.settings_page_recall_description), enabled, onChange)
+
+@Composable
+private fun SaveHistoryPanel(viewModel: SaveHistoryViewModel = hiltViewModel()) {
+    val enabled by viewModel.enabled.collectAsState()
+    SwitchPanel(stringResource(R.string.settings_save_history_title), stringResource(R.string.settings_save_history_description), enabled, viewModel::set)
+}
+
+@Composable
 fun PipelineSettings(viewModel: SettingsViewModel, onBack: () -> Unit) {
     val state by viewModel.uiState.collectAsState()
-    SettingsPage(SettingsSection.Pipeline.title, SettingsSection.Pipeline.description, onBack) {
-        ModelSlot(state, viewModel, ModelType.DETECTION, "Detection", "Finds the speech bubbles on the page.")
+    SettingsPage(stringResource(SettingsSection.Pipeline.title), stringResource(SettingsSection.Pipeline.description), onBack) {
+        ModelSlot(state, viewModel, ModelType.DETECTION, R.string.settings_detection_title, R.string.settings_detection_description)
         DetectionThresholdPanel(state.detectionThreshold, viewModel::setDetectionThreshold, viewModel::resetDetectionThreshold)
-        ModelSlot(state, viewModel, ModelType.OCR, "OCR", "Reads the Japanese inside each bubble.")
+        ModelSlot(state, viewModel, ModelType.OCR, R.string.settings_ocr_title, R.string.settings_ocr_description)
     }
 }
 
@@ -113,9 +128,8 @@ private fun DetectionThresholdPanel(stored: Float, onChange: (Float) -> Unit, on
     PaperSurface(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp)) {
             SettingRow(
-                "Detection threshold",
-                "%.2f (default %.2f). Lower finds fainter bubbles, higher skips doubtful ones. Applied on the next capture."
-                    .format(value, DetectionThresholdStore.DEFAULT)
+                stringResource(R.string.settings_detection_threshold_title),
+                stringResource(R.string.settings_detection_threshold_description, value, DetectionThresholdStore.DEFAULT)
             ) {
                 Slider(
                     value = value,
@@ -128,16 +142,16 @@ private fun DetectionThresholdPanel(stored: Float, onChange: (Float) -> Unit, on
                 )
             }
             Spacer(Modifier.height(12.dp))
-            PaperButton("Reset to default", onReset, enabled = stored != DetectionThresholdStore.DEFAULT)
+            PaperButton(stringResource(R.string.settings_reset_to_default), onReset, enabled = stored != DetectionThresholdStore.DEFAULT)
         }
     }
 }
 
 @Composable
-private fun ModelSlot(state: SettingsUiState, viewModel: SettingsViewModel, type: ModelType, title: String, description: String) {
+internal fun ModelSlot(state: SettingsUiState, viewModel: SettingsViewModel, type: ModelType, @StringRes title: Int, @StringRes description: Int) {
     SlotPicker(
-        title = title,
-        description = description,
+        title = stringResource(title),
+        description = stringResource(description),
         deliverables = state.deliverables[type].orEmpty(),
         selectedId = state.selectedIds[type],
         pendingId = state.pendingIds[type],
@@ -155,10 +169,10 @@ private fun ModelSlot(state: SettingsUiState, viewModel: SettingsViewModel, type
 @Composable
 fun TypesettingSettings(viewModel: SettingsViewModel, onBack: () -> Unit) {
     val state by viewModel.uiState.collectAsState()
-    SettingsPage(SettingsSection.Typesetting.title, SettingsSection.Typesetting.description, onBack) {
+    SettingsPage(stringResource(SettingsSection.Typesetting.title), stringResource(SettingsSection.Typesetting.description), onBack) {
         PaperSurface(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp)) {
-                SettingRow("Font size", "${(state.fontSizeScale * 100).toInt()}% of the fitted size") {
+                SettingRow(stringResource(R.string.settings_font_size_title), stringResource(R.string.settings_font_size_description, (state.fontSizeScale * 100).toInt())) {
                     Slider(
                         value = state.fontSizeScale,
                         onValueChange = viewModel::setFontSizeScale,
@@ -174,27 +188,93 @@ fun TypesettingSettings(viewModel: SettingsViewModel, onBack: () -> Unit) {
 }
 
 @Composable
-fun AppearanceSettings(viewModel: SettingsViewModel, onBack: () -> Unit) {
+fun AppearanceSettings(viewModel: SettingsViewModel, triggerMode: TriggerModeViewModel, onBack: () -> Unit) {
     val state by viewModel.uiState.collectAsState()
-    var themeConfirmation by remember { mutableStateOf<String?>(null) }
-    SettingsPage(SettingsSection.Appearance.title, SettingsSection.Appearance.description, onBack) {
+    val mode by triggerMode.mode.collectAsState()
+    var themeConfirmation by remember { mutableStateOf<Int?>(null) }
+    SettingsPage(stringResource(SettingsSection.Appearance.title), stringResource(SettingsSection.Appearance.description), onBack) {
         PaperSurface(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp)) {
-                SettingRow("Theme", "Paper colours for the app and the overlay.") {
+                SettingRow(stringResource(R.string.settings_theme_title), stringResource(R.string.settings_theme_description)) {
                     Column {
-                        listOf("system" to "Follow system", "day" to "Day paper", "night" to "Night paper").forEach { (mode, label) ->
+                        listOf("system" to R.string.settings_theme_system, "day" to R.string.settings_theme_day, "night" to R.string.settings_theme_night).forEach { (mode, label) ->
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 RadioButton(selected = state.theme == mode, onClick = {
                                     viewModel.setTheme(mode)
-                                    themeConfirmation = "$label selected"
+                                    themeConfirmation = label
                                 })
-                                Text(label, style = MaterialTheme.typography.bodyMedium)
+                                Text(stringResource(label), style = MaterialTheme.typography.bodyMedium)
                             }
                         }
                     }
                 }
             }
         }
-        themeConfirmation?.let { PaperSuccess(it) { themeConfirmation = null } }
+        themeConfirmation?.let { PaperSuccess(stringResource(R.string.settings_theme_selected, stringResource(it))) { themeConfirmation = null } }
+        AppLanguagePanel()
+        TriggerModePanel(mode, triggerMode::choose)
+    }
+}
+
+/** Picks the language of the app's own text; the activity is recreated so every screen is rewritten at once. */
+@Composable
+private fun AppLanguagePanel() {
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences(AppLanguage.PREFS_NAME, Context.MODE_PRIVATE) }
+    var selected by remember { mutableStateOf(AppLanguage.load(prefs)) }
+    PaperSurface(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp)) {
+            SettingRow(stringResource(R.string.settings_language_title), stringResource(R.string.settings_language_description)) {
+                Column(Modifier.selectableGroup()) {
+                    AppLanguage.entries.forEach { language ->
+                        Row(
+                            Modifier.selectable(selected = language == selected, role = Role.RadioButton, onClick = {
+                                if (language == selected) return@selectable
+                                AppLanguage.save(prefs, language)
+                                selected = language
+                                (context as? Activity)?.recreate()
+                            }),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(selected = language == selected, onClick = null)
+                            Text(language.nativeName, Modifier.padding(start = 8.dp, top = 8.dp, bottom = 8.dp), style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TriggerModePanel(selected: TriggerMode, onChange: (TriggerMode) -> Unit) {
+    // The shade trigger lives in the notification, which Android 13+ hides until notifications are allowed.
+    val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
+    val choose = { mode: TriggerMode ->
+        onChange(mode)
+        if (mode == TriggerMode.NOTIFICATION && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+    val options = listOf(
+        TriggerMode.FLOATING_BUTTON to (R.string.settings_trigger_floating_button to R.string.settings_trigger_floating_button_description),
+        TriggerMode.NOTIFICATION to (R.string.settings_trigger_notification to R.string.settings_trigger_notification_description)
+    )
+    PaperSurface(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp)) {
+            SettingRow(stringResource(R.string.settings_trigger_title), stringResource(R.string.settings_trigger_description)) {
+                Column {
+                    options.forEach { (mode, text) ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(selected = mode == selected, onClick = { choose(mode) })
+                            Column(Modifier.padding(vertical = 8.dp)) {
+                                Text(stringResource(text.first), style = MaterialTheme.typography.bodyMedium)
+                                Text(stringResource(text.second), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }

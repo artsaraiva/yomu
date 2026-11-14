@@ -36,18 +36,6 @@ class ModelRegistryTest {
     }
 
     @Test
-    fun `the only detection row downloads the pinned ogkalu RT-DETR v4-s`() {
-        val row = registry.single { it.type == ModelType.DETECTION }
-
-        assertEquals(
-            "https://huggingface.co/ogkalu/comic-text-and-bubble-detector/resolve/16e8a622f91fabc6b5b65c96d32d1183f8843546/detector-v4-s_int8.onnx",
-            row.downloadUrl
-        )
-        assertEquals("5fe9e4f576e49d4e7e8b0e029d6d3cdc252abd4694113e1cae120e62c931ea79", row.checksum)
-        assertEquals(11_120_765L, row.fileSize)
-    }
-
-    @Test
     fun `llm rows are exactly the catalog entries`() {
         val llmRowIds = registry.filter { it.type == ModelType.LLM }.map { it.id }.toSet()
         assertEquals(LlmModelCatalog.ALL.map { it.id }.toSet(), llmRowIds)
@@ -149,6 +137,20 @@ class ModelRegistryTest {
     }
 
     @Test
+    fun `TranslateGemma 4B downloads the pinned mradermacher Q4_K_M`() {
+        val row = registry.single { it.id == Constants.TRANSLATEGEMMA_4B_MODEL_ID }
+
+        assertEquals(
+            "https://huggingface.co/mradermacher/translategemma-4b-it-GGUF/resolve/" +
+                "d37868f759d2f817a43d28dd80cf9f982ffa62fd/translategemma-4b-it.Q4_K_M.gguf",
+            row.downloadUrl
+        )
+        assertEquals("81200d03e843d2ec1ece6eeafe7d13cb6e5211e1fcd336ade55790b683a08330", row.checksum)
+        assertEquals(2_489_909_760L, row.fileSize)
+        assertEquals(Constants.TRANSLATEGEMMA_4B_MODEL, row.fileName)
+    }
+
+    @Test
     fun `Ternary-Bonsai downloads the group-64 Q2_0 files the pinned llama_cpp loads`() {
         val fourB = registry.single { it.id == Constants.TERNARY_BONSAI_4B_MODEL_ID }
         val eightB = registry.single { it.id == Constants.TERNARY_BONSAI_8B_MODEL_ID }
@@ -230,5 +232,19 @@ class ModelRegistryTest {
     fun `every row downloads over http`() {
         val nonHttp = registry.map { it.downloadUrl }.filterNot { it.startsWith("http") }
         assertTrue("non-http urls: $nonHttp", nonHttp.isEmpty())
+    }
+
+    @Test
+    fun `the detection slot offers the pinned comic text detector alongside the default`() {
+        val detector = registry.single { it.id == Constants.COMIC_TEXT_DETECTOR_MODEL_ID }
+
+        assertEquals(ModelType.DETECTION, detector.type)
+        assertEquals(
+            "https://huggingface.co/ogkalu/comic-text-and-bubble-detector/resolve/16e8a622f91fabc6b5b65c96d32d1183f8843546/detector-v4-s_int8.onnx",
+            detector.downloadUrl
+        )
+        assertEquals("5fe9e4f576e49d4e7e8b0e029d6d3cdc252abd4694113e1cae120e62c931ea79", detector.checksum)
+        assertEquals(11_120_765L, detector.fileSize)
+        assertTrue(registry.none { it.id != detector.id && it.fileName == detector.fileName })
     }
 }

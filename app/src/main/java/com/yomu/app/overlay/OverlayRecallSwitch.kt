@@ -6,6 +6,7 @@ import android.view.Gravity
 import android.widget.LinearLayout
 import android.widget.Switch
 import android.widget.TextView
+import com.yomu.app.R
 import com.yomu.app.service.PageRecallStore
 import com.yomu.app.ui.theme.YomuColors
 
@@ -25,7 +26,7 @@ class OverlayRecallSwitch(private val context: Context, private val onFlipped: (
         gravity = Gravity.CENTER_VERTICAL
         setPadding(0, dp(16), 0, 0)
         addView(TextView(context).apply {
-            text = "Page recall"
+            text = context.getString(R.string.settings_page_recall_title)
             textSize = 14f
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
             label = this
@@ -33,7 +34,7 @@ class OverlayRecallSwitch(private val context: Context, private val onFlipped: (
         addView(Switch(context).apply {
             isChecked = enabled
             minHeight = dp(48)
-            contentDescription = "Page recall"
+            contentDescription = context.getString(R.string.settings_page_recall_title)
             setOnCheckedChangeListener { _, checked -> flipped(checked) }
             switch = this
         })
