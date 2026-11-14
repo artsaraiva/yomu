@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -38,6 +39,12 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/report_paths" />
         </provider>
+
+        <!-- ONNX Runtime 1.31 ships a telemetry provider that would run at every app start; Yomu is local-only (#448). -->
+        <provider
+            android:name="ai.onnxruntime.TelemetryInitializer"
+            android:authorities="${applicationId}.onnxruntime_telemetry_initializer"
+            tools:node="remove" />
     </application>
 
 </manifest>
