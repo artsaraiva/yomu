@@ -43,6 +43,7 @@ class TranslationPipelineTest {
     // Emulator scores from #366: a garbled caption, and a clean two-kanji line.
     private val confidenceByCropWidth = mapOf(70 to 0.738f, 90 to 0.898f)
     private val reads = mutableListOf<String>()
+    private val cropWidths = mutableListOf<Int>()
     private val slot = FakeTranslationSlot(PageTranslation(mapOf(2 to "Hello", 3 to "What?"), "", 1L))
 
     private fun pipeline(vararg boxes: Bubble) = TranslationPipeline(
@@ -65,9 +66,11 @@ class TranslationPipelineTest {
         when (invocation.method.name) {
             "isModelLoaded" -> true
             "extractText" -> {
-                val text = readsByCropWidth.getValue(invocation.getArgument<Bitmap>(0).width)
+                val width = invocation.getArgument<Bitmap>(0).width
+                val text = readsByCropWidth.getValue(width)
                 reads += text
-                OcrResult(text, confidenceByCropWidth[invocation.getArgument<Bitmap>(0).width] ?: 1f, floatArrayOf())
+                cropWidths += width
+                OcrResult(text, confidenceByCropWidth[width] ?: 1f, floatArrayOf())
             }
             else -> Mockito.RETURNS_DEFAULTS.answer(invocation)
         }
@@ -127,6 +130,18 @@ class TranslationPipelineTest {
             mapOf(2 to ("こんにちは" to 1f), 4 to ("よくラるって" to 0.738f)),
             checkNotNull(result).reads.mapValues { (_, read) -> read.text to read.confidence }
         )
+    }
+
+    @Test
+    fun `a bubble of four columns reaches OCR two columns at a time`() = runTest {
+        // Four 8 px columns of ink, 12 px apart, across the speech bubble's 80 px crop.
+        val page = page().apply {
+            for (left in listOf(106, 126, 146, 166)) for (x in left until left + 8) for (y in 110 until 290) setPixel(x, y, Color.BLACK)
+        }
+
+        pipeline(speech).processPage(page, targetLanguage = TargetLanguage.ENGLISH)
+
+        assertEquals(listOf(40, 40), cropWidths)
     }
 
     @Test
