@@ -496,7 +496,7 @@ class OverlayService : Service() {
             if (result != null) lastPage = PageRecord(bitmap, result, settings, recalled = false)
             val failure = result?.translationResult?.readerFailure()
             if (result != null && failure == null && result.translationResult.translations.isNotEmpty()) {
-                saveSessionResult(result)
+                savePage(result)
                 // A setting changed mid-page leaves a result made under neither snapshot.
                 if (pageSettings() == settings) pageRecall.remember(fingerprint, settings, result, recallBegunAt)
             }
@@ -584,7 +584,7 @@ class OverlayService : Service() {
         glossary = NameGlossaryStore(sharedPreferences).entriesInUse()
     )
 
-    private suspend fun saveSessionResult(result: PipelineResult) {
+    private suspend fun savePage(result: PipelineResult) {
         val translatedText = result.translationResult.translations.joinToString("\n") { translation ->
             "[${translation.bubbleId}] ${translation.originalText} → ${translation.translatedText}"
         }
