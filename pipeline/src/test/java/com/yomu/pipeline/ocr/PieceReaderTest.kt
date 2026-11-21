@@ -98,6 +98,15 @@ class PieceReaderTest {
     }
 
     @Test
+    fun `a joined read is as sure as its least sure piece`() {
+        val reader = fakeReader(confidences = mapOf("AB" to 0.98f, "CD" to 0.91f))
+
+        val read = PieceReader(reader::read).read(crop(124, 160, columns("ABCD", width = 124)))
+
+        assertEquals(0.91f, read?.confidence)
+    }
+
+    @Test
     fun `three columns are read whole`() {
         val reader = fakeReader()
 

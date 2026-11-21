@@ -9,7 +9,10 @@ import android.graphics.Bitmap
  */
 class PieceReader(private val readWhole: (Bitmap) -> OcrResult?) {
 
-    /** [crop]'s text, read whole or in [readingPieces] joined in reading order. */
+    /**
+     * [crop]'s text, read whole or in [readingPieces] joined in reading order. A joined read is as sure as its
+     * least sure piece, so the skip of unsure reads (#366) still applies.
+     */
     fun read(crop: Bitmap): OcrResult? {
         val pieces = readingPieces(crop)
         if (pieces.size < 2) return readWhole(crop)
@@ -18,7 +21,7 @@ class PieceReader(private val readWhole: (Bitmap) -> OcrResult?) {
         }
         return OcrResult(
             text = reads.joinToString("") { it.text },
-            confidence = reads.first().confidence,
+            confidence = reads.minOf { it.confidence },
             boundingBox = floatArrayOf(crop.width.toFloat(), crop.height.toFloat(), 0f, 0f)
         )
     }
