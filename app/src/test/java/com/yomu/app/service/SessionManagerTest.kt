@@ -41,6 +41,16 @@ class SessionManagerTest {
         assertEquals(1, session.bubbleCount)
     }
 
+    @Test
+    fun `pages finished one after another are saved in the same session`() = runTest {
+        finishPage("[0] こんにちは → Hello", bubbles = 1)
+        finishPage("[0] はい → Yes\n[1] いいえ → No", bubbles = 2)
+
+        val session = sessions.rows.single()
+        assertEquals(listOf(session.id, session.id), recent.rows.map { it.sessionId })
+        assertEquals(3, session.bubbleCount)
+    }
+
     private suspend fun finishPage(text: String, bubbles: Int) = manager.savePage(
         sourceApp = "manual",
         sourceImagePath = "",
