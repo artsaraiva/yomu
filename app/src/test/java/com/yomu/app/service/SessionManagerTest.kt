@@ -51,6 +51,16 @@ class SessionManagerTest {
         assertEquals(3, session.bubbleCount)
     }
 
+    @Test
+    fun `with saving off, a finished page creates no session and saves nothing`() = runTest {
+        saveToRecent.save(false)
+
+        finishPage("[0] こんにちは → Hello", bubbles = 1)
+
+        assertEquals(emptyList<TranslationSessionEntity>(), sessions.rows)
+        assertEquals(emptyList<TranslationEntity>(), recent.rows)
+    }
+
     private suspend fun finishPage(text: String, bubbles: Int) = manager.savePage(
         sourceApp = "manual",
         sourceImagePath = "",

@@ -34,7 +34,11 @@ class SessionManager @Inject constructor(
         )
     }
 
-    /** Saves a finished page to Recent, in the reading session for [sourceApp], opening one if none is active. */
+    /**
+     * Saves a finished page to Recent, in the reading session for [sourceApp], opening one if none is active.
+     * The one place that decides whether a page is saved (#454): while Save pages to Recent is off, it writes
+     * nothing, neither page nor session, and leaves the pages already saved as they are.
+     */
     suspend fun savePage(
         sourceApp: String,
         sourceImagePath: String,
@@ -44,6 +48,7 @@ class SessionManager @Inject constructor(
         bubbleCount: Int,
         translationTimeMs: Long
     ) {
+        if (!saveToRecent.load()) return
         val sessionId = getOrCreateSession(sourceApp).id
         val entity = TranslationEntity(
             sessionId = sessionId,
