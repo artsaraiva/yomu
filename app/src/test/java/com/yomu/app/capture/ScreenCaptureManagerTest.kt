@@ -19,6 +19,7 @@ import org.mockito.ArgumentMatchers.anyString
 import org.mockito.Mockito.doAnswer
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.verify
+import org.mockito.Mockito.verifyNoInteractions
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
@@ -83,6 +84,16 @@ class ScreenCaptureManagerTest {
 
         assertEquals(Size(2400, 1080), nextCaptureSize())
         verify(mirror).resize(2400, 1080, 480)
+    }
+
+    /** The display's first report is the size reading started at; its reader holds the frame a still screen is captured from (#402). */
+    @Test
+    fun displayOfTheSizeAlreadyCapturedLeavesTheMirrorAlone() {
+        manager.startProjection(projection) {}
+
+        manager.matchDisplay(Size(1080, 2400))
+
+        verifyNoInteractions(mirror)
     }
 
     private fun registeredCallback(): MediaProjection.Callback {
