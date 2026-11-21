@@ -7,7 +7,7 @@ import android.graphics.Bitmap
  * manga-ocr squeezes every crop to 224 × 224, so a wide narration box or a long caption shrinks past
  * reading (#429).
  */
-class PieceReader(private val readWhole: (Bitmap) -> OcrResult?) {
+internal class PieceReader(private val readWhole: (Bitmap) -> OcrResult?) {
 
     /**
      * [crop]'s text, read whole or in [readingPieces] joined in reading order. A joined read is as sure as its
@@ -25,6 +25,7 @@ class PieceReader(private val readWhole: (Bitmap) -> OcrResult?) {
         return OcrResult(
             text = reads.joinToString("") { it.text },
             confidence = reads.minOf { it.confidence },
+            // The box OcrEngine gives a whole read of the crop.
             boundingBox = floatArrayOf(crop.width.toFloat(), crop.height.toFloat(), 0f, 0f)
         )
     }

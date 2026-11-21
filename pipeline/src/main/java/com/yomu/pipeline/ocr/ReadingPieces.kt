@@ -1,7 +1,9 @@
 package com.yomu.pipeline.ocr
 
 import android.graphics.Bitmap
+import com.yomu.pipeline.bubble.luminance
 
+// Manga ink is near black on near-white paper, so mid-grey parts them whatever the capture's noise.
 private const val INK_LUMINANCE = 128
 // manga-ocr reads a speech bubble of up to seven columns whole: split into pairs, 42 of OpenMantra's 171
 // four-to-six-column bubbles fell under MIN_CONFIDENCE. Rendered vertical text read whole garbled from eight
@@ -18,7 +20,9 @@ private const val MAX_FURIGANA_WIDTH = 0.6f
 // Rendered lines of up to about ten characters read as well whole and cutting some made them worse; from
 // twelve, every cut line read at least as well as whole, and whole reads broke from about twenty (#453).
 private const val MIN_LINE_ASPECT = 12f
-// A piece is about this many line heights wide, cut at the widest gap within a quarter of that.
+// A piece is about this many line heights wide, cut at the widest gap within a quarter of that. Pieces of
+// about five characters read 0.93 at worst on the fork's 25-character caption (#446) and cleanly on every
+// rendered line (#453).
 private const val PIECE_ASPECT = 5f
 private const val PIECE_SLACK = 0.25f
 // A tail shorter than half a piece stays on the last piece: read alone, a lone "!" came back as words (#446).
@@ -36,13 +40,13 @@ internal fun readingPieces(crop: Bitmap): List<IntRange> {
 
 /** Two columns at a time, right to left, when [ink] is a block of [MIN_COLUMNS] or more tall columns. */
 private fun columnPairs(ink: Ink): List<IntRange> {
-    val columns = withFuriganaMerged(strokes(ink.columns()))
+    val columns = withFuriganaMerged(strokes(ink.inkedColumns()))
     if (columns.size < MIN_COLUMNS) return emptyList()
     val tallness = columns.map { column -> ink.rowsIn(column).length().toFloat() / column.length() }.sorted()
     if (tallness[tallness.size / 2] < MIN_COLUMN_TALLNESS) return emptyList()
     // Lines of horizontal text stand their characters in columns too, but their widest gaps run between rows.
     val columnGaps = gaps(columns).sorted()
-    val widestRowGap = gaps(strokes(ink.rows())).maxOrNull() ?: 0
+    val widestRowGap = gaps(strokes(ink.inkedRows())).maxOrNull() ?: 0
     if (columnGaps[columnGaps.size / 2] <= widestRowGap) return emptyList()
     return columns.reversed().chunked(COLUMNS_PER_PIECE).map { group -> group.last().first..group.first().last }
 }
@@ -58,8 +62,8 @@ private fun withFuriganaMerged(columns: List<IntRange>): List<IntRange> {
     val typical = columns.map { it.length() }.sorted().getOrNull(columns.size * 3 / 4) ?: return columns
     val owners = columns.indices.toMutableList()
     for (run in bands(columns.map { it.length() < MAX_FURIGANA_WIDTH * typical })) {
-        val leftGap = columns.getOrNull(run.first - 1)?.let { columns[run.first].first - it.last } ?: Int.MAX_VALUE
-        val rightGap = columns.getOrNull(run.last + 1)?.let { it.first - columns[run.last].last } ?: Int.MAX_VALUE
+        val leftGap = columns.getOrNull(run.first - 1)?.let { columns[run.first].first - it.last - 1 } ?: Int.MAX_VALUE
+        val rightGap = columns.getOrNull(run.last + 1)?.let { it.first - columns[run.last].last - 1 } ?: Int.MAX_VALUE
         val owner = if (leftGap <= rightGap) run.first - 1 else run.last + 1
         run.forEach { owners[it] = owner }
     }
@@ -68,8 +72,8 @@ private fun withFuriganaMerged(columns: List<IntRange>): List<IntRange> {
 
 /** Stretches about [PIECE_ASPECT] line heights wide, left to right, when [ink] is one line many times wider than tall. */
 private fun linePieces(ink: Ink): List<IntRange> {
-    val line = strokes(ink.rows()).singleOrNull() ?: return emptyList()
-    val inked = ink.columns(line)
+    val line = strokes(ink.inkedRows()).singleOrNull() ?: return emptyList()
+    val inked = ink.inkedColumns(line)
     val left = inked.indexOf(true)
     val right = inked.lastIndexOf(true)
     if (right - left + 1 < MIN_LINE_ASPECT * line.length()) return emptyList()
@@ -135,20 +139,17 @@ private class Ink(crop: Bitmap) {
         BooleanArray(pixels.size) { (levels[it] < INK_LUMINANCE) != inverted }
     }
 
-    /** Per column, whether any of its pixels in [rows] is ink. */
-    fun columns(rows: IntRange = 0 until height): List<Boolean> = (0 until width).map { x -> rows.any { y -> at(x, y) } }
+    /** Per x, whether any pixel of that column in [rows] is ink. */
+    fun inkedColumns(rows: IntRange = 0 until height): List<Boolean> = (0 until width).map { x -> rows.any { y -> at(x, y) } }
 
-    /** Per row, whether any of its pixels is ink. */
-    fun rows(): List<Boolean> = (0 until height).map { y -> (0 until width).any { x -> at(x, y) } }
+    /** Per y, whether any pixel of that row is ink. */
+    fun inkedRows(): List<Boolean> = (0 until height).map { y -> (0 until width).any { x -> at(x, y) } }
 
-    /** The rows from the first to the last that hold ink within [columns]. */
-    fun rowsIn(columns: IntRange): IntRange {
-        val rows = (0 until height).filter { y -> columns.any { x -> at(x, y) } }
+    /** The rows from the first to the last that hold ink within the x range [span]. */
+    fun rowsIn(span: IntRange): IntRange {
+        val rows = (0 until height).filter { y -> span.any { x -> at(x, y) } }
         return rows.first()..rows.last()
     }
 
     private fun at(x: Int, y: Int): Boolean = inked[y * width + x]
-
-    private fun luminance(pixel: Int): Int =
-        (((pixel shr 16) and 0xFF) * 299 + ((pixel shr 8) and 0xFF) * 587 + (pixel and 0xFF) * 114) / 1000
 }

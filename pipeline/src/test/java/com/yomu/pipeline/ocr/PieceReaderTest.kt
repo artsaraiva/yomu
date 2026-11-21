@@ -19,11 +19,11 @@ class PieceReaderTest {
     /** A box of ink standing in for one character, coloured by its [label] so the fake reader can name it. */
     private data class Glyph(val label: Char, val left: Int, val top: Int, val width: Int, val height: Int)
 
-    private val labels = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+    private val alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 
-    private fun darkInk(label: Char): Int = Color.rgb(4 + 4 * labels.indexOf(label), 0, 0)
+    private fun darkInk(label: Char): Int = Color.rgb(4 + 4 * alphabet.indexOf(label), 0, 0)
 
-    private fun lightInk(label: Char): Int = Color.rgb(255, 255, 251 - 4 * labels.indexOf(label))
+    private fun lightInk(label: Char): Int = Color.rgb(255, 255, 251 - 4 * alphabet.indexOf(label))
 
     /**
      * Vertical text in a crop 160 px tall: one column per label, [labels] in reading order from 10 px off the
@@ -106,7 +106,7 @@ class PieceReaderTest {
         unreadable: Set<String> = emptySet(),
         blank: Set<String> = emptySet(),
         ink: (Char) -> Int = ::darkInk
-    ) = FakeWholeReader(labels.associateBy(ink), confidences, unreadable, blank)
+    ) = FakeWholeReader(alphabet.associateBy(ink), confidences, unreadable, blank)
 
     @Test
     fun `eight columns are read two at a time, right to left, and joined`() {
