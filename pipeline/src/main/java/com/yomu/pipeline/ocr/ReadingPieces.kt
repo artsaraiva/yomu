@@ -31,6 +31,10 @@ private fun columnPairs(ink: Ink): List<IntRange> {
     if (columns.size < MIN_COLUMNS) return emptyList()
     val tallness = columns.map { column -> ink.rowsIn(column).length().toFloat() / column.length() }.sorted()
     if (tallness[tallness.size / 2] < MIN_COLUMN_TALLNESS) return emptyList()
+    // Lines of horizontal text stand their characters in columns too, but their widest gaps run between rows.
+    val columnGaps = gaps(columns).sorted()
+    val widestRowGap = gaps(bands(ink.rows())).maxOrNull() ?: 0
+    if (columnGaps[columnGaps.size / 2] <= widestRowGap) return emptyList()
     return columns.reversed().chunked(COLUMNS_PER_PIECE).map { group -> group.last().first..group.first().last }
 }
 
@@ -78,6 +82,9 @@ private fun bands(flags: List<Boolean>): List<IntRange> {
     if (start >= 0) bands += start until flags.size
     return bands
 }
+
+/** The widths of the blank runs between consecutive [bands]. */
+private fun gaps(bands: List<IntRange>): List<Int> = bands.zipWithNext { before, after -> after.first - before.last - 1 }
 
 private fun IntRange.length(): Int = last - first + 1
 

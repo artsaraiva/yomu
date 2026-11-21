@@ -45,6 +45,14 @@ class PieceReaderTest {
         return crop(glyphs.last().left + 16 + 10, 40, glyphs)
     }
 
+    /**
+     * Horizontal text: one line per label, [labels] from the top, each eight 16 px square glyphs 4 px apart and
+     * 10 px below the line above, so the glyphs of every line stand in the same columns.
+     */
+    private fun lines(labels: String): List<Glyph> = labels.flatMapIndexed { line, label ->
+        (0 until 8).map { glyph -> Glyph(label, 10 + glyph * 20, 10 + line * 26, 16, 16) }
+    }
+
     private fun crop(width: Int, height: Int, glyphs: List<Glyph>, paper: Int = Color.WHITE, ink: (Char) -> Int = ::darkInk): Bitmap =
         Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).apply {
             eraseColor(paper)
@@ -132,6 +140,15 @@ class PieceReaderTest {
         val reader = fakeReader()
 
         PieceReader(reader::read).read(crop(98, 160, columns("ABC", width = 98)))
+
+        assertEquals(listOf("ABC"), reader.asked)
+    }
+
+    @Test
+    fun `three lines of horizontal text are read whole, not in vertical strips`() {
+        val reader = fakeReader()
+
+        PieceReader(reader::read).read(crop(176, 88, lines("ABC")))
 
         assertEquals(listOf("ABC"), reader.asked)
     }
