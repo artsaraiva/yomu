@@ -19,8 +19,8 @@ private const val MIN_LINE_ASPECT = 8f
 // A piece is about this many line heights wide, cut at the widest gap within a quarter of that.
 private const val PIECE_ASPECT = 5f
 private const val PIECE_SLACK = 0.25f
-// A tail shorter than half a piece stays on the last piece.
-private const val MAX_LAST_PIECE = 1.5f
+// A tail shorter than half a piece stays on the last piece: read alone, a lone "!" came back as words (#446).
+private const val MIN_TAIL = 0.5f
 
 /**
  * The x ranges to read [crop] in, in reading order. They lie side by side across the whole crop, each cut
@@ -76,10 +76,12 @@ private fun linePieces(ink: Ink): List<IntRange> {
     val target = PIECE_ASPECT * line.length()
     val reach = target * (1 - PIECE_SLACK)..target * (1 + PIECE_SLACK)
     val cuts = mutableListOf(left)
-    while (right + 1 - cuts.last() > target * MAX_LAST_PIECE) {
+    while (right + 1 - cuts.last() > target * (1 + MIN_TAIL)) {
         val from = cuts.last()
-        val gap = gaps.filter { (it.first + it.last) / 2f - from in reach }.maxByOrNull { it.length() } ?: break
-        cuts += (gap.first + gap.last + 1) / 2
+        val gap = gaps.filter { gap ->
+            (gap.first + gap.last) / 2f - from in reach && right + 1 - midway(gap.first, gap.last) >= target * MIN_TAIL
+        }.maxByOrNull { it.length() } ?: break
+        cuts += midway(gap.first, gap.last)
     }
     return (cuts + (right + 1)).zipWithNext { start, end -> start until end }
 }
@@ -87,7 +89,7 @@ private fun linePieces(ink: Ink): List<IntRange> {
 /** [pieces]' ink ranges widened to meet halfway between neighbours and reach both edges of a [width] crop. */
 private fun sideBySide(pieces: List<IntRange>, width: Int): List<IntRange> {
     val byX = pieces.sortedBy { it.first }
-    val cuts = byX.zipWithNext { left, right -> (left.last + right.first + 1) / 2 }
+    val cuts = byX.zipWithNext { left, right -> midway(left.last, right.first) }
     val starts = listOf(0) + cuts
     val ends = cuts.map { it - 1 } + (width - 1)
     val widened = byX.indices.associate { byX[it] to starts[it]..ends[it] }
@@ -108,6 +110,9 @@ private fun bands(flags: List<Boolean>): List<IntRange> {
     if (start >= 0) bands += start until flags.size
     return bands
 }
+
+/** The first x of the right half when the pixels from [first] to [last] are cut in two. */
+private fun midway(first: Int, last: Int): Int = (first + last + 1) / 2
 
 /** The widths of the blank runs between consecutive [bands]. */
 private fun gaps(bands: List<IntRange>): List<Int> = bands.zipWithNext { before, after -> after.first - before.last - 1 }

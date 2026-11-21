@@ -237,6 +237,16 @@ class PieceReaderTest {
     }
 
     @Test
+    fun `a cut never leaves a tail shorter than half a piece`() {
+        val reader = fakeReader()
+
+        // The wider gap after U is in reach, but cutting there would leave VW, 39 px, to be read alone.
+        PieceReader(reader::read).read(line("ABCDEFGHIJKLMNOPQRSTUVW", gapsAfter = mapOf('U' to 5)))
+
+        assertEquals(listOf("ABCD", "EFGH", "IJKL", "MNOP", "QRST", "UVW"), reader.asked)
+    }
+
+    @Test
     fun `a short line is read whole`() {
         val reader = fakeReader()
 
