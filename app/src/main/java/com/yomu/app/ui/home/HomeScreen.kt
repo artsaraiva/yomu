@@ -119,7 +119,8 @@ fun HomeScreen(
         if (saving) item {
             Text("${state.pagesTranslatedToday} ${if (state.pagesTranslatedToday == 1) "page" else "pages"} translated today", style = MaterialTheme.typography.bodySmall)
         }
-        if (state.historyLoading || state.historyError || state.hasRead) {
+        // Shown while saving is off even before any page was saved, so Home says why none is kept.
+        if (state.historyLoading || state.historyError || state.hasRead || !saving) {
             item {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Recent", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
