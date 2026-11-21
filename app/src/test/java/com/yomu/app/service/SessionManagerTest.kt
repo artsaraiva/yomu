@@ -61,6 +61,19 @@ class SessionManagerTest {
         assertEquals(emptyList<TranslationEntity>(), recent.rows)
     }
 
+    @Test
+    fun `turning saving off leaves the pages already in Recent and their session untouched`() = runTest {
+        finishPage("[0] こんにちは → Hello", bubbles = 1)
+        val savedPages = recent.rows.toList()
+        val savedSessions = sessions.rows.toList()
+
+        saveToRecent.save(false)
+        finishPage("[0] はい → Yes", bubbles = 1)
+
+        assertEquals(savedPages, recent.rows)
+        assertEquals(savedSessions, sessions.rows)
+    }
+
     private suspend fun finishPage(text: String, bubbles: Int) = manager.savePage(
         sourceApp = "manual",
         sourceImagePath = "",
