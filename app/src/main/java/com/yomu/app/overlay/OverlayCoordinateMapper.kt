@@ -19,20 +19,21 @@ object OverlayCoordinateMapper {
         val scaleY: Float
     )
 
+    /**
+     * A captured page is laid over the whole display, so it is scaled by the display's size over the capture's: 1 while
+     * the capture matches the display. The overlay window's own size plays no part, since system bars shrink the
+     * window and not the page; the window's place on the screen is the offset.
+     */
     fun params(
         captureWidth: Int,
         captureHeight: Int,
-        canvasWidth: Int,
-        canvasHeight: Int,
+        displayWidth: Int,
+        displayHeight: Int,
         overlayScreenX: Int,
         overlayScreenY: Int
     ): MapParams {
-        val scaleX = if (captureWidth > 0) canvasWidth.toFloat() / captureWidth else 1f
-        val scaleY = if (captureHeight > 0 && canvasHeight > captureHeight) {
-            canvasHeight.toFloat() / captureHeight
-        } else {
-            1f
-        }
+        val scaleX = if (captureWidth > 0) displayWidth.toFloat() / captureWidth else 1f
+        val scaleY = if (captureHeight > 0) displayHeight.toFloat() / captureHeight else 1f
         return MapParams(
             offsetX = overlayScreenX.toFloat(),
             offsetY = overlayScreenY.toFloat(),
@@ -60,12 +61,13 @@ object OverlayCoordinateMapper {
         else -> 0f
     }
 
+    /** Moves [bounds] from capture pixels to the display's, then into the overlay window that starts at the offset. */
     fun map(bounds: FloatArray, params: MapParams): OverlayBounds {
         return OverlayBounds(
-            left = (bounds[0] - params.offsetX) * params.scaleX,
-            top = (bounds[1] - params.offsetY) * params.scaleY,
-            right = (bounds[2] - params.offsetX) * params.scaleX,
-            bottom = (bounds[3] - params.offsetY) * params.scaleY
+            left = bounds[0] * params.scaleX - params.offsetX,
+            top = bounds[1] * params.scaleY - params.offsetY,
+            right = bounds[2] * params.scaleX - params.offsetX,
+            bottom = bounds[3] * params.scaleY - params.offsetY
         )
     }
 }
