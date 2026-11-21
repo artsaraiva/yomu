@@ -207,6 +207,41 @@ class LlamaTranslationBridgeTest {
         model.delete()
     }
 
+    /** 25 characters is the longest source line that keeps 160 (#451); such a page keeps today's grammar byte for byte. */
+    @Test
+    fun translatePage_batchPageOfOrdinaryLinesKeepsTheSharedLineRule() = runTest {
+        val model = File.createTempFile("model", ".gguf")
+        val native = FakeLlamaBridge { GenerationResult.Success("[1] Hello\n[2] Bye\n", 1L) }
+        val slot = LlamaTranslationBridge(native, profile(model, idKeyedBatch = true))
+
+        slot.translatePage(page(1 to "あ".repeat(25), 2 to "さようなら"))
+
+        val expected = """
+            root ::= "[1] " line "\n" "[2] " line "\n"?
+            line ::= [^\r\n\[]{1,160}
+        """.trimIndent() + "\n"
+        assertEquals(expected, native.grammars.single())
+        model.delete()
+    }
+
+    /** A 100-character line expects 310 characters of translation, so it gets twice that (#451). */
+    @Test
+    fun translatePage_batchLongLineGetsItsOwnLimitWhileTheOthersKeep160() = runTest {
+        val model = File.createTempFile("model", ".gguf")
+        val native = FakeLlamaBridge { GenerationResult.Success("[1] Hi\n[2] Long\n[3] Bye\n", 1L) }
+        val slot = LlamaTranslationBridge(native, profile(model, idKeyedBatch = true))
+
+        slot.translatePage(page(1 to "こんにちは", 2 to "あ".repeat(100), 3 to "さようなら"))
+
+        val expected = """
+            root ::= "[1] " line "\n" "[2] " line-620 "\n" "[3] " line "\n"?
+            line ::= [^\r\n\[]{1,160}
+            line-620 ::= [^\r\n\[]{1,620}
+        """.trimIndent() + "\n"
+        assertEquals(expected, native.grammars.single())
+        model.delete()
+    }
+
     @Test
     fun translatePage_batchLineAdmitsIdBracketWhenOptedOut() = runTest {
         val model = File.createTempFile("model", ".gguf")
