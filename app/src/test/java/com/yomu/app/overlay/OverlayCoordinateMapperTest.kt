@@ -3,88 +3,60 @@ package com.yomu.app.overlay
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
+/** The phone is 1080 × 2400, with a 63 px status bar and, under 3-button navigation, a 126 px navigation bar. */
 class OverlayCoordinateMapperTest {
+    /** The overlay window fits the status bar, so it starts 63 px down while the capture starts at the top. */
     @Test
-    fun `params are identity when overlay origin is display origin`() {
+    fun `a portrait page lands where it was captured, below the status bar`() {
         val params = OverlayCoordinateMapper.params(
             captureWidth = 1080,
             captureHeight = 2400,
-            canvasWidth = 1080,
-            canvasHeight = 2197,
-            overlayScreenX = 0,
-            overlayScreenY = 0
-        )
-
-        assertEquals(0f, params.offsetX)
-        assertEquals(0f, params.offsetY)
-        assertEquals(1f, params.scaleX)
-        assertEquals(1f, params.scaleY)
-    }
-
-    @Test
-    fun `map is identity when overlay starts at display origin even if canvas is shorter`() {
-        val params = OverlayCoordinateMapper.params(
-            captureWidth = 1080,
-            captureHeight = 2340,
-            canvasWidth = 1080,
-            canvasHeight = 2197,
-            overlayScreenX = 0,
-            overlayScreenY = 0
-        )
-
-        val mapped = OverlayCoordinateMapper.map(
-            floatArrayOf(100f, 600f, 300f, 900f),
-            params
-        )
-
-        assertEquals(100f, mapped.left)
-        assertEquals(600f, mapped.top)
-        assertEquals(300f, mapped.right)
-        assertEquals(900f, mapped.bottom)
-    }
-
-    @Test
-    fun `map subtracts overlay screen offset`() {
-        val params = OverlayCoordinateMapper.params(
-            captureWidth = 1080,
-            captureHeight = 2340,
-            canvasWidth = 1080,
-            canvasHeight = 2197,
+            displayWidth = 1080,
+            displayHeight = 2400,
             overlayScreenX = 0,
             overlayScreenY = 63
         )
 
-        val mapped = OverlayCoordinateMapper.map(
-            floatArrayOf(100f, 200f, 300f, 400f),
-            params
-        )
+        val mapped = OverlayCoordinateMapper.map(floatArrayOf(100f, 600f, 300f, 900f), params)
 
-        assertEquals(100f, mapped.left)
-        assertEquals(137f, mapped.top)
-        assertEquals(300f, mapped.right)
-        assertEquals(337f, mapped.bottom)
+        assertEquals(OverlayBounds(100f, 537f, 300f, 837f), mapped)
     }
 
+    /** After a turn the capture is landscape like the display; this reader hides the status bar. */
     @Test
-    fun `map supports x scale and x offset`() {
+    fun `a landscape page lands where it was captured`() {
         val params = OverlayCoordinateMapper.params(
-            captureWidth = 1200,
-            captureHeight = 800,
-            canvasWidth = 600,
-            canvasHeight = 400,
-            overlayScreenX = 100,
+            captureWidth = 2400,
+            captureHeight = 1080,
+            displayWidth = 2400,
+            displayHeight = 1080,
+            overlayScreenX = 0,
             overlayScreenY = 0
         )
 
-        val mapped = OverlayCoordinateMapper.map(
-            floatArrayOf(200f, 100f, 600f, 300f),
-            params
+        val mapped = OverlayCoordinateMapper.map(floatArrayOf(1800f, 200f, 2100f, 500f), params)
+
+        assertEquals(OverlayBounds(1800f, 200f, 2100f, 500f), mapped)
+    }
+
+    /**
+     * In landscape, 3-button navigation puts its bar beside the page, here on the left. The overlay window fits it, so
+     * the window is 126 px narrower and starts 126 px in; the page under it is still the display's full width.
+     */
+    @Test
+    fun `a side navigation bar shifts the window without squeezing the page`() {
+        val params = OverlayCoordinateMapper.params(
+            captureWidth = 2400,
+            captureHeight = 1080,
+            displayWidth = 2400,
+            displayHeight = 1080,
+            overlayScreenX = 126,
+            overlayScreenY = 0
         )
 
-        assertEquals(50f, mapped.left)
-        assertEquals(100f, mapped.top)
-        assertEquals(250f, mapped.right)
-        assertEquals(300f, mapped.bottom)
+        val mapped = OverlayCoordinateMapper.map(floatArrayOf(1800f, 200f, 2100f, 500f), params)
+
+        assertEquals(OverlayBounds(1674f, 200f, 1974f, 500f), mapped)
     }
 
     @Test

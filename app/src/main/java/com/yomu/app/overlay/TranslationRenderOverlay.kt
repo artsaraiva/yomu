@@ -8,6 +8,7 @@ import android.graphics.PixelFormat
 import android.graphics.Typeface
 import android.os.Build
 import android.util.Log
+import android.util.Size
 import android.view.WindowInsets
 import android.view.WindowManager
 import android.widget.FrameLayout
@@ -15,7 +16,9 @@ import com.yomu.pipeline.typesetting.TypesetBubble
 
 class TranslationRenderOverlay(
     private val context: Context,
-    private val windowManager: WindowManager
+    private val windowManager: WindowManager,
+    /** The display's size as it is turned now, or null before it is known; a captured page covers the whole display. */
+    private val displaySize: () -> Size?
 ) {
     companion object {
         private const val TAG = "TranslationRender"
@@ -46,14 +49,7 @@ class TranslationRenderOverlay(
             override fun onDraw(canvas: Canvas) {
                 super.onDraw(canvas)
                 getLocationOnScreen(screenLocation)
-                val mapParams = OverlayCoordinateMapper.params(
-                    captureWidth = pageWidth,
-                    captureHeight = pageHeight,
-                    canvasWidth = canvas.width,
-                    canvasHeight = canvas.height,
-                    overlayScreenX = screenLocation[0],
-                    overlayScreenY = screenLocation[1]
-                )
+                val mapParams = mapParams(pageWidth, pageHeight, screenLocation)
                 drawnBounds = bubbles.map { canvasBounds(it, mapParams, canvas) }
                 bubbles.forEachIndexed { index, bubble ->
                     drawTypesetBubble(canvas, bubble, drawnBounds[index], paint, mapParams)
@@ -111,14 +107,7 @@ class TranslationRenderOverlay(
             override fun onDraw(canvas: Canvas) {
                 super.onDraw(canvas)
                 getLocationOnScreen(screenLocation)
-                val mapParams = OverlayCoordinateMapper.params(
-                    captureWidth = this@TranslationRenderOverlay.pageWidth,
-                    captureHeight = this@TranslationRenderOverlay.pageHeight,
-                    canvasWidth = canvas.width,
-                    canvasHeight = canvas.height,
-                    overlayScreenX = screenLocation[0],
-                    overlayScreenY = screenLocation[1]
-                )
+                val mapParams = mapParams(this@TranslationRenderOverlay.pageWidth, this@TranslationRenderOverlay.pageHeight, screenLocation)
                 Log.d(
                     TAG,
                     "ocr render canvasW=${canvas.width} canvasH=${canvas.height} pageW=$pageWidth pageH=$pageHeight overlayX=${screenLocation[0]} overlayY=${screenLocation[1]} scaleX=${mapParams.scaleX} scaleY=${mapParams.scaleY}"
@@ -146,6 +135,19 @@ class TranslationRenderOverlay(
         overlayView?.let { windowManager.removeView(it) }
         overlayView = null
         bubbleStates = emptyList()
+    }
+
+    /** Lays a page captured at [pageWidth] × [pageHeight] over the display, seen from a window at [screenLocation]. */
+    private fun mapParams(pageWidth: Int, pageHeight: Int, screenLocation: IntArray): OverlayCoordinateMapper.MapParams {
+        val display = displaySize() ?: Size(pageWidth, pageHeight)
+        return OverlayCoordinateMapper.params(
+            captureWidth = pageWidth,
+            captureHeight = pageHeight,
+            displayWidth = display.width,
+            displayHeight = display.height,
+            overlayScreenX = screenLocation[0],
+            overlayScreenY = screenLocation[1]
+        )
     }
 
     /** Maps a typeset bubble from capture coordinates and clips its bounds to the canvas. */

@@ -137,7 +137,7 @@ class OverlayService : Service() {
         super.onCreate()
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         floatingButtonOverlay = FloatingButtonOverlay(this, windowManager)
-        translationRenderOverlay = TranslationRenderOverlay(this, windowManager)
+        translationRenderOverlay = TranslationRenderOverlay(this, windowManager) { null }
         statusOverlay = TranslationStatusOverlay(this, windowManager)
         sharedPreferences.registerOnSharedPreferenceChangeListener(preferenceListener)
         createNotificationChannel()
