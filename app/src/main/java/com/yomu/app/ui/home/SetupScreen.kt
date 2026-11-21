@@ -131,7 +131,9 @@ private fun SetupModelRowView(row: SetupModelRow, running: Boolean, canChange: B
         (row.state as? SetupModelState.Downloading)?.let {
             LinearProgressIndicator(
                 progress = if (it.totalBytes > 0) it.bytesDownloaded.toFloat() / it.totalBytes else 0f,
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                // The default track is the card's own colour, which hides how much is left.
+                trackColor = MaterialTheme.colorScheme.outlineVariant
             )
         }
     }
