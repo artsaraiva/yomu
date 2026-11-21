@@ -207,7 +207,7 @@ class LlamaTranslationBridgeTest {
         model.delete()
     }
 
-    /** 25 characters is the longest source line that keeps 160 (#451); such a page keeps today's grammar byte for byte. */
+    /** 25 characters is the longest source line that keeps 160 (#451), so such a page gets just `root` and the shared `line`. */
     @Test
     fun translatePage_batchPageOfOrdinaryLinesKeepsTheSharedLineRule() = runTest {
         val model = File.createTempFile("model", ".gguf")
