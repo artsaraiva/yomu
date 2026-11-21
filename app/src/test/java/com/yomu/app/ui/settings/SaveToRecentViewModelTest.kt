@@ -21,4 +21,14 @@ class SaveToRecentViewModelTest {
         assertTrue(viewModel.enabled.value)
         assertTrue(SaveToRecentStore(prefs).load())
     }
+
+    @Test
+    fun `a flip in Settings shows at once on Home`() {
+        val settings = SaveToRecentViewModel(prefs)
+        val home = SaveToRecentViewModel(prefs)
+
+        settings.setEnabled(false)
+
+        assertFalse(home.enabled.value)
+    }
 }
