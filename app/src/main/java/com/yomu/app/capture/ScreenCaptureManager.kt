@@ -28,6 +28,7 @@ class ScreenCaptureManager @Inject constructor(
         private const val CAPTURE_TIMEOUT_MS = 4_000L
         private const val CAPTURE_POLL_INTERVAL_MS = 80L
         private const val FRESH_FRAME_WAIT_MS = 300L
+        private const val READER_MAX_IMAGES = 2
     }
 
     private var mediaProjection: MediaProjection? = null
@@ -73,9 +74,7 @@ class ScreenCaptureManager @Inject constructor(
         val width = metrics.widthPixels
         val height = metrics.heightPixels
 
-        imageReader = ImageReader.newInstance(
-            width, height, PixelFormat.RGBA_8888, 2
-        )
+        imageReader = newReader(width, height)
 
         virtualDisplay = mediaProjection?.createVirtualDisplay(
             "YomuScreenCapture",
@@ -98,11 +97,11 @@ class ScreenCaptureManager @Inject constructor(
      * @return whether the capture was resized, which leaves a page captured before it the wrong shape for the screen;
      * false when the size is unchanged or no capture is running.
      */
-    fun matchDisplay(size: Size): Boolean {
+    fun resizeTo(size: Size): Boolean {
         val mirror = virtualDisplay ?: return false
         val current = imageReader ?: return false
         if (current.width == size.width && current.height == size.height) return false
-        val reader = ImageReader.newInstance(size.width, size.height, PixelFormat.RGBA_8888, 2)
+        val reader = newReader(size.width, size.height)
         mirror.resize(size.width, size.height, densityDpi)
         mirror.surface = reader.surface
         current.close()
@@ -110,6 +109,9 @@ class ScreenCaptureManager @Inject constructor(
         Log.i(TAG, "capture resized to ${size.width}x${size.height}")
         return true
     }
+
+    private fun newReader(width: Int, height: Int): ImageReader =
+        ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, READER_MAX_IMAGES)
 
     /**
      * Hands [onBitmapReady] a frame drawn after this call. The reader still holds the newest frame from before

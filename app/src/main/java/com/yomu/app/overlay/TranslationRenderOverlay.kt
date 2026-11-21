@@ -139,12 +139,12 @@ class TranslationRenderOverlay(
 
     /** Lays a page captured at [pageWidth] × [pageHeight] over the display, seen from a window at [screenLocation]. */
     private fun mapParams(pageWidth: Int, pageHeight: Int, screenLocation: IntArray): OverlayCoordinateMapper.MapParams {
-        val display = displaySize() ?: Size(pageWidth, pageHeight)
+        val screen = displaySize() ?: Size(pageWidth, pageHeight)
         return OverlayCoordinateMapper.params(
             captureWidth = pageWidth,
             captureHeight = pageHeight,
-            displayWidth = display.width,
-            displayHeight = display.height,
+            displayWidth = screen.width,
+            displayHeight = screen.height,
             overlayScreenX = screenLocation[0],
             overlayScreenY = screenLocation[1]
         )

@@ -19,7 +19,6 @@ import org.mockito.ArgumentMatchers.anyString
 import org.mockito.Mockito.doAnswer
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.verify
-import org.mockito.Mockito.verifyNoInteractions
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
@@ -80,7 +79,7 @@ class ScreenCaptureManagerTest {
     fun turnedDisplayIsCapturedAtItsNewSize() {
         manager.startProjection(projection) {}
 
-        manager.matchDisplay(Size(2400, 1080))
+        manager.resizeTo(Size(2400, 1080))
 
         assertEquals(Size(2400, 1080), nextCaptureSize())
         verify(mirror).resize(2400, 1080, 480)
@@ -91,18 +90,19 @@ class ScreenCaptureManagerTest {
     fun resizingTheCaptureIsReported() {
         manager.startProjection(projection) {}
 
-        assertTrue(manager.matchDisplay(Size(2400, 1080)))
+        assertTrue(manager.resizeTo(Size(2400, 1080)))
     }
 
     /** The display's first report is the size reading started at; its reader holds the frame a still screen is captured from (#402). */
     @Test
     fun displayOfTheSizeAlreadyCapturedChangesNothing() {
         manager.startProjection(projection) {}
+        drawFrame()
 
-        val resized = manager.matchDisplay(Size(1080, 2400))
+        val resized = manager.resizeTo(Size(1080, 2400))
 
         assertFalse(resized)
-        verifyNoInteractions(mirror)
+        assertEquals(Size(1080, 2400), stillScreenCaptureSize())
     }
 
     /** The probe window can still report a layout queued before reading stopped. */
@@ -111,7 +111,7 @@ class ScreenCaptureManagerTest {
         manager.startProjection(projection) {}
         manager.stopProjection()
 
-        assertFalse(manager.matchDisplay(Size(2400, 1080)))
+        assertFalse(manager.resizeTo(Size(2400, 1080)))
     }
 
     private fun registeredCallback(): MediaProjection.Callback {
@@ -120,12 +120,28 @@ class ScreenCaptureManagerTest {
         return callback.value
     }
 
+    /** Plays the system: draws one frame into the surface the mirror draws the screen into. */
+    private fun drawFrame() {
+        mirrorSurface?.let { it.unlockCanvasAndPost(it.lockCanvas(null)) }
+    }
+
     /** Asks for a capture, has the mirror draw one frame after the request, and returns the captured frame's size. */
     private fun nextCaptureSize(): Size? {
         var captured: Bitmap? = null
         manager.captureScreen { captured = it }
         shadowOf(Looper.getMainLooper()).idle()
-        mirrorSurface?.let { it.unlockCanvasAndPost(it.lockCanvas(null)) }
+        drawFrame()
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(FRAME_WAIT_MS))
+        return captured?.let { Size(it.width, it.height) }
+    }
+
+    /** Asks for a capture while nothing new is drawn, so the frame already waiting in the reader is the one captured. */
+    private fun stillScreenCaptureSize(): Size? {
+        var captured: Bitmap? = null
+        manager.captureScreen { captured = it }
+        shadowOf(Looper.getMainLooper()).idle()
+        // The capture times its wait for a new frame by the wall clock, which the paused looper doesn't move.
+        Thread.sleep(STILL_SCREEN_WAIT_MS)
         shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(FRAME_WAIT_MS))
         return captured?.let { Size(it.width, it.height) }
     }
@@ -133,5 +149,8 @@ class ScreenCaptureManagerTest {
     private companion object {
         /** Longer than the capture's poll interval, so the frame drawn after the request is picked up. */
         const val FRAME_WAIT_MS = 100L
+
+        /** Longer than the capture waits for a new frame before it takes the one already in the reader. */
+        const val STILL_SCREEN_WAIT_MS = 350L
     }
 }
