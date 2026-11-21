@@ -40,7 +40,6 @@ fun SetupScreen(state: HomeUiState, viewModel: HomeViewModel) {
         Text("Setup", style = MaterialTheme.typography.headlineLarge)
         SetupChecklist(steps)
         if (!state.setupDownloadsReady) {
-            if (running) MangaPhraseLine()
             PaperSurface(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     rows.forEach { row -> SetupModelRowView(row, running, canChange = !running) { changing = row.type } }
