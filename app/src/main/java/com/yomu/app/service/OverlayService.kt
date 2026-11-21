@@ -20,6 +20,7 @@ import android.view.WindowManager
 import com.yomu.app.MainActivity
 import com.yomu.app.capture.ScreenCaptureManager
 import com.yomu.app.detection.DetectionThresholdStore
+import com.yomu.app.overlay.DisplayProbe
 import com.yomu.app.overlay.FloatingButtonView
 import com.yomu.app.overlay.FloatingButtonOverlay
 import com.yomu.app.overlay.OverlayBounds
@@ -83,6 +84,7 @@ class OverlayService : Service() {
 
     private lateinit var windowManager: WindowManager
     private lateinit var floatingButtonOverlay: FloatingButtonOverlay
+    private lateinit var displayProbe: DisplayProbe
     private lateinit var translationRenderOverlay: TranslationRenderOverlay
     private var floatingButton: FloatingButtonView? = null
     private lateinit var statusOverlay: TranslationStatusOverlay
@@ -137,7 +139,11 @@ class OverlayService : Service() {
         super.onCreate()
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         floatingButtonOverlay = FloatingButtonOverlay(this, windowManager)
-        translationRenderOverlay = TranslationRenderOverlay(this, windowManager) { null }
+        displayProbe = DisplayProbe(this, windowManager) { size ->
+            // A page captured or drawn at the old size no longer fits the screen; the reader taps again.
+            if (screenCaptureManager.matchDisplay(size)) cancelTranslation()
+        }
+        translationRenderOverlay = TranslationRenderOverlay(this, windowManager, displayProbe::size)
         statusOverlay = TranslationStatusOverlay(this, windowManager)
         sharedPreferences.registerOnSharedPreferenceChangeListener(preferenceListener)
         createNotificationChannel()
@@ -197,6 +203,7 @@ class OverlayService : Service() {
             Log.i(TAG, "Screen sharing ended; stopping")
             stopSelf()
         }
+        displayProbe.attach()
 
         showFloatingButton()
         sendBroadcast(Intent(ACTION_SERVICE_STARTED).setPackage(packageName))
@@ -232,6 +239,7 @@ class OverlayService : Service() {
         removeFloatingButton()
         translationRenderOverlay.remove()
         statusOverlay.remove()
+        displayProbe.detach()
         screenCaptureManager.stopProjection()
         translationPipeline.release()
         translationPipeline.close()
