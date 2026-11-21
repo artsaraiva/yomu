@@ -36,13 +36,16 @@ class TranslationPipelineTest {
     private val toolbarLabel = Bubble(6, RectF(200f, 320f, 240f, 390f), 0.9f)
     private val acronymLine = Bubble(7, RectF(250f, 320f, 280f, 390f), 0.9f)
 
-    // The fake OCR sees only a crop, so each box above has its own width to be told apart by.
+    // The fake OCR sees only a crop, so each box above has its own width to be told apart by; 20 is a
+    // quarter of speech's crop, read in pieces.
     private val readsByCropWidth = mapOf(
-        50 to "12:00", 80 to "こんにちは", 60 to "!?", 70 to "よくラるって", 90 to "御意", 40 to "ぺ。Share", 30 to "GPSのっけて"
+        50 to "12:00", 80 to "こんにちは", 60 to "!?", 70 to "よくラるって", 90 to "御意", 40 to "ぺ。Share", 30 to "GPSのっけて",
+        20 to "ひとこと"
     )
     // Emulator scores from #366: a garbled caption, and a clean two-kanji line.
     private val confidenceByCropWidth = mapOf(70 to 0.738f, 90 to 0.898f)
     private val reads = mutableListOf<String>()
+    private val cropWidths = mutableListOf<Int>()
     private val slot = FakeTranslationSlot(PageTranslation(mapOf(2 to "Hello", 3 to "What?"), "", 1L))
 
     private fun pipeline(vararg boxes: Bubble) = TranslationPipeline(
@@ -65,9 +68,11 @@ class TranslationPipelineTest {
         when (invocation.method.name) {
             "isModelLoaded" -> true
             "extractText" -> {
-                val text = readsByCropWidth.getValue(invocation.getArgument<Bitmap>(0).width)
+                val width = invocation.getArgument<Bitmap>(0).width
+                val text = readsByCropWidth.getValue(width)
                 reads += text
-                OcrResult(text, confidenceByCropWidth[invocation.getArgument<Bitmap>(0).width] ?: 1f, floatArrayOf())
+                cropWidths += width
+                OcrResult(text, confidenceByCropWidth[width] ?: 1f, floatArrayOf())
             }
             else -> Mockito.RETURNS_DEFAULTS.answer(invocation)
         }
@@ -127,6 +132,18 @@ class TranslationPipelineTest {
             mapOf(2 to ("こんにちは" to 1f), 4 to ("よくラるって" to 0.738f)),
             checkNotNull(result).reads.mapValues { (_, read) -> read.text to read.confidence }
         )
+    }
+
+    @Test
+    fun `a bubble of eight columns reaches OCR two columns at a time`() = runTest {
+        // Eight 4 px columns of ink, 6 px apart, across the speech bubble's 80 px crop.
+        val page = page().apply {
+            for (column in 0 until 8) for (x in 103 + column * 10 until 107 + column * 10) for (y in 110 until 290) setPixel(x, y, Color.BLACK)
+        }
+
+        pipeline(speech).processPage(page, targetLanguage = TargetLanguage.ENGLISH)
+
+        assertEquals(listOf(20, 20, 20, 20), cropWidths)
     }
 
     @Test
