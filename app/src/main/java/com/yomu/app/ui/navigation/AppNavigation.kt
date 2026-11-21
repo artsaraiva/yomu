@@ -135,7 +135,7 @@ fun AppNavigation(
                 }
             ) {
                 composable(Screen.Home.route) {
-                    HomeScreen(viewModel, onRequestScreenCapture)
+                    HomeScreen(viewModel, hiltViewModel(), onRequestScreenCapture)
                 }
                 navigation(startDestination = SETTINGS_ROOT, route = Screen.Settings.route) {
                     composable(SETTINGS_ROOT) {
@@ -148,7 +148,7 @@ fun AppNavigation(
                             val settings: SettingsViewModel = hiltViewModel(parent)
                             val onBack: () -> Unit = { navController.popBackStack() }
                             when (section) {
-                                SettingsSection.Translation -> TranslationSettings(settings, onBack)
+                                SettingsSection.Translation -> TranslationSettings(settings, hiltViewModel(), onBack)
                                 SettingsSection.NameGlossary -> NameGlossarySettings(hiltViewModel(), onBack)
                                 SettingsSection.Pipeline -> PipelineSettings(settings, onBack)
                                 SettingsSection.Typesetting -> TypesettingSettings(settings, onBack)
