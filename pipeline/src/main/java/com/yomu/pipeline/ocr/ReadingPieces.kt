@@ -81,13 +81,15 @@ private fun bands(flags: List<Boolean>): List<IntRange> {
 
 private fun IntRange.length(): Int = last - first + 1
 
-/** A crop's ink: its dark pixels. */
+/** A crop's ink: its dark pixels, or its light ones when the crop is mostly dark, as light text on a dark box. */
 private class Ink(crop: Bitmap) {
     private val width = crop.width
     private val height = crop.height
-    private val dark: BooleanArray = run {
+    private val inked: BooleanArray = run {
         val pixels = IntArray(width * height).also { crop.getPixels(it, 0, width, 0, 0, width, height) }
-        BooleanArray(pixels.size) { luminance(pixels[it]) < INK_LUMINANCE }
+        val levels = IntArray(pixels.size) { luminance(pixels[it]) }
+        val inverted = levels.average() < INK_LUMINANCE
+        BooleanArray(pixels.size) { (levels[it] < INK_LUMINANCE) != inverted }
     }
 
     /** Per column, whether any of its pixels in [rows] is ink. */
@@ -98,11 +100,11 @@ private class Ink(crop: Bitmap) {
 
     /** The rows from the first to the last that hold ink within [columns]. */
     fun rowsIn(columns: IntRange): IntRange {
-        val inked = (0 until height).filter { y -> columns.any { x -> at(x, y) } }
-        return inked.first()..inked.last()
+        val rows = (0 until height).filter { y -> columns.any { x -> at(x, y) } }
+        return rows.first()..rows.last()
     }
 
-    private fun at(x: Int, y: Int): Boolean = dark[y * width + x]
+    private fun at(x: Int, y: Int): Boolean = inked[y * width + x]
 
     private fun luminance(pixel: Int): Int =
         (((pixel shr 16) and 0xFF) * 299 + ((pixel shr 8) and 0xFF) * 587 + (pixel and 0xFF) * 114) / 1000

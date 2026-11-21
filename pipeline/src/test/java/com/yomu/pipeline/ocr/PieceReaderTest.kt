@@ -23,6 +23,8 @@ class PieceReaderTest {
 
     private fun darkInk(label: Char): Int = Color.rgb(8 + 8 * labels.indexOf(label), 0, 0)
 
+    private fun lightInk(label: Char): Int = Color.rgb(255, 255, 247 - 8 * labels.indexOf(label))
+
     /**
      * Vertical text: one column per label, [labels] in reading order from the right edge of a
      * [width] × 160 crop. Each column is six [columnWidth]-wide glyphs, 16 px tall with 4 px between them.
@@ -114,6 +116,15 @@ class PieceReaderTest {
 
         assertEquals(listOf("AB", "CD", "ABCD"), reader.asked)
         assertEquals("ABCD" to 0.9f, read?.let { it.text to it.confidence })
+    }
+
+    @Test
+    fun `light columns on a dark box are read in pairs like dark columns on light`() {
+        val reader = fakeReader(ink = ::lightInk)
+
+        PieceReader(reader::read).read(crop(124, 160, columns("ABCD", width = 124), paper = Color.BLACK, ink = ::lightInk))
+
+        assertEquals(listOf("AB", "CD"), reader.asked)
     }
 
     @Test
