@@ -19,11 +19,11 @@ class PieceReaderTest {
     /** A box of ink standing in for one character, coloured by its [label] so the fake reader can name it. */
     private data class Glyph(val label: Char, val left: Int, val top: Int, val width: Int, val height: Int)
 
-    private val labels = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    private val labels = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 
-    private fun darkInk(label: Char): Int = Color.rgb(8 + 8 * labels.indexOf(label), 0, 0)
+    private fun darkInk(label: Char): Int = Color.rgb(4 + 4 * labels.indexOf(label), 0, 0)
 
-    private fun lightInk(label: Char): Int = Color.rgb(255, 255, 247 - 8 * labels.indexOf(label))
+    private fun lightInk(label: Char): Int = Color.rgb(255, 255, 251 - 4 * labels.indexOf(label))
 
     /**
      * Vertical text: one column per label, [labels] in reading order from the right edge of a
@@ -133,6 +133,17 @@ class PieceReaderTest {
         PieceReader(reader::read).read(crop(124, 160, columns("ABCD", width = 124), paper = Color.BLACK, ink = ::lightInk))
 
         assertEquals(listOf("AB", "CD"), reader.asked)
+    }
+
+    @Test
+    fun `furigana is read with the column it sits beside`() {
+        val reader = fakeReader()
+        // B's reading, three 6 px kana in the gap to B's right, 1 px from B and 3 px from A.
+        val furigana = (0 until 3).map { kana -> Glyph('b', 89, 12 + kana * 10, 6, 8) }
+
+        PieceReader(reader::read).read(crop(124, 160, columns("ABCD", width = 124) + furigana))
+
+        assertEquals(listOf("ABb", "CD"), reader.asked)
     }
 
     @Test

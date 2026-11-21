@@ -8,6 +8,9 @@ private const val MIN_COLUMNS = 4
 private const val COLUMNS_PER_PIECE = 2
 // A vertical column's ink is several times taller than wide; a horizontal line's characters are about square.
 private const val MIN_COLUMN_TALLNESS = 2.5f
+// Furigana stands beside its column at about half the width. Counted as a column, it pairs a column with
+// its own reading and the next column with the wrong neighbour.
+private const val MAX_FURIGANA_WIDTH = 0.6f
 private const val MIN_LINE_ASPECT = 8f
 // A piece is about this many line heights wide, cut at the widest gap within a quarter of that.
 private const val PIECE_ASPECT = 5f
@@ -27,7 +30,7 @@ internal fun readingPieces(crop: Bitmap): List<IntRange> {
 
 /** Two columns at a time, right to left, when [ink] is a block of [MIN_COLUMNS] or more tall columns. */
 private fun columnPairs(ink: Ink): List<IntRange> {
-    val columns = bands(ink.columns())
+    val columns = withFuriganaMerged(bands(ink.columns()))
     if (columns.size < MIN_COLUMNS) return emptyList()
     val tallness = columns.map { column -> ink.rowsIn(column).length().toFloat() / column.length() }.sorted()
     if (tallness[tallness.size / 2] < MIN_COLUMN_TALLNESS) return emptyList()
@@ -36,6 +39,25 @@ private fun columnPairs(ink: Ink): List<IntRange> {
     val widestRowGap = gaps(bands(ink.rows())).maxOrNull() ?: 0
     if (columnGaps[columnGaps.size / 2] <= widestRowGap) return emptyList()
     return columns.reversed().chunked(COLUMNS_PER_PIECE).map { group -> group.last().first..group.first().last }
+}
+
+/**
+ * [columns], left to right, with each column much thinner than its neighbours, furigana, merged into the
+ * nearer neighbour: the left one on a tie, since a reading stands to the right of its column.
+ */
+private fun withFuriganaMerged(columns: List<IntRange>): List<IntRange> {
+    val owners = columns.indices.map { i ->
+        val neighbours = listOfNotNull(columns.getOrNull(i - 1), columns.getOrNull(i + 1))
+        val furigana = neighbours.isNotEmpty() && neighbours.all { columns[i].length() < MAX_FURIGANA_WIDTH * it.length() }
+        val leftGap = columns.getOrNull(i - 1)?.let { columns[i].first - it.last } ?: Int.MAX_VALUE
+        val rightGap = columns.getOrNull(i + 1)?.let { it.first - columns[i].last } ?: Int.MAX_VALUE
+        when {
+            !furigana -> i
+            leftGap <= rightGap -> i - 1
+            else -> i + 1
+        }
+    }
+    return columns.indices.groupBy { owners[it] }.values.map { merged -> columns[merged.first()].first..columns[merged.last()].last }
 }
 
 /** Stretches about [PIECE_ASPECT] line heights wide, left to right, when [ink] is one line many times wider than tall. */
