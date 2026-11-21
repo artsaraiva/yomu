@@ -70,6 +70,10 @@ _Avoid_: page cache, translation cache, page memory
 One page's evidence for a bug report: its capture, each bubble's OCR text, the model's raw reply, the model and settings used, and per-stage timings. It leaves the phone only through the share sheet, when the reader sends it.
 _Avoid_: bug bundle, diagnostics dump, crash report
 
+**Recent**:
+The translated pages Yomu keeps on the phone and lists on Home.
+_Avoid_: history, saved translations
+
 **Target language**:
 The language the reader reads translations in. The source is always Japanese; English is the default and the only target an English-only [[deliverable]] can produce.
 _Avoid_: output language, destination language, locale
@@ -81,7 +85,7 @@ _Avoid_: latency, TTFB, first-token time
 ## Visual system
 
 **Chrome**:
-The app's own managed screens — Home, History, Settings — rendered in Compose. The surface the paper-mâché visual system governs.
+The app's own managed screens — Home and Settings — rendered in Compose. The surface the paper-mâché visual system governs.
 _Avoid_: main UI, app screens, the app
 
 **Overlay control**:
