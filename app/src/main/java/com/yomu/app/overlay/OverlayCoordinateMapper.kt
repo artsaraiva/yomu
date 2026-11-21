@@ -61,12 +61,13 @@ object OverlayCoordinateMapper {
         else -> 0f
     }
 
+    /** Moves [bounds] from capture pixels to the display's, then into the overlay window that starts at the offset. */
     fun map(bounds: FloatArray, params: MapParams): OverlayBounds {
         return OverlayBounds(
-            left = (bounds[0] - params.offsetX) * params.scaleX,
-            top = (bounds[1] - params.offsetY) * params.scaleY,
-            right = (bounds[2] - params.offsetX) * params.scaleX,
-            bottom = (bounds[3] - params.offsetY) * params.scaleY
+            left = bounds[0] * params.scaleX - params.offsetX,
+            top = bounds[1] * params.scaleY - params.offsetY,
+            right = bounds[2] * params.scaleX - params.offsetX,
+            bottom = bounds[3] * params.scaleY - params.offsetY
         )
     }
 }

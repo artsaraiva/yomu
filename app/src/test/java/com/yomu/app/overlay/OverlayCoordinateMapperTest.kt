@@ -59,6 +59,23 @@ class OverlayCoordinateMapperTest {
         assertEquals(OverlayBounds(1674f, 200f, 1974f, 500f), mapped)
     }
 
+    /** The offset is in screen pixels, so it comes off after the box is scaled from capture pixels to the display. */
+    @Test
+    fun `a capture smaller than the display is stretched over it`() {
+        val params = OverlayCoordinateMapper.params(
+            captureWidth = 1200,
+            captureHeight = 540,
+            displayWidth = 2400,
+            displayHeight = 1080,
+            overlayScreenX = 0,
+            overlayScreenY = 63
+        )
+
+        val mapped = OverlayCoordinateMapper.map(floatArrayOf(100f, 100f, 200f, 150f), params)
+
+        assertEquals(OverlayBounds(200f, 137f, 400f, 237f), mapped)
+    }
+
     @Test
     fun `a box grown past the bottom slides back on screen`() {
         val clamped = OverlayCoordinateMapper.clampToCanvas(
