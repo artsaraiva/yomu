@@ -3,15 +3,17 @@ package com.yomu.app.overlay
 import android.content.Context
 import android.graphics.PixelFormat
 import android.os.Build
+import android.util.DisplayMetrics
 import android.util.Size
 import android.view.View
 import android.view.WindowManager
 
 /**
  * An invisible window over the whole display, laid out again each time the display changes shape, such as when the
- * screen turns, so its size is always the display's. Sizes a service can ask for directly (window metrics, the
- * display's real size) kept the old shape after a turn on some phones (#450). [onResized] hears each new size while
- * the window is attached.
+ * screen turns. From Android 11 its size is the display's: sizes a service can ask for directly (window metrics, the
+ * display's real size) kept the old shape after a turn on some phones (#450). Before Android 11 an overlay window stops
+ * short of a visible navigation bar, so each layout reports the display's real size instead, which follows a turn on
+ * those versions. [onResized] hears each new size while the window is attached.
  */
 class DisplayProbe(
     private val context: Context,
@@ -20,7 +22,7 @@ class DisplayProbe(
 ) {
     private var view: View? = null
 
-    /** The display's size as the window was last laid out, or null while detached or before its first layout. */
+    /** The display's size at the window's last layout, or null while detached or before its first layout. */
     var size: Size? = null
         private set
 
@@ -32,7 +34,7 @@ class DisplayProbe(
                 super.onSizeChanged(w, h, oldw, oldh)
                 // A layout still queued when the window was removed is not reported.
                 if (this@DisplayProbe.view !== this || w <= 0 || h <= 0) return
-                val measured = Size(w, h)
+                val measured = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) Size(w, h) else realDisplaySize()
                 size = measured
                 onResized(measured)
             }
@@ -45,6 +47,13 @@ class DisplayProbe(
         view = null
         size = null
         windowManager.removeView(attached)
+    }
+
+    @Suppress("DEPRECATION")
+    private fun realDisplaySize(): Size {
+        val metrics = DisplayMetrics()
+        windowManager.defaultDisplay.getRealMetrics(metrics)
+        return Size(metrics.widthPixels, metrics.heightPixels)
     }
 
     private fun layoutParams() = WindowManager.LayoutParams(
@@ -61,8 +70,6 @@ class DisplayProbe(
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             fitInsetsTypes = 0
             layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
         }
     }
 }
