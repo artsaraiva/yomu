@@ -79,12 +79,14 @@ class PieceReaderTest {
 
     /**
      * Reads a crop as the labels of every glyph with any ink in it, in label order, and records what each crop
-     * it was asked for held. A crop listed in [unreadable] fails to read.
+     * it was asked for held. A crop listed in [unreadable] fails to read; one in [blank] reads as nothing, as a
+     * failed decode does.
      */
     private class FakeWholeReader(
         private val labelsByColor: Map<Int, Char>,
         private val confidences: Map<String, Float> = emptyMap(),
-        private val unreadable: Set<String> = emptySet()
+        private val unreadable: Set<String> = emptySet(),
+        private val blank: Set<String> = emptySet()
     ) {
         val asked = mutableListOf<String>()
 
@@ -94,6 +96,7 @@ class PieceReaderTest {
             val text = pixels.asList().mapNotNull(labelsByColor::get).toSortedSet().joinToString("")
             asked += text
             if (text in unreadable) return null
+            if (text in blank) return OcrResult("", 0f, floatArrayOf())
             return OcrResult(text, confidences[text] ?: 0.99f, floatArrayOf())
         }
     }
@@ -101,8 +104,9 @@ class PieceReaderTest {
     private fun fakeReader(
         confidences: Map<String, Float> = emptyMap(),
         unreadable: Set<String> = emptySet(),
+        blank: Set<String> = emptySet(),
         ink: (Char) -> Int = ::darkInk
-    ) = FakeWholeReader(labels.associateBy(ink), confidences, unreadable)
+    ) = FakeWholeReader(labels.associateBy(ink), confidences, unreadable, blank)
 
     @Test
     fun `eight columns are read two at a time, right to left, and joined`() {
@@ -131,6 +135,16 @@ class PieceReaderTest {
 
         assertEquals(listOf("AB", "CD", "ABCDEFGH"), reader.asked)
         assertEquals("ABCDEFGH" to 0.9f, read?.let { it.text to it.confidence })
+    }
+
+    @Test
+    fun `a piece that reads as nothing sends the crop to a whole read`() {
+        val reader = fakeReader(blank = setOf("CD"))
+
+        val read = PieceReader(reader::read).read(columns("ABCDEFGH"))
+
+        assertEquals(listOf("AB", "CD", "ABCDEFGH"), reader.asked)
+        assertEquals("ABCDEFGH", read?.text)
     }
 
     @Test
