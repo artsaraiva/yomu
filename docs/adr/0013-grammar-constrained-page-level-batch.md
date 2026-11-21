@@ -12,6 +12,8 @@
 
 > **Revised by [#368](https://github.com/artsaraiva/yomu/issues/368) (2026-10-20).** Run-on past the last line had a structural cause: the grammar required a newline after the last line, which masked end-of-generation. That newline is now optional. See *Amendment (#368)* below.
 
+> **Revised by [#451](https://github.com/artsaraiva/yomu/issues/451) (2026-11-21).** The 160-character bound is now every line's floor rather than its limit: a line whose expected translation is long gets twice that length instead. See *Amendment (#451)* below.
+
 Yomu translates a page in **one page-level, id-keyed call per capture**, with the output shape enforced **at sample time by a GBNF grammar** rather than checked after the fact. The curated default (Qwen2.5-1.5B-Instruct) carries `idKeyedBatch = true`. Per-line translation survives as a **slot strategy** — for the CAT-Translate-0.8b low-storage floor, which cannot produce id-keyed output, and as the fallback for a page whose prompt exceeds the native prompt cap — not as the default architecture.
 
 **Cross-page session context is withdrawn.** It is not deferred and not dormant: the plumbing is deleted.
@@ -175,3 +177,23 @@ Both remaining hits are run-on past the translation, the class adjudicated above
 - Emulator: page decode time fell from 3,104 to 2,596 ms (`balloon-dense-dialogue`) and from 3,018 to 2,514 ms (`tojime-dense-action`). `bourei-p04` did not run on and stayed level (1,446 to 1,423 ms).
 
 **The 160-character bound stays** as a backstop for a line that loops mid-page.
+
+## Amendment (#451): each line's limit grows with its expected translation
+
+**160 was twice the longest English reference, not twice the source.** The bound was set at about twice the longest reference line on the 17 pages (75 characters). The longest source line on those pages was 29 characters, but the pipeline accepts source lines up to 300 (`TranslationEngine.MAX_SOURCE_CHARS`). A long narration line's translation can't fit in 160, so the grammar cut it off mid-sentence. [#446](https://github.com/artsaraiva/yomu/pull/446) (iBog's fork) raised the bound to 160 or twice the page's longest source line, for every line on the page. That leaves a long line too little room, since its English translation alone averages 2.39 times its source (below). It also loosens the bound on every other line of that page.
+
+**The rule.** Each id gets its own line limit: 160, or twice the line's expected translation length, whichever is larger. The expected length is the line's source length times 3.1, the factor of the target that runs longest. A line that keeps 160 uses the shared `line` rule. A longer limit gets its own rule, `line-<limit>`, with the same excluded characters. A page whose source lines are all 25 characters or shorter gets the grammar that shipped before, byte for byte. The grammar is no longer two rules regardless of bubble count: it has one rule per distinct limit, built in `BatchReplyGrammar.kt`.
+
+**How 3.1 was measured:**
+
+- **English, 2.39 times the source.** The ADR-0004 pages were removed in #239 and read back from `7ee1d2c^:eval/translation-quality/cases`. Their 147 non-empty lines hold 1,593 source characters and 3,814 reference characters, a ratio of 2.39. The median line is 2.30. The 13 lines of 20 to 29 source characters come to 2.33, so on these pages longer lines don't grow faster.
+- **Longer targets, 1.29 times English.** The references are English only, so the margin comes from the Android framework's own translations: same-name strings in `platforms/android-36/data/res/values*/strings.xml`. A string's text keeps the text inside its markup, with `\'` and `\"` unescaped and `\n` read as a space. Only long lines get a raised limit, so only the 245 strings whose English is longer than 70 characters count. Their total length against English is French 1.29, Spanish 1.19, German 1.17, Brazilian Portuguese 1.11 and Russian 1.08. French runs longest. It stays between 1.28 and 1.31 for any cut-off from 50 to 100 characters, and comes to 1.31 when each string is cut at its first markup instead, so the factor is 2.39 × 1.29 = 3.09, rounded to 3.1. Counting short strings too, French reaches 1.40, but lines that short keep 160.
+- **Twice the expected length.** The factor is an expected length, so the limit doubles it, as 160 doubled the longest reference. On the 17 pages, no line of 10 or more source characters has a reference longer than 4.8 times its source, which is inside 6.2.
+
+**What it changes on the 17 pages:** 2 of 147 lines rise above 160. `tojime-narration [0]` (29 source characters, a 69-character reference) gets 180, and `balloon-dense-dialogue [0]` (27 and 68) gets 168. The other 15 pages keep the grammar that shipped.
+
+**Every line keeps a bound.** llama.cpp reads a repetition bound above 2000 as no bound at all (`MAX_REPETITION_THRESHOLD` in `llama-grammar.cpp`), so a limit stops at 2000. A line needs more than 322 source characters to reach it, which only happens when the glossary lengthens a 300-character line.
+
+**Unchanged:** `MAX_BATCH_OUTPUT = 768`, so a long line's translation shares the page's reply budget with every other line. This is not the source-scaled bound #368 rejected either: that one shrank short lines to cut run-on, and this one never goes below 160.
+
+**Unmeasured:** lines longer than 29 source characters, the longest on the 17 pages. The factor is extrapolated to them. Whether such a line runs on past its translation up to its raised limit is unknown, since the run-on numbers above say nothing about long lines.
