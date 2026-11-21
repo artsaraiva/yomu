@@ -12,6 +12,7 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.util.DisplayMetrics
+import android.util.Size
 import android.view.WindowManager
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -32,6 +33,7 @@ class ScreenCaptureManager @Inject constructor(
     private var mediaProjection: MediaProjection? = null
     private var virtualDisplay: VirtualDisplay? = null
     private var imageReader: ImageReader? = null
+    private var densityDpi = 0
     private var projectionManager: MediaProjectionManager? = null
 
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -67,7 +69,7 @@ class ScreenCaptureManager @Inject constructor(
         val display = windowManager.defaultDisplay
         display.getRealMetrics(metrics)
 
-        val density = metrics.densityDpi
+        densityDpi = metrics.densityDpi
         val width = metrics.widthPixels
         val height = metrics.heightPixels
 
@@ -77,7 +79,7 @@ class ScreenCaptureManager @Inject constructor(
 
         virtualDisplay = mediaProjection?.createVirtualDisplay(
             "YomuScreenCapture",
-            width, height, density,
+            width, height, densityDpi,
             DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
             imageReader?.surface,
             null,
@@ -85,6 +87,21 @@ class ScreenCaptureManager @Inject constructor(
         )
 
         isProjectionActive = true
+    }
+
+    /**
+     * Makes the capture the display's new [size], such as after the screen turns. A virtual display keeps the size it
+     * was made at, so it would squeeze a landscape screen into the portrait frame. The reader is replaced with one of
+     * the new size, so no frame of the old shape is read afterwards.
+     */
+    fun matchDisplay(size: Size) {
+        val mirror = virtualDisplay ?: return
+        val reader = ImageReader.newInstance(size.width, size.height, PixelFormat.RGBA_8888, 2)
+        mirror.resize(size.width, size.height, densityDpi)
+        mirror.surface = reader.surface
+        imageReader?.close()
+        imageReader = reader
+        Log.i(TAG, "capture resized to ${size.width}x${size.height}")
     }
 
     /**
