@@ -98,6 +98,16 @@ class QuickSettingsPopupTest {
     }
 
     @Test
+    fun russianIsOfferedAndChoosingItSwitchesToIt() {
+        val content = shownContent()
+
+        checkNotNull(content.withText("Japanese → English")).performClick()
+        checkNotNull(content.withText("Russian")).performClick()
+
+        assertEquals(listOf(TargetLanguage.RUSSIAN), chosen)
+    }
+
+    @Test
     fun otherLanguagesAreDisabledWithTheReasonWhenNoMultilingualModelFits() {
         unavailable = "No Multilingual model fits this device"
         val content = shownContent()

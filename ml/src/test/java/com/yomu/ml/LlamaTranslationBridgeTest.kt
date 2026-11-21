@@ -494,6 +494,22 @@ class LlamaTranslationBridgeTest {
     }
 
     @Test
+    fun translatePage_russianBatchPromptStillNamesJapaneseAsTheSource() = runTest {
+        val model = File.createTempFile("model", ".gguf")
+        val native = FakeLlamaBridge { GenerationResult.Success("[1] Привет\n", 1L) }
+        val slot = LlamaTranslationBridge(native, profile(model, idKeyedBatch = true, multilingual = true))
+
+        slot.translatePage(page(1 to "こんにちは", language = TargetLanguage.RUSSIAN))
+
+        assertEquals(
+            "Translate each Japanese line to Russian. Keep the [id] tag before each line. " +
+                "Panels are separated by ---.\n[1] こんにちは\n",
+            native.prompts.single()
+        )
+        model.delete()
+    }
+
+    @Test
     fun translatePage_englishBatchPromptIsUnchanged() = runTest {
         val model = File.createTempFile("model", ".gguf")
         val native = FakeLlamaBridge { GenerationResult.Success("[1] Hello\n", 1L) }

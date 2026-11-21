@@ -66,6 +66,15 @@ class LanguageSwitchTest {
     }
 
     @Test
+    fun `a Multilingual model in use switches to Russian at once`() = runTest {
+        val selection = newSelection()
+
+        assertEquals(LanguageSwitch.Done, selection.switchLanguage(TargetLanguage.RUSSIAN))
+
+        assertEquals(TargetLanguage.RUSSIAN, selection.targetLanguage())
+    }
+
+    @Test
     fun `an English-only model in use offers the default with its download size and keeps English`() = runTest {
         val selection = newSelection().withCat()
 
@@ -75,6 +84,17 @@ class LanguageSwitchTest {
         assertEquals(cat, offer.current.id)
         assertEquals(qwen, offer.model.id)
         assertEquals(LlmModelCatalog.DEFAULT.sizeBytes, offer.downloadBytes)
+        assertEquals(TargetLanguage.ENGLISH, selection.targetLanguage())
+    }
+
+    @Test
+    fun `an English-only model in use offers the default for Russian and keeps English`() = runTest {
+        val selection = newSelection().withCat()
+
+        val offer = selection.switchLanguage(TargetLanguage.RUSSIAN) as LanguageSwitch.Offer
+
+        assertEquals(TargetLanguage.RUSSIAN, offer.language)
+        assertEquals(qwen, offer.model.id)
         assertEquals(TargetLanguage.ENGLISH, selection.targetLanguage())
     }
 
