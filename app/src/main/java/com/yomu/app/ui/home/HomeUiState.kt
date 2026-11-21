@@ -21,15 +21,11 @@ data class HomeUiState(
     val setupVisible: Boolean = false,
     val setupStarted: Boolean = false,
     val setupDownloadsReady: Boolean = false,
-    val downloading: String? = null,
-    val downloadProgress: Int = 0,
     val setupError: Boolean = false,
     /** The model setup is downloading now and how far it is, or null between downloads. */
     val setupDownload: ModelManager.DownloadProgress? = null,
     /** The chosen model whose setup download failed, or null. */
     val setupFailedId: String? = null,
-    /** Name of the chosen model setup refused to download because it is outside the fit budget, or null. */
-    val setupBlockedBy: String? = null,
     val deliverables: Map<ModelType, List<SlotDeliverable>> = emptyMap(),
     val chosenIds: Map<ModelType, String> = emptyMap(),
     val translationSelectedId: String? = null,
