@@ -26,14 +26,21 @@ class PieceReaderTest {
     private fun lightInk(label: Char): Int = Color.rgb(255, 255, 251 - 4 * labels.indexOf(label))
 
     /**
-     * Vertical text: one column per label, [labels] in reading order from the right edge of a
-     * [width] × 160 crop. Each column is six [columnWidth]-wide glyphs, 16 px tall with 4 px between them.
+     * Vertical text in a crop 160 px tall: one column per label, [labels] in reading order from 10 px off the
+     * right edge, 26 px apart. Each column is six 16 px glyphs with 4 px between them. [extra] glyphs are drawn too.
      */
-    private fun columns(labels: String, width: Int, columnWidth: Int = 16, gap: Int = 10): List<Glyph> =
-        labels.flatMapIndexed { column, label ->
-            val left = width - 10 - columnWidth - column * (columnWidth + gap)
-            (0 until 6).map { row -> Glyph(label, left, 10 + row * 20, columnWidth, 16) }
+    private fun columns(
+        labels: String,
+        extra: List<Glyph> = emptyList(),
+        paper: Int = Color.WHITE,
+        ink: (Char) -> Int = ::darkInk
+    ): Bitmap {
+        val width = 20 + 26 * labels.length
+        val glyphs = labels.flatMapIndexed { column, label ->
+            (0 until 6).map { row -> Glyph(label, width - 26 - column * 26, 10 + row * 20, 16, 16) }
         }
+        return crop(width, 160, glyphs + extra, paper, ink)
+    }
 
     /**
      * One horizontal line, 16 px tall: a square glyph per label, [labels] in reading order from x = 10, 4 px apart
@@ -98,61 +105,61 @@ class PieceReaderTest {
     ) = FakeWholeReader(labels.associateBy(ink), confidences, unreadable)
 
     @Test
-    fun `four columns are read two at a time, right to left, and joined`() {
+    fun `eight columns are read two at a time, right to left, and joined`() {
         val reader = fakeReader()
 
-        val read = PieceReader(reader::read).read(crop(124, 160, columns("ABCD", width = 124)))
+        val read = PieceReader(reader::read).read(columns("ABCDEFGH"))
 
-        assertEquals(listOf("AB", "CD"), reader.asked)
-        assertEquals("ABCD", read?.text)
+        assertEquals(listOf("AB", "CD", "EF", "GH"), reader.asked)
+        assertEquals("ABCDEFGH", read?.text)
     }
 
     @Test
     fun `a joined read is as sure as its least sure piece`() {
         val reader = fakeReader(confidences = mapOf("AB" to 0.98f, "CD" to 0.91f))
 
-        val read = PieceReader(reader::read).read(crop(124, 160, columns("ABCD", width = 124)))
+        val read = PieceReader(reader::read).read(columns("ABCDEFGH"))
 
         assertEquals(0.91f, read?.confidence)
     }
 
     @Test
     fun `a piece that fails to read sends the crop to a whole read`() {
-        val reader = fakeReader(confidences = mapOf("ABCD" to 0.9f), unreadable = setOf("CD"))
+        val reader = fakeReader(confidences = mapOf("ABCDEFGH" to 0.9f), unreadable = setOf("CD"))
 
-        val read = PieceReader(reader::read).read(crop(124, 160, columns("ABCD", width = 124)))
+        val read = PieceReader(reader::read).read(columns("ABCDEFGH"))
 
-        assertEquals(listOf("AB", "CD", "ABCD"), reader.asked)
-        assertEquals("ABCD" to 0.9f, read?.let { it.text to it.confidence })
+        assertEquals(listOf("AB", "CD", "ABCDEFGH"), reader.asked)
+        assertEquals("ABCDEFGH" to 0.9f, read?.let { it.text to it.confidence })
     }
 
     @Test
     fun `light columns on a dark box are read in pairs like dark columns on light`() {
         val reader = fakeReader(ink = ::lightInk)
 
-        PieceReader(reader::read).read(crop(124, 160, columns("ABCD", width = 124), paper = Color.BLACK, ink = ::lightInk))
+        PieceReader(reader::read).read(columns("ABCDEFGH", paper = Color.BLACK, ink = ::lightInk))
 
-        assertEquals(listOf("AB", "CD"), reader.asked)
+        assertEquals(listOf("AB", "CD", "EF", "GH"), reader.asked)
     }
 
     @Test
     fun `furigana is read with the column it sits beside`() {
         val reader = fakeReader()
         // B's reading, three 6 px kana in the gap to B's right, 1 px from B and 3 px from A.
-        val furigana = (0 until 3).map { kana -> Glyph('b', 89, 12 + kana * 10, 6, 8) }
+        val furigana = (0 until 3).map { kana -> Glyph('b', 193, 12 + kana * 10, 6, 8) }
 
-        PieceReader(reader::read).read(crop(124, 160, columns("ABCD", width = 124) + furigana))
+        PieceReader(reader::read).read(columns("ABCDEFGH", extra = furigana))
 
-        assertEquals(listOf("ABb", "CD"), reader.asked)
+        assertEquals(listOf("ABb", "CD", "EF", "GH"), reader.asked)
     }
 
     @Test
-    fun `three columns are read whole`() {
+    fun `seven columns are read whole`() {
         val reader = fakeReader()
 
-        PieceReader(reader::read).read(crop(98, 160, columns("ABC", width = 98)))
+        PieceReader(reader::read).read(columns("ABCDEFG"))
 
-        assertEquals(listOf("ABC"), reader.asked)
+        assertEquals(listOf("ABCDEFG"), reader.asked)
     }
 
     @Test

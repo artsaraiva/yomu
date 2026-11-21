@@ -3,8 +3,10 @@ package com.yomu.pipeline.ocr
 import android.graphics.Bitmap
 
 private const val INK_LUMINANCE = 128
-// Up to three columns manga-ocr reads whole as well as it ever did.
-private const val MIN_COLUMNS = 4
+// manga-ocr reads a speech bubble of up to seven columns whole: split into pairs, 42 of OpenMantra's 171
+// four-to-six-column bubbles fell under MIN_CONFIDENCE. Rendered vertical text read whole garbled from eight
+// or nine columns and read cleanly in pairs at every width (#453).
+private const val MIN_COLUMNS = 8
 private const val COLUMNS_PER_PIECE = 2
 // A vertical column's ink is several times taller than wide; a horizontal line's characters are about square.
 private const val MIN_COLUMN_TALLNESS = 2.5f
