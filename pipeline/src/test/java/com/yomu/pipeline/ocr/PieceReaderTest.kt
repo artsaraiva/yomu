@@ -115,4 +115,13 @@ class PieceReaderTest {
         assertEquals(listOf("ABCD", "EFGH", "IJKL", "MNOP", "QRST"), reader.asked)
         assertEquals("ABCDEFGHIJKLMNOPQRST", read?.text)
     }
+
+    @Test
+    fun `a short line is read whole`() {
+        val reader = fakeReader()
+
+        PieceReader(reader::read).read(line("ABCDEF"))
+
+        assertEquals(listOf("ABCDEF"), reader.asked)
+    }
 }
