@@ -42,11 +42,6 @@ class HomeViewModel @Inject constructor(
     private companion object {
         const val SETUP_COMPLETE = "reading_setup_complete"
         const val HAS_READ = "has_read"
-        val DOWNLOAD_LABELS = mapOf(
-            ModelType.DETECTION to "Finding speech bubbles",
-            ModelType.OCR to "Reading Japanese",
-            ModelType.LLM to "Translating into English"
-        )
     }
 
     private val _uiState = MutableStateFlow(HomeUiState(
@@ -212,25 +207,28 @@ class HomeViewModel @Inject constructor(
         if (setupJob?.isActive == true) return
         setupJob = viewModelScope.launch {
             _uiState.update {
-                it.copy(setupStarted = true, setupError = false, setupBlockedBy = null, setupDownloadsReady = false, onMeteredNetwork = modelManager.isOnMeteredNetwork())
+                it.copy(setupStarted = true, setupError = false, setupFailedId = null, setupDownloadsReady = false, onMeteredNetwork = modelManager.isOnMeteredNetwork())
             }
+            var current: String? = null
             try {
                 modelManager.refreshModelList()
                 for (type in ModelType.entries) {
                     val id = slotSelection.chosenId(type)
                     // Refused before downloading: pick would turn it down afterwards, leaving a download that never takes over.
+                    // Its row already says it is too big, so setup just returns to the Download button.
                     if (!ModelSlotSelection.fits(id, slotSelection.fitBudget(_uiState.value.fitBudget.totalMemBytes))) {
-                        val name = slotSelection.deliverables(type).firstOrNull { it.id == id }?.name ?: id
-                        _uiState.update { it.copy(setupError = true, setupBlockedBy = name) }
+                        _uiState.update { it.copy(setupStarted = false) }
                         return@launch
                     }
                     if (modelManager.getModel(id)?.status != ModelStatus.READY) {
-                        _uiState.update { it.copy(downloading = DOWNLOAD_LABELS.getValue(type), downloadProgress = 0) }
+                        current = id
+                        val size = slotSelection.deliverables(type).firstOrNull { it.id == id }?.sizeBytes ?: 0L
+                        _uiState.update { it.copy(setupDownload = ModelManager.DownloadProgress(id, 0L, size, 0)) }
                         val success = modelManager.downloadModel(id) { progress ->
-                            _uiState.update { it.copy(downloadProgress = progress.percentage.coerceIn(0, 100)) }
+                            _uiState.update { it.copy(setupDownload = progress) }
                         }
                         if (!success) {
-                            _uiState.update { it.copy(setupError = true) }
+                            _uiState.update { it.copy(setupError = true, setupFailedId = id) }
                             return@launch
                         }
                     }
@@ -241,9 +239,9 @@ class HomeViewModel @Inject constructor(
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
-                _uiState.update { it.copy(setupError = true) }
+                _uiState.update { it.copy(setupError = true, setupFailedId = current) }
             } finally {
-                _uiState.update { it.copy(downloading = null) }
+                _uiState.update { it.copy(setupDownload = null) }
             }
         }
     }

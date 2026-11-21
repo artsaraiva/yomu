@@ -37,8 +37,6 @@ internal fun SlotPicker(
     onDelete: (String) -> Unit
 ) {
     var open by rememberSaveable { mutableStateOf(false) }
-    var confirmDelete by rememberSaveable { mutableStateOf<String?>(null) }
-    var confirmSlow by rememberSaveable { mutableStateOf<String?>(null) }
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     PaperSurface(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp)) {
@@ -57,7 +55,33 @@ internal fun SlotPicker(
             }
         }
     }
-    if (open) ModalBottomSheet(onDismissRequest = { open = false }, containerColor = MaterialTheme.colorScheme.surface) {
+    if (open) SlotPickerSheet(
+        title, deliverables, selectedId, pendingId, statuses, downloads, fits, needsSlowWarning, languageBlock,
+        onPick, onCancel, onDelete, onDismiss = { open = false }
+    )
+}
+
+/** The slot's full model list, opened from [SlotPicker]'s card or from setup's Change link (#464). */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun SlotPickerSheet(
+    title: String,
+    deliverables: List<SlotDeliverable>,
+    selectedId: String?,
+    pendingId: String?,
+    statuses: Map<String, ModelStatus>,
+    downloads: Map<String, Int>,
+    fits: (SlotDeliverable) -> Boolean,
+    needsSlowWarning: (SlotDeliverable) -> Boolean,
+    languageBlock: (SlotDeliverable) -> String?,
+    onPick: (String) -> Unit,
+    onCancel: (String) -> Unit,
+    onDelete: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var confirmDelete by rememberSaveable { mutableStateOf<String?>(null) }
+    var confirmSlow by rememberSaveable { mutableStateOf<String?>(null) }
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surface) {
         Column(
             Modifier.verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
