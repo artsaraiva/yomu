@@ -18,6 +18,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
+import com.yomu.app.ui.settings.SaveToRecentViewModel
 import com.yomu.app.ui.theme.*
 import com.yomu.core.TargetLanguage
 import kotlinx.coroutines.launch
@@ -27,9 +28,11 @@ import java.util.Date
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel,
+    saveToRecent: SaveToRecentViewModel,
     onRequestScreenCapture: () -> Unit
 ) {
     val state by viewModel.uiState.collectAsState()
+    val saving by saveToRecent.enabled.collectAsState()
     val scroll = rememberLazyListState()
     val scope = rememberCoroutineScope()
     var showAll by rememberSaveable { mutableStateOf(false) }
@@ -112,15 +115,20 @@ fun HomeScreen(
                 }
             }
         }
-        item {
+        // It counts saved pages, so while saving is off it would undercount what was translated today (#454).
+        if (saving) item {
             Text("${state.pagesTranslatedToday} ${if (state.pagesTranslatedToday == 1) "page" else "pages"} translated today", style = MaterialTheme.typography.bodySmall)
         }
-        if (state.historyLoading || state.historyError || state.hasRead) {
+        // Shown while saving is off even before any page was saved, so Home says why none is kept.
+        if (state.historyLoading || state.historyError || state.hasRead || !saving) {
             item {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Recent", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
                     if (state.translations.isNotEmpty()) TextButton(colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface), onClick = { confirmClear = true }) { Text("Clear") }
                 }
+            }
+            if (!saving) item {
+                Text("Saving is off, so new pages aren't added. Turn it on in Settings > Translation.", style = MaterialTheme.typography.bodySmall)
             }
             if (state.clearError) item {
                 PaperError("Couldn't clear Recent. Your translations are still saved.", viewModel::clearHistory)
@@ -128,7 +136,8 @@ fun HomeScreen(
             when {
                 state.historyLoading -> item { PaperLoading("Loading recent translations…") }
                 state.historyError -> item { PaperError("Couldn't load recent translations.", viewModel::loadRecentHistory) }
-                state.translations.isEmpty() -> item {
+                // Not while saving is off: the next translation won't appear, and the note above says why.
+                state.translations.isEmpty() -> if (saving) item {
                     PaperEmpty("Your next translation will appear here.", "Back to reading") {
                         scope.launch { scroll.animateScrollToItem(0) }
                     }

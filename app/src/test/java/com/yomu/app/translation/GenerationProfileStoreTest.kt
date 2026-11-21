@@ -139,9 +139,13 @@ class GenerationProfileStoreTest {
     }
 }
 
-/** Map-backed [SharedPreferences]: getFloat throws on a wrongly typed value, as the platform does. */
+/**
+ * Map-backed [SharedPreferences]: getFloat throws on a wrongly typed value, and an edit tells the
+ * listeners about each key whose value it changed, as the platform does.
+ */
 internal class MapSharedPreferences : SharedPreferences {
     val values = mutableMapOf<String, Any?>()
+    private val listeners = mutableSetOf<SharedPreferences.OnSharedPreferenceChangeListener>()
 
     override fun getAll(): Map<String, *> = values.toMap()
     override fun getString(key: String, defValue: String?): String? = values[key] as String? ?: defValue
@@ -151,8 +155,12 @@ internal class MapSharedPreferences : SharedPreferences {
     override fun getFloat(key: String, defValue: Float): Float = values[key] as Float? ?: defValue
     override fun getBoolean(key: String, defValue: Boolean): Boolean = values[key] as Boolean? ?: defValue
     override fun contains(key: String): Boolean = key in values
-    override fun registerOnSharedPreferenceChangeListener(l: SharedPreferences.OnSharedPreferenceChangeListener) = Unit
-    override fun unregisterOnSharedPreferenceChangeListener(l: SharedPreferences.OnSharedPreferenceChangeListener) = Unit
+    override fun registerOnSharedPreferenceChangeListener(l: SharedPreferences.OnSharedPreferenceChangeListener) {
+        listeners += l
+    }
+    override fun unregisterOnSharedPreferenceChangeListener(l: SharedPreferences.OnSharedPreferenceChangeListener) {
+        listeners -= l
+    }
 
     override fun edit(): SharedPreferences.Editor = object : SharedPreferences.Editor {
         private val pending = mutableListOf<(MutableMap<String, Any?>) -> Unit>()
@@ -166,6 +174,12 @@ internal class MapSharedPreferences : SharedPreferences {
         override fun remove(key: String) = apply { pending += { it.remove(key) } }
         override fun clear() = apply { pending += { it.clear() } }
         override fun commit(): Boolean { apply(); return true }
-        override fun apply() { pending.forEach { it(values) }; pending.clear() }
+        override fun apply() {
+            val before = values.toMap()
+            pending.forEach { it(values) }
+            pending.clear()
+            val changed = (before.keys + values.keys).filter { before[it] != values[it] }
+            changed.forEach { key -> listeners.toList().forEach { it.onSharedPreferenceChanged(this@MapSharedPreferences, key) } }
+        }
     }
 }

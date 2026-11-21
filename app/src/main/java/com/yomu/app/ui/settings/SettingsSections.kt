@@ -16,8 +16,9 @@ import com.yomu.app.ui.theme.*
 import com.yomu.core.TargetLanguage
 
 @Composable
-fun TranslationSettings(viewModel: SettingsViewModel, onBack: () -> Unit) {
+fun TranslationSettings(viewModel: SettingsViewModel, saveToRecent: SaveToRecentViewModel, onBack: () -> Unit) {
     val state by viewModel.uiState.collectAsState()
+    val saving by saveToRecent.enabled.collectAsState()
     SettingsPage(SettingsSection.Translation.title, SettingsSection.Translation.description, onBack) {
         TargetLanguagePanel(state.targetLanguage, state::languageUnavailable, viewModel::setTargetLanguage)
         state.languageOffer?.let {
@@ -37,6 +38,12 @@ fun TranslationSettings(viewModel: SettingsViewModel, onBack: () -> Unit) {
             "Shows a page already translated while reading at once, instead of translating it again.",
             state.pageRecall,
             viewModel::setPageRecall
+        )
+        SwitchPanel(
+            "Save pages to Recent",
+            "Keeps each translated page in Recent on Home. When off, new pages aren't saved.",
+            saving,
+            saveToRecent::setEnabled
         )
     }
 }

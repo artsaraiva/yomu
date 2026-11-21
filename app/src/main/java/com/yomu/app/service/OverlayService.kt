@@ -31,7 +31,6 @@ import com.yomu.app.overlay.TranslationRenderOverlay
 import com.yomu.app.overlay.TranslationStatusOverlay
 import com.yomu.app.overlay.boundsOnScreen
 import com.yomu.app.db.entities.ModelType
-import com.yomu.app.db.entities.TranslationSessionEntity
 import com.yomu.app.translation.ResourceLimitsStore
 import com.yomu.app.translation.NameGlossaryStore
 import com.yomu.app.translation.TargetLanguageStore
@@ -481,8 +480,6 @@ class OverlayService : Service() {
                 }
             }
 
-            val session = sessionManager.getOrCreateSession("manual")
-
             val result = translationPipeline.processPage(
                 bitmap,
                 callback = callback,
@@ -499,7 +496,7 @@ class OverlayService : Service() {
             if (result != null) lastPage = PageRecord(bitmap, result, settings, recalled = false)
             val failure = result?.translationResult?.readerFailure()
             if (result != null && failure == null && result.translationResult.translations.isNotEmpty()) {
-                saveSessionResult(session, result)
+                savePage(result)
                 // A setting changed mid-page leaves a result made under neither snapshot.
                 if (pageSettings() == settings) pageRecall.remember(fingerprint, settings, result, recallBegunAt)
             }
@@ -587,13 +584,13 @@ class OverlayService : Service() {
         glossary = NameGlossaryStore(sharedPreferences).entriesInUse()
     )
 
-    private suspend fun saveSessionResult(session: TranslationSessionEntity, result: PipelineResult) {
+    private suspend fun savePage(result: PipelineResult) {
         val translatedText = result.translationResult.translations.joinToString("\n") { translation ->
             "[${translation.bubbleId}] ${translation.originalText} → ${translation.translatedText}"
         }
         if (translatedText.isBlank()) return
-        sessionManager.saveTranslation(
-            sessionId = session.id,
+        sessionManager.savePage(
+            sourceApp = "manual",
             sourceImagePath = "",
             translatedText = translatedText,
             sourceLanguage = Constants.DEFAULT_SOURCE_LANGUAGE,
