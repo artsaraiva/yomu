@@ -10,13 +10,14 @@ import javax.inject.Singleton
 @Singleton
 class SessionManager @Inject constructor(
     private val sessionDao: TranslationSessionDao,
-    private val historyDao: HistoryDao
+    private val historyDao: HistoryDao,
+    private val saveToRecent: SaveToRecentStore
 ) {
     companion object {
         private const val SESSION_TIMEOUT_MS = 5 * 60 * 1000L
     }
 
-    suspend fun getOrCreateSession(sourceApp: String): TranslationSessionEntity {
+    private suspend fun getOrCreateSession(sourceApp: String): TranslationSessionEntity {
         sessionDao.closeStaleSessions(SESSION_TIMEOUT_MS)
         val active = sessionDao.getActiveSession()
         if (active != null && active.sourceApp == sourceApp) {
@@ -33,8 +34,9 @@ class SessionManager @Inject constructor(
         )
     }
 
-    suspend fun saveTranslation(
-        sessionId: Long,
+    /** Saves a finished page to Recent, in the reading session for [sourceApp], opening one if none is active. */
+    suspend fun savePage(
+        sourceApp: String,
         sourceImagePath: String,
         translatedText: String,
         sourceLanguage: String,
@@ -42,6 +44,7 @@ class SessionManager @Inject constructor(
         bubbleCount: Int,
         translationTimeMs: Long
     ) {
+        val sessionId = getOrCreateSession(sourceApp).id
         val entity = TranslationEntity(
             sessionId = sessionId,
             sourceImagePath = sourceImagePath,
