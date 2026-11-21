@@ -94,17 +94,21 @@ class ScreenCaptureManager @Inject constructor(
      * was made at, so it would squeeze a landscape screen into the portrait frame. The reader is replaced with one of
      * the new size, so no frame of the old shape is read afterwards. A size already captured keeps the reader, which
      * holds the frame a still screen is captured from.
+     *
+     * @return whether the capture was resized, which leaves a page captured before it the wrong shape for the screen;
+     * false when the size is unchanged or no capture is running.
      */
-    fun matchDisplay(size: Size) {
-        val mirror = virtualDisplay ?: return
-        val current = imageReader ?: return
-        if (current.width == size.width && current.height == size.height) return
+    fun matchDisplay(size: Size): Boolean {
+        val mirror = virtualDisplay ?: return false
+        val current = imageReader ?: return false
+        if (current.width == size.width && current.height == size.height) return false
         val reader = ImageReader.newInstance(size.width, size.height, PixelFormat.RGBA_8888, 2)
         mirror.resize(size.width, size.height, densityDpi)
         mirror.surface = reader.surface
         current.close()
         imageReader = reader
         Log.i(TAG, "capture resized to ${size.width}x${size.height}")
+        return true
     }
 
     /**

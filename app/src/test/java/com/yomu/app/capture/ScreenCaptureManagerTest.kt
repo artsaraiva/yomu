@@ -86,14 +86,32 @@ class ScreenCaptureManagerTest {
         verify(mirror).resize(2400, 1080, 480)
     }
 
-    /** The display's first report is the size reading started at; its reader holds the frame a still screen is captured from (#402). */
+    /** A page captured or drawn before the turn is the old shape, so whoever asked has to drop it. */
     @Test
-    fun displayOfTheSizeAlreadyCapturedLeavesTheMirrorAlone() {
+    fun resizingTheCaptureIsReported() {
         manager.startProjection(projection) {}
 
-        manager.matchDisplay(Size(1080, 2400))
+        assertTrue(manager.matchDisplay(Size(2400, 1080)))
+    }
 
+    /** The display's first report is the size reading started at; its reader holds the frame a still screen is captured from (#402). */
+    @Test
+    fun displayOfTheSizeAlreadyCapturedChangesNothing() {
+        manager.startProjection(projection) {}
+
+        val resized = manager.matchDisplay(Size(1080, 2400))
+
+        assertFalse(resized)
         verifyNoInteractions(mirror)
+    }
+
+    /** The probe window can still report a layout queued before reading stopped. */
+    @Test
+    fun displayChangeAfterSharingStoppedIsNotAResize() {
+        manager.startProjection(projection) {}
+        manager.stopProjection()
+
+        assertFalse(manager.matchDisplay(Size(2400, 1080)))
     }
 
     private fun registeredCallback(): MediaProjection.Callback {
