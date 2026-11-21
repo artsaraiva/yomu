@@ -11,13 +11,15 @@ class PieceReader(private val readWhole: (Bitmap) -> OcrResult?) {
 
     /**
      * [crop]'s text, read whole or in [readingPieces] joined in reading order. A joined read is as sure as its
-     * least sure piece, so the skip of unsure reads (#366) still applies.
+     * least sure piece, so the skip of unsure reads (#366) still applies. When a piece fails to read, the crop
+     * is read whole instead. Null only when the whole read fails.
      */
     fun read(crop: Bitmap): OcrResult? {
         val pieces = readingPieces(crop)
         if (pieces.size < 2) return readWhole(crop)
         val reads = pieces.map { piece ->
-            readWhole(Bitmap.createBitmap(crop, piece.first, 0, piece.last - piece.first + 1, crop.height)) ?: return null
+            readWhole(Bitmap.createBitmap(crop, piece.first, 0, piece.last - piece.first + 1, crop.height))
+                ?: return readWhole(crop)
         }
         return OcrResult(
             text = reads.joinToString("") { it.text },

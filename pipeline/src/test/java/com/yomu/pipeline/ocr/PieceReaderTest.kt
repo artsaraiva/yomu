@@ -107,6 +107,16 @@ class PieceReaderTest {
     }
 
     @Test
+    fun `a piece that fails to read sends the crop to a whole read`() {
+        val reader = fakeReader(confidences = mapOf("ABCD" to 0.9f), unreadable = setOf("CD"))
+
+        val read = PieceReader(reader::read).read(crop(124, 160, columns("ABCD", width = 124)))
+
+        assertEquals(listOf("AB", "CD", "ABCD"), reader.asked)
+        assertEquals("ABCD" to 0.9f, read?.let { it.text to it.confidence })
+    }
+
+    @Test
     fun `three columns are read whole`() {
         val reader = fakeReader()
 
