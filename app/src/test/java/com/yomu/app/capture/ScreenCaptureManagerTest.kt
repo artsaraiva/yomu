@@ -9,6 +9,7 @@ import android.view.Surface
 import java.time.Duration
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -33,12 +34,15 @@ class ScreenCaptureManagerTest {
     private val mirror = mock(VirtualDisplay::class.java)
     /** The surface the mirror draws the screen into: like the system's, the last one it was given. */
     private var mirrorSurface: Surface? = null
+    /** The surface the system fitted the screen into, which it does when the mirror is made or resized. */
+    private var fittedSurface: Surface? = null
     private var stops = 0
 
     init {
-        doAnswer { mirrorSurface = it.getArgument(5); mirror }.`when`(projection)
+        doAnswer { mirrorSurface = it.getArgument(5); fittedSurface = mirrorSurface; mirror }.`when`(projection)
             .createVirtualDisplay(anyString(), anyInt(), anyInt(), anyInt(), anyInt(), any(), any(), any())
         doAnswer { mirrorSurface = it.getArgument(0); null }.`when`(mirror).setSurface(any())
+        doAnswer { fittedSurface = mirrorSurface; null }.`when`(mirror).resize(anyInt(), anyInt(), anyInt())
     }
 
     /** Locking the screen ends sharing with no tap involved, so the stop must be reported as it happens (#353). */
@@ -83,6 +87,16 @@ class ScreenCaptureManagerTest {
 
         assertEquals(Size(2400, 1080), nextCaptureSize())
         verify(mirror).resize(2400, 1080, 480)
+    }
+
+    /** Fitted into a surface it no longer draws into, the turned screen lands shrunk in a corner of the frame. */
+    @Test
+    fun turnedDisplayIsFittedIntoTheSurfaceItIsCapturedFrom() {
+        manager.startProjection(projection) {}
+
+        manager.resizeTo(Size(2400, 1080))
+
+        assertSame(mirrorSurface, fittedSurface)
     }
 
     /** A page captured or drawn before the turn is the old shape, so whoever asked has to drop it. */

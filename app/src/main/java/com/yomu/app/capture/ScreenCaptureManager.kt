@@ -102,8 +102,9 @@ class ScreenCaptureManager @Inject constructor(
         val current = imageReader ?: return false
         if (current.width == size.width && current.height == size.height) return false
         val reader = newReader(size.width, size.height)
-        mirror.resize(size.width, size.height, densityDpi)
+        // The system fits the screen into the surface the mirror has when it is resized, so the new one goes first.
         mirror.surface = reader.surface
+        mirror.resize(size.width, size.height, densityDpi)
         current.close()
         imageReader = reader
         Log.i(TAG, "capture resized to ${size.width}x${size.height}")
