@@ -3,6 +3,8 @@ package com.yomu.pipeline.ocr
 import android.graphics.Bitmap
 
 private const val INK_LUMINANCE = 128
+// Up to three columns manga-ocr reads whole as well as it ever did.
+private const val MIN_COLUMNS = 4
 private const val COLUMNS_PER_PIECE = 2
 
 /**
@@ -12,6 +14,7 @@ private const val COLUMNS_PER_PIECE = 2
 internal fun readingPieces(crop: Bitmap): List<IntRange> {
     val ink = Ink(crop)
     val columns = bands(ink.columns())
+    if (columns.size < MIN_COLUMNS) return emptyList()
     val groups = columns.reversed().chunked(COLUMNS_PER_PIECE).map { group -> group.last().first..group.first().last }
     return sideBySide(groups, crop.width)
 }

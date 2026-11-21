@@ -86,4 +86,13 @@ class PieceReaderTest {
         assertEquals(listOf("AB", "CD"), reader.asked)
         assertEquals("ABCD", read?.text)
     }
+
+    @Test
+    fun `three columns are read whole`() {
+        val reader = fakeReader()
+
+        PieceReader(reader::read).read(crop(98, 160, columns("ABC", width = 98)))
+
+        assertEquals(listOf("ABC"), reader.asked)
+    }
 }
