@@ -15,7 +15,9 @@ private const val MIN_COLUMN_TALLNESS = 2.5f
 // Furigana stands beside its column at about half the width. Counted as a column, it pairs a column with
 // its own reading and the next column with the wrong neighbour.
 private const val MAX_FURIGANA_WIDTH = 0.6f
-private const val MIN_LINE_ASPECT = 8f
+// Rendered lines of up to about ten characters read as well whole and cutting some made them worse; from
+// twelve, every cut line read at least as well as whole, and whole reads broke from about twenty (#453).
+private const val MIN_LINE_ASPECT = 12f
 // A piece is about this many line heights wide, cut at the widest gap within a quarter of that.
 private const val PIECE_ASPECT = 5f
 private const val PIECE_SLACK = 0.25f

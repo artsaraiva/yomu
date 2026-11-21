@@ -247,11 +247,12 @@ class PieceReaderTest {
     }
 
     @Test
-    fun `a short line is read whole`() {
+    fun `a line under twelve line heights is read whole`() {
         val reader = fakeReader()
 
-        PieceReader(reader::read).read(line("ABCDEF"))
+        // Nine glyphs and their gaps, 176 px of ink on a 16 px line: eleven line heights.
+        PieceReader(reader::read).read(line("ABCDEFGHI"))
 
-        assertEquals(listOf("ABCDEF"), reader.asked)
+        assertEquals(listOf("ABCDEFGHI"), reader.asked)
     }
 }
