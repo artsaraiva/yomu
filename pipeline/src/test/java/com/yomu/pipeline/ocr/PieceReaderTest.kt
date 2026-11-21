@@ -175,6 +175,24 @@ class PieceReaderTest {
     }
 
     @Test
+    fun `a long line is cut at the widest gap within reach`() {
+        val reader = fakeReader()
+
+        PieceReader(reader::read).read(line("ABCDEFGHIJKLMNOPQRST", gapsAfter = mapOf('E' to 8)))
+
+        assertEquals("ABCDE", reader.asked.first())
+    }
+
+    @Test
+    fun `a short tail stays on the last piece`() {
+        val reader = fakeReader()
+
+        PieceReader(reader::read).read(line("ABCDEFGHIJKLMNOPQRSTUV"))
+
+        assertEquals(listOf("ABCD", "EFGH", "IJKL", "MNOP", "QRSTUV"), reader.asked)
+    }
+
+    @Test
     fun `a short line is read whole`() {
         val reader = fakeReader()
 
