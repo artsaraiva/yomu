@@ -8,8 +8,8 @@ private const val INK_LUMINANCE = 128
 // or nine columns and read cleanly in pairs at every width (#453).
 private const val MIN_COLUMNS = 8
 private const val COLUMNS_PER_PIECE = 2
-// Narrower than a stroke: a speck or a sliver of balloon outline, not a column of text.
-private const val MIN_COLUMN_WIDTH = 3
+// Thinner than a stroke: a speck or a sliver of balloon outline, not a column or line of text.
+private const val MIN_STROKE = 3
 // A vertical column's ink is several times taller than wide; a horizontal line's characters are about square.
 private const val MIN_COLUMN_TALLNESS = 2.5f
 // Furigana stands beside its column at about half the width. Counted as a column, it pairs a column with
@@ -36,13 +36,13 @@ internal fun readingPieces(crop: Bitmap): List<IntRange> {
 
 /** Two columns at a time, right to left, when [ink] is a block of [MIN_COLUMNS] or more tall columns. */
 private fun columnPairs(ink: Ink): List<IntRange> {
-    val columns = withFuriganaMerged(bands(ink.columns()).filter { it.length() >= MIN_COLUMN_WIDTH })
+    val columns = withFuriganaMerged(strokes(ink.columns()))
     if (columns.size < MIN_COLUMNS) return emptyList()
     val tallness = columns.map { column -> ink.rowsIn(column).length().toFloat() / column.length() }.sorted()
     if (tallness[tallness.size / 2] < MIN_COLUMN_TALLNESS) return emptyList()
     // Lines of horizontal text stand their characters in columns too, but their widest gaps run between rows.
     val columnGaps = gaps(columns).sorted()
-    val widestRowGap = gaps(bands(ink.rows())).maxOrNull() ?: 0
+    val widestRowGap = gaps(strokes(ink.rows())).maxOrNull() ?: 0
     if (columnGaps[columnGaps.size / 2] <= widestRowGap) return emptyList()
     return columns.reversed().chunked(COLUMNS_PER_PIECE).map { group -> group.last().first..group.first().last }
 }
@@ -68,7 +68,7 @@ private fun withFuriganaMerged(columns: List<IntRange>): List<IntRange> {
 
 /** Stretches about [PIECE_ASPECT] line heights wide, left to right, when [ink] is one line many times wider than tall. */
 private fun linePieces(ink: Ink): List<IntRange> {
-    val line = bands(ink.rows()).singleOrNull() ?: return emptyList()
+    val line = strokes(ink.rows()).singleOrNull() ?: return emptyList()
     val inked = ink.columns(line)
     val left = inked.indexOf(true)
     val right = inked.lastIndexOf(true)
@@ -112,6 +112,9 @@ private fun bands(flags: List<Boolean>): List<IntRange> {
     if (start >= 0) bands += start until flags.size
     return bands
 }
+
+/** The runs of ink in [flags] at least a stroke thick. */
+private fun strokes(flags: List<Boolean>): List<IntRange> = bands(flags).filter { it.length() >= MIN_STROKE }
 
 /** The first x of the right half when the pixels from [first] to [last] are cut in two. */
 private fun midway(first: Int, last: Int): Int = (first + last + 1) / 2

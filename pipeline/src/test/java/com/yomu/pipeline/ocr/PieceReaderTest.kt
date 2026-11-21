@@ -44,12 +44,12 @@ class PieceReaderTest {
 
     /**
      * One horizontal line, 16 px tall: a square glyph per label, [labels] in reading order from x = 10, 4 px apart
-     * unless [gapsAfter] widens the gap after a label, in a crop 10 px wider than the line.
+     * unless [gapsAfter] widens the gap after a label, in a crop 10 px wider than the line. [extra] glyphs are drawn too.
      */
-    private fun line(labels: String, gapsAfter: Map<Char, Int> = emptyMap()): Bitmap {
+    private fun line(labels: String, gapsAfter: Map<Char, Int> = emptyMap(), extra: List<Glyph> = emptyList()): Bitmap {
         var left = 10
         val glyphs = labels.map { label -> Glyph(label, left, 12, 16, 16).also { left += 16 + (gapsAfter[label] ?: 4) } }
-        return crop(glyphs.last().left + 16 + 10, 40, glyphs)
+        return crop(glyphs.last().left + 16 + 10, 40, glyphs + extra)
     }
 
     /**
@@ -244,6 +244,15 @@ class PieceReaderTest {
         PieceReader(reader::read).read(line("ABCDEFGHIJKLMNOPQRSTUVW", gapsAfter = mapOf('U' to 5)))
 
         assertEquals(listOf("ABCD", "EFGH", "IJKL", "MNOP", "QRST", "UVW"), reader.asked)
+    }
+
+    @Test
+    fun `a speck above a long line does not keep it whole`() {
+        val reader = fakeReader()
+
+        PieceReader(reader::read).read(line("ABCDEFGHIJKLMNOPQRST", extra = listOf(Glyph('z', 50, 2, 2, 2))))
+
+        assertEquals(listOf("ABCDz", "EFGH", "IJKL", "MNOP", "QRST"), reader.asked)
     }
 
     @Test
