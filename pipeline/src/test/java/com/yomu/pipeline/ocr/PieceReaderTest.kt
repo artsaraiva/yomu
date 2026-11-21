@@ -154,6 +154,18 @@ class PieceReaderTest {
     }
 
     @Test
+    fun `furigana that breaks into two strips is read with its column`() {
+        val reader = fakeReader()
+        // B's reading as two 3 px strips side by side in the gap to B's right, as kana of uneven widths leave it.
+        val furigana = (0 until 3).map { kana -> Glyph('b', 193, 12 + kana * 10, 3, 8) } +
+            (0 until 2).map { kana -> Glyph('b', 197, 14 + kana * 10, 3, 8) }
+
+        PieceReader(reader::read).read(columns("ABCDEFGH", extra = furigana))
+
+        assertEquals(listOf("ABb", "CD", "EF", "GH"), reader.asked)
+    }
+
+    @Test
     fun `specks narrower than a stroke are not columns`() {
         val reader = fakeReader()
         // Two 1 px specks side by side in the gap between A and B, which would make seven columns nine.

@@ -46,20 +46,20 @@ private fun columnPairs(ink: Ink): List<IntRange> {
 }
 
 /**
- * [columns], left to right, with each column much thinner than its neighbours, furigana, merged into the
- * nearer neighbour: the left one on a tie, since a reading stands to the right of its column.
+ * [columns], left to right, with furigana merged into the nearer neighbour: the left one on a tie, since a
+ * reading stands to the right of its column. Furigana is a run of columns much thinner than the block's
+ * typical column; kana of uneven widths can leave one reading as two strips.
  */
 private fun withFuriganaMerged(columns: List<IntRange>): List<IntRange> {
-    val owners = columns.indices.map { i ->
-        val neighbours = listOfNotNull(columns.getOrNull(i - 1), columns.getOrNull(i + 1))
-        val furigana = neighbours.isNotEmpty() && neighbours.all { columns[i].length() < MAX_FURIGANA_WIDTH * it.length() }
-        val leftGap = columns.getOrNull(i - 1)?.let { columns[i].first - it.last } ?: Int.MAX_VALUE
-        val rightGap = columns.getOrNull(i + 1)?.let { it.first - columns[i].last } ?: Int.MAX_VALUE
-        when {
-            !furigana -> i
-            leftGap <= rightGap -> i - 1
-            else -> i + 1
-        }
+    // Readings are at most two bands in three, one split in two beside every column, so the band three
+    // quarters up the sorted widths is a column.
+    val typical = columns.map { it.length() }.sorted().getOrNull(columns.size * 3 / 4) ?: return columns
+    val owners = columns.indices.toMutableList()
+    for (run in bands(columns.map { it.length() < MAX_FURIGANA_WIDTH * typical })) {
+        val leftGap = columns.getOrNull(run.first - 1)?.let { columns[run.first].first - it.last } ?: Int.MAX_VALUE
+        val rightGap = columns.getOrNull(run.last + 1)?.let { it.first - columns[run.last].last } ?: Int.MAX_VALUE
+        val owner = if (leftGap <= rightGap) run.first - 1 else run.last + 1
+        run.forEach { owners[it] = owner }
     }
     return columns.indices.groupBy { owners[it] }.values.map { merged -> columns[merged.first()].first..columns[merged.last()].last }
 }
