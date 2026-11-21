@@ -33,6 +33,16 @@ class PieceReaderTest {
             (0 until 6).map { row -> Glyph(label, left, 10 + row * 20, columnWidth, 16) }
         }
 
+    /**
+     * One horizontal line, 16 px tall: a square glyph per label, [labels] in reading order from x = 10, 4 px apart
+     * unless [gapsAfter] widens the gap after a label, in a crop 10 px wider than the line.
+     */
+    private fun line(labels: String, gapsAfter: Map<Char, Int> = emptyMap()): Bitmap {
+        var left = 10
+        val glyphs = labels.map { label -> Glyph(label, left, 12, 16, 16).also { left += 16 + (gapsAfter[label] ?: 4) } }
+        return crop(glyphs.last().left + 16 + 10, 40, glyphs)
+    }
+
     private fun crop(width: Int, height: Int, glyphs: List<Glyph>, paper: Int = Color.WHITE, ink: (Char) -> Int = ::darkInk): Bitmap =
         Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).apply {
             eraseColor(paper)
@@ -94,5 +104,15 @@ class PieceReaderTest {
         PieceReader(reader::read).read(crop(98, 160, columns("ABC", width = 98)))
 
         assertEquals(listOf("ABC"), reader.asked)
+    }
+
+    @Test
+    fun `a long line is cut between characters into pieces about five line heights wide`() {
+        val reader = fakeReader()
+
+        val read = PieceReader(reader::read).read(line("ABCDEFGHIJKLMNOPQRST"))
+
+        assertEquals(listOf("ABCD", "EFGH", "IJKL", "MNOP", "QRST"), reader.asked)
+        assertEquals("ABCDEFGHIJKLMNOPQRST", read?.text)
     }
 }
