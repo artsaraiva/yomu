@@ -8,6 +8,8 @@ private const val INK_LUMINANCE = 128
 // or nine columns and read cleanly in pairs at every width (#453).
 private const val MIN_COLUMNS = 8
 private const val COLUMNS_PER_PIECE = 2
+// Narrower than a stroke: a speck or a sliver of balloon outline, not a column of text.
+private const val MIN_COLUMN_WIDTH = 3
 // A vertical column's ink is several times taller than wide; a horizontal line's characters are about square.
 private const val MIN_COLUMN_TALLNESS = 2.5f
 // Furigana stands beside its column at about half the width. Counted as a column, it pairs a column with
@@ -32,7 +34,7 @@ internal fun readingPieces(crop: Bitmap): List<IntRange> {
 
 /** Two columns at a time, right to left, when [ink] is a block of [MIN_COLUMNS] or more tall columns. */
 private fun columnPairs(ink: Ink): List<IntRange> {
-    val columns = withFuriganaMerged(bands(ink.columns()))
+    val columns = withFuriganaMerged(bands(ink.columns()).filter { it.length() >= MIN_COLUMN_WIDTH })
     if (columns.size < MIN_COLUMNS) return emptyList()
     val tallness = columns.map { column -> ink.rowsIn(column).length().toFloat() / column.length() }.sorted()
     if (tallness[tallness.size / 2] < MIN_COLUMN_TALLNESS) return emptyList()

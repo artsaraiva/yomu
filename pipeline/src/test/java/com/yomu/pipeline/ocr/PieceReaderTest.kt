@@ -154,6 +154,17 @@ class PieceReaderTest {
     }
 
     @Test
+    fun `specks narrower than a stroke are not columns`() {
+        val reader = fakeReader()
+        // Two 1 px specks side by side in the gap between A and B, which would make seven columns nine.
+        val specks = listOf(167, 170).map { x -> Glyph('z', x, 40, 1, 12) }
+
+        PieceReader(reader::read).read(columns("ABCDEFG", extra = specks))
+
+        assertEquals(listOf("ABCDEFGz"), reader.asked)
+    }
+
+    @Test
     fun `seven columns are read whole`() {
         val reader = fakeReader()
 
