@@ -242,6 +242,23 @@ class LlamaTranslationBridgeTest {
         model.delete()
     }
 
+    /** llama.cpp reads a repetition bound past 2000 as no bound, so a line that would need more stops at 2000. */
+    @Test
+    fun translatePage_batchLineLimitStopsAtTheLargestBoundLlamaCppKeeps() = runTest {
+        val model = File.createTempFile("model", ".gguf")
+        val native = FakeLlamaBridge { GenerationResult.Success("[1] Long\n", 1L) }
+        val slot = LlamaTranslationBridge(native, profile(model, idKeyedBatch = true))
+
+        slot.translatePage(page(1 to "あ".repeat(400)))
+
+        val expected = """
+            root ::= "[1] " line-2000 "\n"?
+            line-2000 ::= [^\r\n\[]{1,2000}
+        """.trimIndent() + "\n"
+        assertEquals(expected, native.grammars.single())
+        model.delete()
+    }
+
     @Test
     fun translatePage_batchLineAdmitsIdBracketWhenOptedOut() = runTest {
         val model = File.createTempFile("model", ".gguf")

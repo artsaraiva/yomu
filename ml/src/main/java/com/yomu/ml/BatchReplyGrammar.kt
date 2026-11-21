@@ -16,6 +16,9 @@ private const val BASE_LINE_LIMIT = 160
  */
 private const val EXPECTED_GROWTH = 3.1
 
+/** llama.cpp reads a repetition bound past this as no bound at all (`MAX_REPETITION_THRESHOLD`). */
+private const val LLAMA_MAX_REPETITION = 2000
+
 /**
  * GBNF pinning the reply to exactly one `[id] text` line per bubble, in prompt order, with the
  * ids as literals. Preamble, refusal, a dropped id, a merged pair and a re-ordered reply are all
@@ -42,7 +45,11 @@ internal fun batchReplyGrammar(page: TranslatablePage, excludeIdBracket: Boolean
     return "root ::= $root\n" + limits.distinct().joinToString("") { "${lineRule(it)} ::= [^$excluded]{1,$it}\n" }
 }
 
-/** 160, or twice the line's expected translation when that is longer, so a long line isn't cut off mid-sentence. */
-private fun lineLimit(source: String): Int = maxOf(BASE_LINE_LIMIT, ceil(2 * EXPECTED_GROWTH * source.length).toInt())
+/**
+ * 160, or twice the line's expected translation when that is longer, so a long line isn't cut off
+ * mid-sentence. Never past what llama.cpp still enforces, so every line keeps a bound.
+ */
+private fun lineLimit(source: String): Int =
+    maxOf(BASE_LINE_LIMIT, ceil(2 * EXPECTED_GROWTH * source.length).toInt()).coerceAtMost(LLAMA_MAX_REPETITION)
 
 private fun lineRule(limit: Int): String = if (limit == BASE_LINE_LIMIT) "line" else "line-$limit"
