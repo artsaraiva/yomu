@@ -4,7 +4,7 @@
 
 **Read any manga. Offline. In one tap.**
 
-On-device Japanese manga translation for Android, into English, Brazilian Portuguese, Spanish, French or German.
+On-device Japanese manga translation for Android, into English, Brazilian Portuguese, Spanish, French, German or Russian.
 Tap once over any manga page, in any app, and read it in your language. Nothing leaves your phone.
 
 ![Platform](https://img.shields.io/badge/platform-Android%208.0%2B-3DDC84?logo=android&logoColor=white)
@@ -62,7 +62,7 @@ Tap once over any manga page, in any app, and read it in your language. Nothing 
 ## Features
 
 - **Works over any app.** A floating button sits on top of your reader, browser or gallery. Yomu captures the screen only when you tap it.
-- **Five target languages.** English, Brazilian Portuguese, Spanish, French or German. Switch from settings or the floating button.
+- **Six target languages.** English, Brazilian Portuguese, Spanish, French, German or Russian. Switch from settings or the floating button.
 - **Fully on-device.** Bubble detection, OCR and translation all run locally. No account, no API key, and no usage after the model download.
 - **Page-level context.** Every bubble on the page goes to the LLM in one call, in reading order, so pronouns and tone hold across a conversation.
 - **Manga-aware typesetting.** Font size and line wrapping are fitted to each bubble's bounds.

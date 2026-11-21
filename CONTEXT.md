@@ -27,7 +27,7 @@ The RAM a deliverable must fit inside to be offered on a given device — its fi
 _Avoid_: RAM gate, memory limit, device tier
 
 **Language label**:
-English only or Multilingual, shown beside a [[deliverable]]'s size and [[speed label]] so a reader knows before downloading whether it can translate into their [[target language]]. Multilingual means the model's own documentation covers every target language Yomu offers; anything less is English only.
+English only or Multilingual, shown beside a [[deliverable]]'s size and [[speed label]] so a reader knows before downloading whether it can translate into their [[target language]]. Multilingual means documentation from the model's maker — its card, release notes, technical report or the maker's published language list — names every target language Yomu offers. Anything less is English only, and readers' impressions never count.
 _Avoid_: language tier, language support level
 
 **Model family**:

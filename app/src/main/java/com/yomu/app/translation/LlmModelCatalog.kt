@@ -35,9 +35,16 @@ data class LlmModelOption(
      */
     val licence: String,
     /**
-     * The language label (#336): true only when the model card or the maker's own documentation names
-     * every target language Yomu offers (English, Portuguese, Spanish, French, German). A count alone
-     * ("201 languages", "35+ languages") names none of them, so its entry is English only. Checked 2026-10-20.
+     * The language label (#336): true only when documentation from the model's maker (its card, release
+     * notes, technical report or published language list) names every target language Yomu offers: English,
+     * Portuguese, Spanish, French, German and Russian. A count alone ("201 languages", "35+ languages") names
+     * none of them, so its entry is English only, and readers' impressions never count. An Uncensored copy keeps
+     * its base's label. Checked 2026-11-21:
+     * - Qwen2.5 1.5B: the card's "Multilingual support" line names all six.
+     * - Qwen3.5, every size: the cards say only "201 languages"; qwen.ai/blog?id=qwen3.5's "Multilingual Support" names all six.
+     * - Qwen3 4B 2507: the card names none; the Qwen3 report (arXiv 2505.09388) names all six in Table 10 and scores Qwen3-4B.
+     * - Ministral 3 3B and 8B: the cards name all but Russian, which Mistral's list (docs.mistral.ai/resources/languages) adds.
+     * - Hy-MT2 1.8B: the card's "Supported Languages" table names all six.
      */
     val multilingual: Boolean,
     /** Per-model (#84): a model that can emit one id-keyed reply for the whole page carries true and
@@ -195,8 +202,6 @@ object LlmModelCatalog {
             ggufFileName = Constants.QWEN35_08B_MODEL,
             sizeBytes = Constants.QWEN35_08B_SIZE,
             licence = "Apache-2.0",
-            // Every Qwen3.5 card gives only "201 languages"; the family's launch post
-            // (qwen.ai/blog?id=qwen3.5, "Multilingual Support") names all five.
             multilingual = true,
             idKeyedBatch = true,
             promptMode = TranslationPromptMode.TRANSLATION_ONLY,
@@ -259,8 +264,6 @@ object LlmModelCatalog {
             ggufFileName = Constants.QWEN3_4B_2507_MODEL,
             sizeBytes = Constants.QWEN3_4B_2507_SIZE,
             licence = "Apache-2.0",
-            // The card names no languages; the Qwen3 technical report (arXiv 2505.09388, §A.1.2 and
-            // its per-language tables) names all five, with Qwen3-4B rows.
             multilingual = true,
             idKeyedBatch = true,
             promptMode = TranslationPromptMode.TRANSLATION_ONLY,
