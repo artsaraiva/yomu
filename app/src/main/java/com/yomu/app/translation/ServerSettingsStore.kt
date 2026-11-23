@@ -1,7 +1,10 @@
 package com.yomu.app.translation
 
 import android.content.SharedPreferences
+import java.util.Base64
+import javax.crypto.Cipher
 import javax.crypto.SecretKey
+import javax.crypto.spec.GCMParameterSpec
 
 /**
  * The network translator's settings (ADR-0023): the server's address, the model picked on it, whether
@@ -49,6 +52,42 @@ class ServerSettingsStore(
      */
     fun isSetUp(): Boolean = address().isNotEmpty() && isConfirmed() && model().isNotEmpty()
 
+    /** The reader's API key; empty when none was entered. */
+    fun apiKey(): String {
+        val iv = readString(keyPrefs, KEY_IV)
+        val ciphertext = readString(keyPrefs, KEY_CIPHERTEXT)
+        if (iv.isEmpty() || ciphertext.isEmpty()) return ""
+        return open(iv, ciphertext)
+    }
+
+    fun apiKeyState(): ApiKeyState = if (apiKey().isEmpty()) ApiKeyState.NONE else ApiKeyState.SAVED
+
+    /** Seals [key] and saves it; a blank key removes the saved one. */
+    fun saveApiKey(key: String): ApiKeyState {
+        val trimmed = key.trim()
+        val editor = keyPrefs.edit().clear()
+        if (trimmed.isEmpty()) {
+            editor.apply()
+            return ApiKeyState.NONE
+        }
+        val (iv, ciphertext) = seal(trimmed)
+        editor.putString(KEY_IV, iv).putString(KEY_CIPHERTEXT, ciphertext).apply()
+        return ApiKeyState.SAVED
+    }
+
+    private fun seal(text: String): Pair<String, String> {
+        val cipher = Cipher.getInstance(TRANSFORMATION).apply { init(Cipher.ENCRYPT_MODE, secretKey()) }
+        val ciphertext = cipher.doFinal(text.toByteArray(Charsets.UTF_8))
+        return base64.encodeToString(cipher.iv) to base64.encodeToString(ciphertext)
+    }
+
+    private fun open(iv: String, ciphertext: String): String {
+        val cipher = Cipher.getInstance(TRANSFORMATION).apply {
+            init(Cipher.DECRYPT_MODE, secretKey(), GCMParameterSpec(GCM_TAG_BITS, Base64.getDecoder().decode(iv)))
+        }
+        return String(cipher.doFinal(Base64.getDecoder().decode(ciphertext)), Charsets.UTF_8)
+    }
+
     private fun readString(from: SharedPreferences, key: String): String =
         runCatching { from.getString(key, null) }.getOrNull().orEmpty()
 
@@ -56,5 +95,19 @@ class ServerSettingsStore(
         private const val PREF_ADDRESS = "server_address"
         private const val PREF_MODEL = "server_model"
         private const val PREF_CONFIRMED = "server_confirmed"
+        private const val KEY_IV = "iv"
+        private const val KEY_CIPHERTEXT = "ciphertext"
+        private const val TRANSFORMATION = "AES/GCM/NoPadding"
+        private const val GCM_TAG_BITS = 128
+        private val base64 = Base64.getEncoder()
     }
+}
+
+/** What became of the reader's API key. */
+enum class ApiKeyState {
+    /** No key was entered. */
+    NONE,
+
+    /** Encrypted on the phone; it is still there after a restart. */
+    SAVED
 }

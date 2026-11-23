@@ -4,6 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.util.Base64
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 
@@ -67,5 +68,48 @@ class ServerSettingsStoreTest {
 
         assertFalse(store.confirm("http://192.168.1.20:8080"))
         assertFalse(store.isConfirmed())
+    }
+
+    @Test
+    fun `no key entered reads back empty`() {
+        assertEquals("", store.apiKey())
+        assertEquals(ApiKeyState.NONE, store.apiKeyState())
+    }
+
+    @Test
+    fun `a saved key reads back the same after a restart, and the stored bytes do not contain it`() {
+        assertEquals(ApiKeyState.SAVED, store.saveApiKey(KEY))
+
+        val afterRestart = ServerSettingsStore(prefs, keyPrefs) { softwareKey }
+
+        assertEquals(KEY, afterRestart.apiKey())
+        assertEquals(ApiKeyState.SAVED, afterRestart.apiKeyState())
+        assertTrue(keyPrefs.values.isNotEmpty())
+        assertFalse(storedText().contains(KEY))
+        assertFalse(storedText().contains(Base64.getEncoder().encodeToString(KEY.toByteArray())))
+    }
+
+    @Test
+    fun `the key is kept out of the ordinary preferences`() {
+        store.saveAddress("http://192.168.1.20:8080")
+        store.saveApiKey(KEY)
+
+        assertEquals(setOf("server_address"), prefs.values.keys)
+    }
+
+    @Test
+    fun `saving a blank key removes the saved one`() {
+        store.saveApiKey(KEY)
+
+        assertEquals(ApiKeyState.NONE, store.saveApiKey("  "))
+
+        assertTrue(keyPrefs.values.isEmpty())
+        assertEquals("", ServerSettingsStore(prefs, keyPrefs) { softwareKey }.apiKey())
+    }
+
+    private fun storedText(): String = (prefs.values.values + keyPrefs.values.values).joinToString(" ")
+
+    private companion object {
+        const val KEY = "sk-test-0123456789abcdef"
     }
 }
