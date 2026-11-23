@@ -4,8 +4,10 @@ import java.net.InetAddress
 import java.net.UnknownHostException
 import okhttp3.Call
 import okhttp3.Dns
+import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.Response
 
 /**
  * The HTTP client for the reader's server, used by the network translator and the Providers screen
@@ -15,7 +17,10 @@ import okhttp3.Request
  */
 class ServerHttpClient(client: OkHttpClient) {
     private val tls = client
-    private val cleartext = client.newBuilder().dns(NearbyOnlyDns(client.dns)).build()
+    private val cleartext = client.newBuilder()
+        .dns(NearbyOnlyDns(client.dns))
+        .addNetworkInterceptor(NearbyOnlyConnection)
+        .build()
 
     fun newCall(request: Request): Call = (if (request.url.isHttps) tls else cleartext).newCall(request)
 }
@@ -30,5 +35,17 @@ private class NearbyOnlyDns(private val delegate: Dns) : Dns {
         val addresses = delegate.lookup(hostname)
         if (!addresses.all(::isNearbyAddress)) throw HttpsRequiredException(hostname)
         return addresses
+    }
+}
+
+/**
+ * Refuses a request, before it is written, on a connection to an address that isn't nearby. OkHttp
+ * connects to an IP address without asking the [Dns], so only this check sees one, typed or redirected to.
+ */
+private object NearbyOnlyConnection : Interceptor {
+    override fun intercept(chain: Interceptor.Chain): Response {
+        val address = chain.connection()?.route()?.socketAddress?.address
+        if (address == null || !isNearbyAddress(address)) throw HttpsRequiredException(chain.request().url.host)
+        return chain.proceed(chain.request())
     }
 }
