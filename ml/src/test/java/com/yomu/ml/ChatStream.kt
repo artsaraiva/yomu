@@ -3,6 +3,7 @@ package com.yomu.ml
 import com.google.gson.JsonArray
 import com.google.gson.JsonNull
 import com.google.gson.JsonObject
+import com.yomu.core.GenerationParams
 import com.yomu.core.TranslatableBubble
 import com.yomu.core.TranslatablePage
 import okhttp3.OkHttpClient
@@ -43,9 +44,10 @@ internal fun networkSlot(
     baseUrl: String,
     apiKey: String = "",
     model: String = "qwen3:8b",
+    generation: GenerationParams = GenerationParams(),
     pageTimeoutMs: Long = 120_000,
     client: OkHttpClient = OkHttpClient()
 ): NetworkTranslationSlot =
-    NetworkTranslationSlot(client, { NetworkTranslatorConfig(baseUrl, apiKey, model) }, pageTimeoutMs = pageTimeoutMs)
+    NetworkTranslationSlot(client, { NetworkTranslatorConfig(baseUrl, apiKey, model, generation) }, pageTimeoutMs = pageTimeoutMs)
 
 internal fun MockWebServer.base(): String = url("/").toString()

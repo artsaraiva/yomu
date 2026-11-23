@@ -80,6 +80,10 @@ class NetworkTranslationSlot(
             addProperty("model", config.model)
             add("messages", JsonArray().apply { add(message) })
             addProperty("stream", true)
+            // Top-k and the penalties are not part of the protocol, and a server may reject them (ADR-0023).
+            addProperty("temperature", config.generation.temperature)
+            addProperty("top_p", config.generation.topP)
+            addProperty("max_tokens", MAX_REPLY_TOKENS)
         }
         return Request.Builder()
             .url(chatCompletions(config.baseUrl))
@@ -123,6 +127,9 @@ class NetworkTranslationSlot(
 
     private companion object {
         val JSON = "application/json".toMediaType()
+
+        /** Above the phone's 768: a reasoning model spends tokens thinking before it answers (ADR-0023). */
+        const val MAX_REPLY_TOKENS = 4096
         const val DATA = "data:"
         const val DONE = "[DONE]"
         const val NANOS_PER_MS = 1_000_000L
