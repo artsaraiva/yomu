@@ -42,6 +42,14 @@ class TranslationModelSelectionTest {
     }
 
     @Test
+    fun `current falls back to the on-device slot when the stored translator can't run`() {
+        val llama = Mockito.mock(LlamaTranslationBridge::class.java)
+        val prefs = MapSharedPreferences().apply { values[Constants.PREF_TRANSLATOR] = "fake" }
+
+        assertSame(llama, selection(llama = llama, prefs = prefs, others = listOf(fakeTranslator(canRun = false))).current())
+    }
+
+    @Test
     fun `currentLlmModel defaults when nothing is picked`() {
         val prefs = Mockito.mock(SharedPreferences::class.java)
         Mockito.`when`(prefs.getString(Constants.PREF_LLM_MODEL, null))

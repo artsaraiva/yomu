@@ -22,8 +22,8 @@ class TranslationModelSelection @Inject constructor(
     private val generationStore = GenerationProfileStore(sharedPreferences)
     private val limitsStore = ResourceLimitsStore(sharedPreferences)
 
-    /** The slot of the translator the reader chose. */
-    fun current(): TranslationSlot = translators[storedTranslatorId()]?.slot() ?: llamaSlot
+    /** The slot of the translator the reader chose, or the on-device slot when that one can't run. */
+    fun current(): TranslationSlot = translators[storedTranslatorId()]?.takeIf { it.canRun() }?.slot() ?: llamaSlot
 
     private fun storedTranslatorId(): String? =
         runCatching { sharedPreferences.getString(Constants.PREF_TRANSLATOR, null) }.getOrNull()
