@@ -187,7 +187,7 @@ class NetworkTranslationSlot(
             take(thoughts.feed(content))
         }
         take(thoughts.finish())
-        if (finishReason != CUT_OFF) reply.finish()
+        if (finishReason == ENDED_BY_MODEL) reply.finish()
         return text.toString()
     }
 
@@ -224,8 +224,8 @@ class NetworkTranslationSlot(
         const val MAX_REPLY_TOKENS = 4096
         const val DATA = "data:"
         const val DONE = "[DONE]"
-        /** The `finish_reason` of a reply that reached [MAX_REPLY_TOKENS] rather than ending. */
-        const val CUT_OFF = "length"
+        /** The `finish_reason` of a reply the model ended; any other ending, or none, may have cut a line off. */
+        const val ENDED_BY_MODEL = "stop"
         const val NANOS_PER_MS = 1_000_000L
     }
 }

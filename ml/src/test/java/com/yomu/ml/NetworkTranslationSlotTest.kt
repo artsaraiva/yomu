@@ -7,6 +7,7 @@ import com.yomu.core.TranslationOutcome
 import com.yomu.core.TranslationStatus
 import kotlinx.coroutines.test.runTest
 import okhttp3.OkHttpClient
+import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -125,16 +126,22 @@ class NetworkTranslationSlotTest {
     }
 
     @Test
-    fun translatePage_replyCutOffAtTheTokenCapLeavesItsUnfinishedLastLineUnanswered() = runTest {
-        server.enqueue(chatStream("[1] Hello\n[2] Good", finishReason = "length"))
-        server.enqueue(chatStream("[1] Hello\n[2] Goodbye", finishReason = "stop"))
+    fun translatePage_onlyAReplyTheModelEndedAnswersItsUnterminatedLastLine() = runTest {
+        val endings = mapOf(
+            "stop" to chatStream("[1] Hello\n[2] Goodbye", finishReason = "stop"),
+            "length" to chatStream("[1] Hello\n[2] Good", finishReason = "length"),
+            "content_filter" to chatStream("[1] Hello\n[2] Good", finishReason = "content_filter"),
+            "no ending" to MockResponse().setBody(chatEvents("[1] Hello\n[2] Good", finishReason = null))
+        )
         val slot = networkSlot(server.base())
+        for ((ending, reply) in endings) {
+            server.enqueue(reply)
 
-        val cutOff = slot.translatePage(page(1 to "こんにちは", 2 to "さようなら"))
-        val ended = slot.translatePage(page(1 to "こんにちは", 2 to "さようなら"))
+            val result = slot.translatePage(page(1 to "こんにちは", 2 to "さようなら"))
 
-        assertEquals(mapOf(1 to "Hello"), cutOff.byId)
-        assertEquals(mapOf(1 to "Hello", 2 to "Goodbye"), ended.byId)
+            val expected = if (ending == "stop") mapOf(1 to "Hello", 2 to "Goodbye") else mapOf(1 to "Hello")
+            assertEquals(ending, expected, result.byId)
+        }
     }
 
     @Test
