@@ -37,8 +37,9 @@ internal fun readChatCompletion(source: BufferedSource, reply: IdKeyedReplyReade
         choice.string("finish_reason")?.let { finishReason = it }
         choice.objectAt("delta")?.string("content")?.let { keep(stripper.feed(it)) }
     }
-    keep(stripper.finish())
-    if (finishReason == ENDED_BY_MODEL) reply.finish()
+    val endedByModel = finishReason == ENDED_BY_MODEL
+    keep(stripper.finish(endedByModel))
+    if (endedByModel) reply.finish()
     return text.toString()
 }
 

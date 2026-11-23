@@ -1,5 +1,6 @@
 package com.yomu.ml
 
+import com.yomu.core.TranslationOutcome
 import kotlinx.coroutines.test.runTest
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
@@ -26,6 +27,19 @@ class NetworkTranslationSlotReasoningTest {
 
         assertEquals(listOf(1 to "Hello", 2 to "Goodbye"), reported)
         assertEquals("[1] Hello\n[2] Goodbye", result.rawResponse)
+    }
+
+    @Test
+    fun translatePage_reasoningCutOffBeforeItsCloseTagShowsNoDrafts() = runTest {
+        server.enqueue(chatStream("Okay, two bubbles.\n[1] Hi?\n[2] Bye?\n", finishReason = "length"))
+        val reported = mutableListOf<Pair<Int, String>>()
+
+        val result = networkSlot(server.base()).translatePage(page(1 to "こんにちは", 2 to "さようなら")) { id, text ->
+            reported += id to text
+        }
+
+        assertEquals(emptyList<Pair<Int, String>>(), reported)
+        assertEquals(TranslationOutcome.BLANK, result.outcome)
     }
 
     @Test

@@ -15,8 +15,8 @@ internal const val REASONING_HOLD_LIMIT = 16_000
  * A shown bubble can't be taken back, and nothing at the start of a reply shows whether a bare `</think>`
  * is coming. A reply whose first line is an `[id]` line is taken to be the answer and passes as it arrives.
  * Any other reply is held until its first tag: a `<think>` shows thoughts come in whole blocks, and a bare
- * `</think>` drops everything before it. With no tag, the held text is shown in order once the reply ends
- * or passes [REASONING_HOLD_LIMIT]. A tag split across pieces is still found: text that could be the start
+ * `</think>` drops everything before it. With no tag, the held text is shown in order once the model ends
+ * the reply or the text passes [REASONING_HOLD_LIMIT]. A tag split across pieces is still found: text that could be the start
  * of a tag is held back until the next piece settles it.
  */
 internal class ThinkBlockStripper {
@@ -36,8 +36,13 @@ internal class ThinkBlockStripper {
         return if (phase == Phase.PASSING) stripBlocks() else ""
     }
 
-    /** Whatever was held back at the end of the reply, unless it lies inside a block that never closed. */
-    fun finish(): String {
+    /**
+     * Whatever was held back at the end of the reply, unless it lies inside a block that never closed. Text
+     * held as possible thoughts is shown only when [endedByModel]: a reply cut off mid-thought would show
+     * its drafts.
+     */
+    fun finish(endedByModel: Boolean): String {
+        if (phase != Phase.PASSING && !endedByModel) held.setLength(0)
         val visible = stripBlocks()
         val rest = if (thinking) "" else held.toString()
         held.setLength(0)
