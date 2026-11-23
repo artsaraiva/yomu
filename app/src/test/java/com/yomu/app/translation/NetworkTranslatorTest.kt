@@ -4,6 +4,7 @@ import com.google.gson.JsonParser
 import com.yomu.core.GenerationBound
 import com.yomu.core.TranslatableBubble
 import com.yomu.core.TranslatablePage
+import com.yomu.ml.LlamaTranslationBridge
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import kotlinx.coroutines.test.runTest
@@ -12,8 +13,10 @@ import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.mockito.Mockito
 
 /** The network translator as registered: "Your server", built from the stored settings (#489, ADR-0023). */
 class NetworkTranslatorTest {
@@ -61,5 +64,21 @@ class NetworkTranslatorTest {
         assertEquals(0.85f, body.get("top_p").asFloat, 0.001f)
         assertEquals(mapOf(1 to "Hello"), result.byId)
         server.shutdown()
+    }
+
+    @Test
+    fun `registered beside the phone, it takes pages only once chosen and while the server is set up`() {
+        val llama = Mockito.mock(LlamaTranslationBridge::class.java)
+        val selection = TranslationModelSelection(llama, prefs, translators = setOf(Translator.onDevice(llama), translator))
+        store.saveAddress("http://192.168.1.20:11434")
+        store.confirm("http://192.168.1.20:11434")
+        store.saveModel("qwen2.5:7b")
+        assertSame("nothing chosen", llama, selection.current())
+
+        selection.selectTranslator(translator)
+        assertSame(translator.slot(), selection.current())
+
+        store.saveAddress("http://192.168.1.21:11434")
+        assertSame("chosen but not set up", llama, selection.current())
     }
 }
