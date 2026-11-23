@@ -88,7 +88,26 @@ class ScreenCaptureManager @Inject constructor(
         isProjectionActive = true
     }
 
-    // #475: resizeTo(size: Size): Boolean goes here.
+    /**
+     * Captures the screen at [size] from now on, as the display reports after the screen turns, and returns true when
+     * it did: a page captured before then no longer has the screen's shape. Returns false and changes nothing when no
+     * capture is running, or when the capture already has that size, so its reader keeps the frame a still screen is
+     * captured from.
+     */
+    fun resizeTo(size: Size): Boolean {
+        val display = virtualDisplay ?: return false
+        val oldReader = imageReader ?: return false
+        if (oldReader.width == size.width && oldReader.height == size.height) return false
+
+        val reader = newReader(size.width, size.height)
+        // The system fits the mirrored screen into the surface the display holds when it is resized.
+        display.surface = reader.surface
+        display.resize(size.width, size.height, densityDpi)
+        oldReader.close()
+        imageReader = reader
+        Log.i(TAG, "capture now ${size.width}x${size.height} to match the display")
+        return true
+    }
 
     private fun newReader(width: Int, height: Int): ImageReader =
         ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, READER_MAX_IMAGES)
