@@ -43,6 +43,12 @@ class ServerSettingsStore(
 
     fun saveModel(model: String) = prefs.edit().putString(PREF_MODEL, model.trim()).apply()
 
+    /**
+     * Whether the network translator has what it needs to take a page: an address, Connect's
+     * confirmation of it, and a model. The key is optional. Read before every page, so it stays cheap.
+     */
+    fun isSetUp(): Boolean = address().isNotEmpty() && isConfirmed() && model().isNotEmpty()
+
     private fun readString(from: SharedPreferences, key: String): String =
         runCatching { from.getString(key, null) }.getOrNull().orEmpty()
 

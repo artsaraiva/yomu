@@ -40,6 +40,28 @@ class ServerSettingsStoreTest {
     }
 
     @Test
+    fun `the server is set up only once address, confirmation and model are all present`() {
+        assertFalse(store.isSetUp())
+
+        store.saveAddress("http://192.168.1.20:8080")
+        assertFalse(store.isSetUp())
+
+        store.confirm("http://192.168.1.20:8080")
+        assertFalse(store.isSetUp())
+
+        store.saveModel("qwen2.5:7b")
+        assertTrue(store.isSetUp())
+    }
+
+    @Test
+    fun `a model without a confirmation is not set up`() {
+        store.saveAddress("http://192.168.1.20:8080")
+        store.saveModel("qwen2.5:7b")
+
+        assertFalse(store.isSetUp())
+    }
+
+    @Test
     fun `a confirmation for an address that is no longer the saved one is refused`() {
         store.saveAddress("http://192.168.1.21:8080")
 
