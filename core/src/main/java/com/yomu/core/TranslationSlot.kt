@@ -186,6 +186,21 @@ const val ERROR_MODEL_MISSING = "model_missing"
 /** An English-only model was asked for another [TargetLanguage] and refused, rather than write English (#337). */
 const val ERROR_ENGLISH_ONLY = "english_only"
 
+/** The network translator's server could not be reached at its address (ADR-0023). */
+const val ERROR_SERVER_UNREACHABLE = "server_unreachable"
+
+/** The network translator's server rejected its key: HTTP 401 or 403. */
+const val ERROR_SERVER_KEY_REJECTED = "server_key_rejected"
+
+/** The network translator's server has no model by the chosen name: HTTP 404. */
+const val ERROR_SERVER_MODEL_NOT_FOUND = "server_model_not_found"
+
+/** The network translator's page ran out of time, connecting or in all; its outcome is [TranslationOutcome.TIMEOUT]. */
+const val ERROR_SERVER_TIMEOUT = "server_timeout"
+
+/** The network translator's server failed in any other way: another HTTP error, or a reply it broke off or garbled. */
+const val ERROR_SERVER_FAILED = "server_error"
+
 data class PageTranslation(
     val byId: Map<Int, String>,
     val rawResponse: String,

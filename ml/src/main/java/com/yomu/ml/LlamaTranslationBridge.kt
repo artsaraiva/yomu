@@ -63,10 +63,7 @@ class LlamaTranslationBridge(
          */
         private const val MAX_BATCH_OUTPUT = 768
 
-        private val ID_KEYED_LINE = "^\\s*\\[(\\d+)]\\s*(.*)$".toRegex()
-
         private const val TIMEOUT_MS = 15_000
-        private const val BATCH_TIMEOUT_MS = 120_000
     }
 
     private val readinessMutex = Mutex()
@@ -170,20 +167,15 @@ class LlamaTranslationBridge(
         page: TranslatablePage,
         onBubble: (bubbleId: Int, text: String) -> Unit
     ): PageTranslation {
-        val pageIds = page.panels.flatten().mapTo(mutableSetOf()) { it.bubbleId }
-        val byId = linkedMapOf<Int, String>()
-        val splitter = ReplyLineSplitter { line ->
-            val (id, text) = parseIdKeyedLine(line) ?: return@ReplyLineSplitter
-            if (id in pageIds && byId.putIfAbsent(id, text) == null) onBubble(id, text)
-        }
+        val reply = IdKeyedReplyReader(page, onBubble)
         val output = generate(
-            buildBatchPrompt(page),
+            idKeyedPagePrompt(page),
             MAX_BATCH_OUTPUT,
-            BATCH_TIMEOUT_MS,
+            PAGE_TIMEOUT_MS,
             batchReplyGrammar(page, profile.generation.lineExcludesIdBracket),
-            splitter::feed
+            reply::feed
         )
-        if (output.endedByModel) splitter.finish()
+        if (output.endedByModel) reply.finish()
         if (output.outcome == TranslationOutcome.OVERFLOW) {
             // Loud, and typed: the old behaviour was an empty PageTranslation and a silently
             // untranslated page (ADR-0013). The page still renders, but it renders through the
@@ -191,13 +183,13 @@ class LlamaTranslationBridge(
             // from a log line (#142/#165) — hence the marker on the result.
             Log.w(
                 TAG,
-                "translateBatch overflow bubbles=${pageIds.size} " +
+                "translateBatch overflow bubbles=${page.panels.sumOf { it.size }} " +
                     "falling back to per-line"
             )
             return translatePerLine(page, onBubble).copy(batchOverflowFallback = true)
         }
         return PageTranslation(
-            byId = byId,
+            byId = reply.byId,
             rawResponse = output.text,
             durationMs = output.durationMs,
             outcome = output.outcome,
@@ -220,23 +212,6 @@ class LlamaTranslationBridge(
     private fun hyMt2Prompt(target: String, language: TargetLanguage): String =
         "Translate the following text into ${language.promptName}. Note that you should only output the " +
             "translated result without any additional explanation:\n\n$target"
-
-    private fun buildBatchPrompt(page: TranslatablePage): String = buildString {
-        appendLine(
-            "Translate each Japanese line to ${page.targetLanguage.promptName}. Keep the [id] tag before each line. " +
-                "Panels are separated by ---."
-        )
-        page.panels.forEachIndexed { index, panel ->
-            if (index > 0) appendLine("---")
-            panel.forEach { bubble -> appendLine("[${bubble.bubbleId}] ${bubble.sourceText}") }
-        }
-    }
-
-    private fun parseIdKeyedLine(line: String): Pair<Int, String>? {
-        val match = ID_KEYED_LINE.matchEntire(line) ?: return null
-        val id = match.groupValues[1].toIntOrNull() ?: return null
-        return id to match.groupValues[2].trim()
-    }
 
     /**
      * Generate once, carrying the typed terminal cause out with the text.
