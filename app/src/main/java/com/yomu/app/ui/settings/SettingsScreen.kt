@@ -21,7 +21,8 @@ enum class SettingsSection(val route: String, val title: String, val description
     Pipeline("settings/pipeline", "Pipeline", "The models that find the speech bubbles and read the Japanese."),
     Typesetting("settings/typesetting", "Typesetting", "How translated text is set inside the bubbles."),
     Performance("settings/performance", "Performance", "What translation costs this phone, and how much the model may use."),
-    Appearance("settings/appearance", "Appearance", "How Yomu looks.")
+    Appearance("settings/appearance", "Appearance", "How Yomu looks."),
+    Providers("settings/providers", "Providers", "A server you run, or a hosted API you have a key for.")
 }
 
 @Composable
@@ -34,7 +35,6 @@ fun SettingsScreen(onOpen: (SettingsSection) -> Unit) {
                 SettingsSection.entries.forEach { section ->
                     SettingsEntry(section.title, section.description, onClick = { onOpen(section) })
                 }
-                SettingsEntry("Providers", "Coming soon", enabled = false)
                 SettingsEntry("About", "Yomu v$version")
             }
         }
@@ -42,18 +42,18 @@ fun SettingsScreen(onOpen: (SettingsSection) -> Unit) {
 }
 
 @Composable
-private fun SettingsEntry(title: String, description: String, enabled: Boolean = true, onClick: (() -> Unit)? = null) {
+private fun SettingsEntry(title: String, description: String, onClick: (() -> Unit)? = null) {
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     val row: @Composable () -> Unit = {
         Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleMedium, color = if (enabled) LocalContentColor.current else muted)
+                Text(title, style = MaterialTheme.typography.titleMedium)
                 Text(description, style = MaterialTheme.typography.bodySmall, color = muted)
             }
             if (onClick != null) Icon(Icons.Default.KeyboardArrowRight, contentDescription = null)
         }
     }
-    if (onClick == null) row() else Surface(onClick = onClick, enabled = enabled, color = Color.Transparent, content = row)
+    if (onClick == null) row() else Surface(onClick = onClick, color = Color.Transparent, content = row)
 }
 
 @Composable
