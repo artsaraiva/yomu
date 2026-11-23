@@ -106,9 +106,14 @@ class NetworkTranslationSlot(
             .build()
     }
 
-    /** Feeds each streamed piece of reply text to [reply] and returns the whole text. */
+    /** Feeds each streamed piece of reply text, without its `<think>` blocks, to [reply] and returns the whole of it. */
     private fun readStream(source: BufferedSource, reply: IdKeyedReplyReader): String {
+        val thoughts = ThinkBlockStripper()
         val text = StringBuilder()
+        fun take(visible: String) {
+            text.append(visible)
+            reply.feed(visible.toByteArray())
+        }
         while (true) {
             val line = source.readUtf8Line() ?: break
             if (!line.startsWith(DATA)) continue
@@ -116,9 +121,9 @@ class NetworkTranslationSlot(
             if (data == DONE) break
             val choice = JsonParser().parse(data).asJsonObject.getAsJsonArray("choices").first().asJsonObject
             val content = choice.getAsJsonObject("delta").get("content").stringOrNull() ?: continue
-            text.append(content)
-            reply.feed(content.toByteArray())
+            take(thoughts.feed(content))
         }
+        take(thoughts.finish())
         reply.finish()
         return text.toString()
     }

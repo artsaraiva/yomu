@@ -100,4 +100,23 @@ class NetworkTranslationSlotTest {
         assertNull(server.takeRequest().getHeader("Authorization"))
         assertNull(server.takeRequest().getHeader("Authorization"))
     }
+
+    @Test
+    fun translatePage_thinkBlocksNeverReachATranslationEvenWhenTheirTagsSplitAcrossChunks() = runTest {
+        server.enqueue(
+            chatStream(
+                "<thi", "nk>\n[1] Hi?\n[2] Bye?\n</th", "ink>\n[1] Hello\n",
+                "<think>[2] no</think>[2] Good", "bye <", "3\n"
+            )
+        )
+        val reported = mutableListOf<Pair<Int, String>>()
+
+        val result = networkSlot(server.base()).translatePage(page(1 to "こんにちは", 2 to "さようなら")) { id, text ->
+            reported += id to text
+        }
+
+        assertEquals(listOf(1 to "Hello", 2 to "Goodbye <3"), reported)
+        assertEquals(mapOf(1 to "Hello", 2 to "Goodbye <3"), result.byId)
+        assertEquals("[1] Hello\n[2] Goodbye <3", result.rawResponse)
+    }
 }
