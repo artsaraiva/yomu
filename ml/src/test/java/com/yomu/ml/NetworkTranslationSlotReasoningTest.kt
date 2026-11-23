@@ -29,6 +29,18 @@ class NetworkTranslationSlotReasoningTest {
     }
 
     @Test
+    fun translatePage_replyThatOpensWithProseKeepsItsLinesAroundAWholeThinkBlock() = runTest {
+        server.enqueue(chatStream("Here you go:\n[1] Hello\n<thi", "nk>[2] no</think>\n[2] Goodbye\n"))
+        val reported = mutableListOf<Pair<Int, String>>()
+
+        networkSlot(server.base()).translatePage(page(1 to "こんにちは", 2 to "さようなら")) { id, text ->
+            reported += id to text
+        }
+
+        assertEquals(listOf(1 to "Hello", 2 to "Goodbye"), reported)
+    }
+
+    @Test
     fun translatePage_replyThatOpensWithProseAndNeverThinksShowsEveryLineOnce() = runTest {
         server.enqueue(chatStream("Here are the translations:\n\n[1] Hel", "lo\n[2] Good", "bye"))
         val reported = mutableListOf<Pair<Int, String>>()

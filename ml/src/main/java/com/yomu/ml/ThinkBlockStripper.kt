@@ -14,16 +14,14 @@ internal const val REASONING_HOLD_LIMIT = 16_000
  *
  * A shown bubble can't be taken back, and nothing at the start of a reply shows whether a bare `</think>`
  * is coming. A reply whose first line is an `[id]` line is taken to be the answer and passes as it arrives.
- * Any other reply is held until a bare `</think>` drops everything before it, or until the reply ends or
- * passes [REASONING_HOLD_LIMIT], which shows all of it in order. A tag split across pieces is still found:
- * text that could be the start of a tag is held back until the next piece settles it.
+ * Any other reply is held until its first tag: a `<think>` shows thoughts come in whole blocks, and a bare
+ * `</think>` drops everything before it. With no tag, the held text is shown in order once the reply ends
+ * or passes [REASONING_HOLD_LIMIT]. A tag split across pieces is still found: text that could be the start
+ * of a tag is held back until the next piece settles it.
  */
 internal class ThinkBlockStripper {
     private val held = StringBuilder()
-
-    /** Until the first line is judged, and then while a reply that opened with prose may still be reasoning. */
-    private var holding = true
-    private var openedWithProse = false
+    private var phase = Phase.FIRST_LINE
     private var thinking = false
 
     /** The tag that would change [thinking]. */
@@ -32,41 +30,34 @@ internal class ThinkBlockStripper {
     /** The part of [piece], with what was held before it, that is known to lie outside the model's thoughts. */
     fun feed(piece: String): String {
         held.append(piece)
-        if (holding) holding = mayBeReasoning()
-        return if (holding) "" else stripBlocks()
+        if (phase == Phase.FIRST_LINE) judgeFirstLine()
+        if (phase == Phase.HOLDING) endHoldAtFirstTag()
+        if (phase != Phase.PASSING && held.length > REASONING_HOLD_LIMIT) phase = Phase.PASSING
+        return if (phase == Phase.PASSING) stripBlocks() else ""
     }
 
     /** Whatever was held back at the end of the reply, unless it lies inside a block that never closed. */
     fun finish(): String {
-        holding = false
         val visible = stripBlocks()
         val rest = if (thinking) "" else held.toString()
         held.setLength(0)
         return visible + rest
     }
 
-    /**
-     * Whether [held] may still be thoughts whose block opened in the prompt. A bare `</think>` settles it,
-     * and everything before that tag is dropped.
-     */
-    private fun mayBeReasoning(): Boolean {
-        val withinLimit = held.length <= REASONING_HOLD_LIMIT
-        if (!openedWithProse) {
-            val line = firstLine() ?: return withinLimit
-            if (isIdKeyedLine(line)) return false
-            openedWithProse = true
-        }
-        val close = held.indexOf(CLOSE)
-        if (close < 0) return withinLimit
-        held.delete(0, close + CLOSE.length)
-        return false
-    }
-
-    /** The first line of [held] that has text in it, once it is whole. */
-    private fun firstLine(): String? {
+    /** Passes a reply whose first line with text is an `[id]` line, and holds any other, once that line is whole. */
+    private fun judgeFirstLine() {
         val start = held.indexOfFirst { !it.isWhitespace() }
         val end = if (start < 0) -1 else held.indexOf("\n", start)
-        return if (end < 0) null else held.substring(start, end)
+        if (end < 0) return
+        phase = if (isIdKeyedLine(held.substring(start, end))) Phase.PASSING else Phase.HOLDING
+    }
+
+    /** Passes [held] from its first tag on, dropping everything before that tag when it is a bare `</think>`. */
+    private fun endHoldAtFirstTag() {
+        val open = held.indexOf(OPEN)
+        val close = held.indexOf(CLOSE)
+        if (close >= 0 && (open < 0 || close < open)) held.delete(0, close + CLOSE.length)
+        if (open >= 0 || close >= 0) phase = Phase.PASSING
     }
 
     /** What [held] has outside `<think>…</think>` blocks, keeping back a tail that could be the start of a tag. */
@@ -89,6 +80,17 @@ internal class ThinkBlockStripper {
     /** The length of the longest tail of [held] that is a proper prefix of [tag]. */
     private fun partialTagLength(tag: String): Int =
         (minOf(tag.length - 1, held.length) downTo 1).firstOrNull { held.endsWith(tag.substring(0, it)) } ?: 0
+
+    private enum class Phase {
+        /** No line with text is whole yet, so nothing shows whether the reply is the answer. */
+        FIRST_LINE,
+
+        /** The reply opened with prose, which may be thoughts whose block opened in the prompt. */
+        HOLDING,
+
+        /** Any thoughts still to come are marked with whole tags. */
+        PASSING
+    }
 
     private companion object {
         const val OPEN = "<think>"
