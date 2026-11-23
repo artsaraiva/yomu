@@ -134,6 +134,17 @@ class NetworkTranslationSlotTest {
     }
 
     @Test
+    fun translatePage_replyOfNothingButThoughtsIsBlank() = runTest {
+        server.enqueue(chatStream("<think>[1] Hello?</think>", "\n  \n"))
+
+        val result = networkSlot(server.base()).translatePage(page(1 to "こんにちは"))
+
+        assertEquals(TranslationOutcome.BLANK, result.outcome)
+        assertNull(result.errorCode)
+        assertEquals(emptyMap<Int, String>(), result.byId)
+    }
+
+    @Test
     fun translatePage_firstLineForAnIdWinsAndIdsNotOnThePageAreIgnored() = runTest {
         server.enqueue(chatStream("[1] Hello\n[9] Ghost\n[1] Hi again\n[2] Goodbye\n"))
         val reported = mutableListOf<Pair<Int, String>>()

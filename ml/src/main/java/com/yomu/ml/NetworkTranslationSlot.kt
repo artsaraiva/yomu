@@ -99,7 +99,7 @@ class NetworkTranslationSlot(
                         return@use result(TranslationOutcome.ERROR, httpFailure(response.code))
                     }
                     val text = response.body?.let { readStream(it.source(), reply) }.orEmpty().trim()
-                    result(TranslationOutcome.SUCCESS, text = text)
+                    result(if (text.isEmpty()) TranslationOutcome.BLANK else TranslationOutcome.SUCCESS, text = text)
                 }
             } catch (e: IOException) {
                 ensureActive()
