@@ -3,6 +3,7 @@ package com.yomu.app.ui.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.yomu.app.translation.ServerSettingsStore
+import com.yomu.ml.ConnectFailure
 import com.yomu.ml.ServerModelList
 import com.yomu.ml.ServerModels
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -34,6 +35,9 @@ sealed interface ServerConnection {
 
     /** Connect reached the address and confirmed it. [models] is the server's list, empty when it keeps none. */
     data class Connected(val models: List<String>) : ServerConnection
+
+    /** Connect didn't reach a server that answered; the address stays unconfirmed. */
+    data class Failed(val failure: ConnectFailure) : ServerConnection
 }
 
 /**
@@ -91,7 +95,7 @@ class ProvidersViewModel @Inject constructor(
                     store.confirm(address)
                     ServerConnection.Connected(emptyList())
                 }
-                else -> ServerConnection.NotConnected
+                is ServerModels.Failed -> ServerConnection.Failed(result.failure)
             }
             _state.update { it.copy(connection = connection) }
         }.also { connecting = it }

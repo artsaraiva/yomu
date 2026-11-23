@@ -2,7 +2,9 @@ package com.yomu.app.ui.settings
 
 import com.yomu.app.translation.MapSharedPreferences
 import com.yomu.app.translation.ServerSettingsStore
+import com.yomu.ml.ConnectFailure
 import com.yomu.ml.ServerModelList
+import java.util.concurrent.TimeUnit
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import kotlinx.coroutines.Dispatchers
@@ -112,6 +114,33 @@ class ProvidersViewModelTest {
         assertEquals(ServerConnection.NotConnected, viewModel.state.value.connection)
         assertEquals("", viewModel.state.value.model)
         assertEquals(1, server.requestCount)
+    }
+
+    @Test
+    fun `a failed Connect shows why and leaves the address unconfirmed`() = runTest {
+        server.enqueue(MockResponse().setResponseCode(401))
+        val viewModel = viewModel()
+        viewModel.editAddress(address())
+        viewModel.editApiKey("sk-wrong")
+
+        viewModel.connect().join()
+
+        assertEquals(ServerConnection.Failed(ConnectFailure.KEY_REJECTED), viewModel.state.value.connection)
+        assertFalse(store.isConfirmed())
+    }
+
+    @Test
+    fun `a Connect still running when the address changes confirms nothing`() = runTest {
+        server.enqueue(MockResponse().setBody(TWO_MODELS).setHeadersDelay(2, TimeUnit.SECONDS))
+        val viewModel = viewModel()
+        viewModel.editAddress(address())
+        val connect = viewModel.connect()
+
+        viewModel.editAddress("http://192.168.1.21:11434")
+        connect.join()
+
+        assertFalse(store.isConfirmed())
+        assertEquals(ServerConnection.NotConnected, viewModel.state.value.connection)
     }
 
     private suspend fun connected(): ProvidersViewModel = viewModel().apply {
