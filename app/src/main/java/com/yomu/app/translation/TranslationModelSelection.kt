@@ -100,6 +100,6 @@ class TranslationModelSelection @Inject constructor(
     }
 
     fun close() {
-        llamaSlot.close()
+        translators.values.forEach(Translator::close)
     }
 }

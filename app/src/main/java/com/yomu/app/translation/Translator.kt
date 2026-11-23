@@ -20,6 +20,11 @@ class Translator(
 
     fun slot(): TranslationSlot = slot.value
 
+    /** Closes the slot if it was ever built; one never used is not built just to be closed. */
+    fun close() {
+        if (slot.isInitialized()) slot.value.close()
+    }
+
     companion object {
         const val ON_DEVICE_ID = "on-device"
 
