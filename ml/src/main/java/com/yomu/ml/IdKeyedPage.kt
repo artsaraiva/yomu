@@ -7,6 +7,9 @@ internal const val PAGE_TIMEOUT_MS = 120_000
 
 private val ID_KEYED_LINE = "^\\s*\\[(\\d+)]\\s*(.*)$".toRegex()
 
+/** Whether [line] has the shape of an id-keyed reply line, whether or not its id is on the page. */
+internal fun isIdKeyedLine(line: String): Boolean = ID_KEYED_LINE.matches(line)
+
 /**
  * The id-keyed page prompt: one instruction line, then one `[id] source` line per bubble, with panels
  * separated by `---`. Both translators send it, so the reply is read the same way wherever it was written.
