@@ -48,5 +48,5 @@ jobs:
           path-to-document: https://github.com/artsaraiva/yomu/blob/main/CLA.md
           path-to-signatures: signatures/version1/cla.json
           branch: cla-signatures
-          allowlist: dependabot[bot],coderabbitai[bot]
+          allowlist: artsaraiva,dependabot[bot],coderabbitai[bot]
           signed-commit-message: 'chore: record CLA agreement by $contributorName'
