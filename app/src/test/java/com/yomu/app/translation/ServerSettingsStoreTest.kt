@@ -4,6 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.security.KeyStoreException
 import java.util.Base64
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
@@ -105,6 +106,53 @@ class ServerSettingsStoreTest {
 
         assertTrue(keyPrefs.values.isEmpty())
         assertEquals("", ServerSettingsStore(prefs, keyPrefs) { softwareKey }.apiKey())
+    }
+
+    @Test
+    fun `with a failing Keystore the key is readable this session, nothing is written, and it is reported not saved`() {
+        val failingKeystore = ServerSettingsStore(prefs, keyPrefs) { throw KeyStoreException("no Keystore") }
+
+        assertEquals(ApiKeyState.NOT_SAVED, failingKeystore.saveApiKey(KEY))
+
+        assertEquals(KEY, failingKeystore.apiKey())
+        assertEquals(ApiKeyState.NOT_SAVED, failingKeystore.apiKeyState())
+        assertTrue(keyPrefs.values.isEmpty())
+        assertTrue(prefs.values.isEmpty())
+    }
+
+    @Test
+    fun `a key the Keystore could not save does not bring the older saved key back after a restart`() {
+        store.saveApiKey("sk-older")
+
+        ServerSettingsStore(prefs, keyPrefs) { throw KeyStoreException("no Keystore") }.saveApiKey(KEY)
+
+        assertEquals("", ServerSettingsStore(prefs, keyPrefs) { softwareKey }.apiKey())
+    }
+
+    @Test
+    fun `a key saved this session is still read after the Keystore starts failing`() {
+        var keystoreWorks = true
+        val store = ServerSettingsStore(prefs, keyPrefs) {
+            if (keystoreWorks) softwareKey else throw KeyStoreException("no Keystore")
+        }
+        store.saveApiKey(KEY)
+
+        keystoreWorks = false
+
+        assertEquals(KEY, store.apiKey())
+        assertEquals(ApiKeyState.SAVED, store.apiKeyState())
+    }
+
+    @Test
+    fun `a saved key the Keystore cannot open reads back empty, is reported not saved, and stays stored`() {
+        store.saveApiKey(KEY)
+        val stored = keyPrefs.values.toMap()
+
+        val failingKeystore = ServerSettingsStore(prefs, keyPrefs) { throw KeyStoreException("no Keystore") }
+
+        assertEquals("", failingKeystore.apiKey())
+        assertEquals(ApiKeyState.NOT_SAVED, failingKeystore.apiKeyState())
+        assertEquals(stored, keyPrefs.values)
     }
 
     private fun storedText(): String = (prefs.values.values + keyPrefs.values.values).joinToString(" ")

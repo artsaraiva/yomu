@@ -12,12 +12,23 @@ import javax.crypto.spec.GCMParameterSpec
  *
  * The address, model and confirmation live in [prefs]. Changing the address clears the other two, so
  * a confirmation always belongs to the address it was made for.
+ *
+ * The key is sealed with AES-GCM under [secretKey], a key kept in the Android Keystore, and only the
+ * IV and ciphertext reach [keyPrefs], a file of its own that backups leave out. When the Keystore
+ * fails, the key is held in memory until the process ends and is never written unencrypted. Make one
+ * store per process, so that held key is the one every caller sees.
  */
 class ServerSettingsStore(
     private val prefs: SharedPreferences,
     private val keyPrefs: SharedPreferences,
     private val secretKey: () -> SecretKey
 ) {
+
+    private class HeldKey(val value: String, val state: ApiKeyState)
+
+    // The key as entered or first read this process: the Keystore is asked at most once per read, and a
+    // key it would not seal still works until the app stops.
+    private var held: HeldKey? = null
 
     /** The server's address as the reader typed it, trimmed; empty when none is set. */
     fun address(): String = readString(prefs, PREF_ADDRESS)
@@ -52,27 +63,44 @@ class ServerSettingsStore(
      */
     fun isSetUp(): Boolean = address().isNotEmpty() && isConfirmed() && model().isNotEmpty()
 
-    /** The reader's API key; empty when none was entered. */
-    fun apiKey(): String {
-        val iv = readString(keyPrefs, KEY_IV)
-        val ciphertext = readString(keyPrefs, KEY_CIPHERTEXT)
-        if (iv.isEmpty() || ciphertext.isEmpty()) return ""
-        return open(iv, ciphertext)
-    }
+    /** The reader's API key; empty when none was entered or a saved one can't be opened. */
+    @Synchronized
+    fun apiKey(): String = held().value
 
-    fun apiKeyState(): ApiKeyState = if (apiKey().isEmpty()) ApiKeyState.NONE else ApiKeyState.SAVED
+    @Synchronized
+    fun apiKeyState(): ApiKeyState = held().state
 
-    /** Seals [key] and saves it; a blank key removes the saved one. */
+    /**
+     * Seals [key] and saves it, replacing any saved key; a blank key removes it. When the Keystore
+     * fails, [key] is held for this process only and [ApiKeyState.NOT_SAVED] is returned, so a screen
+     * can tell the reader.
+     */
+    @Synchronized
     fun saveApiKey(key: String): ApiKeyState {
         val trimmed = key.trim()
+        val sealed = if (trimmed.isEmpty()) null else runCatching { seal(trimmed) }.getOrNull()
+        // The older key goes even when the new one can't be sealed, or it would return after a restart.
         val editor = keyPrefs.edit().clear()
-        if (trimmed.isEmpty()) {
-            editor.apply()
-            return ApiKeyState.NONE
+        sealed?.let { editor.putString(KEY_IV, it.first).putString(KEY_CIPHERTEXT, it.second) }
+        editor.apply()
+        val state = when {
+            trimmed.isEmpty() -> ApiKeyState.NONE
+            sealed == null -> ApiKeyState.NOT_SAVED
+            else -> ApiKeyState.SAVED
         }
-        val (iv, ciphertext) = seal(trimmed)
-        editor.putString(KEY_IV, iv).putString(KEY_CIPHERTEXT, ciphertext).apply()
-        return ApiKeyState.SAVED
+        held = HeldKey(trimmed, state)
+        return state
+    }
+
+    private fun held(): HeldKey = held ?: read().also { held = it }
+
+    // An unopenable key stays stored: the Keystore may only be failing for now.
+    private fun read(): HeldKey {
+        val iv = readString(keyPrefs, KEY_IV)
+        val ciphertext = readString(keyPrefs, KEY_CIPHERTEXT)
+        if (iv.isEmpty() || ciphertext.isEmpty()) return HeldKey("", ApiKeyState.NONE)
+        return runCatching { HeldKey(open(iv, ciphertext), ApiKeyState.SAVED) }
+            .getOrElse { HeldKey("", ApiKeyState.NOT_SAVED) }
     }
 
     private fun seal(text: String): Pair<String, String> {
@@ -109,5 +137,11 @@ enum class ApiKeyState {
     NONE,
 
     /** Encrypted on the phone; it is still there after a restart. */
-    SAVED
+    SAVED,
+
+    /**
+     * The Keystore failed. A key entered this session works until the app stops and is then
+     * forgotten; a key saved earlier can't be opened and reads back empty.
+     */
+    NOT_SAVED
 }
