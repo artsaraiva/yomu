@@ -198,6 +198,9 @@ const val ERROR_SERVER_MODEL_NOT_FOUND = "server_model_not_found"
 /** The network translator's page ran out of time, connecting or in all; its outcome is [TranslationOutcome.TIMEOUT]. */
 const val ERROR_SERVER_TIMEOUT = "server_timeout"
 
+/** The network translator's address is plain http to a host that isn't nearby, so it needs https (ADR-0023). Nothing was sent. */
+const val ERROR_SERVER_HTTPS_REQUIRED = "server_https_required"
+
 /** The network translator's server failed in any other way: another HTTP error, or a reply it broke off or garbled. */
 const val ERROR_SERVER_FAILED = "server_error"
 
