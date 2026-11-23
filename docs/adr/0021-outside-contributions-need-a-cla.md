@@ -1,5 +1,7 @@
 # Outside contributions need a CLA
 
+> **Revised in part by [ADR-0022](0022-cla-assistant-app-collects-agreements.md).** The agreement and the reasons for it stand. The check described under "The check" and its Consequences was replaced: the CLA Assistant GitHub App now collects agreements, so `cla.yml` and the `cla-signatures` branch are gone, and the required check is `license/cla`.
+
 **Status:** accepted, 2026-11-23. Decides [#474](https://github.com/artsaraiva/yomu/issues/474). Supersedes the "Contributions: no CLA" section of [ADR-0019](0019-yomu-is-agpl-open-source.md). The rest of ADR-0019 stands, and Yomu stays AGPL-3.0.
 
 Anyone other than the maintainer who contributes to Yomu first agrees to [`CLA.md`](../../CLA.md). It is a licence grant, not a copyright assignment. Contributors keep their copyright and give the maintainer a perpetual, irrevocable licence to use, change, sublicense and distribute their work. That keeps Yomu's licence changeable later without needing every contributor's consent. ADR-0019 recorded the lack of exactly that as the cost of having no CLA.

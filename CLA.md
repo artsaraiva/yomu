@@ -9,25 +9,21 @@ This summary is not part of the agreement.
 - You keep the copyright to your contribution.
 - You give Yomu's maintainer a broad, permanent licence to use, change, sublicense and distribute it. This is so Yomu's licence can change later without needing every contributor's consent.
 - Yomu is published under [AGPL-3.0](LICENSE).
-- You agree once, with a comment on your first pull request. It covers your later contributions too.
+- You agree once, on your first pull request, by signing in with your GitHub account. It covers your later contributions too.
 
 ## How to agree
 
-Open your pull request. If you haven't agreed yet, the CLA check fails and comments on the pull request. Reply with this comment, exactly:
+Open your pull request. If you haven't agreed yet, [CLA Assistant](https://cla-assistant.io) comments on it with a link, and the `license/cla` check stays pending. Follow the link, sign in with GitHub, and agree. The check then passes.
 
-```text
-I have read the CLA Document and I hereby sign the CLA
-```
+CLA Assistant keeps the record of who agreed, with your GitHub username and the time you agreed. It shows you the same agreement text as below.
 
-The check then passes. It records your GitHub username and user ID, the pull request number, and the ID and time of your comment in a public file on this repository's [`cla-signatures`](https://github.com/artsaraiva/yomu/tree/cla-signatures) branch.
-
-Everyone who authored a commit in the pull request has to agree. The check finds authors by the email address on each commit, so commit with an address that is linked to your GitHub account.
+Everyone who authored a commit in the pull request has to agree. Authors are found by the email address on each commit, so commit with an address that is linked to your GitHub account.
 
 ## Agreement
 
 Thank you for your interest in Yomu. To clarify the intellectual property license granted with Contributions from any person or entity, Arthur Saraiva (GitHub `artsaraiva`), the maintainer of Yomu (the "Maintainer"), must have on record each Contributor's acceptance of this Individual Contributor License Agreement ("Agreement" or "CLA"), indicating agreement with the license terms below. This agreement is for your protection as a Contributor as well as the protection of the Maintainer and Yomu's users. It does not change your rights to use your own Contributions for any other purpose.
 
-You accept this Agreement by posting, on a pull request to the Work, a comment that reads "I have read the CLA Document and I hereby sign the CLA". Read this document carefully before accepting it and keep a copy for your records.
+You accept this Agreement by agreeing to it, signed in with your GitHub account, through the CLA Assistant link posted on your pull request to the Work. Read this document carefully before accepting it and keep a copy for your records.
 
 You accept and agree to the following terms and conditions for Your Contributions (present and future) that you submit to the Maintainer. Except for the license granted herein to the Maintainer and recipients of software distributed by the Maintainer, You reserve all right, title, and interest in and to Your Contributions.
 

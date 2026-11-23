@@ -47,4 +47,4 @@ Don't commit manga pages unless their licence allows it. The OpenMantra pages us
 
 Yomu is licensed under [AGPL-3.0](LICENSE). Contributions need a [contributor licence agreement](CLA.md) (CLA): you keep the copyright to your work and give the maintainer a licence to it, so Yomu's licence can change later without needing every contributor's consent.
 
-You agree once, on your first pull request. The CLA check fails and posts a comment saying what to reply. Once you reply, it passes, and it covers your later pull requests too.
+You agree once, on your first pull request. CLA Assistant comments with a link; sign in with GitHub and agree, and the `license/cla` check passes. It covers your later pull requests too.
