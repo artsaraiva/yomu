@@ -2,6 +2,7 @@ package com.yomu.ml
 
 import com.google.gson.JsonParser
 import com.yomu.core.GenerationParams
+import com.yomu.core.TranslatablePage
 import com.yomu.core.TranslationOutcome
 import kotlinx.coroutines.test.runTest
 import okhttp3.mockwebserver.MockWebServer
@@ -131,6 +132,17 @@ class NetworkTranslationSlotTest {
 
         assertEquals(mapOf(1 to "Hello"), cutOff.byId)
         assertEquals(mapOf(1 to "Hello", 2 to "Goodbye"), ended.byId)
+    }
+
+    @Test
+    fun translatePage_pageWithNoBubblesSendsNothing() = runTest {
+        server.enqueue(chatStream("[1] Hello\n"))
+
+        val result = networkSlot(server.base()).translatePage(TranslatablePage(emptyList()))
+
+        assertEquals(0, server.requestCount)
+        assertEquals(TranslationOutcome.SUCCESS, result.outcome)
+        assertEquals(emptyMap<Int, String>(), result.byId)
     }
 
     @Test

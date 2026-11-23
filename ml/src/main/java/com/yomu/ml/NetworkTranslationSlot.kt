@@ -77,6 +77,7 @@ class NetworkTranslationSlot(
         page: TranslatablePage,
         onBubble: (bubbleId: Int, text: String) -> Unit
     ): PageTranslation {
+        if (page.panels.flatten().isEmpty()) return PageTranslation(emptyMap(), "", 0L)
         val started = System.nanoTime()
         val reply = IdKeyedReplyReader(page, onBubble)
         fun result(outcome: TranslationOutcome, errorCode: String? = null, text: String = "") =
