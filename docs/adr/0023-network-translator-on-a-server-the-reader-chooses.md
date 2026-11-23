@@ -22,7 +22,9 @@ The text leaving the phone is the reader's choice, made per install, to an addre
 
 **Only the page's text leaves the phone.** Detection and OCR stay on the phone. The request carries what the on-device prompt carries: the instruction line and one `[id] source` line per bubble. No image, no device details.
 
-**Same prompt, same parser, no grammar.** The reply is read by the line parser the on-device translator uses, so bubbles still appear one by one. `<think>` blocks are stripped first. No `response_format` is sent.
+**Same prompt, same parser, no grammar.** The reply is read by the line parser the on-device translator uses, so bubbles still appear one by one, except when a reply that may be thoughts waits (next paragraph). `<think>` blocks are stripped first. No `response_format` is sent.
+
+**Thoughts with no opening tag.** Some setups open the `<think>` block in the chat template's prompt, such as DeepSeek-R1 distills or a server with its reasoning parser turned off. The reply then carries the thoughts and only a bare `</think>`. A reply whose first line is an `[id]` line is taken to be the answer and streams as above. Any other reply waits. Nothing is shown until a bare `</think>` arrives, and everything before that tag is dropped. If no tag comes, the held lines are shown in order when the reply ends or passes 16,000 characters, about the 4096-token cap in English. Thoughts that open with an `[id]` line, or run past that limit, still reach the parse ([#500](https://github.com/artsaraiva/yomu/issues/500)). Servers that move reasoning into a separate field, as Ollama, LM Studio and llama.cpp's default parser do, never send it in the reply text.
 
 **Sampler settings.** The request sends the reader's temperature and top-p and a cap of 4096 reply tokens. Top-k and the penalties are not part of the protocol and are not sent. The cap is higher than the phone's 768 because reasoning models spend tokens before they answer.
 
@@ -52,6 +54,8 @@ The text leaving the phone is the reader's choice, made per install, to an addre
 - **Home servers only, no hosted APIs.** Rejected. Both speak the same protocol, so excluding hosted APIs would mean blocking addresses, not writing less code. The https rule is what protects a key on the open internet.
 - **Ollama's own endpoint as well.** Rejected for now. It buys `keep_alive`, at the cost of a second request shape, a second stream parser and server detection. It can be added if models unloading between pages turns out to hurt.
 - **A JSON schema through `response_format`.** Rejected. It needs a second prompt and a second parser, and incremental JSON parsing to keep bubbles streaming. Server support is uneven, so the parse would still be the real guard.
+- **Ask the server to keep reasoning out of the reply text.** Rejected. No request field for it is shared across OpenAI-compatible servers, and a strict hosted API may reject a field it doesn't know, as with top-k.
+- **Hold every reply until a bare `</think>` or the limit.** Rejected. Most pages are shorter than any useful limit, so a model that doesn't think would lose streaming on nearly every page.
 - **Fall back to the phone when the server fails.** Rejected. The reader would get a different translator's output without knowing, and the page would be recalled under the wrong settings.
 - **Plain http to any address, or https only.** Both rejected. The first sends a key in the clear over the internet. The second makes every home server need a certificate.
 - **`androidx.security:security-crypto` for the key.** Rejected. Its APIs are deprecated, and the fork's use of it fell back to an unencrypted file without telling the reader.

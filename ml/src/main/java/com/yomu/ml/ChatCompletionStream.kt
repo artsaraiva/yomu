@@ -14,9 +14,9 @@ private const val DONE = "[DONE]"
 private const val ENDED_BY_MODEL = "stop"
 
 /**
- * Reads a streamed `/v1/chat/completions` reply's server-sent events, feeding each piece of reply text,
- * without its `<think>` blocks, to [reply] as it arrives, and returns all of that text (ADR-0023). Only a
- * reply the model ended answers its unterminated last line (#368).
+ * Reads a streamed `/v1/chat/completions` reply's server-sent events, feeding reply text to [reply] as soon
+ * as it is known not to be the model's thoughts (see [ThinkBlockStripper]), and returns all of that text
+ * (ADR-0023). Only a reply the model ended answers its unterminated last line (#368).
  *
  * Throws [IOException] for a line that is no chat chunk, including an error the server sends mid-reply.
  */
