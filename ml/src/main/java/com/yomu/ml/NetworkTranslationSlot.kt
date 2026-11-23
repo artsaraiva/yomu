@@ -90,7 +90,12 @@ class NetworkTranslationSlot(
     /** `{base}/v1/chat/completions`, whether or not the reader's address already ends in `/v1`. */
     private fun chatCompletions(baseUrl: String): HttpUrl {
         val base = requireNotNull(baseUrl.toHttpUrlOrNull())
-        return base.newBuilder().addPathSegments("v1/chat/completions").build()
+        val segments = base.pathSegments.filter { it.isNotEmpty() }
+        val path = if (segments.lastOrNull() == "v1") segments else segments + "v1"
+        return base.newBuilder()
+            .encodedPath("/")
+            .apply { (path + listOf("chat", "completions")).forEach(::addPathSegment) }
+            .build()
     }
 
     /** Feeds each streamed piece of reply text to [reply] and returns the whole text. */

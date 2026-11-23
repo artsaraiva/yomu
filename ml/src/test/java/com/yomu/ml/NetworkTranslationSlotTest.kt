@@ -28,4 +28,21 @@ class NetworkTranslationSlotTest {
         assertEquals(TranslationOutcome.SUCCESS, result.outcome)
         assertEquals("/v1/chat/completions", server.takeRequest().path)
     }
+
+    @Test
+    fun translatePage_baseAddressAlreadyEndingInV1IsNotDoubled() = runTest {
+        val expected = mapOf(
+            "/v1" to "/v1/chat/completions",
+            "/v1/" to "/v1/chat/completions",
+            "/api/v1" to "/api/v1/chat/completions",
+            "/api" to "/api/v1/chat/completions"
+        )
+        for ((basePath, requestPath) in expected) {
+            server.enqueue(chatStream("[1] Hello\n"))
+
+            networkSlot(server.url(basePath).toString()).translatePage(page(1 to "こんにちは"))
+
+            assertEquals(basePath, requestPath, server.takeRequest().path)
+        }
+    }
 }
