@@ -16,7 +16,8 @@ import okhttp3.Response
  * before anything is sent. The check is on the resolved addresses, so a public name can't pass as local.
  */
 class ServerHttpClient(client: OkHttpClient) {
-    private val tls = client
+    // A redirect is followed by the client that started the call, and this one doesn't check addresses.
+    private val tls = client.newBuilder().followSslRedirects(false).build()
     private val cleartext = client.newBuilder()
         .dns(NearbyOnlyDns(client.dns))
         .addNetworkInterceptor(NearbyOnlyConnection)

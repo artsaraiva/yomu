@@ -60,6 +60,44 @@ class ServerHttpClientTest {
         assertEquals(1, server.requestCount)
     }
 
+    @Test
+    fun newCall_httpRedirectFromANearbyServerToAPublicAddressIsRefused() {
+        server.enqueue(MockResponse().setResponseCode(302).setHeader("Location", "http://203.0.113.7:${server.port}/v1/models"))
+        server.enqueue(MockResponse().setBody("""{"data":[]}"""))
+        val client = ServerHttpClient(stubNetwork().build())
+
+        assertThrows(HttpsRequiredException::class.java) { client.get("http://192.168.1.10") }
+
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test
+    fun newCall_httpsToANameThatResolvesToAnyAddressIsSent() {
+        val tls = TlsFixture("api.example.com").also { it.serve(server) }
+        for (addresses in listOf(listOf("203.0.113.7"), listOf("192.168.1.10", "203.0.113.7"), listOf("2001:db8::7"))) {
+            server.enqueue(MockResponse().setBody("""{"data":[]}"""))
+            val client = ServerHttpClient(tls.trust(stubNetwork("api.example.com" to addresses)).build())
+
+            assertEquals(addresses.toString(), 200, client.get("https://api.example.com"))
+        }
+        assertEquals(3, server.requestCount)
+    }
+
+    @Test
+    fun newCall_httpsRedirectToPlainHttpIsNotFollowed() {
+        val tls = TlsFixture("api.example.com").also { it.serve(server) }
+        MockWebServer().use { plain ->
+            plain.start(LOOPBACK, 0)
+            plain.enqueue(MockResponse().setBody("""{"data":[]}"""))
+            server.enqueue(MockResponse().setResponseCode(302).setHeader("Location", "http://api.example.com:${plain.port}/v1/models"))
+            val client = ServerHttpClient(tls.trust(stubNetwork("api.example.com" to listOf("203.0.113.7"))).build())
+
+            assertEquals(302, client.get("https://api.example.com"))
+
+            assertEquals(0, plain.requestCount)
+        }
+    }
+
     private fun ServerHttpClient.get(base: String): Int =
         newCall(Request.Builder().url("$base:${server.port}/v1/models").build()).execute().use { it.code }
 }
