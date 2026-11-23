@@ -15,12 +15,18 @@ class TranslationModelSelection @Inject constructor(
     private val llamaSlot: LlamaTranslationBridge,
     private val sharedPreferences: SharedPreferences,
     private val llmModelsDir: File = File(""),
-    private val totalMemBytes: Long = 0L
+    private val totalMemBytes: Long = 0L,
+    translators: Set<Translator> = setOf(Translator.onDevice(llamaSlot))
 ) {
+    private val translators = translators.associateBy { it.id }
     private val generationStore = GenerationProfileStore(sharedPreferences)
     private val limitsStore = ResourceLimitsStore(sharedPreferences)
 
-    fun current(): TranslationSlot = llamaSlot
+    /** The slot of the translator the reader chose. */
+    fun current(): TranslationSlot = translators[storedTranslatorId()]?.slot() ?: llamaSlot
+
+    private fun storedTranslatorId(): String? =
+        runCatching { sharedPreferences.getString(Constants.PREF_TRANSLATOR, null) }.getOrNull()
 
     fun currentLlmModel(): LlmModelOption = LlmModelCatalog.selectedOrDefault(sharedPreferences.storedLlmModelId())
 

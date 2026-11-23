@@ -34,6 +34,14 @@ class TranslationModelSelectionTest {
     }
 
     @Test
+    fun `current returns the stored translator's slot`() {
+        val slot = Mockito.mock(TranslationSlot::class.java)
+        val prefs = MapSharedPreferences().apply { values[Constants.PREF_TRANSLATOR] = "fake" }
+
+        assertSame(slot, selection(prefs = prefs, others = listOf(fakeTranslator(slot = slot))).current())
+    }
+
+    @Test
     fun `currentLlmModel defaults when nothing is picked`() {
         val prefs = Mockito.mock(SharedPreferences::class.java)
         Mockito.`when`(prefs.getString(Constants.PREF_LLM_MODEL, null))
@@ -218,8 +226,15 @@ class TranslationModelSelectionTest {
     private fun selection(
         llama: LlamaTranslationBridge = Mockito.mock(LlamaTranslationBridge::class.java),
         prefs: SharedPreferences = MapSharedPreferences(),
-        totalMemBytes: Long = 0L
-    ): TranslationModelSelection = TranslationModelSelection(llama, prefs, File("models"), totalMemBytes)
+        totalMemBytes: Long = 0L,
+        others: List<Translator> = emptyList()
+    ): TranslationModelSelection =
+        TranslationModelSelection(llama, prefs, File("models"), totalMemBytes, setOf(Translator.onDevice(llama)) + others)
+
+    private fun fakeTranslator(
+        canRun: Boolean = true,
+        slot: TranslationSlot = Mockito.mock(TranslationSlot::class.java)
+    ): Translator = Translator("fake", "Fake", { canRun }, lazy { slot })
 
     private fun editor(): SharedPreferences.Editor =
         Mockito.mock(SharedPreferences.Editor::class.java).also { editor ->
