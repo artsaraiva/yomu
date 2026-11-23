@@ -34,19 +34,25 @@ class TranslationModelSelectionTest {
     }
 
     @Test
-    fun `current returns the stored translator's slot`() {
+    fun `a selected translator is stored and its slot is current`() {
         val slot = Mockito.mock(TranslationSlot::class.java)
-        val prefs = MapSharedPreferences().apply { values[Constants.PREF_TRANSLATOR] = "fake" }
+        val fake = fakeTranslator(slot = slot)
+        val prefs = MapSharedPreferences()
 
-        assertSame(slot, selection(prefs = prefs, others = listOf(fakeTranslator(slot = slot))).current())
+        selection(prefs = prefs, others = listOf(fake)).selectTranslator(fake)
+
+        assertSame(slot, selection(prefs = prefs, others = listOf(fake)).current())
     }
 
     @Test
     fun `current falls back to the on-device slot when the stored translator can't run`() {
         val llama = Mockito.mock(LlamaTranslationBridge::class.java)
-        val prefs = MapSharedPreferences().apply { values[Constants.PREF_TRANSLATOR] = "fake" }
+        val fake = fakeTranslator(canRun = false)
+        val selection = selection(llama = llama, others = listOf(fake))
 
-        assertSame(llama, selection(llama = llama, prefs = prefs, others = listOf(fakeTranslator(canRun = false))).current())
+        selection.selectTranslator(fake)
+
+        assertSame(llama, selection.current())
     }
 
     @Test
@@ -248,8 +254,9 @@ class TranslationModelSelectionTest {
         val used = Mockito.mock(TranslationSlot::class.java)
         var unusedBuilt = false
         val unused = Translator("unused", "Unused", { true }, lazy { unusedBuilt = true; Mockito.mock(TranslationSlot::class.java) })
-        val prefs = MapSharedPreferences().apply { values[Constants.PREF_TRANSLATOR] = "fake" }
-        val selection = selection(llama = llama, prefs = prefs, others = listOf(fakeTranslator(slot = used), unused))
+        val fake = fakeTranslator(slot = used)
+        val selection = selection(llama = llama, others = listOf(fake, unused))
+        selection.selectTranslator(fake)
         selection.current()
 
         selection.close()
