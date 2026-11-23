@@ -38,6 +38,16 @@ class ServerModelListTest {
         assertNull(server.takeRequest().getHeader("Authorization"))
     }
 
+    @Test
+    fun fetch_serverWithNoListOrAnEmptyOneIsUnlisted() = runTest {
+        server.enqueue(MockResponse().setResponseCode(404))
+        server.enqueue(MockResponse().setBody("""{"object":"list","data":[]}"""))
+        val models = ServerModelList(OkHttpClient())
+
+        assertEquals(ServerModels.Unlisted, models.fetch(server.url("/").toString(), apiKey = ""))
+        assertEquals(ServerModels.Unlisted, models.fetch(server.url("/").toString(), apiKey = ""))
+    }
+
     private companion object {
         const val LIST = """{"data":[{"id":"qwen2.5:7b"}]}"""
     }

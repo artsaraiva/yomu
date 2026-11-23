@@ -2,6 +2,7 @@ package com.yomu.ml
 
 import com.google.gson.JsonParser
 import java.io.IOException
+import java.net.HttpURLConnection.HTTP_NOT_FOUND
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.suspendCancellableCoroutine
 import okhttp3.Call
@@ -14,6 +15,9 @@ import okhttp3.Response
 sealed interface ServerModels {
     /** The server listed these model names, in its own order. */
     data class Listed(val names: List<String>) : ServerModels
+
+    /** The server was reached but keeps no list, or an empty one: the reader types a model name. */
+    data object Unlisted : ServerModels
 }
 
 /**
@@ -33,7 +37,13 @@ class ServerModelList(client: OkHttpClient) {
             .url(url)
             .apply { if (apiKey.isNotBlank()) header("Authorization", "Bearer ${apiKey.trim()}") }
             .build()
-        return client.newCall(request).await { response -> ServerModels.Listed(modelNames(response.body?.string().orEmpty())) }
+        return client.newCall(request).await(::modelsFrom)
+    }
+
+    private fun modelsFrom(response: Response): ServerModels {
+        if (response.code == HTTP_NOT_FOUND) return ServerModels.Unlisted
+        val names = modelNames(response.body?.string().orEmpty())
+        return if (names.isEmpty()) ServerModels.Unlisted else ServerModels.Listed(names)
     }
 
     private fun modelNames(body: String): List<String> =
