@@ -19,7 +19,12 @@ object OverlayCoordinateMapper {
         val scaleY: Float
     )
 
-    // #475: params() KDoc goes here.
+    /**
+     * Returns how a box in a capture of [captureWidth] × [captureHeight] pixels lands on a display of [displayWidth] ×
+     * [displayHeight] pixels, drawn by an overlay window whose top-left corner is at ([overlayScreenX], [overlayScreenY])
+     * on screen. The capture is stretched over the whole display rather than the window, so a window that a system bar
+     * pushes aside moves the boxes without squeezing them. A capture side of zero is not scaled.
+     */
     fun params(
         captureWidth: Int,
         captureHeight: Int,

@@ -139,7 +139,7 @@ class OverlayService : Service() {
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         floatingButtonOverlay = FloatingButtonOverlay(this, windowManager)
         displayProbe = DisplayProbe(this, windowManager) { size ->
-            // #475: comment on why a resize cancels goes here.
+            // A page captured before the turn has the old screen's shape, so its bubbles would land in the wrong places.
             if (screenCaptureManager.resizeTo(size)) cancelTranslation()
         }
         translationRenderOverlay = TranslationRenderOverlay(this, windowManager, displayProbe::size)
