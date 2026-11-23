@@ -139,7 +139,7 @@ class OverlayService : Service() {
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         floatingButtonOverlay = FloatingButtonOverlay(this, windowManager)
         displayProbe = DisplayProbe(this, windowManager) { size ->
-            // A page captured or drawn at the old size no longer fits the screen; the reader taps again.
+            // #475: comment on why a resize cancels goes here.
             if (screenCaptureManager.resizeTo(size)) cancelTranslation()
         }
         translationRenderOverlay = TranslationRenderOverlay(this, windowManager, displayProbe::size)

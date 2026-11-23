@@ -19,11 +19,7 @@ object OverlayCoordinateMapper {
         val scaleY: Float
     )
 
-    /**
-     * A captured page is laid over the whole display, so it is scaled by the display's size over the capture's: 1 while
-     * the capture matches the display. The overlay window's own size plays no part, since system bars shrink the
-     * window and not the page; the window's place on the screen is the offset.
-     */
+    // #475: params() KDoc goes here.
     fun params(
         captureWidth: Int,
         captureHeight: Int,

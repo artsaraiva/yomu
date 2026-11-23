@@ -43,7 +43,7 @@ data class LlmModelOption(
      * - Qwen2.5 1.5B: the card's "Multilingual support" line names all six.
      * - Qwen3.5, every size: the cards say only "201 languages"; qwen.ai/blog?id=qwen3.5's "Multilingual Support" names all six.
      * - Qwen3 4B 2507: the card names none; the Qwen3 report (arXiv 2505.09388) names all six in Table 10 and scores Qwen3-4B.
-     * - Ministral 3 3B and 8B: the cards name all but Russian, which Mistral's list (docs.mistral.ai/resources/languages) adds.
+     * - #475: Ministral 3 3B and 8B evidence line goes here.
      * - Hy-MT2 1.8B: the card's "Supported Languages" table names all six.
      */
     val multilingual: Boolean,

@@ -41,7 +41,7 @@ fun TranslationSettings(viewModel: SettingsViewModel, saveToRecent: SaveToRecent
         )
         SwitchPanel(
             "Save pages to Recent",
-            "Keeps each translated page in Recent on Home. When off, new pages aren't saved.",
+            "", // #475: description goes here.
             saving,
             saveToRecent::setEnabled
         )
