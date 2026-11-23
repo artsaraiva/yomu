@@ -84,8 +84,11 @@ object PipelineModule {
     }
 
     @Provides
+    @Singleton
     @IntoSet
-    fun provideOnDeviceTranslator(llamaBridge: LlamaTranslationBridge): Translator = Translator.onDevice(llamaBridge)
+    fun provideOnDeviceTranslator(llamaBridge: LlamaTranslationBridge): Translator {
+        return Translator.onDevice(llamaBridge)
+    }
 
     @Provides
     @Singleton
