@@ -1,15 +1,22 @@
 package com.yomu.ml
 
 /**
+ * The most reply text held while it may be thoughts whose block opened in the prompt (#500). It is about
+ * the network translator's 4096-token reply cap in English, so thoughts that still leave room for an
+ * answer are held whole. Text held past it is shown as if no thoughts were coming.
+ */
+internal const val REASONING_HOLD_LIMIT = 16_000
+
+/**
  * Removes a reasoning model's thoughts from streamed reply text, so they never reach the line parse
  * (ADR-0023). Thoughts come as `<think>…</think>` blocks or, when the chat template opened the block in
  * the prompt, as everything before a bare `</think>` (#500).
  *
  * A shown bubble can't be taken back, and nothing at the start of a reply shows whether a bare `</think>`
  * is coming. A reply whose first line is an `[id]` line is taken to be the answer and passes as it arrives.
- * Any other reply is held until a bare `</think>` drops everything before it, or until the reply ends. A tag
- * split across pieces is still found: text that could be the start of a tag is held back until the next
- * piece settles it.
+ * Any other reply is held until a bare `</think>` drops everything before it, or until the reply ends or
+ * passes [REASONING_HOLD_LIMIT], which shows all of it in order. A tag split across pieces is still found:
+ * text that could be the start of a tag is held back until the next piece settles it.
  */
 internal class ThinkBlockStripper {
     private val held = StringBuilder()
@@ -43,13 +50,14 @@ internal class ThinkBlockStripper {
      * and everything before that tag is dropped.
      */
     private fun mayBeReasoning(): Boolean {
+        val withinLimit = held.length <= REASONING_HOLD_LIMIT
         if (!openedWithProse) {
-            val line = firstLine() ?: return true
+            val line = firstLine() ?: return withinLimit
             if (isIdKeyedLine(line)) return false
             openedWithProse = true
         }
         val close = held.indexOf(CLOSE)
-        if (close < 0) return true
+        if (close < 0) return withinLimit
         held.delete(0, close + CLOSE.length)
         return false
     }

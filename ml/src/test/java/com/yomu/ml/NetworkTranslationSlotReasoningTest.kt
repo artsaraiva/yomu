@@ -27,4 +27,23 @@ class NetworkTranslationSlotReasoningTest {
         assertEquals(listOf(1 to "Hello", 2 to "Goodbye"), reported)
         assertEquals("[1] Hello\n[2] Goodbye", result.rawResponse)
     }
+
+    @Test
+    fun translatePage_reasoningUpToTheHoldLimitIsDroppedAndPastItIsShownInOrder() = runTest {
+        val drafts = "Okay, two bubbles.\n[1] Hi?\n[2] Bye?\n"
+        val expectedByHeldLength = mapOf(
+            REASONING_HOLD_LIMIT to listOf(1 to "Hello", 2 to "Goodbye"),
+            REASONING_HOLD_LIMIT + 1 to listOf(1 to "Hi?", 2 to "Bye?")
+        )
+        for ((heldLength, expected) in expectedByHeldLength) {
+            server.enqueue(chatStream(drafts.padEnd(heldLength, '.'), "</think>\n[1] Hello\n[2] Goodbye\n"))
+            val reported = mutableListOf<Pair<Int, String>>()
+
+            networkSlot(server.base()).translatePage(page(1 to "こんにちは", 2 to "さようなら")) { id, text ->
+                reported += id to text
+            }
+
+            assertEquals("held $heldLength characters", expected, reported)
+        }
+    }
 }
