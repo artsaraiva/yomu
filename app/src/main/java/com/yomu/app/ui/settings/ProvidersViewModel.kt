@@ -36,8 +36,11 @@ sealed interface ServerConnection {
 
     data object Connecting : ServerConnection
 
-    /** Connect reached the address and confirmed it. [models] is the server's list, empty when it keeps none. */
-    data class Connected(val models: List<String>) : ServerConnection
+    /**
+     * Connect reached the address and confirmed it. [models] is the server's list, empty when it keeps
+     * none, or null when the address was confirmed on an earlier visit and the list hasn't been asked for since.
+     */
+    data class Connected(val models: List<String>?) : ServerConnection
 
     /** Connect didn't reach a server that answered; the address stays unconfirmed. */
     data class Failed(val failure: ConnectFailure) : ServerConnection
@@ -53,7 +56,16 @@ class ProvidersViewModel @Inject constructor(
     private val serverModels: ServerModelList
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(ProvidersUiState(address = store.address(), apiKey = store.apiKey(), model = store.model()))
+    // Opening the screen sends nothing: a confirmed address shows as connected, without its list.
+    private val _state = MutableStateFlow(
+        ProvidersUiState(
+            address = store.address(),
+            apiKey = store.apiKey(),
+            model = store.model(),
+            connection = if (store.isConfirmed()) ServerConnection.Connected(models = null) else ServerConnection.NotConnected,
+            keyNotSaved = store.apiKeyState() == ApiKeyState.NOT_SAVED
+        )
+    )
     val state: StateFlow<ProvidersUiState> = _state.asStateFlow()
 
     private var connecting: Job? = null

@@ -160,6 +160,29 @@ class ProvidersViewModelTest {
         assertEquals("sk-local-1", noKeystore.apiKey())
     }
 
+    @Test
+    fun `reopening the screen shows the confirmed server and its model and sends nothing`() {
+        val noKeystore = ServerSettingsStore(MapSharedPreferences(), MapSharedPreferences()) { throw KeyStoreException("no Keystore") }
+        noKeystore.saveAddress("http://192.168.1.20:11434")
+        noKeystore.confirm("http://192.168.1.20:11434")
+        noKeystore.saveModel("qwen2.5:7b")
+        noKeystore.saveApiKey("sk-local-1")
+
+        val state = ProvidersViewModel(noKeystore, ServerModelList(OkHttpClient())).state.value
+
+        assertEquals(
+            ProvidersUiState(
+                address = "http://192.168.1.20:11434",
+                apiKey = "sk-local-1",
+                model = "qwen2.5:7b",
+                connection = ServerConnection.Connected(models = null),
+                keyNotSaved = true
+            ),
+            state
+        )
+        assertEquals(0, server.requestCount)
+    }
+
     private suspend fun connected(): ProvidersViewModel = viewModel().apply {
         editAddress(address())
         connect().join()
