@@ -118,6 +118,9 @@ object Constants {
     // Which curated LLM occupies the translation slot (ADR-0009). Stores a
     // ModelEntity id; nothing picked keeps the default (Qwen2.5-1.5B, ADR-0010).
     const val PREF_LLM_MODEL = "llm_model"
+    // Which translator fills the translation slot (#478). Stores a Translator id; nothing stored, an
+    // unknown id or a translator that can't run keeps the on-device one.
+    const val PREF_TRANSLATOR = "translator"
     // Which curated model occupies the detection and OCR slots. Each stores a ModelEntity id;
     // nothing picked (or an unknown id) keeps the slot's default in ModelManager.SLOT_DEFAULTS.
     const val PREF_DETECTION_MODEL = "detection_model"

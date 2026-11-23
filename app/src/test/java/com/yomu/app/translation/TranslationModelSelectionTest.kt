@@ -34,6 +34,39 @@ class TranslationModelSelectionTest {
     }
 
     @Test
+    fun `a selected translator is stored and its slot is current`() {
+        val slot = Mockito.mock(TranslationSlot::class.java)
+        val fake = fakeTranslator(slot = slot)
+        val prefs = MapSharedPreferences()
+
+        selection(prefs = prefs, others = listOf(fake)).selectTranslator(fake)
+
+        assertSame(slot, selection(prefs = prefs, others = listOf(fake)).current())
+    }
+
+    @Test
+    fun `current falls back to the on-device slot when the stored translator can't run`() {
+        val llama = Mockito.mock(LlamaTranslationBridge::class.java)
+        val fake = fakeTranslator(canRun = false)
+        val selection = selection(llama = llama, others = listOf(fake))
+
+        selection.selectTranslator(fake)
+
+        assertSame(llama, selection.current())
+    }
+
+    @Test
+    fun `current keeps the on-device slot when no translator or an unknown one is stored`() {
+        val llama = Mockito.mock(LlamaTranslationBridge::class.java)
+        val prefs = MapSharedPreferences()
+        val selection = selection(llama = llama, prefs = prefs, others = listOf(fakeTranslator()))
+
+        assertSame(llama, selection.current())
+        prefs.values[Constants.PREF_TRANSLATOR] = "retired-translator"
+        assertSame(llama, selection.current())
+    }
+
+    @Test
     fun `currentLlmModel defaults when nothing is picked`() {
         val prefs = Mockito.mock(SharedPreferences::class.java)
         Mockito.`when`(prefs.getString(Constants.PREF_LLM_MODEL, null))
@@ -215,11 +248,36 @@ class TranslationModelSelectionTest {
         Mockito.verify(llama).close()
     }
 
+    @Test
+    fun `close closes every translator that was used and builds none that wasn't`() {
+        val llama = Mockito.mock(LlamaTranslationBridge::class.java)
+        val used = Mockito.mock(TranslationSlot::class.java)
+        var unusedBuilt = false
+        val unused = Translator("unused", "Unused", { true }, lazy { unusedBuilt = true; Mockito.mock(TranslationSlot::class.java) })
+        val fake = fakeTranslator(slot = used)
+        val selection = selection(llama = llama, others = listOf(fake, unused))
+        selection.selectTranslator(fake)
+        selection.current()
+
+        selection.close()
+
+        Mockito.verify(used).close()
+        Mockito.verify(llama).close()
+        assertFalse(unusedBuilt)
+    }
+
     private fun selection(
         llama: LlamaTranslationBridge = Mockito.mock(LlamaTranslationBridge::class.java),
         prefs: SharedPreferences = MapSharedPreferences(),
-        totalMemBytes: Long = 0L
-    ): TranslationModelSelection = TranslationModelSelection(llama, prefs, File("models"), totalMemBytes)
+        totalMemBytes: Long = 0L,
+        others: List<Translator> = emptyList()
+    ): TranslationModelSelection =
+        TranslationModelSelection(llama, prefs, File("models"), totalMemBytes, setOf(Translator.onDevice(llama)) + others)
+
+    private fun fakeTranslator(
+        canRun: Boolean = true,
+        slot: TranslationSlot = Mockito.mock(TranslationSlot::class.java)
+    ): Translator = Translator("fake", "Fake", { canRun }, lazy { slot })
 
     private fun editor(): SharedPreferences.Editor =
         Mockito.mock(SharedPreferences.Editor::class.java).also { editor ->

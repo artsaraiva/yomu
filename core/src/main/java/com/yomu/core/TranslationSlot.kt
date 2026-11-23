@@ -228,6 +228,9 @@ interface TranslationSlot {
 
     /** Ends the current reading session so session-specific state can be cleared. */
     fun endSession()
-    /** Releases resources held by the translation slot. */
+    /**
+     * Releases resources held by the translation slot. The slot stays usable: it is handed out
+     * again after closing, and the next [ensureReady] prepares it.
+     */
     fun close()
 }
