@@ -2,8 +2,8 @@ package com.yomu.ml
 
 import android.util.Log
 import com.google.gson.JsonArray
-import com.google.gson.JsonElement
 import com.google.gson.JsonObject
+import com.google.gson.JsonParseException
 import com.google.gson.JsonParser
 import com.yomu.core.ERROR_SERVER_FAILED
 import com.yomu.core.ERROR_SERVER_KEY_REJECTED
@@ -173,9 +173,9 @@ class NetworkTranslationSlot(
             if (!line.startsWith(DATA)) continue
             val data = line.removePrefix(DATA).trim()
             if (data == DONE) break
-            val choice = JsonParser().parse(data).asJsonObject.getAsJsonArray("choices").first().asJsonObject
-            choice.get("finish_reason").stringOrNull()?.let { finishReason = it }
-            val content = choice.getAsJsonObject("delta").get("content").stringOrNull() ?: continue
+            val choice = choiceIn(data) ?: continue
+            choice.string("finish_reason")?.let { finishReason = it }
+            val content = choice.obj("delta")?.string("content") ?: continue
             take(thoughts.feed(content))
         }
         take(thoughts.finish())
@@ -183,7 +183,23 @@ class NetworkTranslationSlot(
         return text.toString()
     }
 
-    private fun JsonElement?.stringOrNull(): String? = if (this == null || isJsonNull) null else asString
+    /** The first choice in one streamed chunk, or null when it carries none; throws when [data] is no chunk at all. */
+    private fun choiceIn(data: String): JsonObject? {
+        val chunk = try {
+            JsonParser().parse(data).takeIf { it.isJsonObject }?.asJsonObject
+        } catch (_: JsonParseException) {
+            null
+        }
+        if (chunk == null || chunk.has("error")) throw UnreadableReply()
+        return chunk.get("choices")?.takeIf { it.isJsonArray }?.asJsonArray?.firstOrNull()?.takeIf { it.isJsonObject }?.asJsonObject
+    }
+
+    private fun JsonObject.obj(name: String): JsonObject? = get(name)?.takeIf { it.isJsonObject }?.asJsonObject
+
+    private fun JsonObject.string(name: String): String? = get(name)?.takeIf { it.isJsonPrimitive }?.asString
+
+    /** A streamed line that is no chat chunk: an error the server sent mid-reply, or text that isn't one. */
+    private class UnreadableReply : IOException("unreadable reply")
 
     override fun endSession() = Unit
 

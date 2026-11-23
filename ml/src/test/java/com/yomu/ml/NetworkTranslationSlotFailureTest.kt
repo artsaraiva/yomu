@@ -48,6 +48,35 @@ class NetworkTranslationSlotFailureTest {
     }
 
     @Test
+    fun translatePage_replyTheServerGarblesFailsAsAServerErrorKeepingLinesAlreadyShown() = runTest {
+        val firstLine = chatEvents("[1] Hello\n", finishReason = null)
+        for (garbled in listOf("""data: {"error":{"message":"model crashed"}}""", "data: not json", "data: [1, 2]")) {
+            server.enqueue(MockResponse().setBody("$firstLine$garbled\n\n" + chatEvents("[2] Goodbye\n")))
+
+            val result = networkSlot(server.base()).translatePage(page(1 to "こんにちは", 2 to "さようなら"))
+
+            assertEquals(garbled, TranslationOutcome.ERROR, result.outcome)
+            assertEquals(garbled, ERROR_SERVER_FAILED, result.errorCode)
+            assertEquals(garbled, mapOf(1 to "Hello"), result.byId)
+        }
+    }
+
+    @Test
+    fun translatePage_replyTheServerBreaksOffFailsAsAServerErrorKeepingLinesAlreadyShown() = runTest {
+        server.enqueue(
+            MockResponse()
+                .setBody(chatEvents("[1] Hello\n", finishReason = null) + chatEvents("[2] Goodbye\n"))
+                .setSocketPolicy(SocketPolicy.DISCONNECT_DURING_RESPONSE_BODY)
+        )
+
+        val result = networkSlot(server.base()).translatePage(page(1 to "こんにちは", 2 to "さようなら"))
+
+        assertEquals(TranslationOutcome.ERROR, result.outcome)
+        assertEquals(ERROR_SERVER_FAILED, result.errorCode)
+        assertEquals(mapOf(1 to "Hello"), result.byId)
+    }
+
+    @Test
     fun translatePage_serverThatCannotBeReachedFailsAsUnreachable() = runTest {
         val closedPort = ServerSocket(0).use { it.localPort }
         for (base in listOf("http://127.0.0.1:$closedPort", "not an address")) {
