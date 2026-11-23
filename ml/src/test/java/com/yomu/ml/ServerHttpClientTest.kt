@@ -115,6 +115,25 @@ class ServerHttpClientTest {
         }
     }
 
+    @Test
+    fun newCall_httpRedirectToHttpsIsNotFollowed() {
+        val tlsFixture = TlsFixture("api.example.com")
+        MockWebServer().use { tls ->
+            tlsFixture.serve(tls)
+            tls.start(LOOPBACK, 0)
+            tls.enqueue(modelsReply())
+            server.enqueue(MockResponse().setResponseCode(302).setHeader("Location", "https://api.example.com:${tls.port}/v1/models"))
+            val network = stubNetwork("nas.home.arpa" to listOf("192.168.1.10"), "api.example.com" to listOf("203.0.113.7"))
+            val client = ServerHttpClient(tlsFixture.trust(network).build())
+
+            assertEquals(302, client.get("http://nas.home.arpa"))
+
+            assertEquals(0, tls.requestCount)
+        }
+    }
+
+    private fun modelsReply(): MockResponse = MockResponse().setBody("""{"data":[]}""")
+
     private fun ServerHttpClient.get(base: String): Int =
         newCall(Request.Builder().url("$base:${server.port}/v1/models").build()).execute().use { it.code }
 }
