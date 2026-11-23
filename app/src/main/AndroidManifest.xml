@@ -8,6 +8,8 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
 
+    <!-- Cleartext is allowed app-wide because Android can't limit it to local addresses. ServerHttpClient lets
+         plain http reach only nearby addresses, and the model download uses https (ADR-0023, #488). -->
     <application
         android:name=".YomuApplication"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -15,7 +17,8 @@
         android:icon="@mipmap/ic_launcher"
         android:label="Yomu"
         android:roundIcon="@mipmap/ic_launcher_round"
-        android:supportsRtl="true">
+        android:supportsRtl="true"
+        android:usesCleartextTraffic="true">
         
         <activity
             android:name=".MainActivity"
