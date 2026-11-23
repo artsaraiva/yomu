@@ -74,6 +74,35 @@ class ProvidersViewModelTest {
         assertNull(server.takeRequest().getHeader("Authorization"))
     }
 
+    @Test
+    fun `picking a listed model stores it and the server is set up`() = runTest {
+        server.enqueue(MockResponse().setBody(TWO_MODELS))
+        val viewModel = connected()
+
+        viewModel.pickModel("gemma3:4b")
+
+        assertEquals("gemma3:4b", store.model())
+        assertEquals("gemma3:4b", viewModel.state.value.model)
+        assertTrue(store.isSetUp())
+    }
+
+    @Test
+    fun `a server without a model list takes a typed model name`() = runTest {
+        server.enqueue(MockResponse().setResponseCode(404))
+        val viewModel = connected()
+        assertEquals(ServerConnection.Connected(emptyList()), viewModel.state.value.connection)
+
+        viewModel.pickModel("qwen2.5:7b-instruct")
+
+        assertEquals("qwen2.5:7b-instruct", store.model())
+        assertTrue(store.isSetUp())
+    }
+
+    private suspend fun connected(): ProvidersViewModel = viewModel().apply {
+        editAddress(address())
+        connect().join()
+    }
+
     private fun viewModel() = ProvidersViewModel(store, ServerModelList(OkHttpClient()))
 
     private fun address(): String = server.url("/").toString()

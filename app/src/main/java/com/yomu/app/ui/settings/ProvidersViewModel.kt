@@ -20,6 +20,8 @@ data class ProvidersUiState(
     val address: String,
     /** The key field, as typed; saved only when Connect is tapped. */
     val apiKey: String,
+    /** The model picked from the server's list or typed; stored as it changes. */
+    val model: String,
     val connection: ServerConnection = ServerConnection.NotConnected
 )
 
@@ -30,7 +32,7 @@ sealed interface ServerConnection {
 
     data object Connecting : ServerConnection
 
-    /** Connect reached the address and confirmed it. [models] is the server's list. */
+    /** Connect reached the address and confirmed it. [models] is the server's list, empty when it keeps none. */
     data class Connected(val models: List<String>) : ServerConnection
 }
 
@@ -44,7 +46,7 @@ class ProvidersViewModel @Inject constructor(
     private val serverModels: ServerModelList
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(ProvidersUiState(address = store.address(), apiKey = store.apiKey()))
+    private val _state = MutableStateFlow(ProvidersUiState(address = store.address(), apiKey = store.apiKey(), model = store.model()))
     val state: StateFlow<ProvidersUiState> = _state.asStateFlow()
 
     fun editAddress(address: String) {
@@ -71,9 +73,19 @@ class ProvidersViewModel @Inject constructor(
                     store.confirm(address)
                     ServerConnection.Connected(result.names)
                 }
+                ServerModels.Unlisted -> {
+                    store.confirm(address)
+                    ServerConnection.Connected(emptyList())
+                }
                 else -> ServerConnection.NotConnected
             }
             _state.update { it.copy(connection = connection) }
         }
+    }
+
+    /** Stores [model], picked from the server's list or typed. */
+    fun pickModel(model: String) {
+        store.saveModel(model)
+        _state.update { it.copy(model = model) }
     }
 }
