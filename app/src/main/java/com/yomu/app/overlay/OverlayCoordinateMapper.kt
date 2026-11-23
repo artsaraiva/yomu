@@ -20,9 +20,10 @@ object OverlayCoordinateMapper {
     )
 
     /**
-     * A captured page is laid over the whole display, so it is scaled by the display's size over the capture's: 1 while
-     * the capture matches the display. The overlay window's own size plays no part, since system bars shrink the
-     * window and not the page; the window's place on the screen is the offset.
+     * Returns how a box in a capture of [captureWidth] × [captureHeight] pixels lands on a display of [displayWidth] ×
+     * [displayHeight] pixels, drawn by an overlay window whose top-left corner is at ([overlayScreenX], [overlayScreenY])
+     * on screen. The capture is stretched over the whole display rather than the window, so a window that a system bar
+     * pushes aside moves the boxes without squeezing them. A capture side of zero is not scaled.
      */
     fun params(
         captureWidth: Int,

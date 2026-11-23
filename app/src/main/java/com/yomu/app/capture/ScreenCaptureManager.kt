@@ -89,25 +89,23 @@ class ScreenCaptureManager @Inject constructor(
     }
 
     /**
-     * Makes the capture the display's new [size], such as after the screen turns. A virtual display keeps the size it
-     * was made at, so it would squeeze a landscape screen into the portrait frame. The reader is replaced with one of
-     * the new size, so no frame of the old shape is read afterwards. A size already captured keeps the reader, which
-     * holds the frame a still screen is captured from.
-     *
-     * @return whether the capture was resized, which leaves a page captured before it the wrong shape for the screen;
-     * false when the size is unchanged or no capture is running.
+     * Captures the screen at [size] from now on, as the display reports after the screen turns, and returns true when
+     * it did: a page captured before then no longer has the screen's shape. Returns false and changes nothing when no
+     * capture is running, or when the capture already has that size, so its reader keeps the frame a still screen is
+     * captured from.
      */
     fun resizeTo(size: Size): Boolean {
-        val mirror = virtualDisplay ?: return false
-        val current = imageReader ?: return false
-        if (current.width == size.width && current.height == size.height) return false
+        val display = virtualDisplay ?: return false
+        val oldReader = imageReader ?: return false
+        if (oldReader.width == size.width && oldReader.height == size.height) return false
+
         val reader = newReader(size.width, size.height)
-        // The system fits the screen into the surface the mirror has when it is resized, so the new one goes first.
-        mirror.surface = reader.surface
-        mirror.resize(size.width, size.height, densityDpi)
-        current.close()
+        // The system fits the mirrored screen into the surface the display holds when it is resized.
+        display.surface = reader.surface
+        display.resize(size.width, size.height, densityDpi)
+        oldReader.close()
         imageReader = reader
-        Log.i(TAG, "capture resized to ${size.width}x${size.height}")
+        Log.i(TAG, "capture now ${size.width}x${size.height} to match the display")
         return true
     }
 

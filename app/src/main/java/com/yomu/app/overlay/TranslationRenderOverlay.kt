@@ -17,7 +17,7 @@ import com.yomu.pipeline.typesetting.TypesetBubble
 class TranslationRenderOverlay(
     private val context: Context,
     private val windowManager: WindowManager,
-    /** The display's size as it is turned now, or null before it is known; a captured page covers the whole display. */
+    /** The display's current size in pixels, which a captured page is stretched over; while null, a page is drawn at its captured size. */
     private val displaySize: () -> Size?
 ) {
     companion object {

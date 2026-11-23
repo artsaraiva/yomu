@@ -128,7 +128,7 @@ fun HomeScreen(
                 }
             }
             if (!saving) item {
-                Text("Saving is off, so new pages aren't added. Turn it on in Settings > Translation.", style = MaterialTheme.typography.bodySmall)
+                Text("Saving is off, so new pages aren't added. You can switch it back on under Settings > Translation.", style = MaterialTheme.typography.bodySmall)
             }
             if (state.clearError) item {
                 PaperError("Couldn't clear Recent. Your translations are still saved.", viewModel::clearHistory)
