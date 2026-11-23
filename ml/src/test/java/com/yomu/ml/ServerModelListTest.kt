@@ -6,6 +6,7 @@ import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 /** What Connect asks the reader's server, and what it makes of the answer (#489, ADR-0023). */
@@ -23,5 +24,21 @@ class ServerModelListTest {
 
         assertEquals(ServerModels.Listed(listOf("qwen2.5:7b", "gemma3:4b")), result)
         assertEquals("/v1/models", server.takeRequest().path)
+    }
+
+    @Test
+    fun fetch_sendsTheKeyAsABearerTokenOnlyWhenOneIsSet() = runTest {
+        repeat(2) { server.enqueue(MockResponse().setBody(LIST)) }
+        val models = ServerModelList(OkHttpClient())
+
+        models.fetch(server.url("/").toString(), apiKey = "sk-local-1")
+        models.fetch(server.url("/").toString(), apiKey = " ")
+
+        assertEquals("Bearer sk-local-1", server.takeRequest().getHeader("Authorization"))
+        assertNull(server.takeRequest().getHeader("Authorization"))
+    }
+
+    private companion object {
+        const val LIST = """{"data":[{"id":"qwen2.5:7b"}]}"""
     }
 }
