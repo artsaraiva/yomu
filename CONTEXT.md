@@ -39,8 +39,20 @@ Fast, Medium or Slow, read off a [[deliverable]]'s download size alone (Fast up 
 _Avoid_: performance tier, speed rating, device tier
 
 **Translation slot**:
-The selected component that accepts one geometry-free page and owns every model-specific translation decision. Exactly one LLM deliverable fills it at a time; there is no non-LLM translator (ADR-0016).
+The selected component that accepts one geometry-free page and owns every model-specific translation decision. Exactly one [[translator]] fills it at a time; there is no non-LLM translator (ADR-0016).
 _Avoid_: translation bridge, selected engine wrapper, translation engine
+
+**Translator**:
+One way to fill the [[translation slot]]. The reader chooses which one translates their pages; the [[on-device translator]] is the default and the fallback when the chosen one can't run.
+_Avoid_: engine, backend, provider
+
+**On-device translator**:
+The [[translator]] that runs the selected LLM [[deliverable]] on the phone. Always present, and the only one until the reader sets up a [[network translator]].
+_Avoid_: local model, offline translator, llama translator
+
+**Network translator**:
+The [[translator]] that sends the page's text to an OpenAI-compatible server the reader chose: a machine they run, or a hosted API they have a key for. Opt-in, and shown to the reader as "Your server" (ADR-0023).
+_Avoid_: cloud translator, remote model, network model, provider
 
 ### Translation context
 

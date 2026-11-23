@@ -2,6 +2,8 @@
 
 **Status:** accepted, 2026-09-15. Decides [#222](https://github.com/artsaraiva/yomu/issues/222). Supersedes in part [ADR-0008](0008-translation-model-selection.md): its "OPUS-MT and ML Kit stay as optional floor engines" clause.
 
+> **Amended by [ADR-0023](0023-network-translator-on-a-server-the-reader-chooses.md) (2026-11-23).** A translator fills the translation slot, and a network translator can be one. The on-device translator still runs an LLM deliverable, and Yomu is still not ready until that deliverable is downloaded.
+
 Yomu removes the ML Kit and OPUS-MT floor engines. A curated LLM deliverable is the only thing that fills the translation slot. Setup downloads the selected curated LLM deliverable, which on a fresh install is the default. Yomu is not ready until the selected deliverable is downloaded, and the translation model is chosen only in Settings. The engine type, the engine role and the stored engine preference go away. What was the engine selection now holds only the LLM deliverable choice and the generation profile. The `TranslationSlot` seam from [ADR-0012](0012-page-translation-slot.md) stays.
 
 ## Why

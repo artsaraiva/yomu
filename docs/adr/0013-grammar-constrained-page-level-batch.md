@@ -14,6 +14,8 @@
 
 > **Revised by [#451](https://github.com/artsaraiva/yomu/issues/451) (2026-11-21).** The 160-character bound is now every line's floor rather than its limit: a line whose expected translation is long gets twice that length instead. See *Amendment (#451)* below.
 
+> **Amended by [ADR-0023](0023-network-translator-on-a-server-the-reader-chooses.md) (2026-11-23).** *The grammar is mandatory on the batch path* means the on-device batch path. The network translator sends the same id-keyed prompt with no grammar.
+
 Yomu translates a page in **one page-level, id-keyed call per capture**, with the output shape enforced **at sample time by a GBNF grammar** rather than checked after the fact. The curated default (Qwen2.5-1.5B-Instruct) carries `idKeyedBatch = true`. Per-line translation survives as a **slot strategy** — for the CAT-Translate-0.8b low-storage floor, which cannot produce id-keyed output, and as the fallback for a page whose prompt exceeds the native prompt cap — not as the default architecture.
 
 **Cross-page session context is withdrawn.** It is not deferred and not dormant: the plumbing is deleted.
