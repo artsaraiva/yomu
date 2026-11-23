@@ -29,6 +29,19 @@ class NetworkTranslationSlotReasoningTest {
     }
 
     @Test
+    fun translatePage_replyThatOpensWithProseAndNeverThinksShowsEveryLineOnce() = runTest {
+        server.enqueue(chatStream("Here are the translations:\n\n[1] Hel", "lo\n[2] Good", "bye"))
+        val reported = mutableListOf<Pair<Int, String>>()
+
+        val result = networkSlot(server.base()).translatePage(page(1 to "こんにちは", 2 to "さようなら")) { id, text ->
+            reported += id to text
+        }
+
+        assertEquals(listOf(1 to "Hello", 2 to "Goodbye"), reported)
+        assertEquals("Here are the translations:\n\n[1] Hello\n[2] Goodbye", result.rawResponse)
+    }
+
+    @Test
     fun translatePage_reasoningUpToTheHoldLimitIsDroppedAndPastItIsShownInOrder() = runTest {
         val drafts = "Okay, two bubbles.\n[1] Hi?\n[2] Bye?\n"
         val expectedByHeldLength = mapOf(
