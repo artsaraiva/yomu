@@ -1,5 +1,7 @@
 package com.yomu.ml
 
+import java.net.InetSocketAddress
+import java.net.Proxy
 import okhttp3.Request
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
@@ -69,6 +71,21 @@ class ServerHttpClientTest {
         assertThrows(HttpsRequiredException::class.java) { client.get("http://192.168.1.10") }
 
         assertEquals(1, server.requestCount)
+    }
+
+    @Test
+    fun newCall_httpSkipsTheClientsProxySoTheServersOwnAddressIsChecked() {
+        MockWebServer().use { proxy ->
+            proxy.start(LOOPBACK, 0)
+            proxy.enqueue(MockResponse().setBody("""{"data":[]}"""))
+            val viaProxy = stubNetwork("translate.example.com" to listOf("203.0.113.7"))
+                .proxy(Proxy(Proxy.Type.HTTP, InetSocketAddress(LOOPBACK, proxy.port)))
+            val client = ServerHttpClient(viaProxy.build())
+
+            assertThrows(HttpsRequiredException::class.java) { client.get("http://translate.example.com") }
+
+            assertEquals(0, proxy.requestCount)
+        }
     }
 
     @Test

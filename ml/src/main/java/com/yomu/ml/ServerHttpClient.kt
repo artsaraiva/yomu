@@ -1,6 +1,7 @@
 package com.yomu.ml
 
 import java.net.InetAddress
+import java.net.Proxy
 import java.net.UnknownHostException
 import okhttp3.Call
 import okhttp3.Dns
@@ -18,7 +19,9 @@ import okhttp3.Response
 class ServerHttpClient(client: OkHttpClient) {
     // A redirect is followed by the client that started the call, and this one doesn't check addresses.
     private val tls = client.newBuilder().followSslRedirects(false).build()
+    // Through a proxy, the proxy's address would be the one checked, and it could carry the page anywhere.
     private val cleartext = client.newBuilder()
+        .proxy(Proxy.NO_PROXY)
         .dns(NearbyOnlyDns(client.dns))
         .addNetworkInterceptor(NearbyOnlyConnection)
         .build()
