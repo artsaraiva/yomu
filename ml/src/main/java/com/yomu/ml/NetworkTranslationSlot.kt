@@ -8,6 +8,7 @@ import com.google.gson.JsonParser
 import com.yomu.core.ERROR_SERVER_FAILED
 import com.yomu.core.ERROR_SERVER_KEY_REJECTED
 import com.yomu.core.ERROR_SERVER_MODEL_NOT_FOUND
+import com.yomu.core.ERROR_SERVER_UNREACHABLE
 import com.yomu.core.GenerationParams
 import com.yomu.core.PageTranslation
 import com.yomu.core.TranslatablePage
@@ -15,6 +16,7 @@ import com.yomu.core.TranslationOutcome
 import com.yomu.core.TranslationSlot
 import com.yomu.core.TranslationStatus
 import com.yomu.core.withinBounds
+import java.io.IOException
 import java.net.HttpURLConnection.HTTP_FORBIDDEN
 import java.net.HttpURLConnection.HTTP_NOT_FOUND
 import java.net.HttpURLConnection.HTTP_UNAUTHORIZED
@@ -75,9 +77,17 @@ class NetworkTranslationSlot(
         fun result(outcome: TranslationOutcome, errorCode: String? = null, text: String = "") =
             PageTranslation(reply.byId, text, (System.nanoTime() - started) / NANOS_PER_MS, outcome, errorCode)
 
-        val request = request(config(), page)
+        val config = config()
+        val url = chatCompletions(config.baseUrl) ?: return result(TranslationOutcome.ERROR, ERROR_SERVER_UNREACHABLE)
+        val request = request(config, url, page)
         return withContext(Dispatchers.IO) {
-            client.newCall(request).execute().use { response ->
+            val response = try {
+                client.newCall(request).execute()
+            } catch (e: IOException) {
+                Log.w(TAG, "translatePage unreachable ${e.javaClass.simpleName}")
+                return@withContext result(TranslationOutcome.ERROR, ERROR_SERVER_UNREACHABLE)
+            }
+            response.use {
                 if (!response.isSuccessful) {
                     Log.w(TAG, "translatePage http=${response.code}")
                     return@use result(TranslationOutcome.ERROR, httpFailure(response.code))
@@ -94,7 +104,7 @@ class NetworkTranslationSlot(
         else -> ERROR_SERVER_FAILED
     }
 
-    private fun request(config: NetworkTranslatorConfig, page: TranslatablePage): Request {
+    private fun request(config: NetworkTranslatorConfig, url: HttpUrl, page: TranslatablePage): Request {
         val message = JsonObject().apply {
             addProperty("role", "user")
             addProperty("content", idKeyedPagePrompt(page))
@@ -111,15 +121,15 @@ class NetworkTranslationSlot(
             addProperty("max_tokens", MAX_REPLY_TOKENS)
         }
         return Request.Builder()
-            .url(chatCompletions(config.baseUrl))
+            .url(url)
             .post(body.toString().toRequestBody(JSON))
             .apply { if (config.apiKey.isNotBlank()) header("Authorization", "Bearer ${config.apiKey}") }
             .build()
     }
 
-    /** `{base}/v1/chat/completions`, whether or not the reader's address already ends in `/v1`. */
-    private fun chatCompletions(baseUrl: String): HttpUrl {
-        val base = requireNotNull(baseUrl.toHttpUrlOrNull())
+    /** `{base}/v1/chat/completions`, whether or not the reader's address already ends in `/v1`; null when it is no address. */
+    private fun chatCompletions(baseUrl: String): HttpUrl? {
+        val base = baseUrl.toHttpUrlOrNull() ?: return null
         val segments = base.pathSegments.filter { it.isNotEmpty() }
         val path = if (segments.lastOrNull() == "v1") segments else segments + "v1"
         return base.newBuilder()

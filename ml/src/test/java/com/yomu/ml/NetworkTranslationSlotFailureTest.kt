@@ -3,7 +3,9 @@ package com.yomu.ml
 import com.yomu.core.ERROR_SERVER_FAILED
 import com.yomu.core.ERROR_SERVER_KEY_REJECTED
 import com.yomu.core.ERROR_SERVER_MODEL_NOT_FOUND
+import com.yomu.core.ERROR_SERVER_UNREACHABLE
 import com.yomu.core.TranslationOutcome
+import java.net.ServerSocket
 import kotlinx.coroutines.test.runTest
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
@@ -36,6 +38,17 @@ class NetworkTranslationSlotFailureTest {
             assertEquals("HTTP $status", TranslationOutcome.ERROR, result.outcome)
             assertEquals("HTTP $status", code, result.errorCode)
             assertEquals("HTTP $status", emptyMap<Int, String>(), result.byId)
+        }
+    }
+
+    @Test
+    fun translatePage_serverThatCannotBeReachedFailsAsUnreachable() = runTest {
+        val closedPort = ServerSocket(0).use { it.localPort }
+        for (base in listOf("http://127.0.0.1:$closedPort", "not an address")) {
+            val result = networkSlot(base).translatePage(page(1 to "こんにちは"))
+
+            assertEquals(base, TranslationOutcome.ERROR, result.outcome)
+            assertEquals(base, ERROR_SERVER_UNREACHABLE, result.errorCode)
         }
     }
 }
