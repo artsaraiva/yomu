@@ -65,8 +65,10 @@ class NetworkTranslationSlot(
 ) : TranslationSlot {
 
     // The page limit is the only one once connected: a reasoning model may think for a minute before
-    // its first token, and the client handed in may carry read and write limits of its own.
+    // its first token, and the client handed in may carry read and write limits of its own. No retry
+    // (ADR-0023): OkHttp would otherwise send a page again when a kept-alive connection drops.
     private val client = client.newBuilder()
+        .retryOnConnectionFailure(false)
         .connectTimeout(CONNECT_TIMEOUT_MS, MILLISECONDS)
         .readTimeout(0, MILLISECONDS)
         .writeTimeout(0, MILLISECONDS)

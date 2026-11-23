@@ -78,6 +78,21 @@ class NetworkTranslationSlotFailureTest {
     }
 
     @Test
+    fun translatePage_pageWhoseKeptAliveConnectionDropsIsNotSentAgain() = runTest {
+        server.enqueue(chatStream("[1] Hello\n"))
+        server.enqueue(MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AFTER_REQUEST))
+        server.enqueue(chatStream("[1] Hello again\n"))
+        val slot = networkSlot(server.base())
+
+        slot.translatePage(page(1 to "こんにちは"))
+        val second = slot.translatePage(page(1 to "こんにちは"))
+
+        assertEquals(2, server.requestCount)
+        assertEquals(TranslationOutcome.ERROR, second.outcome)
+        assertEquals(emptyMap<Int, String>(), second.byId)
+    }
+
+    @Test
     fun translatePage_serverThatCannotBeReachedFailsAsUnreachable() = runTest {
         val closedPort = ServerSocket(0).use { it.localPort }
         for (base in listOf("http://127.0.0.1:$closedPort", "not an address")) {
