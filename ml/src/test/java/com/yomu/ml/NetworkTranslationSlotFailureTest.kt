@@ -108,9 +108,9 @@ class NetworkTranslationSlotFailureTest {
     fun translatePage_plainHttpToAPublicAddressFailsWithItsOwnCodeAndSendsNothing() = runTest {
         server.start(LOOPBACK, 0)
         server.enqueue(chatStream("[1] Hello\n"))
-        val publicName = stubNetwork("translate.example.com" to listOf("203.0.113.7")).build()
+        val resolvesPublic = stubNetwork("translate.example.com" to listOf("203.0.113.7")).build()
 
-        val result = networkSlot("http://translate.example.com:${server.port}", client = publicName)
+        val result = networkSlot("http://translate.example.com:${server.port}", client = resolvesPublic)
             .translatePage(page(1 to "こんにちは"))
 
         assertEquals(TranslationOutcome.ERROR, result.outcome)

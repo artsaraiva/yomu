@@ -23,7 +23,7 @@ class ServerHttpClientTest {
 
     @Test
     fun newCall_httpToANameThatResolvesToAPublicAddressIsRefusedBeforeAnyRequestIsSent() {
-        server.enqueue(MockResponse().setBody("""{"data":[]}"""))
+        server.enqueue(modelsReply())
         val client = ServerHttpClient(stubNetwork("translate.example.com" to listOf("203.0.113.7")).build())
 
         assertThrows(HttpsRequiredException::class.java) { client.get("http://translate.example.com") }
@@ -34,7 +34,7 @@ class ServerHttpClientTest {
     @Test
     fun newCall_httpToANameThatResolvesToANearbyAddressIsSent() {
         for (address in listOf("192.168.1.10", "10.0.2.2", "100.64.0.1", "fd00::10", "fe80::1")) {
-            server.enqueue(MockResponse().setBody("""{"data":[]}"""))
+            server.enqueue(modelsReply())
             val client = ServerHttpClient(stubNetwork("nas.home.arpa" to listOf(address)).build())
 
             assertEquals(address, 200, client.get("http://nas.home.arpa"))
@@ -53,7 +53,7 @@ class ServerHttpClientTest {
 
     @Test
     fun newCall_httpToAnIpAddressIsJudgedByThatAddress() {
-        server.enqueue(MockResponse().setBody("""{"data":[]}"""))
+        server.enqueue(modelsReply())
         val client = ServerHttpClient(stubNetwork().build())
 
         assertThrows(HttpsRequiredException::class.java) { client.get("http://203.0.113.7") }
@@ -65,7 +65,7 @@ class ServerHttpClientTest {
     @Test
     fun newCall_httpRedirectFromANearbyServerToAPublicAddressIsRefused() {
         server.enqueue(MockResponse().setResponseCode(302).setHeader("Location", "http://203.0.113.7:${server.port}/v1/models"))
-        server.enqueue(MockResponse().setBody("""{"data":[]}"""))
+        server.enqueue(modelsReply())
         val client = ServerHttpClient(stubNetwork().build())
 
         assertThrows(HttpsRequiredException::class.java) { client.get("http://192.168.1.10") }
@@ -74,10 +74,10 @@ class ServerHttpClientTest {
     }
 
     @Test
-    fun newCall_httpSkipsTheClientsProxySoTheServersOwnAddressIsChecked() {
+    fun newCall_httpToAPublicNameIsRefusedEvenWhenTheClientHasAProxy() {
         MockWebServer().use { proxy ->
             proxy.start(LOOPBACK, 0)
-            proxy.enqueue(MockResponse().setBody("""{"data":[]}"""))
+            proxy.enqueue(modelsReply())
             val viaProxy = stubNetwork("translate.example.com" to listOf("203.0.113.7"))
                 .proxy(Proxy(Proxy.Type.HTTP, InetSocketAddress(LOOPBACK, proxy.port)))
             val client = ServerHttpClient(viaProxy.build())
@@ -92,7 +92,7 @@ class ServerHttpClientTest {
     fun newCall_httpsToANameThatResolvesToAnyAddressIsSent() {
         val tls = TlsFixture("api.example.com").also { it.serve(server) }
         for (addresses in listOf(listOf("203.0.113.7"), listOf("192.168.1.10", "203.0.113.7"), listOf("2001:db8::7"))) {
-            server.enqueue(MockResponse().setBody("""{"data":[]}"""))
+            server.enqueue(modelsReply())
             val client = ServerHttpClient(tls.trust(stubNetwork("api.example.com" to addresses)).build())
 
             assertEquals(addresses.toString(), 200, client.get("https://api.example.com"))
@@ -105,7 +105,7 @@ class ServerHttpClientTest {
         val tls = TlsFixture("api.example.com").also { it.serve(server) }
         MockWebServer().use { plain ->
             plain.start(LOOPBACK, 0)
-            plain.enqueue(MockResponse().setBody("""{"data":[]}"""))
+            plain.enqueue(modelsReply())
             server.enqueue(MockResponse().setResponseCode(302).setHeader("Location", "http://api.example.com:${plain.port}/v1/models"))
             val client = ServerHttpClient(tls.trust(stubNetwork("api.example.com" to listOf("203.0.113.7"))).build())
 

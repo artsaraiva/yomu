@@ -1,8 +1,8 @@
 package com.yomu.ml
 
+import java.io.IOException
 import java.net.InetAddress
 import java.net.Proxy
-import java.net.UnknownHostException
 import okhttp3.Call
 import okhttp3.Dns
 import okhttp3.Interceptor
@@ -11,10 +11,10 @@ import okhttp3.Request
 import okhttp3.Response
 
 /**
- * The HTTP client for the reader's server, used by the network translator and the Providers screen
- * (ADR-0023). `https://` reaches any address. Plain `http://` reaches a host only when every address its
- * name resolves to is nearby ([isNearbyAddress]); otherwise the call fails with [HttpsRequiredException]
- * before anything is sent. The check is on the resolved addresses, so a public name can't pass as local.
+ * The HTTP client for the reader's server (ADR-0023). `https://` reaches any address. Plain `http://`
+ * reaches a host only when every address its name resolves to is nearby ([isNearbyAddress]); otherwise
+ * the call fails with [HttpsRequiredException] before anything is sent. The check is on the resolved
+ * addresses, so a public name can't pass as local. A redirect that changes scheme is not followed.
  */
 class ServerHttpClient(client: OkHttpClient) {
     // A redirect is followed by the client that started the call, so one that changed scheme would get the
@@ -30,9 +30,11 @@ class ServerHttpClient(client: OkHttpClient) {
     fun newCall(request: Request): Call = (if (request.url.isHttps) tls else cleartext).newCall(request)
 }
 
-/** A plain `http://` host resolved to an address that isn't nearby; it needs `https://` (ADR-0023). */
-class HttpsRequiredException(host: String) :
-    UnknownHostException("$host needs https: plain http reaches only nearby addresses")
+/**
+ * A plain `http://` host resolved to an address that isn't nearby; it needs `https://` (ADR-0023). Not an
+ * [java.net.UnknownHostException]: the host was found, and a caller must not report it as missing.
+ */
+class HttpsRequiredException(host: String) : IOException("$host needs https: plain http reaches only nearby addresses")
 
 /** Resolves with [delegate], and refuses a host unless every address it resolves to is nearby. */
 private class NearbyOnlyDns(private val delegate: Dns) : Dns {
