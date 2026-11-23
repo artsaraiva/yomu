@@ -42,6 +42,6 @@ Apart from the names, the licence grant, the patent grant and the contributor's 
 
 ## Consequences
 
-**The action is archived.** Its repository was archived in March 2026 and will get no further releases. The workflow pins it to the full v2.6.1 commit SHA, so its code can't change. The risk is that it stops running, for example when GitHub retires the Node 20 runtime it declares. If that happens, switch to the GitHub App or to a maintained fork, and keep `signatures/version1/cla.json` as the record of past agreements.
+**The action is archived.** Its repository was archived in March 2026 and will get no further releases. The workflow pins it to the full v2.6.1 commit SHA, so its code can't change. It declares the deprecated Node 20 runtime, which GitHub's runners already replace with Node 24, and it works there (first run on [#476](https://github.com/artsaraiva/yomu/pull/476), 2026-11-23). The risk is that a later runner or API change breaks it. If that happens, switch to the GitHub App or to a maintained fork, and keep `signatures/version1/cla.json` as the record of past agreements.
 
 **The signature file has to exist.** The action's code for creating a missing file never runs, because it compares a numeric HTTP status to the string `"404"`. A missing file or branch makes every run fail, so the `cla-signatures` branch must not be deleted.
