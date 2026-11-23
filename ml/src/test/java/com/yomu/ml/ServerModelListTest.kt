@@ -48,6 +48,17 @@ class ServerModelListTest {
         assertEquals(ServerModels.Unlisted, models.fetch(server.url("/").toString(), apiKey = ""))
     }
 
+    @Test
+    fun fetch_401Or403IsAKeyRejected() = runTest {
+        server.enqueue(MockResponse().setResponseCode(401))
+        server.enqueue(MockResponse().setResponseCode(403))
+        val models = ServerModelList(OkHttpClient())
+
+        repeat(2) {
+            assertEquals(ServerModels.Failed(ConnectFailure.KEY_REJECTED), models.fetch(server.url("/").toString(), "sk-wrong"))
+        }
+    }
+
     private companion object {
         const val LIST = """{"data":[{"id":"qwen2.5:7b"}]}"""
     }

@@ -2,7 +2,9 @@ package com.yomu.ml
 
 import com.google.gson.JsonParser
 import java.io.IOException
+import java.net.HttpURLConnection.HTTP_FORBIDDEN
 import java.net.HttpURLConnection.HTTP_NOT_FOUND
+import java.net.HttpURLConnection.HTTP_UNAUTHORIZED
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.suspendCancellableCoroutine
 import okhttp3.Call
@@ -18,6 +20,15 @@ sealed interface ServerModels {
 
     /** The server was reached but keeps no list, or an empty one: the reader types a model name. */
     data object Unlisted : ServerModels
+
+    /** Connect did not reach a server that answered with models; the address stays unconfirmed. */
+    data class Failed(val failure: ConnectFailure) : ServerModels
+}
+
+/** Why Connect failed, each told to the reader in its own words. */
+enum class ConnectFailure {
+    /** The server answered 401 or 403. */
+    KEY_REJECTED
 }
 
 /**
@@ -41,7 +52,10 @@ class ServerModelList(client: OkHttpClient) {
     }
 
     private fun modelsFrom(response: Response): ServerModels {
-        if (response.code == HTTP_NOT_FOUND) return ServerModels.Unlisted
+        when (response.code) {
+            HTTP_NOT_FOUND -> return ServerModels.Unlisted
+            HTTP_UNAUTHORIZED, HTTP_FORBIDDEN -> return ServerModels.Failed(ConnectFailure.KEY_REJECTED)
+        }
         val names = modelNames(response.body?.string().orEmpty())
         return if (names.isEmpty()) ServerModels.Unlisted else ServerModels.Listed(names)
     }
