@@ -1,8 +1,15 @@
 package com.yomu.app.translation
 
+import com.google.gson.JsonParser
+import com.yomu.core.GenerationBound
+import com.yomu.core.TranslatableBubble
+import com.yomu.core.TranslatablePage
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
+import kotlinx.coroutines.test.runTest
 import okhttp3.OkHttpClient
+import okhttp3.mockwebserver.MockResponse
+import okhttp3.mockwebserver.MockWebServer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -29,5 +36,30 @@ class NetworkTranslatorTest {
 
         store.saveAddress("http://192.168.1.21:11434")
         assertFalse(translator.canRun())
+    }
+
+    @Test
+    fun `its slot sends the page to the stored server with the key, the model and the reader's sampler`() = runTest {
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setBody("data: {\"choices\":[{\"delta\":{\"content\":\"[1] Hello\\n\"}}]}\n\ndata: [DONE]\n\n"))
+        val address = server.url("/").toString()
+        store.saveAddress(address)
+        store.confirm(address)
+        store.saveModel("qwen2.5:7b")
+        store.saveApiKey("sk-local-1")
+        GenerationProfileStore(prefs).save(GenerationBound.TEMPERATURE, 0.3f)
+        GenerationProfileStore(prefs).save(GenerationBound.TOP_P, 0.85f)
+
+        val result = translator.slot().translatePage(TranslatablePage(listOf(listOf(TranslatableBubble(1, "こんにちは"))))) { _, _ -> }
+
+        val request = server.takeRequest()
+        val body = JsonParser.parseString(request.body.readUtf8()).asJsonObject
+        assertEquals("/v1/chat/completions", request.path)
+        assertEquals("Bearer sk-local-1", request.getHeader("Authorization"))
+        assertEquals("qwen2.5:7b", body.get("model").asString)
+        assertEquals(0.3f, body.get("temperature").asFloat, 0.001f)
+        assertEquals(0.85f, body.get("top_p").asFloat, 0.001f)
+        assertEquals(mapOf(1 to "Hello"), result.byId)
+        server.shutdown()
     }
 }

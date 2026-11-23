@@ -1,6 +1,7 @@
 package com.yomu.app.translation
 
 import android.content.SharedPreferences
+import com.yomu.core.GenerationParams
 import com.yomu.core.TranslationSlot
 import com.yomu.ml.LlamaTranslationBridge
 import com.yomu.ml.NetworkTranslationSlot
@@ -39,12 +40,18 @@ class Translator(
         const val NETWORK_ID = "network"
 
         /**
-         * The network translator (ADR-0023): it can run once [store] is set up, and its slot reads the
-         * server's settings again for every page.
+         * The network translator (ADR-0023): it can run once [store] is set up. Its slot reads the server's
+         * settings and the reader's sampler fields in [prefs] again for every page.
          */
         fun network(store: ServerSettingsStore, prefs: SharedPreferences, client: OkHttpClient): Translator =
             Translator(NETWORK_ID, "Your server", store::isSetUp, lazy {
-                NetworkTranslationSlot(client, config = { NetworkTranslatorConfig(store.address(), store.apiKey(), store.model()) })
+                NetworkTranslationSlot(client, config = {
+                    NetworkTranslatorConfig(store.address(), store.apiKey(), store.model(), readerGeneration(prefs))
+                })
             })
+
+        // The same profile the on-device slot gets: the reader's saved fields over the selected model's defaults.
+        private fun readerGeneration(prefs: SharedPreferences): GenerationParams =
+            GenerationProfileStore(prefs).load(LlmModelCatalog.selectedOrDefault(prefs.storedLlmModelId()).generationDefaults).params
     }
 }
