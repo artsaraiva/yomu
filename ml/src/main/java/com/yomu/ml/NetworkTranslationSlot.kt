@@ -91,6 +91,7 @@ class NetworkTranslationSlot(
         return Request.Builder()
             .url(chatCompletions(config.baseUrl))
             .post(body.toString().toRequestBody(JSON))
+            .apply { if (config.apiKey.isNotBlank()) header("Authorization", "Bearer ${config.apiKey}") }
             .build()
     }
 

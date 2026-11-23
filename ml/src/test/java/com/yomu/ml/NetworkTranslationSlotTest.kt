@@ -7,6 +7,7 @@ import kotlinx.coroutines.test.runTest
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -83,5 +84,20 @@ class NetworkTranslationSlotTest {
         val body = JsonParser().parse(server.takeRequest().body.readUtf8()).asJsonObject
         assertEquals(0.2, body["temperature"].asDouble, 1e-6)
         assertEquals(0.9, body["top_p"].asDouble, 1e-6)
+    }
+
+    @Test
+    fun translatePage_sendsTheKeyAsABearerTokenOnlyWhenOneIsSet() = runTest {
+        server.enqueue(chatStream("[1] Hello\n"))
+        server.enqueue(chatStream("[1] Hello\n"))
+        server.enqueue(chatStream("[1] Hello\n"))
+
+        networkSlot(server.base(), apiKey = "sk-test").translatePage(page(1 to "こんにちは"))
+        networkSlot(server.base(), apiKey = "").translatePage(page(1 to "こんにちは"))
+        networkSlot(server.base(), apiKey = "  ").translatePage(page(1 to "こんにちは"))
+
+        assertEquals("Bearer sk-test", server.takeRequest().getHeader("Authorization"))
+        assertNull(server.takeRequest().getHeader("Authorization"))
+        assertNull(server.takeRequest().getHeader("Authorization"))
     }
 }
