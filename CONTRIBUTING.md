@@ -19,7 +19,7 @@ Follow [Build from source](README.md#build-from-source) in the README. Clone wit
 2. **Branch** as `feat/<issue>-<short-name>` or `fix/<issue>-<short-name>`.
 3. **Write the failing test first**, then make it pass. [`CODING_STANDARDS.md`](CODING_STANDARDS.md) lists the code and test rules review checks against.
 4. **Commit** with [Conventional Commits](https://www.conventionalcommits.org/), for example `fix: keep the overlay above the status bar`.
-5. **Open a PR** whose body starts with `Closes #<issue>`. Keep it to that one issue.
+5. **Open a PR** whose body starts with `Closes #<issue>`. Keep it to that one issue. On your first PR, agree to the [CLA](#licence).
 
 Before pushing, run what CI runs:
 
@@ -33,7 +33,7 @@ Some changes need a check that unit tests can't give:
 - **Overlay, service or UI changes:** try them on a phone or emulator. The overlays are separate windows, so use `uiautomator dump --windows` to inspect them.
 - **Model or llama.cpp changes:** run `scripts/run-speed-benchmark.sh` and paste its table in the PR, naming the device.
 
-PRs are squash-merged into `main` once CI passes and review threads are resolved.
+PRs are squash-merged into `main` once CI and the CLA check pass and review threads are resolved.
 
 ## Test pages
 
@@ -45,4 +45,6 @@ Don't commit manga pages unless their licence allows it. The OpenMantra pages us
 
 ## Licence
 
-Yomu is licensed under [AGPL-3.0](LICENSE). By contributing, you agree that your contribution is licensed the same way. There is no CLA.
+Yomu is licensed under [AGPL-3.0](LICENSE). Contributions need a [contributor licence agreement](CLA.md) (CLA): you keep the copyright to your work and give the maintainer a licence to it, so Yomu's licence can change later without needing every contributor's consent.
+
+You agree once, on your first pull request. The CLA check fails and posts a comment saying what to reply. Once you reply, it passes, and it covers your later pull requests too.

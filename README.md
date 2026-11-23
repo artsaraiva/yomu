@@ -191,7 +191,7 @@ Bug reports, ideas and pull requests are welcome. Ask questions in [Discussions]
 
 ## License
 
-Yomu is licensed under the [GNU Affero General Public License v3.0](LICENSE) ([ADR-0019](docs/adr/0019-yomu-is-agpl-open-source.md)). Contributions are accepted under the same licence; there is no CLA. Each model is covered by its own licence (see [Models](#models)).
+Yomu is licensed under the [GNU Affero General Public License v3.0](LICENSE) ([ADR-0019](docs/adr/0019-yomu-is-agpl-open-source.md)). Contributors agree to a [contributor licence agreement](CLA.md) on their first pull request ([ADR-0021](docs/adr/0021-outside-contributions-need-a-cla.md)). Each model is covered by its own licence (see [Models](#models)).
 
 <div align="center">
 <sub>読む (yomu): "to read"</sub>

@@ -1,5 +1,7 @@
 # Yomu is open source under AGPL-3.0, with no CLA
 
+> **Revised in part by [ADR-0021](0021-outside-contributions-need-a-cla.md).** Where this ADR says contributions need no CLA, in its title, its opening and its "Contributions: no CLA" section, that no longer holds. Outside contributors now agree to a contributor licence agreement, a licence grant that lets Yomu's licence change later without needing every contributor's consent. The licence decision itself stands: Yomu is AGPL-3.0.
+
 **Status:** accepted, 2026-10-23. Decides [#403](https://github.com/artsaraiva/yomu/issues/403). Supersedes the closed-source assumption that [ADR-0007](0007-bubble-text-detection-approach.md) attributes to [ADR-0001](0001-custom-model-permissiveness.md), and resolves ADR-0007's AGPL-clearance precondition.
 
 Yomu's code is published under the GNU Affero General Public License v3.0 (`LICENSE` at the repo root). Contributions are accepted under the same licence, with no contributor licence agreement. Each model keeps its own licence, and [ADR-0017](0017-experimental-curated-tier.md)'s Apache-2.0-or-MIT rule for curated deliverables is unchanged.
