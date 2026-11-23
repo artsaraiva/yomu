@@ -9,19 +9,22 @@ internal class ThinkBlockStripper {
     private val held = StringBuilder()
     private var thinking = false
 
+    /** The tag that would change [thinking]. */
+    private val nextTag: String get() = if (thinking) CLOSE else OPEN
+
     /** The part of [piece], with what was held before it, that is known to lie outside a block. */
     fun feed(piece: String): String {
         held.append(piece)
         val visible = StringBuilder()
         while (true) {
-            val tag = if (thinking) CLOSE else OPEN
+            val tag = nextTag
             val at = held.indexOf(tag)
             if (at < 0) break
             if (!thinking) visible.append(held, 0, at)
             held.delete(0, at + tag.length)
             thinking = !thinking
         }
-        val keep = partialTagLength(if (thinking) CLOSE else OPEN)
+        val keep = partialTagLength(nextTag)
         if (!thinking) visible.append(held, 0, held.length - keep)
         held.delete(0, held.length - keep)
         return visible.toString()

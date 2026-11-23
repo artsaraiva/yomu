@@ -1,6 +1,5 @@
 package com.yomu.ml
 
-import com.google.gson.JsonParser
 import com.yomu.core.GenerationParams
 import com.yomu.core.TranslatablePage
 import com.yomu.core.TranslationOutcome
@@ -63,7 +62,7 @@ class NetworkTranslationSlotTest {
         networkSlot(server.base(), model = "gemma3:12b", generation = generation)
             .translatePage(page(1 to "こんにちは", 2 to "さようなら"))
 
-        val body = JsonParser().parse(server.takeRequest().body.readUtf8()).asJsonObject
+        val body = server.takeRequest().json()
         assertEquals(setOf("model", "messages", "stream", "temperature", "top_p", "max_tokens"), body.keySet())
         assertEquals("gemma3:12b", body["model"].asString)
         assertEquals(0.7, body["temperature"].asDouble, 1e-6)
@@ -86,7 +85,7 @@ class NetworkTranslationSlotTest {
         networkSlot(server.base(), generation = GenerationParams(temperature = 5f, topP = Float.NaN))
             .translatePage(page(1 to "こんにちは"))
 
-        val body = JsonParser().parse(server.takeRequest().body.readUtf8()).asJsonObject
+        val body = server.takeRequest().json()
         assertEquals(0.2, body["temperature"].asDouble, 1e-6)
         assertEquals(0.9, body["top_p"].asDouble, 1e-6)
     }
@@ -192,9 +191,9 @@ class NetworkTranslationSlotTest {
 
         val first = server.takeRequest()
         val second = server.takeRequest()
-        assertEquals("first", JsonParser().parse(first.body.readUtf8()).asJsonObject["model"].asString)
+        assertEquals("first", first.json()["model"].asString)
         assertNull(first.getHeader("Authorization"))
-        assertEquals("second", JsonParser().parse(second.body.readUtf8()).asJsonObject["model"].asString)
+        assertEquals("second", second.json()["model"].asString)
         assertEquals("Bearer sk-new", second.getHeader("Authorization"))
     }
 

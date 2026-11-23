@@ -3,12 +3,14 @@ package com.yomu.ml
 import com.google.gson.JsonArray
 import com.google.gson.JsonNull
 import com.google.gson.JsonObject
+import com.google.gson.JsonParser
 import com.yomu.core.GenerationParams
 import com.yomu.core.TranslatableBubble
 import com.yomu.core.TranslatablePage
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import okhttp3.mockwebserver.RecordedRequest
 
 /** One server-sent event per piece of reply text, ending with [finishReason] and `[DONE]`, as an OpenAI-compatible server streams. */
 internal fun chatStream(vararg pieces: String, finishReason: String = "stop"): MockResponse =
@@ -51,3 +53,6 @@ internal fun networkSlot(
     NetworkTranslationSlot(client, { NetworkTranslatorConfig(baseUrl, apiKey, model, generation) }, pageTimeoutMs = pageTimeoutMs)
 
 internal fun MockWebServer.base(): String = url("/").toString()
+
+/** The JSON body the slot sent. */
+internal fun RecordedRequest.json(): JsonObject = JsonParser().parse(body.readUtf8()).asJsonObject

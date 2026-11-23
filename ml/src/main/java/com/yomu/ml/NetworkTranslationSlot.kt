@@ -3,8 +3,6 @@ package com.yomu.ml
 import android.util.Log
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
-import com.google.gson.JsonParseException
-import com.google.gson.JsonParser
 import com.yomu.core.ERROR_SERVER_FAILED
 import com.yomu.core.ERROR_SERVER_KEY_REJECTED
 import com.yomu.core.ERROR_SERVER_MODEL_NOT_FOUND
@@ -34,7 +32,6 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import okio.BufferedSource
 
 /**
  * Where the network translator sends a page, and how the server samples (ADR-0023). Read again for
@@ -98,24 +95,24 @@ class NetworkTranslationSlot(
             // A blocking read can't see the coroutine's cancellation, so cancelling the page cancels the call (#76).
             @OptIn(InternalCoroutinesApi::class)
             val cancelOnCancel = coroutineContext.job.invokeOnCompletion(onCancelling = true) { call.cancel() }
-            var replied = false
+            var responded = false
             try {
                 call.execute().use { response ->
-                    replied = true
+                    responded = true
                     if (!response.isSuccessful) {
                         Log.w(TAG, "translatePage http=${response.code}")
-                        return@use result(TranslationOutcome.ERROR, httpFailure(response.code))
+                        return@use result(TranslationOutcome.ERROR, errorCodeFor(response.code))
                     }
-                    val text = response.body?.let { readStream(it.source(), reply) }.orEmpty().trim()
+                    val text = response.body?.let { readChatCompletion(it.source(), reply) }.orEmpty().trim()
                     result(if (text.isEmpty()) TranslationOutcome.BLANK else TranslationOutcome.SUCCESS, text = text)
                 }
             } catch (e: IOException) {
                 ensureActive()
-                Log.w(TAG, "translatePage failed replied=$replied ${e.javaClass.simpleName}")
+                Log.w(TAG, "translatePage failed responded=$responded ${e.javaClass.simpleName}")
                 when {
                     // Both limits end this way: OkHttp reports the connect limit and the page limit as interruptions.
                     e is InterruptedIOException -> result(TranslationOutcome.TIMEOUT, ERROR_SERVER_TIMEOUT)
-                    replied -> result(TranslationOutcome.ERROR, ERROR_SERVER_FAILED)
+                    responded -> result(TranslationOutcome.ERROR, ERROR_SERVER_FAILED)
                     else -> result(TranslationOutcome.ERROR, ERROR_SERVER_UNREACHABLE)
                 }
             } finally {
@@ -124,7 +121,7 @@ class NetworkTranslationSlot(
         }
     }
 
-    private fun httpFailure(status: Int): String = when (status) {
+    private fun errorCodeFor(httpStatus: Int): String = when (httpStatus) {
         HTTP_UNAUTHORIZED, HTTP_FORBIDDEN -> ERROR_SERVER_KEY_REJECTED
         HTTP_NOT_FOUND -> ERROR_SERVER_MODEL_NOT_FOUND
         else -> ERROR_SERVER_FAILED
@@ -164,51 +161,6 @@ class NetworkTranslationSlot(
             .build()
     }
 
-    /**
-     * Feeds each streamed piece of reply text, without its `<think>` blocks, to [reply] and returns the
-     * whole of it. A reply cut off at the token cap leaves its unfinished last line unanswered (#368).
-     */
-    private fun readStream(source: BufferedSource, reply: IdKeyedReplyReader): String {
-        val thoughts = ThinkBlockStripper()
-        val text = StringBuilder()
-        var finishReason: String? = null
-        fun take(visible: String) {
-            text.append(visible)
-            reply.feed(visible.toByteArray())
-        }
-        while (true) {
-            val line = source.readUtf8Line() ?: break
-            if (!line.startsWith(DATA)) continue
-            val data = line.removePrefix(DATA).trim()
-            if (data == DONE) break
-            val choice = choiceIn(data) ?: continue
-            choice.string("finish_reason")?.let { finishReason = it }
-            val content = choice.obj("delta")?.string("content") ?: continue
-            take(thoughts.feed(content))
-        }
-        take(thoughts.finish())
-        if (finishReason == ENDED_BY_MODEL) reply.finish()
-        return text.toString()
-    }
-
-    /** The first choice in one streamed chunk, or null when it carries none; throws when [data] is no chunk at all. */
-    private fun choiceIn(data: String): JsonObject? {
-        val chunk = try {
-            JsonParser().parse(data).takeIf { it.isJsonObject }?.asJsonObject
-        } catch (_: JsonParseException) {
-            null
-        }
-        if (chunk == null || chunk.has("error")) throw UnreadableReply()
-        return chunk.get("choices")?.takeIf { it.isJsonArray }?.asJsonArray?.firstOrNull()?.takeIf { it.isJsonObject }?.asJsonObject
-    }
-
-    private fun JsonObject.obj(name: String): JsonObject? = get(name)?.takeIf { it.isJsonObject }?.asJsonObject
-
-    private fun JsonObject.string(name: String): String? = get(name)?.takeIf { it.isJsonPrimitive }?.asString
-
-    /** A streamed line that is no chat chunk: an error the server sent mid-reply, or text that isn't one. */
-    private class UnreadableReply : IOException("unreadable reply")
-
     override fun endSession() = Unit
 
     override fun close() = Unit
@@ -222,10 +174,6 @@ class NetworkTranslationSlot(
 
         /** Above the phone's 768: a reasoning model spends tokens thinking before it answers (ADR-0023). */
         const val MAX_REPLY_TOKENS = 4096
-        const val DATA = "data:"
-        const val DONE = "[DONE]"
-        /** The `finish_reason` of a reply the model ended; any other ending, or none, may have cut a line off. */
-        const val ENDED_BY_MODEL = "stop"
         const val NANOS_PER_MS = 1_000_000L
     }
 }
