@@ -4,10 +4,13 @@ import com.google.gson.JsonParser
 import com.yomu.core.GenerationParams
 import com.yomu.core.TranslatablePage
 import com.yomu.core.TranslationOutcome
+import com.yomu.core.TranslationStatus
 import kotlinx.coroutines.test.runTest
+import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -167,5 +170,47 @@ class NetworkTranslationSlotTest {
 
         assertEquals(listOf(1 to "Hello", 2 to "Goodbye"), reported)
         assertEquals(mapOf(1 to "Hello", 2 to "Goodbye"), result.byId)
+    }
+
+    @Test
+    fun translatePage_readsTheConfigurationAgainForEveryPage() = runTest {
+        server.enqueue(chatStream("[1] Hello\n"))
+        server.enqueue(chatStream("[1] Hello\n"))
+        var config = NetworkTranslatorConfig(server.base(), apiKey = "", model = "first")
+        val slot = NetworkTranslationSlot(OkHttpClient(), { config })
+
+        slot.translatePage(page(1 to "こんにちは"))
+        config = config.copy(apiKey = "sk-new", model = "second")
+        slot.translatePage(page(1 to "こんにちは"))
+
+        val first = server.takeRequest()
+        val second = server.takeRequest()
+        assertEquals("first", JsonParser().parse(first.body.readUtf8()).asJsonObject["model"].asString)
+        assertNull(first.getHeader("Authorization"))
+        assertEquals("second", JsonParser().parse(second.body.readUtf8()).asJsonObject["model"].asString)
+        assertEquals("Bearer sk-new", second.getHeader("Authorization"))
+    }
+
+    @Test
+    fun slot_isReadyWithoutCallingTheServerAndStaysUsableAfterClosing() = runTest {
+        val slot = networkSlot(server.base())
+
+        assertTrue(slot.ensureReady())
+        assertEquals(TranslationStatus.Ready, slot.status)
+        slot.endSession()
+        slot.close()
+        server.enqueue(chatStream("[1] Hello\n"))
+
+        assertEquals(mapOf(1 to "Hello"), slot.translatePage(page(1 to "こんにちは")).byId)
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test
+    fun config_textLeavesOutTheKeyAndTheAddress() {
+        val text = NetworkTranslatorConfig("http://192.168.1.20:11434", "sk-secret", "qwen3:8b").toString()
+
+        assertFalse(text, text.contains("sk-secret"))
+        assertFalse(text, text.contains("192.168.1.20"))
+        assertTrue(text, text.contains("qwen3:8b"))
     }
 }
