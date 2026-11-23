@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12 and newer. Everything else backs up as before; the network translator's API key stays on this phone (ADR-0023). -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="yomu_server_key.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="yomu_server_key.xml" />
+    </device-transfer>
+</data-extraction-rules>

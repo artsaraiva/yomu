@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 11 and older. Everything else backs up as before; the network translator's API key stays on this phone (ADR-0023). -->
+<full-backup-content>
+    <exclude domain="sharedpref" path="yomu_server_key.xml" />
+</full-backup-content>

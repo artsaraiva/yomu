@@ -120,6 +120,9 @@ class ServerSettingsStore(
         runCatching { from.getString(key, null) }.getOrNull().orEmpty()
 
     companion object {
+        /** The SharedPreferences file that holds the sealed key; the backup rules leave it out by this name. */
+        const val KEY_FILE = "yomu_server_key"
+
         private const val PREF_ADDRESS = "server_address"
         private const val PREF_MODEL = "server_model"
         private const val PREF_CONFIRMED = "server_confirmed"
