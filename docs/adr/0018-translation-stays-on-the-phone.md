@@ -2,6 +2,8 @@
 
 **Status:** accepted, 2026-09-26. Decides [#341](https://github.com/artsaraiva/yomu/issues/341), recording the decisions of spec [#329](https://github.com/artsaraiva/yomu/issues/329). Revises in part [ADR-0001](0001-custom-model-permissiveness.md).
 
+> **Superseded by [ADR-0023](0023-network-translator-on-a-server-the-reader-chooses.md) (2026-11-23).** A translator on a server the reader chooses is now allowed, as an opt-in. The on-device translator stays the default.
+
 Every stage of a page, from capture through typesetting, runs on the reader's phone. Yomu has no cloud translator, no server of its own, and no translator on another machine the reader owns. The network is used only to download curated models, and a page report leaves the phone only when the reader sends it through the share sheet. `product-spec.md`'s Cloud Boost modes (Local Only, Hybrid, Best Quality) and its credit-based pricing tiers are no longer the plan. They move to [#324](https://github.com/artsaraiva/yomu/issues/324), a `research` issue about monetization ideas, and the spec points here.
 
 ## Why
