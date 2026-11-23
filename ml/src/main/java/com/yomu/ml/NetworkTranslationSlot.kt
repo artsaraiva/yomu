@@ -1,9 +1,13 @@
 package com.yomu.ml
 
+import android.util.Log
 import com.google.gson.JsonArray
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
+import com.yomu.core.ERROR_SERVER_FAILED
+import com.yomu.core.ERROR_SERVER_KEY_REJECTED
+import com.yomu.core.ERROR_SERVER_MODEL_NOT_FOUND
 import com.yomu.core.GenerationParams
 import com.yomu.core.PageTranslation
 import com.yomu.core.TranslatablePage
@@ -11,6 +15,9 @@ import com.yomu.core.TranslationOutcome
 import com.yomu.core.TranslationSlot
 import com.yomu.core.TranslationStatus
 import com.yomu.core.withinBounds
+import java.net.HttpURLConnection.HTTP_FORBIDDEN
+import java.net.HttpURLConnection.HTTP_NOT_FOUND
+import java.net.HttpURLConnection.HTTP_UNAUTHORIZED
 import java.util.concurrent.TimeUnit.MILLISECONDS
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -65,11 +72,26 @@ class NetworkTranslationSlot(
     ): PageTranslation {
         val started = System.nanoTime()
         val reply = IdKeyedReplyReader(page, onBubble)
+        fun result(outcome: TranslationOutcome, errorCode: String? = null, text: String = "") =
+            PageTranslation(reply.byId, text, (System.nanoTime() - started) / NANOS_PER_MS, outcome, errorCode)
+
         val request = request(config(), page)
-        val text = withContext(Dispatchers.IO) {
-            client.newCall(request).execute().use { response -> response.body?.let { readStream(it.source(), reply) } }
-        }.orEmpty().trim()
-        return PageTranslation(reply.byId, text, (System.nanoTime() - started) / NANOS_PER_MS, TranslationOutcome.SUCCESS)
+        return withContext(Dispatchers.IO) {
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    Log.w(TAG, "translatePage http=${response.code}")
+                    return@use result(TranslationOutcome.ERROR, httpFailure(response.code))
+                }
+                val text = response.body?.let { readStream(it.source(), reply) }.orEmpty().trim()
+                result(TranslationOutcome.SUCCESS, text = text)
+            }
+        }
+    }
+
+    private fun httpFailure(status: Int): String = when (status) {
+        HTTP_UNAUTHORIZED, HTTP_FORBIDDEN -> ERROR_SERVER_KEY_REJECTED
+        HTTP_NOT_FOUND -> ERROR_SERVER_MODEL_NOT_FOUND
+        else -> ERROR_SERVER_FAILED
     }
 
     private fun request(config: NetworkTranslatorConfig, page: TranslatablePage): Request {
@@ -140,6 +162,7 @@ class NetworkTranslationSlot(
     override fun close() = Unit
 
     private companion object {
+        const val TAG = "NetworkTranslationSlot"
         val JSON = "application/json".toMediaType()
 
         /** Above the phone's 768: a reasoning model spends tokens thinking before it answers (ADR-0023). */
