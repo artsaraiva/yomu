@@ -28,7 +28,7 @@ Apart from the names, the licence grant, the patent grant and the contributor's 
 - **The maintainer and bots are exempt:** `artsaraiva`, `dependabot[bot]` and `coderabbitai[bot]`.
 - **Agreements live on the `cla-signatures` branch**, in `signatures/version1/cla.json`, written by the workflow. The `main` ruleset covers only the default branch, so the action can push there. A later version of the CLA would start a new file.
 - **It never checks out or runs pull-request code.** It runs on `pull_request_target`, which uses `main`'s copy of the workflow and a write token, and its only step is the pinned action.
-- **Merged pull requests are locked**, so agreement comments can't be edited or deleted later.
+- **Merged pull requests are locked.** On a locked pull request only collaborators can add, hide or delete comments, so a contributor can't delete their agreement comment after merge. The signature file keeps its own record either way.
 - **It reports on docs-only pull requests too.** Android CI skips those, which is why they need the admin bypass. The CLA check adds nothing to that. The bypass skips every required check, though, so before using it on an outside contributor's docs-only pull request, check that the CLA check passed.
 
 ## Considered Options

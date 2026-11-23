@@ -20,8 +20,8 @@ jobs:
   cla:
     name: CLA
     # PR events, except a PR closed without merging, and comments on a PR that
-    # agree to the CLA or ask for a recheck. A merged PR gets locked so its
-    # agreement comments can't be edited or deleted later.
+    # agree to the CLA or ask for a recheck. A merged PR gets locked, so only
+    # collaborators can delete its comments, agreements included.
     if: >-
       (github.event_name == 'pull_request_target' &&
         (github.event.action != 'closed' || github.event.pull_request.merged)) ||
