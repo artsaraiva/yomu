@@ -88,6 +88,22 @@ class ServerModelListTest {
         }
     }
 
+    @Test
+    fun fetch_anErrorStatusOrAnAnswerThatIsNoModelListIsAServerError() = runTest {
+        val answers = listOf(
+            MockResponse().setResponseCode(500),
+            MockResponse().setBody("<html><body>Open WebUI</body></html>"),
+            MockResponse().setBody("""{"models":[{"name":"qwen2.5:7b"}]}"""),
+            MockResponse().setBody("""{"data":[{"object":"model"}]}""")
+        )
+        answers.forEach(server::enqueue)
+        val models = ServerModelList(OkHttpClient())
+
+        repeat(answers.size) { index ->
+            assertEquals("answer $index", ServerModels.Failed(ConnectFailure.SERVER_ERROR), models.fetch(server.url("/").toString(), ""))
+        }
+    }
+
     private companion object {
         const val LIST = """{"data":[{"id":"qwen2.5:7b"}]}"""
     }

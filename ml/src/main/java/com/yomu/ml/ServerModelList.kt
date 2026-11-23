@@ -38,7 +38,10 @@ enum class ConnectFailure {
     KEY_REJECTED,
 
     /** Plain `http://` to an address that isn't nearby; nothing was sent ([HttpsRequiredException]). */
-    HTTPS_REQUIRED
+    HTTPS_REQUIRED,
+
+    /** The server answered with another error status, or with something that is no model list. */
+    SERVER_ERROR
 }
 
 /**
@@ -73,12 +76,18 @@ class ServerModelList(client: OkHttpClient) {
             HTTP_NOT_FOUND -> return ServerModels.Unlisted
             HTTP_UNAUTHORIZED, HTTP_FORBIDDEN -> return ServerModels.Failed(ConnectFailure.KEY_REJECTED)
         }
-        val names = modelNames(response.body?.string().orEmpty())
-        return if (names.isEmpty()) ServerModels.Unlisted else ServerModels.Listed(names)
+        val names = if (response.isSuccessful) modelNames(response.body?.string().orEmpty()) else null
+        return when {
+            names == null -> ServerModels.Failed(ConnectFailure.SERVER_ERROR)
+            names.isEmpty() -> ServerModels.Unlisted
+            else -> ServerModels.Listed(names)
+        }
     }
 
-    private fun modelNames(body: String): List<String> =
+    // Null when the answer is no `/v1/models` list: an error page, another server's own API, an entry with no id.
+    private fun modelNames(body: String): List<String>? = runCatching {
         JsonParser.parseString(body).asJsonObject.getAsJsonArray("data").map { it.asJsonObject.get("id").asString }
+    }.getOrNull()
 
     private companion object {
         const val CONNECT_TIMEOUT_MS = 10_000L
