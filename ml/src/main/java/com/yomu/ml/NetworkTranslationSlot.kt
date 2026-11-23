@@ -64,7 +64,12 @@ class NetworkTranslationSlot(
     pageTimeoutMs: Long = PAGE_TIMEOUT_MS.toLong()
 ) : TranslationSlot {
 
+    // The page limit is the only one once connected: a reasoning model may think for a minute before
+    // its first token, and the client handed in may carry read and write limits of its own.
     private val client = client.newBuilder()
+        .connectTimeout(CONNECT_TIMEOUT_MS, MILLISECONDS)
+        .readTimeout(0, MILLISECONDS)
+        .writeTimeout(0, MILLISECONDS)
         .callTimeout(pageTimeoutMs, MILLISECONDS)
         .build()
 
@@ -209,6 +214,9 @@ class NetworkTranslationSlot(
     private companion object {
         const val TAG = "NetworkTranslationSlot"
         val JSON = "application/json".toMediaType()
+
+        /** ADR-0023's limit for reaching the server; the whole page then has [PAGE_TIMEOUT_MS]. */
+        const val CONNECT_TIMEOUT_MS = 10_000L
 
         /** Above the phone's 768: a reasoning model spends tokens thinking before it answers (ADR-0023). */
         const val MAX_REPLY_TOKENS = 4096

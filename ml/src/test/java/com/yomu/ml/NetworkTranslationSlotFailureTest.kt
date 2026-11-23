@@ -11,6 +11,7 @@ import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
+import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import okhttp3.mockwebserver.SocketPolicy
@@ -102,6 +103,17 @@ class NetworkTranslationSlotFailureTest {
         assertEquals(listOf(1 to "Hello"), reported)
         assertEquals(mapOf(1 to "Hello"), result.byId)
         assertTrue((System.nanoTime() - started) / 1_000_000 >= PAGE_LIMIT_MS)
+    }
+
+    @Test
+    fun translatePage_pageLimitIsTheOnlyLimitOnASlowReplyWhateverTheClientsOwnReadLimit() = runTest {
+        server.enqueue(chatStream("[1] Hello\n").setBodyDelay(300, TimeUnit.MILLISECONDS))
+        val impatient = OkHttpClient.Builder().readTimeout(100, TimeUnit.MILLISECONDS).build()
+
+        val result = networkSlot(server.base(), client = impatient).translatePage(page(1 to "こんにちは"))
+
+        assertEquals(TranslationOutcome.SUCCESS, result.outcome)
+        assertEquals(mapOf(1 to "Hello"), result.byId)
     }
 
     @Test
