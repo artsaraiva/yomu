@@ -55,4 +55,4 @@ internal fun networkSlot(
 internal fun MockWebServer.base(): String = url("/").toString()
 
 /** The JSON body the slot sent. */
-internal fun RecordedRequest.json(): JsonObject = JsonParser().parse(body.readUtf8()).asJsonObject
+internal fun RecordedRequest.json(): JsonObject = JsonParser.parseString(body.readUtf8()).asJsonObject

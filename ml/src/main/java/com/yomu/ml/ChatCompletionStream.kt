@@ -45,7 +45,7 @@ internal fun readChatCompletion(source: BufferedSource, reply: IdKeyedReplyReade
 /** The first choice in one streamed chunk, or null when it carries none, such as a usage-only chunk. */
 private fun firstChoice(data: String): JsonObject? {
     val chunk = try {
-        JsonParser().parse(data).asObjectOrNull()
+        JsonParser.parseString(data).asObjectOrNull()
     } catch (_: JsonParseException) {
         null
     }
