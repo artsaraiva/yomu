@@ -7,6 +7,9 @@ import com.yomu.core.ERROR_SERVER_TIMEOUT
 import com.yomu.core.ERROR_SERVER_UNREACHABLE
 import com.yomu.core.TranslationOutcome
 import java.net.ServerSocket
+import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
@@ -82,6 +85,24 @@ class NetworkTranslationSlotFailureTest {
         assertEquals(TranslationOutcome.TIMEOUT, result.outcome)
         assertEquals(ERROR_SERVER_TIMEOUT, result.errorCode)
         assertTrue((System.nanoTime() - started) / 1_000_000 >= PAGE_LIMIT_MS)
+    }
+
+    @Test
+    fun translatePage_cancellingMidStreamClosesTheConnection() = runTest {
+        StallingServer(chatEvents("[1] Hello\n", finishReason = null)).use { stalling ->
+            val firstLine = CompletableDeferred<Unit>()
+            val translating = launch {
+                networkSlot(stalling.baseUrl, pageTimeoutMs = 10_000)
+                    .translatePage(page(1 to "こんにちは", 2 to "さようなら")) { _, _ -> firstLine.complete(Unit) }
+            }
+            firstLine.await()
+
+            translating.cancel()
+
+            stalling.hungUp.get(5, TimeUnit.SECONDS)
+            translating.join()
+            assertTrue(translating.isCancelled)
+        }
     }
 
     private companion object {

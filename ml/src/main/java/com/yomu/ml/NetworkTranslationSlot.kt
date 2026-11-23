@@ -24,6 +24,9 @@ import java.net.HttpURLConnection.HTTP_NOT_FOUND
 import java.net.HttpURLConnection.HTTP_UNAUTHORIZED
 import java.util.concurrent.TimeUnit.MILLISECONDS
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.InternalCoroutinesApi
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.job
 import kotlinx.coroutines.withContext
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
@@ -83,9 +86,13 @@ class NetworkTranslationSlot(
         val url = chatCompletions(config.baseUrl) ?: return result(TranslationOutcome.ERROR, ERROR_SERVER_UNREACHABLE)
         val request = request(config, url, page)
         return withContext(Dispatchers.IO) {
+            val call = client.newCall(request)
+            // A blocking read can't see the coroutine's cancellation, so cancelling the page cancels the call (#76).
+            @OptIn(InternalCoroutinesApi::class)
+            val cancelOnCancel = coroutineContext.job.invokeOnCompletion(onCancelling = true) { call.cancel() }
             var replied = false
             try {
-                client.newCall(request).execute().use { response ->
+                call.execute().use { response ->
                     replied = true
                     if (!response.isSuccessful) {
                         Log.w(TAG, "translatePage http=${response.code}")
@@ -95,6 +102,7 @@ class NetworkTranslationSlot(
                     result(TranslationOutcome.SUCCESS, text = text)
                 }
             } catch (e: IOException) {
+                ensureActive()
                 Log.w(TAG, "translatePage failed replied=$replied ${e.javaClass.simpleName}")
                 when {
                     // Both limits end this way: OkHttp reports the connect limit and the page limit as interruptions.
@@ -102,6 +110,8 @@ class NetworkTranslationSlot(
                     replied -> result(TranslationOutcome.ERROR, ERROR_SERVER_FAILED)
                     else -> result(TranslationOutcome.ERROR, ERROR_SERVER_UNREACHABLE)
                 }
+            } finally {
+                cancelOnCancel.dispose()
             }
         }
     }
