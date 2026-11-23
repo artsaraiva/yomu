@@ -31,7 +31,7 @@ object AppModule {
         prefs: SharedPreferences
     ): ServerSettingsStore {
         val keyPrefs = context.getSharedPreferences(ServerSettingsStore.KEY_FILE, Context.MODE_PRIVATE)
-        return ServerSettingsStore(prefs, keyPrefs) { androidKeystoreKey() }
+        return ServerSettingsStore(prefs = prefs, keyPrefs = keyPrefs) { androidKeystoreKey() }
     }
 
     @Provides

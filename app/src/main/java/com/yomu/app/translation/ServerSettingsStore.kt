@@ -28,9 +28,9 @@ class ServerSettingsStore(
 
     private class Sealed(val iv: String, val ciphertext: String)
 
-    // The key as entered or first read this process: a saved key is opened once, and a key the Keystore
-    // would not seal still works until the app stops.
-    private var held: HeldKey? = null
+    // The key as entered or opened this process: a saved key is opened once, and a key the Keystore
+    // would not seal still works until the app stops. A failed open is not held, so the next read retries.
+    private var heldKey: HeldKey? = null
 
     /** The server's address as the reader typed it, trimmed; empty when none is set. */
     fun address(): String = readString(prefs, PREF_ADDRESS)
@@ -55,11 +55,13 @@ class ServerSettingsStore(
         return true
     }
 
+    /** Whether Connect has reached the saved address; cleared whenever the address changes. */
     fun isConfirmed(): Boolean = runCatching { prefs.getBoolean(PREF_CONFIRMED, false) }.getOrDefault(false)
 
     /** The model name picked from the server's list or typed; empty when none is set. */
     fun model(): String = readString(prefs, PREF_MODEL)
 
+    /** Saves the model name, trimmed; it stays until the address changes. */
     fun saveModel(model: String) = prefs.edit().putString(PREF_MODEL, model.trim()).apply()
 
     /**
@@ -70,10 +72,11 @@ class ServerSettingsStore(
 
     /** The reader's API key; empty when none was entered or a saved one can't be opened. */
     @Synchronized
-    fun apiKey(): String = held().value
+    fun apiKey(): String = currentKey().value
 
+    /** Whether the key is saved, held for this session only, or absent; see [ApiKeyState]. */
     @Synchronized
-    fun apiKeyState(): ApiKeyState = held().state
+    fun apiKeyState(): ApiKeyState = currentKey().state
 
     /**
      * Seals [key] and saves it, replacing any saved key; a blank key removes it. When the Keystore
@@ -93,19 +96,21 @@ class ServerSettingsStore(
             sealed == null -> ApiKeyState.NOT_SAVED
             else -> ApiKeyState.SAVED
         }
-        held = HeldKey(trimmed, state)
+        heldKey = HeldKey(trimmed, state)
         return state
     }
 
-    private fun held(): HeldKey = held ?: read().also { held = it }
+    private fun currentKey(): HeldKey = heldKey ?: openSavedKey()
 
-    // An unopenable key stays stored: the Keystore may only be failing for now.
-    private fun read(): HeldKey {
+    // An unopenable key stays stored and is not held: the Keystore may only be failing for now.
+    private fun openSavedKey(): HeldKey {
         val iv = readString(keyPrefs, KEY_IV)
         val ciphertext = readString(keyPrefs, KEY_CIPHERTEXT)
-        if (iv.isEmpty() || ciphertext.isEmpty()) return HeldKey("", ApiKeyState.NONE)
-        return runCatching { HeldKey(open(iv, ciphertext), ApiKeyState.SAVED) }
-            .getOrElse { HeldKey("", ApiKeyState.NOT_SAVED) }
+        if (iv.isEmpty() || ciphertext.isEmpty()) return HeldKey("", ApiKeyState.NONE).also { heldKey = it }
+        return runCatching { open(Sealed(iv, ciphertext)) }.fold(
+            onSuccess = { key -> HeldKey(key, ApiKeyState.SAVED).also { heldKey = it } },
+            onFailure = { HeldKey("", ApiKeyState.NOT_SAVED) }
+        )
     }
 
     // The cipher picks the IV: a Keystore key refuses one handed in, and a fresh IV per seal is what GCM needs.
@@ -115,11 +120,12 @@ class ServerSettingsStore(
         return Sealed(Base64.getEncoder().encodeToString(cipher.iv), Base64.getEncoder().encodeToString(ciphertext))
     }
 
-    private fun open(iv: String, ciphertext: String): String {
+    private fun open(sealed: Sealed): String {
+        val iv = Base64.getDecoder().decode(sealed.iv)
         val cipher = Cipher.getInstance(TRANSFORMATION).apply {
-            init(Cipher.DECRYPT_MODE, secretKey(), GCMParameterSpec(GCM_TAG_BITS, Base64.getDecoder().decode(iv)))
+            init(Cipher.DECRYPT_MODE, secretKey(), GCMParameterSpec(GCM_TAG_BITS, iv))
         }
-        return String(cipher.doFinal(Base64.getDecoder().decode(ciphertext)), Charsets.UTF_8)
+        return String(cipher.doFinal(Base64.getDecoder().decode(sealed.ciphertext)), Charsets.UTF_8)
     }
 
     private fun readString(from: SharedPreferences, key: String): String =
@@ -149,7 +155,7 @@ enum class ApiKeyState {
 
     /**
      * The Keystore failed. A key entered this session works until the app stops and is then
-     * forgotten; a key saved earlier can't be opened and reads back empty.
+     * forgotten; a key saved earlier can't be opened and reads back empty until the Keystore recovers.
      */
     NOT_SAVED
 }

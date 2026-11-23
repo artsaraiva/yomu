@@ -14,7 +14,8 @@ class ServerSettingsStoreTest {
     private val prefs = MapSharedPreferences()
     private val keyPrefs = MapSharedPreferences()
     private val softwareKey: SecretKey = KeyGenerator.getInstance("AES").apply { init(256) }.generateKey()
-    private val store = ServerSettingsStore(prefs, keyPrefs) { softwareKey }
+    private val failingKeystore: () -> SecretKey = { throw KeyStoreException("no Keystore") }
+    private val store = storeOverSamePrefs()
 
     @Test
     fun `changing the address clears the confirmation and the model`() {
@@ -48,7 +49,7 @@ class ServerSettingsStoreTest {
         store.saveAddress("http://192.168.1.20:8080")
         assertFalse(store.isSetUp())
 
-        store.confirm("http://192.168.1.20:8080")
+        assertTrue(store.confirm("http://192.168.1.20:8080"))
         assertFalse(store.isSetUp())
 
         store.saveModel("qwen2.5:7b")
@@ -81,7 +82,7 @@ class ServerSettingsStoreTest {
     fun `a saved key reads back the same after a restart, and the stored bytes do not contain it`() {
         assertEquals(ApiKeyState.SAVED, store.saveApiKey(KEY))
 
-        val afterRestart = ServerSettingsStore(prefs, keyPrefs) { softwareKey }
+        val afterRestart = storeOverSamePrefs()
 
         assertEquals(KEY, afterRestart.apiKey())
         assertEquals(ApiKeyState.SAVED, afterRestart.apiKeyState())
@@ -91,11 +92,14 @@ class ServerSettingsStoreTest {
     }
 
     @Test
-    fun `the key is kept out of the ordinary preferences`() {
+    fun `the key goes to its own file and leaves the ordinary preferences untouched`() {
         store.saveAddress("http://192.168.1.20:8080")
+        val ordinaryBefore = prefs.values.toMap()
+
         store.saveApiKey(KEY)
 
-        assertEquals(setOf("server_address"), prefs.values.keys)
+        assertEquals(ordinaryBefore, prefs.values)
+        assertTrue(keyPrefs.values.isNotEmpty())
     }
 
     @Test
@@ -105,17 +109,17 @@ class ServerSettingsStoreTest {
         assertEquals(ApiKeyState.NONE, store.saveApiKey("  "))
 
         assertTrue(keyPrefs.values.isEmpty())
-        assertEquals("", ServerSettingsStore(prefs, keyPrefs) { softwareKey }.apiKey())
+        assertEquals("", storeOverSamePrefs().apiKey())
     }
 
     @Test
     fun `with a failing Keystore the key is readable this session, nothing is written, and it is reported not saved`() {
-        val failingKeystore = ServerSettingsStore(prefs, keyPrefs) { throw KeyStoreException("no Keystore") }
+        val store = storeOverSamePrefs(failingKeystore)
 
-        assertEquals(ApiKeyState.NOT_SAVED, failingKeystore.saveApiKey(KEY))
+        assertEquals(ApiKeyState.NOT_SAVED, store.saveApiKey(KEY))
 
-        assertEquals(KEY, failingKeystore.apiKey())
-        assertEquals(ApiKeyState.NOT_SAVED, failingKeystore.apiKeyState())
+        assertEquals(KEY, store.apiKey())
+        assertEquals(ApiKeyState.NOT_SAVED, store.apiKeyState())
         assertTrue(keyPrefs.values.isEmpty())
         assertTrue(prefs.values.isEmpty())
     }
@@ -124,17 +128,15 @@ class ServerSettingsStoreTest {
     fun `a key the Keystore could not save does not bring the older saved key back after a restart`() {
         store.saveApiKey("sk-older")
 
-        ServerSettingsStore(prefs, keyPrefs) { throw KeyStoreException("no Keystore") }.saveApiKey(KEY)
+        storeOverSamePrefs(failingKeystore).saveApiKey(KEY)
 
-        assertEquals("", ServerSettingsStore(prefs, keyPrefs) { softwareKey }.apiKey())
+        assertEquals("", storeOverSamePrefs().apiKey())
     }
 
     @Test
     fun `a key saved this session is still read after the Keystore starts failing`() {
         var keystoreWorks = true
-        val store = ServerSettingsStore(prefs, keyPrefs) {
-            if (keystoreWorks) softwareKey else throw KeyStoreException("no Keystore")
-        }
+        val store = storeOverSamePrefs { if (keystoreWorks) softwareKey else failingKeystore() }
         store.saveApiKey(KEY)
 
         keystoreWorks = false
@@ -148,12 +150,29 @@ class ServerSettingsStoreTest {
         store.saveApiKey(KEY)
         val stored = keyPrefs.values.toMap()
 
-        val failingKeystore = ServerSettingsStore(prefs, keyPrefs) { throw KeyStoreException("no Keystore") }
+        val afterRestart = storeOverSamePrefs(failingKeystore)
 
-        assertEquals("", failingKeystore.apiKey())
-        assertEquals(ApiKeyState.NOT_SAVED, failingKeystore.apiKeyState())
+        assertEquals("", afterRestart.apiKey())
+        assertEquals(ApiKeyState.NOT_SAVED, afterRestart.apiKeyState())
         assertEquals(stored, keyPrefs.values)
     }
+
+    @Test
+    fun `a saved key the Keystore could not open is read once the Keystore recovers`() {
+        store.saveApiKey(KEY)
+        var keystoreWorks = false
+        val afterRestart = storeOverSamePrefs { if (keystoreWorks) softwareKey else failingKeystore() }
+        assertEquals("", afterRestart.apiKey())
+
+        keystoreWorks = true
+
+        assertEquals(KEY, afterRestart.apiKey())
+        assertEquals(ApiKeyState.SAVED, afterRestart.apiKeyState())
+    }
+
+    /** A store as the next process would build it: same files, nothing held in memory. */
+    private fun storeOverSamePrefs(keystore: () -> SecretKey = { softwareKey }) =
+        ServerSettingsStore(prefs = prefs, keyPrefs = keyPrefs, secretKey = keystore)
 
     private fun storedText(): String = (prefs.values.values + keyPrefs.values.values).joinToString(" ")
 
