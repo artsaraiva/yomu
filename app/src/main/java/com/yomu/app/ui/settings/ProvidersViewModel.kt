@@ -2,6 +2,7 @@ package com.yomu.app.ui.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.yomu.app.translation.ApiKeyState
 import com.yomu.app.translation.ServerSettingsStore
 import com.yomu.ml.ConnectFailure
 import com.yomu.ml.ServerModelList
@@ -23,7 +24,9 @@ data class ProvidersUiState(
     val apiKey: String,
     /** The model picked from the server's list or typed; stored as it changes. */
     val model: String,
-    val connection: ServerConnection = ServerConnection.NotConnected
+    val connection: ServerConnection = ServerConnection.NotConnected,
+    /** The Keystore refused the key: it works until the app closes, and must then be entered again. */
+    val keyNotSaved: Boolean = false
 )
 
 /** Where Connect stands for the address on screen. */
@@ -83,8 +86,9 @@ class ProvidersViewModel @Inject constructor(
         val address = state.value.address.trim()
         val key = state.value.apiKey.trim()
         store.saveAddress(address)
-        if (key != store.apiKey()) store.saveApiKey(key)
-        _state.update { it.copy(connection = ServerConnection.Connecting) }
+        // An unchanged key isn't sealed again, so a saved key the Keystore can't open now isn't overwritten.
+        val keyState = if (key != store.apiKey()) store.saveApiKey(key) else store.apiKeyState()
+        _state.update { it.copy(connection = ServerConnection.Connecting, keyNotSaved = keyState == ApiKeyState.NOT_SAVED) }
         return viewModelScope.launch {
             val connection = when (val result = serverModels.fetch(address, key)) {
                 is ServerModels.Listed -> {

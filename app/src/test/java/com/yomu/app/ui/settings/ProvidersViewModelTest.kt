@@ -4,6 +4,7 @@ import com.yomu.app.translation.MapSharedPreferences
 import com.yomu.app.translation.ServerSettingsStore
 import com.yomu.ml.ConnectFailure
 import com.yomu.ml.ServerModelList
+import java.security.KeyStoreException
 import java.util.concurrent.TimeUnit
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
@@ -141,6 +142,22 @@ class ProvidersViewModelTest {
 
         assertFalse(store.isConfirmed())
         assertEquals(ServerConnection.NotConnected, viewModel.state.value.connection)
+    }
+
+    @Test
+    fun `a key the Keystore won't save still reaches the server and the screen says it wasn't saved`() = runTest {
+        server.enqueue(MockResponse().setBody(TWO_MODELS))
+        val noKeystore = ServerSettingsStore(MapSharedPreferences(), MapSharedPreferences()) { throw KeyStoreException("no Keystore") }
+        val viewModel = ProvidersViewModel(noKeystore, ServerModelList(OkHttpClient()))
+        viewModel.editAddress(address())
+        viewModel.editApiKey("sk-local-1")
+        assertFalse(viewModel.state.value.keyNotSaved)
+
+        viewModel.connect().join()
+
+        assertTrue(viewModel.state.value.keyNotSaved)
+        assertEquals("Bearer sk-local-1", server.takeRequest().getHeader("Authorization"))
+        assertEquals("sk-local-1", noKeystore.apiKey())
     }
 
     private suspend fun connected(): ProvidersViewModel = viewModel().apply {
