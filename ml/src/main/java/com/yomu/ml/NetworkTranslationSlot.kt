@@ -28,7 +28,6 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.job
 import kotlinx.coroutines.withContext
 import okhttp3.HttpUrl
-import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -91,7 +90,7 @@ class NetworkTranslationSlot(
             PageTranslation(reply.byId, text, (System.nanoTime() - started) / NANOS_PER_MS, outcome, errorCode)
 
         val config = config()
-        val url = chatCompletions(config.baseUrl) ?: return result(TranslationOutcome.ERROR, ERROR_SERVER_UNREACHABLE)
+        val url = serverEndpoint(config.baseUrl, "chat", "completions") ?: return result(TranslationOutcome.ERROR, ERROR_SERVER_UNREACHABLE)
         val request = request(config, url, page)
         return withContext(Dispatchers.IO) {
             val call = client.newCall(request)
@@ -151,17 +150,6 @@ class NetworkTranslationSlot(
             .url(url)
             .post(body.toString().toRequestBody(JSON))
             .apply { if (config.apiKey.isNotBlank()) header("Authorization", "Bearer ${config.apiKey}") }
-            .build()
-    }
-
-    /** `{base}/v1/chat/completions`, whether or not the reader's address already ends in `/v1`; null when it is no address. */
-    private fun chatCompletions(baseUrl: String): HttpUrl? {
-        val base = baseUrl.toHttpUrlOrNull() ?: return null
-        val segments = base.pathSegments.filter { it.isNotEmpty() }
-        val path = if (segments.lastOrNull() == "v1") segments else segments + "v1"
-        return base.newBuilder()
-            .encodedPath("/")
-            .apply { (path + listOf("chat", "completions")).forEach(::addPathSegment) }
             .build()
     }
 
