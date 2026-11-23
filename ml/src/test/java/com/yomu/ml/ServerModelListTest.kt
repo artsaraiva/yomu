@@ -59,6 +59,26 @@ class ServerModelListTest {
         }
     }
 
+    @Test
+    fun fetch_nothingListeningIsUnreachable() = runTest {
+        server.start()
+        val address = server.url("/").toString()
+        server.shutdown()
+
+        assertEquals(ServerModels.Failed(ConnectFailure.UNREACHABLE), ServerModelList(OkHttpClient()).fetch(address, ""))
+    }
+
+    @Test
+    fun fetch_plainHttpToAPublicAddressNeedsHttpsAndSendsNothing() = runTest {
+        server.start(LOOPBACK, 0)
+        val client = stubNetwork("api.example.com" to listOf("203.0.113.7")).build()
+
+        val result = ServerModelList(client).fetch("http://api.example.com:${server.port}", "sk-local-1")
+
+        assertEquals(ServerModels.Failed(ConnectFailure.HTTPS_REQUIRED), result)
+        assertEquals(0, server.requestCount)
+    }
+
     private companion object {
         const val LIST = """{"data":[{"id":"qwen2.5:7b"}]}"""
     }

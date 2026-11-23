@@ -5,6 +5,7 @@ import java.io.IOException
 import java.net.HttpURLConnection.HTTP_FORBIDDEN
 import java.net.HttpURLConnection.HTTP_NOT_FOUND
 import java.net.HttpURLConnection.HTTP_UNAUTHORIZED
+import java.util.concurrent.TimeUnit.MILLISECONDS
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.suspendCancellableCoroutine
 import okhttp3.Call
@@ -27,8 +28,14 @@ sealed interface ServerModels {
 
 /** Why Connect failed, each told to the reader in its own words. */
 enum class ConnectFailure {
+    /** No server answered at the address: nothing listening, no such host, or no answer in time. */
+    UNREACHABLE,
+
     /** The server answered 401 or 403. */
-    KEY_REJECTED
+    KEY_REJECTED,
+
+    /** Plain `http://` to an address that isn't nearby; nothing was sent ([HttpsRequiredException]). */
+    HTTPS_REQUIRED
 }
 
 /**
@@ -36,7 +43,8 @@ enum class ConnectFailure {
  * the Providers screen contacts the server.
  */
 class ServerModelList(client: OkHttpClient) {
-    private val client = ServerHttpClient(client)
+    // ADR-0023's limit for reaching the server: an address with no machine behind it fails in seconds.
+    private val client = ServerHttpClient(client.newBuilder().connectTimeout(CONNECT_TIMEOUT_MS, MILLISECONDS).build())
 
     /**
      * Asks the server at [address] for its models, sending [apiKey] as `Authorization: Bearer` only when
@@ -48,7 +56,13 @@ class ServerModelList(client: OkHttpClient) {
             .url(url)
             .apply { if (apiKey.isNotBlank()) header("Authorization", "Bearer ${apiKey.trim()}") }
             .build()
-        return client.newCall(request).await(::modelsFrom)
+        return try {
+            client.newCall(request).await(::modelsFrom)
+        } catch (e: HttpsRequiredException) {
+            ServerModels.Failed(ConnectFailure.HTTPS_REQUIRED)
+        } catch (e: IOException) {
+            ServerModels.Failed(ConnectFailure.UNREACHABLE)
+        }
     }
 
     private fun modelsFrom(response: Response): ServerModels {
@@ -62,6 +76,10 @@ class ServerModelList(client: OkHttpClient) {
 
     private fun modelNames(body: String): List<String> =
         JsonParser.parseString(body).asJsonObject.getAsJsonArray("data").map { it.asJsonObject.get("id").asString }
+
+    private companion object {
+        const val CONNECT_TIMEOUT_MS = 10_000L
+    }
 }
 
 // The reply is read on OkHttp's thread, so a caller on the main thread never blocks on the network.
