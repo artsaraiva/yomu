@@ -16,6 +16,7 @@ import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -96,6 +97,21 @@ class ProvidersViewModelTest {
 
         assertEquals("qwen2.5:7b-instruct", store.model())
         assertTrue(store.isSetUp())
+    }
+
+    @Test
+    fun `editing the address after Connect clears the confirmation and the model`() = runTest {
+        server.enqueue(MockResponse().setBody(TWO_MODELS))
+        val viewModel = connected()
+        viewModel.pickModel("qwen2.5:7b")
+
+        viewModel.editAddress(address() + "x")
+
+        assertFalse(store.isConfirmed())
+        assertEquals("", store.model())
+        assertEquals(ServerConnection.NotConnected, viewModel.state.value.connection)
+        assertEquals("", viewModel.state.value.model)
+        assertEquals(1, server.requestCount)
     }
 
     private suspend fun connected(): ProvidersViewModel = viewModel().apply {

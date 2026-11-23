@@ -49,8 +49,22 @@ class ProvidersViewModel @Inject constructor(
     private val _state = MutableStateFlow(ProvidersUiState(address = store.address(), apiKey = store.apiKey(), model = store.model()))
     val state: StateFlow<ProvidersUiState> = _state.asStateFlow()
 
+    private var connecting: Job? = null
+
+    /**
+     * Keeps [address] as typed and sends nothing. A different address than the saved one drops Connect's
+     * confirmation and the model, and stops a Connect still running, so the key only reaches an address
+     * Connect confirmed.
+     */
     fun editAddress(address: String) {
-        _state.update { it.copy(address = address) }
+        val saved = store.address()
+        store.saveAddress(address)
+        if (store.address() == saved) {
+            _state.update { it.copy(address = address) }
+            return
+        }
+        connecting?.cancel()
+        _state.update { it.copy(address = address, model = store.model(), connection = ServerConnection.NotConnected) }
     }
 
     fun editApiKey(key: String) {
@@ -80,7 +94,7 @@ class ProvidersViewModel @Inject constructor(
                 else -> ServerConnection.NotConnected
             }
             _state.update { it.copy(connection = connection) }
-        }
+        }.also { connecting = it }
     }
 
     /** Stores [model], picked from the server's list or typed. */
