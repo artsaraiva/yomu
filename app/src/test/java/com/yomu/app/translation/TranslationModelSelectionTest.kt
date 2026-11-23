@@ -50,6 +50,17 @@ class TranslationModelSelectionTest {
     }
 
     @Test
+    fun `current keeps the on-device slot when no translator or an unknown one is stored`() {
+        val llama = Mockito.mock(LlamaTranslationBridge::class.java)
+        val prefs = MapSharedPreferences()
+        val selection = selection(llama = llama, prefs = prefs, others = listOf(fakeTranslator()))
+
+        assertSame(llama, selection.current())
+        prefs.values[Constants.PREF_TRANSLATOR] = "retired-translator"
+        assertSame(llama, selection.current())
+    }
+
+    @Test
     fun `currentLlmModel defaults when nothing is picked`() {
         val prefs = Mockito.mock(SharedPreferences::class.java)
         Mockito.`when`(prefs.getString(Constants.PREF_LLM_MODEL, null))
