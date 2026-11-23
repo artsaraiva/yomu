@@ -10,6 +10,7 @@ import com.yomu.core.TranslatablePage
 import com.yomu.core.TranslationOutcome
 import com.yomu.core.TranslationSlot
 import com.yomu.core.TranslationStatus
+import com.yomu.core.withinBounds
 import java.util.concurrent.TimeUnit.MILLISECONDS
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -76,13 +77,15 @@ class NetworkTranslationSlot(
             addProperty("role", "user")
             addProperty("content", idKeyedPagePrompt(page))
         }
+        // Re-checked here, as at the on-device boundary: a caller that bypasses the store must not send an unsafe value (#192).
+        val generation = config.generation.withinBounds()
         val body = JsonObject().apply {
             addProperty("model", config.model)
             add("messages", JsonArray().apply { add(message) })
             addProperty("stream", true)
             // Top-k and the penalties are not part of the protocol, and a server may reject them (ADR-0023).
-            addProperty("temperature", config.generation.temperature)
-            addProperty("top_p", config.generation.topP)
+            addProperty("temperature", generation.temperature)
+            addProperty("top_p", generation.topP)
             addProperty("max_tokens", MAX_REPLY_TOKENS)
         }
         return Request.Builder()

@@ -72,4 +72,16 @@ class NetworkTranslationSlotTest {
             message["content"].asString
         )
     }
+
+    @Test
+    fun translatePage_samplerValueOutsideItsBoundIsSentAsTheDefault() = runTest {
+        server.enqueue(chatStream("[1] Hello\n"))
+
+        networkSlot(server.base(), generation = GenerationParams(temperature = 5f, topP = Float.NaN))
+            .translatePage(page(1 to "こんにちは"))
+
+        val body = JsonParser().parse(server.takeRequest().body.readUtf8()).asJsonObject
+        assertEquals(0.2, body["temperature"].asDouble, 1e-6)
+        assertEquals(0.9, body["top_p"].asDouble, 1e-6)
+    }
 }
