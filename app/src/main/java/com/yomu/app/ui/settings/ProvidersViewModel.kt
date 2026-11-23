@@ -105,6 +105,8 @@ class ProvidersViewModel @Inject constructor(
             val connection = when (val result = serverModels.fetch(address, key)) {
                 is ServerModels.Listed -> {
                     store.confirm(address)
+                    // A model the server no longer lists would fail every page; the reader picks again.
+                    if (store.model() !in result.names) store.saveModel("")
                     ServerConnection.Connected(result.names)
                 }
                 ServerModels.Unlisted -> {
@@ -113,7 +115,7 @@ class ProvidersViewModel @Inject constructor(
                 }
                 is ServerModels.Failed -> ServerConnection.Failed(result.failure)
             }
-            _state.update { it.copy(connection = connection) }
+            _state.update { it.copy(connection = connection, model = store.model()) }
         }.also { connecting = it }
     }
 

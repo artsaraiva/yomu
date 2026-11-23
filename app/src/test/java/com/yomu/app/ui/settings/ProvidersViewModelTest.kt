@@ -183,6 +183,21 @@ class ProvidersViewModelTest {
         assertEquals(0, server.requestCount)
     }
 
+    @Test
+    fun `Connect keeps a stored model the server still lists and drops one it no longer does`() = runTest {
+        repeat(2) { server.enqueue(MockResponse().setBody(TWO_MODELS)) }
+        server.enqueue(MockResponse().setBody("""{"data":[{"id":"gemma3:4b"}]}"""))
+        val viewModel = connected()
+        viewModel.pickModel("qwen2.5:7b")
+
+        viewModel.connect().join()
+        assertEquals("qwen2.5:7b", store.model())
+
+        viewModel.connect().join()
+        assertEquals("", store.model())
+        assertEquals("", viewModel.state.value.model)
+    }
+
     private suspend fun connected(): ProvidersViewModel = viewModel().apply {
         editAddress(address())
         connect().join()
