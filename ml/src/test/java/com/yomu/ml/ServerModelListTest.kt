@@ -79,6 +79,15 @@ class ServerModelListTest {
         assertEquals(0, server.requestCount)
     }
 
+    @Test
+    fun fetch_addressWithoutHttpOrHttpsIsNotAnAddress() = runTest {
+        val models = ServerModelList(OkHttpClient())
+
+        for (address in listOf("192.168.1.20:11434", "ftp://192.168.1.20", "")) {
+            assertEquals(address, ServerModels.Failed(ConnectFailure.NOT_AN_ADDRESS), models.fetch(address, ""))
+        }
+    }
+
     private companion object {
         const val LIST = """{"data":[{"id":"qwen2.5:7b"}]}"""
     }

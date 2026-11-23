@@ -28,6 +28,9 @@ sealed interface ServerModels {
 
 /** Why Connect failed, each told to the reader in its own words. */
 enum class ConnectFailure {
+    /** The address doesn't start with `http://` or `https://`, or isn't an address at all; nothing was sent. */
+    NOT_AN_ADDRESS,
+
     /** No server answered at the address: nothing listening, no such host, or no answer in time. */
     UNREACHABLE,
 
@@ -51,7 +54,7 @@ class ServerModelList(client: OkHttpClient) {
      * it is not blank. Cancelling the coroutine cancels the request.
      */
     suspend fun fetch(address: String, apiKey: String): ServerModels {
-        val url = requireNotNull(serverEndpoint(address, "models"))
+        val url = serverEndpoint(address, "models") ?: return ServerModels.Failed(ConnectFailure.NOT_AN_ADDRESS)
         val request = Request.Builder()
             .url(url)
             .apply { if (apiKey.isNotBlank()) header("Authorization", "Bearer ${apiKey.trim()}") }
