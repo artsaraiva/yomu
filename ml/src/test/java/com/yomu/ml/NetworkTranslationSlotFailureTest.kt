@@ -1,6 +1,7 @@
 package com.yomu.ml
 
 import com.yomu.core.ERROR_SERVER_FAILED
+import com.yomu.core.ERROR_SERVER_HTTPS_REQUIRED
 import com.yomu.core.ERROR_SERVER_KEY_REJECTED
 import com.yomu.core.ERROR_SERVER_MODEL_NOT_FOUND
 import com.yomu.core.ERROR_SERVER_TIMEOUT
@@ -101,6 +102,20 @@ class NetworkTranslationSlotFailureTest {
             assertEquals(base, TranslationOutcome.ERROR, result.outcome)
             assertEquals(base, ERROR_SERVER_UNREACHABLE, result.errorCode)
         }
+    }
+
+    @Test
+    fun translatePage_plainHttpToAPublicAddressFailsWithItsOwnCodeAndSendsNothing() = runTest {
+        server.start(LOOPBACK, 0)
+        server.enqueue(chatStream("[1] Hello\n"))
+        val publicName = stubNetwork("translate.example.com" to listOf("203.0.113.7")).build()
+
+        val result = networkSlot("http://translate.example.com:${server.port}", client = publicName)
+            .translatePage(page(1 to "こんにちは"))
+
+        assertEquals(TranslationOutcome.ERROR, result.outcome)
+        assertEquals(ERROR_SERVER_HTTPS_REQUIRED, result.errorCode)
+        assertEquals(0, server.requestCount)
     }
 
     @Test

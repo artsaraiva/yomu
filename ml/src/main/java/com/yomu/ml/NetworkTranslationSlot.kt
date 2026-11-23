@@ -4,6 +4,7 @@ import android.util.Log
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import com.yomu.core.ERROR_SERVER_FAILED
+import com.yomu.core.ERROR_SERVER_HTTPS_REQUIRED
 import com.yomu.core.ERROR_SERVER_KEY_REJECTED
 import com.yomu.core.ERROR_SERVER_MODEL_NOT_FOUND
 import com.yomu.core.ERROR_SERVER_TIMEOUT
@@ -64,13 +65,15 @@ class NetworkTranslationSlot(
     // The page limit is the only one once connected: a reasoning model may think for a minute before
     // its first token, and the client handed in may carry read and write limits of its own. No retry
     // (ADR-0023): OkHttp would otherwise send a page again when a kept-alive connection drops.
-    private val client = client.newBuilder()
-        .retryOnConnectionFailure(false)
-        .connectTimeout(CONNECT_TIMEOUT_MS, MILLISECONDS)
-        .readTimeout(0, MILLISECONDS)
-        .writeTimeout(0, MILLISECONDS)
-        .callTimeout(pageTimeoutMs, MILLISECONDS)
-        .build()
+    private val client = ServerHttpClient(
+        client.newBuilder()
+            .retryOnConnectionFailure(false)
+            .connectTimeout(CONNECT_TIMEOUT_MS, MILLISECONDS)
+            .readTimeout(0, MILLISECONDS)
+            .writeTimeout(0, MILLISECONDS)
+            .callTimeout(pageTimeoutMs, MILLISECONDS)
+            .build()
+    )
 
     /** Always ready: there is nothing to load, and whether a server is set up is the translator's question. */
     override val status: TranslationStatus = TranslationStatus.Ready
@@ -110,6 +113,7 @@ class NetworkTranslationSlot(
                 ensureActive()
                 Log.w(TAG, "translatePage failed responded=$responded ${e.javaClass.simpleName}")
                 when {
+                    e is HttpsRequiredException -> result(TranslationOutcome.ERROR, ERROR_SERVER_HTTPS_REQUIRED)
                     // Both limits end this way: OkHttp reports the connect limit and the page limit as interruptions.
                     e is InterruptedIOException -> result(TranslationOutcome.TIMEOUT, ERROR_SERVER_TIMEOUT)
                     responded -> result(TranslationOutcome.ERROR, ERROR_SERVER_FAILED)
