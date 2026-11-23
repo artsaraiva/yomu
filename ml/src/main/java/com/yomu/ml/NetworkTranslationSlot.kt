@@ -8,6 +8,7 @@ import com.google.gson.JsonParser
 import com.yomu.core.ERROR_SERVER_FAILED
 import com.yomu.core.ERROR_SERVER_KEY_REJECTED
 import com.yomu.core.ERROR_SERVER_MODEL_NOT_FOUND
+import com.yomu.core.ERROR_SERVER_TIMEOUT
 import com.yomu.core.ERROR_SERVER_UNREACHABLE
 import com.yomu.core.GenerationParams
 import com.yomu.core.PageTranslation
@@ -17,6 +18,7 @@ import com.yomu.core.TranslationSlot
 import com.yomu.core.TranslationStatus
 import com.yomu.core.withinBounds
 import java.io.IOException
+import java.io.InterruptedIOException
 import java.net.HttpURLConnection.HTTP_FORBIDDEN
 import java.net.HttpURLConnection.HTTP_NOT_FOUND
 import java.net.HttpURLConnection.HTTP_UNAUTHORIZED
@@ -81,19 +83,25 @@ class NetworkTranslationSlot(
         val url = chatCompletions(config.baseUrl) ?: return result(TranslationOutcome.ERROR, ERROR_SERVER_UNREACHABLE)
         val request = request(config, url, page)
         return withContext(Dispatchers.IO) {
-            val response = try {
-                client.newCall(request).execute()
-            } catch (e: IOException) {
-                Log.w(TAG, "translatePage unreachable ${e.javaClass.simpleName}")
-                return@withContext result(TranslationOutcome.ERROR, ERROR_SERVER_UNREACHABLE)
-            }
-            response.use {
-                if (!response.isSuccessful) {
-                    Log.w(TAG, "translatePage http=${response.code}")
-                    return@use result(TranslationOutcome.ERROR, httpFailure(response.code))
+            var replied = false
+            try {
+                client.newCall(request).execute().use { response ->
+                    replied = true
+                    if (!response.isSuccessful) {
+                        Log.w(TAG, "translatePage http=${response.code}")
+                        return@use result(TranslationOutcome.ERROR, httpFailure(response.code))
+                    }
+                    val text = response.body?.let { readStream(it.source(), reply) }.orEmpty().trim()
+                    result(TranslationOutcome.SUCCESS, text = text)
                 }
-                val text = response.body?.let { readStream(it.source(), reply) }.orEmpty().trim()
-                result(TranslationOutcome.SUCCESS, text = text)
+            } catch (e: IOException) {
+                Log.w(TAG, "translatePage failed replied=$replied ${e.javaClass.simpleName}")
+                when {
+                    // Both limits end this way: OkHttp reports the connect limit and the page limit as interruptions.
+                    e is InterruptedIOException -> result(TranslationOutcome.TIMEOUT, ERROR_SERVER_TIMEOUT)
+                    replied -> result(TranslationOutcome.ERROR, ERROR_SERVER_FAILED)
+                    else -> result(TranslationOutcome.ERROR, ERROR_SERVER_UNREACHABLE)
+                }
             }
         }
     }
