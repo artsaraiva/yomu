@@ -9,11 +9,15 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import okhttp3.OkHttpClient
+import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -48,7 +52,33 @@ class ProvidersViewModelTest {
         assertEquals(0, server.requestCount)
     }
 
+    @Test
+    fun `Connect sends the key only to the address on screen and lists the server's models`() = runTest {
+        server.enqueue(MockResponse().setBody(TWO_MODELS))
+        server.enqueue(MockResponse().setBody(TWO_MODELS))
+        val viewModel = viewModel()
+        viewModel.editAddress(address())
+        viewModel.editApiKey("sk-local-1")
+
+        viewModel.connect().join()
+
+        val request = server.takeRequest()
+        assertEquals("/v1/models", request.path)
+        assertEquals("Bearer sk-local-1", request.getHeader("Authorization"))
+        assertEquals(ServerConnection.Connected(listOf("qwen2.5:7b", "gemma3:4b")), viewModel.state.value.connection)
+        assertTrue(store.isConfirmed())
+
+        viewModel.editApiKey("")
+        viewModel.connect().join()
+
+        assertNull(server.takeRequest().getHeader("Authorization"))
+    }
+
     private fun viewModel() = ProvidersViewModel(store, ServerModelList(OkHttpClient()))
 
     private fun address(): String = server.url("/").toString()
+
+    private companion object {
+        const val TWO_MODELS = """{"object":"list","data":[{"id":"qwen2.5:7b"},{"id":"gemma3:4b"}]}"""
+    }
 }
