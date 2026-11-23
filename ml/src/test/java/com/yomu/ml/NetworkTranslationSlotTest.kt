@@ -119,4 +119,30 @@ class NetworkTranslationSlotTest {
         assertEquals(mapOf(1 to "Hello", 2 to "Goodbye <3"), result.byId)
         assertEquals("[1] Hello\n[2] Goodbye <3", result.rawResponse)
     }
+
+    @Test
+    fun translatePage_replyCutOffAtTheTokenCapLeavesItsUnfinishedLastLineUnanswered() = runTest {
+        server.enqueue(chatStream("[1] Hello\n[2] Good", finishReason = "length"))
+        server.enqueue(chatStream("[1] Hello\n[2] Goodbye", finishReason = "stop"))
+        val slot = networkSlot(server.base())
+
+        val cutOff = slot.translatePage(page(1 to "こんにちは", 2 to "さようなら"))
+        val ended = slot.translatePage(page(1 to "こんにちは", 2 to "さようなら"))
+
+        assertEquals(mapOf(1 to "Hello"), cutOff.byId)
+        assertEquals(mapOf(1 to "Hello", 2 to "Goodbye"), ended.byId)
+    }
+
+    @Test
+    fun translatePage_firstLineForAnIdWinsAndIdsNotOnThePageAreIgnored() = runTest {
+        server.enqueue(chatStream("[1] Hello\n[9] Ghost\n[1] Hi again\n[2] Goodbye\n"))
+        val reported = mutableListOf<Pair<Int, String>>()
+
+        val result = networkSlot(server.base()).translatePage(page(1 to "こんにちは", 2 to "さようなら")) { id, text ->
+            reported += id to text
+        }
+
+        assertEquals(listOf(1 to "Hello", 2 to "Goodbye"), reported)
+        assertEquals(mapOf(1 to "Hello", 2 to "Goodbye"), result.byId)
+    }
 }

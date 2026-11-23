@@ -106,10 +106,14 @@ class NetworkTranslationSlot(
             .build()
     }
 
-    /** Feeds each streamed piece of reply text, without its `<think>` blocks, to [reply] and returns the whole of it. */
+    /**
+     * Feeds each streamed piece of reply text, without its `<think>` blocks, to [reply] and returns the
+     * whole of it. A reply cut off at the token cap leaves its unfinished last line unanswered (#368).
+     */
     private fun readStream(source: BufferedSource, reply: IdKeyedReplyReader): String {
         val thoughts = ThinkBlockStripper()
         val text = StringBuilder()
+        var finishReason: String? = null
         fun take(visible: String) {
             text.append(visible)
             reply.feed(visible.toByteArray())
@@ -120,11 +124,12 @@ class NetworkTranslationSlot(
             val data = line.removePrefix(DATA).trim()
             if (data == DONE) break
             val choice = JsonParser().parse(data).asJsonObject.getAsJsonArray("choices").first().asJsonObject
+            choice.get("finish_reason").stringOrNull()?.let { finishReason = it }
             val content = choice.getAsJsonObject("delta").get("content").stringOrNull() ?: continue
             take(thoughts.feed(content))
         }
         take(thoughts.finish())
-        reply.finish()
+        if (finishReason != CUT_OFF) reply.finish()
         return text.toString()
     }
 
@@ -141,6 +146,8 @@ class NetworkTranslationSlot(
         const val MAX_REPLY_TOKENS = 4096
         const val DATA = "data:"
         const val DONE = "[DONE]"
+        /** The `finish_reason` of a reply that reached [MAX_REPLY_TOKENS] rather than ending. */
+        const val CUT_OFF = "length"
         const val NANOS_PER_MS = 1_000_000L
     }
 }
