@@ -38,7 +38,7 @@ std::string format_chat_prompt(const common_chat_templates *templates,
     inputs.force_pure_content = true;
 
     try {
-        return common_chat_templates_apply(templates, inputs).prompt;
+        return common_chat_templates_apply(templates, inputs).prompt.str();
     } catch (const std::exception &) {
         return cat_prompt(user_prompt);
     }
