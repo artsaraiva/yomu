@@ -9,13 +9,14 @@ import android.graphics.Bitmap
 internal class PieceReader(private val readWhole: (Bitmap) -> OcrResult?) {
 
     /**
-     * The text of [crop]. Vertical text of many columns is read two columns at a time, right to left; anything
-     * else is read whole and returned as [readWhole] gave it. Piece reads are joined in reading order with the
-     * lowest piece confidence, boxed as the whole crop. If any piece fails to read or reads blank, the crop is
-     * read whole instead.
+     * The text of [crop]. Vertical text of many columns is read two columns at a time, right to left ([columnPairs]);
+     * failing that, one long line is read in pieces left to right ([linePieces]); anything else is read whole and
+     * returned as [readWhole] gave it. Piece reads are joined in reading order with the lowest piece confidence,
+     * boxed as the whole crop. If any piece fails to read or reads blank, the crop is read whole instead.
      */
     fun read(crop: Bitmap): OcrResult? {
-        val pieces = columnPairs(InkMask(crop))
+        val ink = InkMask(crop)
+        val pieces = columnPairs(ink).ifEmpty { linePieces(ink) }
         if (pieces.size < 2) return readWhole(crop)
         val reads = mutableListOf<OcrResult>()
         for (piece in tile(pieces, crop.width)) {

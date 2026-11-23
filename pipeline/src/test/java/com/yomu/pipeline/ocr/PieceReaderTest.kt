@@ -50,6 +50,16 @@ class PieceReaderTest {
     }
 
     /**
+     * One horizontal line, 16 px tall: a square glyph per label, [labels] in reading order from x = 10, 4 px apart
+     * unless [gapsAfter] sets the gap after a label, in a crop 10 px wider than the line. [extra] glyphs are drawn too.
+     */
+    private fun line(labels: String, gapsAfter: Map<Char, Int> = emptyMap(), extra: List<Glyph> = emptyList()): Bitmap {
+        var left = 10
+        val glyphs = labels.map { label -> Glyph(label, left, 12, 16, 16).also { left += 16 + (gapsAfter[label] ?: 4) } }
+        return crop(glyphs.last().left + 16 + 10, 40, glyphs + extra)
+    }
+
+    /**
      * Horizontal text: one line per label, [labels] from the top, each eight 16 px square glyphs 4 px apart and
      * 10 px below the line above, so the glyphs of every line stand in the same columns.
      */
@@ -335,5 +345,140 @@ class PieceReaderTest {
         PieceReader(reader::read).read(columns("ABCDEFGH", glyphTops = { tops }))
 
         assertEquals(listOf("ABCDEFGH"), reader.asked)
+    }
+
+    @Test
+    fun `a long caption is split between characters every five line heights or so`() {
+        val reader = fakeReader()
+
+        val read = PieceReader(reader::read).read(line("ABCDEFGHIJKLMNOPQRST"))
+
+        assertEquals(listOf("ABCD", "EFGH", "IJKL", "MNOP", "QRST"), reader.asked)
+        assertEquals("ABCDEFGHIJKLMNOPQRST", read?.text)
+    }
+
+    @Test
+    fun `the split falls on the broadest gap the piece can reach`() {
+        val reader = fakeReader()
+
+        PieceReader(reader::read).read(line("ABCDEFGHIJKLMNOPQRST", gapsAfter = mapOf('E' to 8)))
+
+        assertEquals("ABCDE", reader.asked.first())
+    }
+
+    @Test
+    fun `a gap centred three quarters of a piece along is within reach`() {
+        val reader = fakeReader()
+        // The 9 px gap after C is centred 60 px, three quarters of the 80 px piece, from the line's start.
+        PieceReader(reader::read).read(line("ABCDEFGHIJKLMNOPQRST", gapsAfter = mapOf('C' to 9)))
+
+        assertEquals("ABC", reader.asked.first())
+    }
+
+    @Test
+    fun `a gap centred a piece and a quarter along is within reach`() {
+        val reader = fakeReader()
+        // The 9 px gap after E is centred 100 px, a piece and a quarter, from the line's start.
+        PieceReader(reader::read).read(line("ABCDEFGHIJKLMNOPQRST", gapsAfter = mapOf('E' to 9)))
+
+        assertEquals("ABCDE", reader.asked.first())
+    }
+
+    @Test
+    fun `a one pixel gap between characters is enough to split at`() {
+        val reader = fakeReader()
+
+        PieceReader(reader::read).read(line("ABCDEFGHIJKLMNOPQRST", gapsAfter = mapOf('D' to 1, 'E' to 1)))
+
+        assertEquals("ABCD", reader.asked.first())
+    }
+
+    @Test
+    fun `leftover characters too few for a piece of their own stay with the final piece`() {
+        val reader = fakeReader()
+
+        PieceReader(reader::read).read(line("ABCDEFGHIJKLMNOPQRSTUV"))
+
+        assertEquals(listOf("ABCD", "EFGH", "IJKL", "MNOP", "QRSTUV"), reader.asked)
+    }
+
+    @Test
+    fun `a remainder of exactly a piece and a half is left as one last piece`() {
+        val reader = fakeReader()
+        // The wider gap after S stretches the line so 120 px are left after the cut before Q.
+        PieceReader(reader::read).read(line("ABCDEFGHIJKLMNOPQRSTUV", gapsAfter = mapOf('S' to 6)))
+
+        assertEquals(listOf("ABCD", "EFGH", "IJKL", "MNOP", "QRSTUV"), reader.asked)
+    }
+
+    @Test
+    fun `no split leaves under half a piece for the end`() {
+        val reader = fakeReader()
+
+        // The wider gap after U is in reach, but cutting there would leave VW, 39 px, to be read alone.
+        PieceReader(reader::read).read(line("ABCDEFGHIJKLMNOPQRSTUVW", gapsAfter = mapOf('U' to 5)))
+
+        assertEquals(listOf("ABCD", "EFGH", "IJKL", "MNOP", "QRST", "UVW"), reader.asked)
+    }
+
+    @Test
+    fun `a split may leave exactly half a piece for the end`() {
+        val reader = fakeReader()
+
+        // Cutting in the wider gap after U leaves VW, 40 px, to be read alone.
+        PieceReader(reader::read).read(line("ABCDEFGHIJKLMNOPQRSTUVW", gapsAfter = mapOf('U' to 5, 'V' to 5)))
+
+        assertEquals(listOf("ABCD", "EFGH", "IJKL", "MNOP", "QRSTU", "VW"), reader.asked)
+    }
+
+    @Test
+    fun `a dot over a long caption still lets it be split`() {
+        val reader = fakeReader()
+
+        PieceReader(reader::read).read(line("ABCDEFGHIJKLMNOPQRST", extra = listOf(Glyph('z', 50, 2, 2, 2))))
+
+        assertEquals(listOf("ABCDz", "EFGH", "IJKL", "MNOP", "QRST"), reader.asked)
+    }
+
+    @Test
+    fun `a dot above a gap does not stop the caption splitting there`() {
+        val reader = fakeReader()
+
+        // The dot stands over the middle of the gap after D, above the line's rows.
+        PieceReader(reader::read).read(line("ABCDEFGHIJKLMNOPQRST", extra = listOf(Glyph('z', 87, 2, 2, 2))))
+
+        assertEquals("ABCDz", reader.asked.first())
+    }
+
+    @Test
+    fun `two long lines go to the reader in one go`() {
+        val reader = fakeReader()
+        val twoLines = "AB".flatMapIndexed { row, label ->
+            (0 until 20).map { glyph -> Glyph(label, 10 + glyph * 20, 12 + row * 28, 16, 16) }
+        }
+
+        PieceReader(reader::read).read(crop(416, 70, twoLines))
+
+        assertEquals(listOf("AB"), reader.asked)
+    }
+
+    @Test
+    fun `a caption exactly twelve line heights long is split`() {
+        val reader = fakeReader()
+
+        // Nine glyphs with a 20 px gap after E, 192 px of ink on a 16 px line.
+        PieceReader(reader::read).read(line("ABCDEFGHI", gapsAfter = mapOf('E' to 20)))
+
+        assertEquals(listOf("ABCD", "EFGHI"), reader.asked)
+    }
+
+    @Test
+    fun `a caption shorter than twelve line heights goes to the reader in one go`() {
+        val reader = fakeReader()
+
+        // Nine glyphs and their gaps, 176 px of ink on a 16 px line: eleven line heights.
+        PieceReader(reader::read).read(line("ABCDEFGHI"))
+
+        assertEquals(listOf("ABCDEFGHI"), reader.asked)
     }
 }
