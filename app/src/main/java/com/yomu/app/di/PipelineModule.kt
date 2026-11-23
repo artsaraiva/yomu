@@ -8,6 +8,7 @@ import com.yomu.ml.LlamaTranslationBridge
 import com.yomu.ml.OnnxRuntime
 import com.yomu.app.service.ModelManager
 import com.yomu.app.translation.TranslationModelSelection
+import com.yomu.app.translation.Translator
 import com.yomu.pipeline.TranslationPipeline
 import com.yomu.pipeline.bubble.BubbleDetector
 import com.yomu.pipeline.context.ContextAssembler
@@ -19,6 +20,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import dagger.multibindings.IntoSet
 import java.io.File
 import com.yomu.app.translation.GenerationProfileStore
 import com.yomu.app.translation.LlmModelCatalog
@@ -82,14 +84,21 @@ object PipelineModule {
     }
 
     @Provides
+    @IntoSet
+    fun provideOnDeviceTranslator(llamaBridge: LlamaTranslationBridge): Translator = Translator.onDevice(llamaBridge)
+
+    @Provides
     @Singleton
     fun provideTranslationModelSelection(
         llamaBridge: LlamaTranslationBridge,
         sharedPreferences: SharedPreferences,
         @ApplicationContext context: Context,
-        modelManager: ModelManager
+        modelManager: ModelManager,
+        translators: Set<@JvmSuppressWildcards Translator>
     ): TranslationModelSelection {
-        return TranslationModelSelection(llamaBridge, sharedPreferences, llmModelsDir(context), modelManager.deviceTotalMemBytes())
+        return TranslationModelSelection(
+            llamaBridge, sharedPreferences, llmModelsDir(context), modelManager.deviceTotalMemBytes(), translators
+        )
     }
 
     @Provides
