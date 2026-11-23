@@ -9,13 +9,17 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.ConscryptMode
 import org.w3c.dom.Element
 import org.xmlpull.v1.XmlPullParser
 import java.io.File
 import javax.xml.parsers.DocumentBuilderFactory
 
+// Conscrypt off: once installed it stays in the JVM, and Oracle JDKs then refuse every javax.crypto call
+// in later tests, ServerSettingsStoreTest's among them.
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34])
+@Config(sdk = [28])
+@ConscryptMode(ConscryptMode.Mode.OFF)
 class ServerKeyBackupRulesTest {
 
     private val context: Context = RuntimeEnvironment.getApplication()

@@ -26,14 +26,17 @@ class ServerSettingsStore(
 
     private class HeldKey(val value: String, val state: ApiKeyState)
 
-    // The key as entered or first read this process: the Keystore is asked at most once per read, and a
-    // key it would not seal still works until the app stops.
+    private class Sealed(val iv: String, val ciphertext: String)
+
+    // The key as entered or first read this process: a saved key is opened once, and a key the Keystore
+    // would not seal still works until the app stops.
     private var held: HeldKey? = null
 
     /** The server's address as the reader typed it, trimmed; empty when none is set. */
     fun address(): String = readString(prefs, PREF_ADDRESS)
 
     /** Saves [address]; a different address than the saved one clears the confirmation and the model. */
+    @Synchronized
     fun saveAddress(address: String) {
         val trimmed = address.trim()
         if (trimmed == address()) return
@@ -44,7 +47,9 @@ class ServerSettingsStore(
      * Records that Connect reached [address]. Refused, returning false, when [address] is not the saved
      * one: the reader changed it while Connect ran, and the new one has not been reached.
      */
+    @Synchronized
     fun confirm(address: String): Boolean {
+        // Locked with saveAddress: a change between this check and the write would confirm the new address.
         if (address.trim() != address() || address().isEmpty()) return false
         prefs.edit().putBoolean(PREF_CONFIRMED, true).apply()
         return true
@@ -81,7 +86,7 @@ class ServerSettingsStore(
         val sealed = if (trimmed.isEmpty()) null else runCatching { seal(trimmed) }.getOrNull()
         // The older key goes even when the new one can't be sealed, or it would return after a restart.
         val editor = keyPrefs.edit().clear()
-        sealed?.let { editor.putString(KEY_IV, it.first).putString(KEY_CIPHERTEXT, it.second) }
+        sealed?.let { editor.putString(KEY_IV, it.iv).putString(KEY_CIPHERTEXT, it.ciphertext) }
         editor.apply()
         val state = when {
             trimmed.isEmpty() -> ApiKeyState.NONE
@@ -103,10 +108,11 @@ class ServerSettingsStore(
             .getOrElse { HeldKey("", ApiKeyState.NOT_SAVED) }
     }
 
-    private fun seal(text: String): Pair<String, String> {
+    // The cipher picks the IV: a Keystore key refuses one handed in, and a fresh IV per seal is what GCM needs.
+    private fun seal(text: String): Sealed {
         val cipher = Cipher.getInstance(TRANSFORMATION).apply { init(Cipher.ENCRYPT_MODE, secretKey()) }
         val ciphertext = cipher.doFinal(text.toByteArray(Charsets.UTF_8))
-        return base64.encodeToString(cipher.iv) to base64.encodeToString(ciphertext)
+        return Sealed(Base64.getEncoder().encodeToString(cipher.iv), Base64.getEncoder().encodeToString(ciphertext))
     }
 
     private fun open(iv: String, ciphertext: String): String {
@@ -130,7 +136,6 @@ class ServerSettingsStore(
         private const val KEY_CIPHERTEXT = "ciphertext"
         private const val TRANSFORMATION = "AES/GCM/NoPadding"
         private const val GCM_TAG_BITS = 128
-        private val base64 = Base64.getEncoder()
     }
 }
 
