@@ -1,5 +1,6 @@
 package com.yomu.app.ui.home
 
+import com.yomu.app.db.entities.ModelEntity
 import com.yomu.app.db.entities.ModelStatus
 import com.yomu.app.db.entities.ModelType
 import com.yomu.app.service.ModelSlotSelection
@@ -33,6 +34,21 @@ class QuickSettingsTest {
     @Test
     fun `an empty translation slot says no model is selected`() {
         assertEquals("No model selected", state.translationChipLabel())
+    }
+
+    @Test
+    fun `the phone group lists the downloaded models, one downloading, and the pick waiting to take over`() {
+        val hy = SlotDeliverable("hy", "Hy-MT2 1.8B", 1L, "Tencent", multilingual = true)
+        val gemma = SlotDeliverable("gemma", "Gemma 4 E2B", 1L, "Gemma", multilingual = false)
+        val bonsai = SlotDeliverable("bonsai", "Ternary-Bonsai 4B", 1L, "Apache-2.0", multilingual = false)
+        val catalog = state.copy(
+            deliverables = mapOf(ModelType.LLM to listOf(qwen, cat, hy, gemma, bonsai)),
+            models = listOf(entity("qwen", ModelStatus.READY), entity("hy", ModelStatus.DOWNLOADING), entity("bonsai", ModelStatus.ERROR)),
+            translationSelectedId = "qwen",
+            translationPendingId = "cat"
+        )
+
+        assertEquals(listOf(qwen, cat, hy), catalog.phoneRows())
     }
 
     @Test
@@ -94,4 +110,7 @@ class QuickSettingsTest {
         assertNull(englishOnly.languageUnavailable(TargetLanguage.ENGLISH))
         assertNull(state.languageUnavailable(TargetLanguage.FRENCH))
     }
+
+    private fun entity(id: String, status: ModelStatus) =
+        ModelEntity(id, id, ModelType.LLM, "$id.gguf", 1L, "", "", status, version = "1", isRequired = false)
 }

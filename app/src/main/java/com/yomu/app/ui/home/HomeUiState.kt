@@ -1,6 +1,7 @@
 package com.yomu.app.ui.home
 
 import com.yomu.app.db.entities.ModelEntity
+import com.yomu.app.db.entities.ModelStatus
 import com.yomu.app.db.entities.ModelType
 import com.yomu.app.db.entities.TranslationEntity
 import com.yomu.app.service.LanguageSwitch
@@ -65,6 +66,16 @@ data class HomeUiState(
     /** Why [language] can't be chosen, or null. English only is a phone-model rule, so never while a server model is picked. */
     fun languageUnavailable(language: TargetLanguage): String? = if (activeServerModel != null) null
         else ModelSlotSelection.languageUnavailable(language, deliverables[ModelType.LLM].orEmpty(), ::fits)
+
+    /**
+     * The phone models the picker lists, in catalog order: the downloaded ones, any downloading, and the selected and
+     * waiting picks. The rest of the catalog is downloaded from Settings, so the server's group stays in reach.
+     */
+    fun phoneRows(): List<SlotDeliverable> {
+        val onPhone = models.filter { it.status == ModelStatus.READY || it.status == ModelStatus.DOWNLOADING }.mapTo(mutableSetOf()) { it.id }
+        val picked = setOfNotNull(translationSelectedId, translationPendingId)
+        return deliverables[ModelType.LLM].orEmpty().filter { it.id in onPhone || it.id in picked }
+    }
 
     /** Whether [deliverable]'s row is checked: the selected phone model, while no server model takes the next page. */
     fun checked(deliverable: SlotDeliverable): Boolean = activeServerModel == null && deliverable.id == translationSelectedId

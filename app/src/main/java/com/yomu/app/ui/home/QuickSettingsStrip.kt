@@ -13,7 +13,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.yomu.app.db.entities.ModelType
+import com.yomu.app.ui.settings.SettingsSection
 import com.yomu.app.ui.settings.SlowDeliverableDialog
 import com.yomu.app.ui.settings.deliverableStatus
 import com.yomu.core.TargetLanguage
@@ -21,14 +21,15 @@ import com.yomu.core.toFileSizeString
 
 /**
  * The model chip and the language chip. The model dropdown lists the phone's models and the server's in
- * two groups, and the checked row is the model that translates the next page (ADR-0023).
+ * two groups, and the checked row is the model that translates the next page (ADR-0023). The phone's group
+ * holds only the models on the phone; the rest of the catalog is in Settings › Translation.
  */
 @Composable
 internal fun QuickSettingsStrip(
     state: HomeUiState,
     onPickTranslationModel: (String) -> Unit,
     onPickServerModel: (String) -> Unit,
-    onSetUpServer: () -> Unit,
+    onOpenSettings: (SettingsSection) -> Unit,
     onChooseLanguage: (TargetLanguage) -> Unit
 ) {
     var open by rememberSaveable { mutableStateOf(false) }
@@ -45,7 +46,7 @@ internal fun QuickSettingsStrip(
             )
             DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
                 GroupHeader("On this phone")
-                state.deliverables[ModelType.LLM].orEmpty().forEach { deliverable ->
+                state.phoneRows().forEach { deliverable ->
                     val selected = state.checked(deliverable)
                     val fits = state.fits(deliverable)
                     val languageBlock = state.languageBlock(deliverable)
@@ -74,12 +75,17 @@ internal fun QuickSettingsStrip(
                         leadingIcon = { CheckMark(selected) }
                     )
                 }
+                DropdownMenuItem(
+                    text = { Text("More models in Settings", style = MaterialTheme.typography.titleSmall) },
+                    onClick = { open = false; onOpenSettings(SettingsSection.Translation) },
+                    leadingIcon = { CheckMark(false) }
+                )
                 Divider()
                 GroupHeader("Your server")
                 ServerRows(
                     state,
                     onPick = { name -> open = false; onPickServerModel(name) },
-                    onSetUp = { open = false; onSetUpServer() }
+                    onSetUp = { open = false; onOpenSettings(SettingsSection.Providers) }
                 )
             }
         }

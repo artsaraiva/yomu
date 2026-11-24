@@ -19,6 +19,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import com.yomu.app.ui.settings.SaveToRecentViewModel
+import com.yomu.app.ui.settings.SettingsSection
 import com.yomu.app.ui.theme.*
 import com.yomu.core.TargetLanguage
 import kotlinx.coroutines.launch
@@ -30,7 +31,7 @@ fun HomeScreen(
     viewModel: HomeViewModel,
     saveToRecent: SaveToRecentViewModel,
     onRequestScreenCapture: () -> Unit,
-    onOpenProviders: () -> Unit
+    onOpenSettings: (SettingsSection) -> Unit
 ) {
     val state by viewModel.uiState.collectAsState()
     val saving by saveToRecent.enabled.collectAsState()
@@ -96,7 +97,7 @@ fun HomeScreen(
             )
             if (readingStatus != ReadingStatus.NotReady) {
                 Spacer(Modifier.height(12.dp))
-                QuickSettingsStrip(state, viewModel::pickTranslationModel, viewModel::pickServerModel, onOpenProviders, viewModel::chooseLanguage)
+                QuickSettingsStrip(state, viewModel::pickTranslationModel, viewModel::pickServerModel, onOpenSettings, viewModel::chooseLanguage)
             }
         }
         state.confirmation?.let { message -> item { PaperSuccess(message, viewModel::dismissConfirmation) } }

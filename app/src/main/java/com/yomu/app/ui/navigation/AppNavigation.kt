@@ -136,8 +136,8 @@ fun AppNavigation(
                 }
             ) {
                 composable(Screen.Home.route) {
-                    HomeScreen(viewModel, hiltViewModel(), onRequestScreenCapture) {
-                        navController.navigate(SettingsSection.Providers.route) { launchSingleTop = true }
+                    HomeScreen(viewModel, hiltViewModel(), onRequestScreenCapture) { section ->
+                        navController.navigate(section.route) { launchSingleTop = true }
                     }
                 }
                 navigation(startDestination = SETTINGS_ROOT, route = Screen.Settings.route) {
