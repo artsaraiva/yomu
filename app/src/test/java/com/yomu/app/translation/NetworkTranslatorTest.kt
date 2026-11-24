@@ -4,6 +4,7 @@ import com.google.gson.JsonParser
 import com.yomu.core.GenerationBound
 import com.yomu.core.TranslatableBubble
 import com.yomu.core.TranslatablePage
+import com.yomu.core.TranslationOutcome
 import com.yomu.ml.LlamaTranslationBridge
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
@@ -63,6 +64,22 @@ class NetworkTranslatorTest {
         assertEquals(0.3f, body.get("temperature").asFloat, 0.001f)
         assertEquals(0.85f, body.get("top_p").asFloat, 0.001f)
         assertEquals(mapOf(1 to "Hello"), result.byId)
+        server.shutdown()
+    }
+
+    @Test
+    fun `its slot sends nothing while the server isn't set up, even when asked straight`() = runTest {
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setResponseCode(200))
+        val address = server.url("/").toString()
+        store.saveAddress(address)
+        store.saveModel("qwen2.5:7b")
+        store.saveApiKey("sk-local-1")
+
+        val result = translator.slot().translatePage(TranslatablePage(listOf(listOf(TranslatableBubble(1, "こんにちは"))))) { _, _ -> }
+
+        assertEquals(TranslationOutcome.ERROR, result.outcome)
+        assertEquals(0, server.requestCount)
         server.shutdown()
     }
 

@@ -46,9 +46,12 @@ class Translator(
         fun network(store: ServerSettingsStore, prefs: SharedPreferences, client: OkHttpClient): Translator =
             Translator(NETWORK_ID, "Your server", store::isSetUp, lazy {
                 NetworkTranslationSlot(client, config = {
-                    NetworkTranslatorConfig(store.address(), store.apiKey(), store.model(), readerGeneration(prefs))
+                    store.translatorConfig()?.copy(generation = readerGeneration(prefs)) ?: NOT_SET_UP
                 })
             })
+
+        // No address, so the slot fails the page before any request: canRun said yes, then the address changed.
+        private val NOT_SET_UP = NetworkTranslatorConfig(baseUrl = "", apiKey = "", model = "")
 
         // The same profile the on-device slot gets: the reader's saved fields over the selected model's defaults.
         private fun readerGeneration(prefs: SharedPreferences): GenerationParams =
