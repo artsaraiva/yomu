@@ -11,6 +11,7 @@ import com.yomu.app.service.LanguageSwitch
 import com.yomu.app.service.ModelManager
 import com.yomu.app.service.ModelSlotSelection
 import com.yomu.app.service.PageRecallStore
+import com.yomu.app.service.TranslatorChoice
 import com.yomu.app.translation.ResourceLimit
 import com.yomu.app.translation.TranslationModelSelection
 import com.yomu.core.Constants
@@ -35,7 +36,8 @@ class SettingsViewModel @Inject constructor(
     private val modelSelection: TranslationModelSelection,
     private val slotSelection: ModelSlotSelection,
     private val modelManager: ModelManager,
-    private val translationPipeline: TranslationPipeline
+    private val translationPipeline: TranslationPipeline,
+    private val translatorChoice: TranslatorChoice
 ) : ViewModel() {
 
     private val detectionThresholdStore = DetectionThresholdStore(sharedPreferences)
@@ -97,12 +99,15 @@ class SettingsViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(translationMode = mode)
     }
 
+    /** Picks a model for [type]'s slot; a translation model picked here is what the phone then translates with. */
     fun pickModel(type: ModelType, id: String) {
         // Off the main thread: committing a translation model waits out any in-flight generation before swapping the
         // native model, which can take up to a batch timeout.
         viewModelScope.launch {
             val status = modelManager.getModel(id)?.status
-            if (!slotSelection.pick(type, id, status, _uiState.value.deviceTotalMemBytes)) return@launch
+            val memory = _uiState.value.deviceTotalMemBytes
+            val picked = if (type == ModelType.LLM) translatorChoice.pickPhoneModel(id, status, memory) else slotSelection.pick(type, id, status, memory)
+            if (!picked) return@launch
             _uiState.update { it.withSlots() }
             if (status != ModelStatus.READY) downloadModel(id)
         }
@@ -210,6 +215,7 @@ class SettingsViewModel @Inject constructor(
     private fun SettingsUiState.withSlots(): SettingsUiState = copy(
         // With the slots, since a download that never completes can return the language to English.
         targetLanguage = slotSelection.targetLanguage(),
+        translatesOnServer = translatorChoice.activeServerModel() != null,
         selectedIds = ModelType.entries.mapNotNull { type -> slotSelection.selectedId(type)?.let { type to it } }.toMap(),
         pendingIds = ModelType.entries.mapNotNull { type -> slotSelection.pendingId(type)?.let { type to it } }.toMap()
     ).withGenerationProfile()

@@ -16,6 +16,8 @@ import com.yomu.app.service.LanguageSwitch
 import com.yomu.app.service.ModelManager
 import com.yomu.app.service.ModelSlotSelection
 import com.yomu.app.service.OverlayService
+import com.yomu.app.service.ServerPick
+import com.yomu.app.service.TranslatorChoice
 import com.yomu.core.TargetLanguage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -36,7 +38,8 @@ class HomeViewModel @Inject constructor(
     private val sharedPreferences: SharedPreferences,
     private val modelManager: ModelManager,
     private val historyDao: HistoryDao,
-    private val slotSelection: ModelSlotSelection
+    private val slotSelection: ModelSlotSelection,
+    private val translatorChoice: TranslatorChoice
 ) : ViewModel() {
     private companion object {
         const val SETUP_COMPLETE = "reading_setup_complete"
@@ -153,14 +156,31 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    /** Home's quick pick: unlike setup, a model that isn't downloaded starts downloading and takes over when READY. */
+    /**
+     * Home's quick pick of a phone model, which the phone then translates with. Unlike setup, a model that isn't
+     * downloaded starts downloading and takes over when READY.
+     */
     fun pickTranslationModel(id: String) {
         viewModelScope.launch {
             val status = modelManager.getModel(id)?.status
-            if (!slotSelection.pick(ModelType.LLM, id, status, _uiState.value.fitBudget.totalMemBytes)) return@launch
+            if (!translatorChoice.pickPhoneModel(id, status, _uiState.value.fitBudget.totalMemBytes)) return@launch
             downloadIfPending(id)
         }
     }
+
+    /** A server model from the picker; the first one waits on the reader to accept the notice (ADR-0023). */
+    fun pickServerModel(model: String) {
+        val notice = translatorChoice.pickServerModel(model) as? ServerPick.Notice
+        _uiState.update { it.copy(serverNotice = notice).withSlots() }
+    }
+
+    fun acceptServerNotice() {
+        val notice = _uiState.value.serverNotice ?: return
+        translatorChoice.acceptNotice(notice)
+        _uiState.update { it.copy(serverNotice = null).withSlots() }
+    }
+
+    fun declineServerNotice() = _uiState.update { it.copy(serverNotice = null) }
 
     /** From the quick-settings chip here, or from the overlay's when its switch needs the model offer (#338). */
     fun chooseLanguage(language: TargetLanguage) {
@@ -200,6 +220,9 @@ class HomeViewModel @Inject constructor(
         translationPendingId = slotSelection.pendingId(ModelType.LLM),
         // With the slots, since a download that never completes can return the language to English.
         targetLanguage = slotSelection.targetLanguage(),
+        // Read from the stored settings, so opening the picker never contacts the server.
+        serverModels = translatorChoice.serverModels(),
+        activeServerModel = translatorChoice.activeServerModel(),
         setupDownloadBytes = slotSelection.downloadBytes(models.associate { it.id to it.status })
     )
 

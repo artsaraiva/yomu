@@ -45,7 +45,9 @@ data class SettingsUiState(
     /** What the app is using right now; null until the Performance screen first samples it. */
     val resources: ResourceReadout? = null,
     /** One message naming every stored value that was recovered to its default, or null. */
-    val recoveryWarning: String? = null
+    val recoveryWarning: String? = null,
+    /** Whether a server model takes the next page, which lifts the phone models' English-only rule (ADR-0023). */
+    val translatesOnServer: Boolean = false
 ) {
     val generationOverridden: Boolean
         get() = GenerationBound.entries.any { it.read(generation) != it.read(generationDefaults) }
@@ -57,8 +59,8 @@ data class SettingsUiState(
 
     fun languageBlock(deliverable: SlotDeliverable): String? = ModelSlotSelection.languageBlock(deliverable, targetLanguage)
 
-    fun languageUnavailable(language: TargetLanguage): String? =
-        ModelSlotSelection.languageUnavailable(language, deliverables[ModelType.LLM].orEmpty(), ::fits)
+    fun languageUnavailable(language: TargetLanguage): String? = if (translatesOnServer) null
+        else ModelSlotSelection.languageUnavailable(language, deliverables[ModelType.LLM].orEmpty(), ::fits)
 
     private fun fitBudget() = FitBudget(
         deviceTotalMemBytes,

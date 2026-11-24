@@ -29,7 +29,8 @@ import java.util.Date
 fun HomeScreen(
     viewModel: HomeViewModel,
     saveToRecent: SaveToRecentViewModel,
-    onRequestScreenCapture: () -> Unit
+    onRequestScreenCapture: () -> Unit,
+    onOpenProviders: () -> Unit
 ) {
     val state by viewModel.uiState.collectAsState()
     val saving by saveToRecent.enabled.collectAsState()
@@ -47,6 +48,7 @@ fun HomeScreen(
             dismissButton = { TextButton(colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface), onClick = { confirmClear = false }) { Text("Keep") } }
         )
     }
+    state.serverNotice?.let { ServerNoticeDialog(it.address, viewModel::acceptServerNotice, viewModel::declineServerNotice) }
     LazyColumn(
         state = scroll,
         modifier = Modifier.fillMaxSize(),
@@ -94,7 +96,7 @@ fun HomeScreen(
             )
             if (readingStatus != ReadingStatus.NotReady) {
                 Spacer(Modifier.height(12.dp))
-                QuickSettingsStrip(state, viewModel::pickTranslationModel, viewModel::chooseLanguage)
+                QuickSettingsStrip(state, viewModel::pickTranslationModel, viewModel::pickServerModel, onOpenProviders, viewModel::chooseLanguage)
             }
         }
         state.confirmation?.let { message -> item { PaperSuccess(message, viewModel::dismissConfirmation) } }
