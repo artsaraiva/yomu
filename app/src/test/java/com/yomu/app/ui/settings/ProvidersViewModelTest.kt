@@ -161,7 +161,23 @@ class ProvidersViewModelTest {
     }
 
     @Test
-    fun `reopening the screen shows the confirmed server and its model and sends nothing`() {
+    fun `a saved key the Keystore can't open now gets no kept-until-closed warning`() = runTest {
+        server.enqueue(MockResponse().setBody(TWO_MODELS))
+        val prefs = MapSharedPreferences()
+        val keyPrefs = MapSharedPreferences()
+        ServerSettingsStore(prefs, keyPrefs) { softwareKey }.saveApiKey("sk-local-1")
+        val keystoreDown = ServerSettingsStore(prefs, keyPrefs) { throw KeyStoreException("no Keystore") }
+
+        val viewModel = ProvidersViewModel(keystoreDown, ServerModelList(OkHttpClient()))
+        assertFalse(viewModel.state.value.keyNotSaved)
+        viewModel.editAddress(address())
+        viewModel.connect().join()
+
+        assertFalse(viewModel.state.value.keyNotSaved)
+    }
+
+    @Test
+    fun `reopening the screen shows the confirmed server, its model and the unsaved key, and sends nothing`() {
         val noKeystore = ServerSettingsStore(MapSharedPreferences(), MapSharedPreferences()) { throw KeyStoreException("no Keystore") }
         noKeystore.saveAddress("http://192.168.1.20:11434")
         noKeystore.confirm("http://192.168.1.20:11434")

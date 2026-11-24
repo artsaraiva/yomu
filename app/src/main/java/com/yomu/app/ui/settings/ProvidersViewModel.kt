@@ -25,7 +25,7 @@ data class ProvidersUiState(
     /** The model picked from the server's list or typed; stored as it changes. */
     val model: String,
     val connection: ServerConnection = ServerConnection.NotConnected,
-    /** The Keystore refused the key: it works until the app closes, and must then be entered again. */
+    /** The Keystore refused to save the key: it works until the app closes, and must then be entered again. */
     val keyNotSaved: Boolean = false
 )
 
@@ -63,7 +63,7 @@ class ProvidersViewModel @Inject constructor(
             apiKey = store.apiKey(),
             model = store.model(),
             connection = if (store.isConfirmed()) ServerConnection.Connected(models = null) else ServerConnection.NotConnected,
-            keyNotSaved = store.apiKeyState() == ApiKeyState.NOT_SAVED
+            keyNotSaved = keyHeldForSessionOnly()
         )
     )
     val state: StateFlow<ProvidersUiState> = _state.asStateFlow()
@@ -99,8 +99,8 @@ class ProvidersViewModel @Inject constructor(
         val key = state.value.apiKey.trim()
         store.saveAddress(address)
         // An unchanged key isn't sealed again, so a saved key the Keystore can't open now isn't overwritten.
-        val keyState = if (key != store.apiKey()) store.saveApiKey(key) else store.apiKeyState()
-        _state.update { it.copy(connection = ServerConnection.Connecting, keyNotSaved = keyState == ApiKeyState.NOT_SAVED) }
+        if (key != store.apiKey()) store.saveApiKey(key)
+        _state.update { it.copy(connection = ServerConnection.Connecting, keyNotSaved = keyHeldForSessionOnly()) }
         return viewModelScope.launch {
             val connection = when (val result = serverModels.fetch(address, key)) {
                 is ServerModels.Listed -> {
@@ -118,6 +118,9 @@ class ProvidersViewModel @Inject constructor(
             _state.update { it.copy(connection = connection, model = store.model()) }
         }.also { connecting = it }
     }
+
+    // A saved key the Keystore can't open now reads back empty: nothing is held, so nothing is lost on closing.
+    private fun keyHeldForSessionOnly(): Boolean = store.apiKeyState() == ApiKeyState.NOT_SAVED && store.apiKey().isNotEmpty()
 
     /** Stores [model], picked from the server's list or typed. */
     fun pickModel(model: String) {
