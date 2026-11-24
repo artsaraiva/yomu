@@ -85,8 +85,10 @@ class ServerModelList(client: OkHttpClient) {
     }
 
     // Null when the answer is no `/v1/models` list: an error page, another server's own API, an entry with no id.
+    // A null list is an empty one: Ollama with no models pulled sends `"data": null`.
     private fun modelNames(body: String): List<String>? = runCatching {
-        JsonParser.parseString(body).asJsonObject.getAsJsonArray("data").map { it.asJsonObject.get("id").asString }
+        val data = JsonParser.parseString(body).asJsonObject.get("data")
+        if (data.isJsonNull) emptyList() else data.asJsonArray.map { it.asJsonObject.get("id").asString }
     }.getOrNull()
 
     private companion object {

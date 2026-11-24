@@ -42,10 +42,11 @@ class ServerModelListTest {
     fun fetch_serverWithNoListOrAnEmptyOneIsUnlisted() = runTest {
         server.enqueue(MockResponse().setResponseCode(404))
         server.enqueue(MockResponse().setBody("""{"object":"list","data":[]}"""))
+        // Ollama with no models pulled: Go writes the empty list as null.
+        server.enqueue(MockResponse().setBody("""{"object":"list","data":null}"""))
         val models = ServerModelList(OkHttpClient())
 
-        assertEquals(ServerModels.Unlisted, models.fetch(server.url("/").toString(), apiKey = ""))
-        assertEquals(ServerModels.Unlisted, models.fetch(server.url("/").toString(), apiKey = ""))
+        repeat(3) { assertEquals(ServerModels.Unlisted, models.fetch(server.url("/").toString(), apiKey = "")) }
     }
 
     @Test
