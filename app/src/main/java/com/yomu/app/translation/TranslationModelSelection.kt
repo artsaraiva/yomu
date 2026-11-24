@@ -24,7 +24,13 @@ class TranslationModelSelection @Inject constructor(
     private val limitsStore = ResourceLimitsStore(sharedPreferences)
 
     /** The slot of the translator the reader chose, or the on-device slot when that one can't run. */
-    fun current(): TranslationSlot = (translators[storedTranslatorId()]?.takeIf { it.canRun() } ?: onDevice).slot()
+    fun current(): TranslationSlot = activeTranslator().slot()
+
+    /** The translator that takes the next page: the one the reader chose, or the on-device one when that can't run. */
+    fun activeTranslator(): Translator = translators[storedTranslatorId()]?.takeIf { it.canRun() } ?: onDevice
+
+    /** The registered translator with [id], or null when none is. */
+    fun translator(id: String): Translator? = translators[id]
 
     fun selectTranslator(translator: Translator) {
         sharedPreferences.edit().putString(Constants.PREF_TRANSLATOR, translator.id).apply()
