@@ -2,6 +2,7 @@ package com.yomu.app.translation
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.security.KeyStoreException
@@ -54,6 +55,24 @@ class ServerSettingsStoreTest {
 
         store.saveModel("qwen2.5:7b")
         assertTrue(store.isSetUp())
+    }
+
+    @Test
+    fun `the translator gets the address, key and model only while the server is set up`() {
+        store.saveAddress("http://192.168.1.20:8080")
+        store.saveModel("qwen2.5:7b")
+        store.saveApiKey("sk-local-1")
+        assertNull(store.translatorConfig())
+
+        store.confirm("http://192.168.1.20:8080")
+        store.saveModel("qwen2.5:7b")
+        val config = store.translatorConfig()
+
+        assertEquals("http://192.168.1.20:8080", config?.baseUrl)
+        assertEquals("sk-local-1", config?.apiKey)
+        assertEquals("qwen2.5:7b", config?.model)
+        store.saveAddress("http://192.168.1.21:8080")
+        assertNull(store.translatorConfig())
     }
 
     @Test

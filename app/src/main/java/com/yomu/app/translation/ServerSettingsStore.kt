@@ -1,6 +1,7 @@
 package com.yomu.app.translation
 
 import android.content.SharedPreferences
+import com.yomu.ml.NetworkTranslatorConfig
 import java.util.Base64
 import javax.crypto.Cipher
 import javax.crypto.SecretKey
@@ -69,6 +70,14 @@ class ServerSettingsStore(
      * confirmation of it, and a model. The key is optional. Read before every page, so it stays cheap.
      */
     fun isSetUp(): Boolean = address().isNotEmpty() && isConfirmed() && model().isNotEmpty()
+
+    /**
+     * Where a page may go: the address, key and model read together under the lock [saveAddress] takes,
+     * so the key is never paired with an address Connect didn't confirm. Null unless the server is set up.
+     */
+    @Synchronized
+    fun translatorConfig(): NetworkTranslatorConfig? =
+        if (isSetUp()) NetworkTranslatorConfig(baseUrl = address(), apiKey = apiKey(), model = model()) else null
 
     /** The reader's API key; empty when none was entered or a saved one can't be opened. */
     @Synchronized
