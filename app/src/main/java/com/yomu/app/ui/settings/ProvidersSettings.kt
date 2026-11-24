@@ -50,7 +50,7 @@ private fun ServerPanel(state: ProvidersUiState, onAddress: (String) -> Unit, on
                 placeholder = { Text("http://192.168.1.20:11434") },
                 supportingText = { Text("Plain http:// reaches only your own network. Anything else needs https://.") },
                 singleLine = true,
-                keyboardOptions = KeyboardOptions(autoCorrect = false, keyboardType = KeyboardType.Uri)
+                keyboardOptions = KeyboardOptions(autoCorrectEnabled = false, keyboardType = KeyboardType.Uri)
             )
             OutlinedTextField(
                 state.apiKey, onKey, Modifier.fillMaxWidth(),
@@ -58,7 +58,7 @@ private fun ServerPanel(state: ProvidersUiState, onAddress: (String) -> Unit, on
                 supportingText = { Text("Saved and sent to this address only when you tap Connect.") },
                 singleLine = true,
                 visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(autoCorrect = false, keyboardType = KeyboardType.Password)
+                keyboardOptions = KeyboardOptions(autoCorrectEnabled = false, keyboardType = KeyboardType.Password)
             )
             val connecting = state.connection == ServerConnection.Connecting
             PaperButton(if (connecting) "Connecting…" else "Connect", onConnect, enabled = state.address.isNotBlank() && !connecting)
@@ -92,7 +92,7 @@ private fun ModelPanel(models: List<String>?, model: String, onPick: (String) ->
                     model, onPick, Modifier.fillMaxWidth(),
                     label = { Text("Model name") },
                     singleLine = true,
-                    keyboardOptions = KeyboardOptions(autoCorrect = false)
+                    keyboardOptions = KeyboardOptions(autoCorrectEnabled = false)
                 )
             } else {
                 Column(Modifier.selectableGroup()) {
