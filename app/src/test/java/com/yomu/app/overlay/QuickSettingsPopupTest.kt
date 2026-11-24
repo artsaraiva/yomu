@@ -20,11 +20,9 @@ import org.mockito.Mockito.verify
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
-import org.robolectric.annotation.ConscryptMode
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28])
-@ConscryptMode(ConscryptMode.Mode.OFF)
 class QuickSettingsPopupTest {
     private val windowManager = mock(WindowManager::class.java)
     private var releaseOutside: (() -> Unit)? = null

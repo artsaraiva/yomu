@@ -24,12 +24,10 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
-import org.robolectric.annotation.ConscryptMode
 
 /** The phone is 1080 × 2400 at 480 dpi, held upright when reading starts. */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28], qualifiers = "w360dp-h800dp-xxhdpi", shadows = [ShadowCapturedImage::class])
-@ConscryptMode(ConscryptMode.Mode.OFF)
 class ScreenCaptureManagerTest {
     private val manager = ScreenCaptureManager(RuntimeEnvironment.getApplication())
     private val projection = mock(MediaProjection::class.java)

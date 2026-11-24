@@ -22,12 +22,10 @@ import org.mockito.Mockito.`when`
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
-import org.robolectric.annotation.ConscryptMode
 
 /** A 1080 × 2400 phone whose window manager is a mock that keeps each window the probe adds. */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33], qualifiers = "w360dp-h800dp-xxhdpi")
-@ConscryptMode(ConscryptMode.Mode.OFF)
 class DisplayProbeTest {
     private val portrait = Size(1080, 2400)
     private val landscape = Size(2400, 1080)

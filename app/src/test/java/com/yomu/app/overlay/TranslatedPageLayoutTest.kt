@@ -20,11 +20,9 @@ import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
-import org.robolectric.annotation.ConscryptMode
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28])
-@ConscryptMode(ConscryptMode.Mode.OFF)
 class TranslatedPageLayoutTest {
     private val activity = Robolectric.buildActivity(Activity::class.java).setup()
     private val context: Context get() = activity.get()
