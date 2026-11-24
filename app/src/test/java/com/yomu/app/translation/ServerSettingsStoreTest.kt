@@ -76,6 +76,37 @@ class ServerSettingsStoreTest {
     }
 
     @Test
+    fun `Connect's model list is kept after a restart until the address changes`() {
+        store.saveAddress("http://192.168.1.20:8080")
+        assertNull("no Connect yet", store.serverModels())
+
+        store.saveServerModels(listOf("qwen2.5:7b", "llama3.1:8b-instruct \"q4\""))
+        store.saveAddress("http://192.168.1.20:8080")
+
+        assertEquals(listOf("qwen2.5:7b", "llama3.1:8b-instruct \"q4\""), storeOverSamePrefs().serverModels())
+        store.saveAddress("http://192.168.1.21:8080")
+        assertNull(store.serverModels())
+    }
+
+    @Test
+    fun `a server with no list keeps an empty list, not none`() {
+        store.saveAddress("http://192.168.1.20:8080")
+
+        store.saveServerModels(emptyList())
+
+        assertEquals(emptyList<String>(), store.serverModels())
+    }
+
+    @Test
+    fun `the notice is accepted once and stays accepted after a restart`() {
+        assertFalse(store.noticeAccepted())
+
+        store.acceptNotice()
+
+        assertTrue(storeOverSamePrefs().noticeAccepted())
+    }
+
+    @Test
     fun `a model without a confirmation is not set up`() {
         store.saveAddress("http://192.168.1.20:8080")
         store.saveModel("qwen2.5:7b")

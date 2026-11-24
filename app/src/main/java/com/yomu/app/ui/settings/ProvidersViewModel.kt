@@ -38,7 +38,7 @@ sealed interface ServerConnection {
 
     /**
      * Connect reached the address and confirmed it. [models] is the server's list, empty when it keeps
-     * none, or null when the address was confirmed on an earlier visit and the list hasn't been asked for since.
+     * none, or null when the address was confirmed before Connect kept its list.
      */
     data class Connected(val models: List<String>?) : ServerConnection
 
@@ -56,13 +56,13 @@ class ProvidersViewModel @Inject constructor(
     private val serverModels: ServerModelList
 ) : ViewModel() {
 
-    // Opening the screen sends nothing: a confirmed address shows as connected, without its list.
+    // Opening the screen sends nothing: a confirmed address shows as connected, with the list its last Connect kept.
     private val _state = MutableStateFlow(
         ProvidersUiState(
             address = store.address(),
             apiKey = store.apiKey(),
             model = store.model(),
-            connection = if (store.isConfirmed()) ServerConnection.Connected(models = null) else ServerConnection.NotConnected,
+            connection = if (store.isConfirmed()) ServerConnection.Connected(store.serverModels()) else ServerConnection.NotConnected,
             keyNotSaved = keyHeldForSessionOnly()
         )
     )
@@ -92,7 +92,8 @@ class ProvidersViewModel @Inject constructor(
 
     /**
      * Saves the address and key on screen, then asks that address for its models, sending the key only
-     * when one is set. A server that answers is confirmed. The returned job ends when Connect does.
+     * when one is set. A server that answers is confirmed, and its list is kept for the model picker on
+     * Home. The returned job ends when Connect does.
      */
     fun connect(): Job {
         val address = state.value.address.trim()
@@ -104,13 +105,14 @@ class ProvidersViewModel @Inject constructor(
         return viewModelScope.launch {
             val connection = when (val result = serverModels.fetch(address, key)) {
                 is ServerModels.Listed -> {
-                    store.confirm(address)
+                    // Refused when the address changed while Connect ran: the list is the old address's.
+                    if (store.confirm(address)) store.saveServerModels(result.names)
                     // A model the server no longer lists would fail every page; the reader picks again.
                     if (store.model() !in result.names) store.saveModel("")
                     ServerConnection.Connected(result.names)
                 }
                 ServerModels.Unlisted -> {
-                    store.confirm(address)
+                    if (store.confirm(address)) store.saveServerModels(emptyList())
                     ServerConnection.Connected(emptyList())
                 }
                 is ServerModels.Failed -> ServerConnection.Failed(result.failure)

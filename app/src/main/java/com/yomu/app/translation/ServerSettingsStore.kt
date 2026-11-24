@@ -1,6 +1,8 @@
 package com.yomu.app.translation
 
 import android.content.SharedPreferences
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import com.yomu.ml.NetworkTranslatorConfig
 import java.util.Base64
 import javax.crypto.Cipher
@@ -9,10 +11,11 @@ import javax.crypto.spec.GCMParameterSpec
 
 /**
  * The network translator's settings (ADR-0023): the server's address, the model picked on it, whether
- * Connect has confirmed that address, and the reader's API key.
+ * Connect has confirmed that address, the models Connect listed, whether the reader accepted the
+ * notice, and the reader's API key.
  *
- * The address, model and confirmation live in [prefs]. Changing the address clears the other two, so
- * a confirmation always belongs to the address it was made for.
+ * The address, model, confirmation and list live in [prefs]. Changing the address clears the other
+ * three, so a confirmation and a list always belong to the address they were made for.
  *
  * The key is sealed with AES-GCM under [secretKey], a key kept in the Android Keystore, and only the
  * IV and ciphertext reach [keyPrefs], a file of its own that backups leave out. When the Keystore
@@ -41,7 +44,7 @@ class ServerSettingsStore(
     fun saveAddress(address: String) {
         val trimmed = address.trim()
         if (trimmed == address()) return
-        prefs.edit().putString(PREF_ADDRESS, trimmed).remove(PREF_CONFIRMED).remove(PREF_MODEL).apply()
+        prefs.edit().putString(PREF_ADDRESS, trimmed).remove(PREF_CONFIRMED).remove(PREF_MODEL).remove(PREF_MODELS).apply()
     }
 
     /**
@@ -64,6 +67,21 @@ class ServerSettingsStore(
 
     /** Saves the model name, trimmed; it stays until the address changes. */
     fun saveModel(model: String) = prefs.edit().putString(PREF_MODEL, model.trim()).apply()
+
+    /**
+     * The model names the last Connect listed, in the server's order: empty for a server that keeps no
+     * list, null when Connect hasn't listed this address. Read by the model picker, so opening it sends nothing.
+     */
+    fun serverModels(): List<String>? = readString(prefs, PREF_MODELS).takeIf { it.isNotEmpty() }
+        ?.let { json -> runCatching { gson.fromJson<List<String>>(json, MODEL_LIST) }.getOrNull() }
+
+    /** Keeps Connect's list of model names (names only) until the address changes. */
+    fun saveServerModels(names: List<String>) = prefs.edit().putString(PREF_MODELS, gson.toJson(names)).apply()
+
+    /** Whether the reader accepted the notice that a page's text is sent to their server; asked once. */
+    fun noticeAccepted(): Boolean = runCatching { prefs.getBoolean(PREF_NOTICE_ACCEPTED, false) }.getOrDefault(false)
+
+    fun acceptNotice() = prefs.edit().putBoolean(PREF_NOTICE_ACCEPTED, true).apply()
 
     /**
      * Whether the network translator has what it needs to take a page: an address, Connect's
@@ -147,10 +165,14 @@ class ServerSettingsStore(
         private const val PREF_ADDRESS = "server_address"
         private const val PREF_MODEL = "server_model"
         private const val PREF_CONFIRMED = "server_confirmed"
+        private const val PREF_MODELS = "server_models"
+        private const val PREF_NOTICE_ACCEPTED = "server_notice_accepted"
         private const val KEY_IV = "iv"
         private const val KEY_CIPHERTEXT = "ciphertext"
         private const val TRANSFORMATION = "AES/GCM/NoPadding"
         private const val GCM_TAG_BITS = 128
+        private val gson = Gson()
+        private val MODEL_LIST = object : TypeToken<List<String>>() {}.type
     }
 }
 
