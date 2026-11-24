@@ -132,6 +132,32 @@ class TranslatorChoiceTest {
     }
 
     @Test
+    fun `changing the server's address switches back to the phone until a server model is picked again`() {
+        setUpServer()
+        choice.acceptNotice(choice.pickServerModel("gemma3:4b") as ServerPick.Notice)
+
+        store.saveAddress("http://192.168.1.21:11434")
+        store.confirm("http://192.168.1.21:11434")
+        store.saveServerModels(listOf("llama3.1:8b"))
+        store.saveModel("llama3.1:8b")
+
+        assertNull("set up again in Providers, but not picked", choice.activeServerModel())
+        assertEquals(Translator.ON_DEVICE_ID, translation.activeTranslator().id)
+        assertEquals(ServerPick.Done, choice.pickServerModel("llama3.1:8b"))
+        assertEquals("llama3.1:8b", choice.activeServerModel())
+    }
+
+    @Test
+    fun `saving the same address again keeps the server in use`() {
+        setUpServer()
+        choice.acceptNotice(choice.pickServerModel("gemma3:4b") as ServerPick.Notice)
+
+        store.saveAddress(" $ADDRESS ")
+
+        assertEquals("gemma3:4b", choice.activeServerModel())
+    }
+
+    @Test
     fun `a phone pick switches back to the phone and keeps the server's settings`() = runTest {
         setUpServer()
         choice.acceptNotice(choice.pickServerModel("gemma3:4b") as ServerPick.Notice)
