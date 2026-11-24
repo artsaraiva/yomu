@@ -216,14 +216,21 @@ class LanguageSwitchTest {
 
         assertEquals(
             "No Multilingual model fits this device",
-            ModelSlotSelection.languageUnavailable(TargetLanguage.FRENCH, listOf(catEntry, qwenEntry), noneFit)
+            ModelSlotSelection.languageUnavailable(TargetLanguage.FRENCH, listOf(catEntry, qwenEntry), onServer = false, fits = noneFit)
         )
         assertEquals(
             "No Multilingual model fits this device",
-            ModelSlotSelection.languageUnavailable(TargetLanguage.FRENCH, listOf(catEntry), allFit)
+            ModelSlotSelection.languageUnavailable(TargetLanguage.FRENCH, listOf(catEntry), onServer = false, fits = allFit)
         )
-        assertNull(ModelSlotSelection.languageUnavailable(TargetLanguage.ENGLISH, listOf(catEntry), noneFit))
-        assertNull(ModelSlotSelection.languageUnavailable(TargetLanguage.FRENCH, listOf(catEntry, qwenEntry), allFit))
+        assertNull(ModelSlotSelection.languageUnavailable(TargetLanguage.ENGLISH, listOf(catEntry), onServer = false, fits = noneFit))
+        assertNull(ModelSlotSelection.languageUnavailable(TargetLanguage.FRENCH, listOf(catEntry, qwenEntry), onServer = false, fits = allFit))
+    }
+
+    @Test
+    fun `while a server model takes the pages no language is unavailable, even with no Multilingual phone model`() {
+        val catEntry = SlotDeliverable(cat, "CAT-Translate 0.8B", 1L, "MIT", multilingual = false)
+
+        assertNull(ModelSlotSelection.languageUnavailable(TargetLanguage.FRENCH, listOf(catEntry), onServer = true) { false })
     }
 
     @Test

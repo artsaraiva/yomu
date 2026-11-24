@@ -81,6 +81,7 @@ class ServerSettingsStore(
     /** Whether the reader accepted the notice that a page's text is sent to their server; asked once. */
     fun noticeAccepted(): Boolean = runCatching { prefs.getBoolean(PREF_NOTICE_ACCEPTED, false) }.getOrDefault(false)
 
+    /** Records that the reader accepted the notice, so the next server pick isn't asked again. */
     fun acceptNotice() = prefs.edit().putBoolean(PREF_NOTICE_ACCEPTED, true).apply()
 
     /**

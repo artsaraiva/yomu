@@ -517,21 +517,23 @@ class OverlayService : Service() {
                 // A setting changed mid-page leaves a result made under neither snapshot.
                 if (pageSettings() == settings) pageRecall.remember(fingerprint, settings, shown, recallBegunAt)
             }
+            // A server failure leaves the phone's model files as they were, so there is nothing to recheck.
             if (failure != null && settings.serverModel == null) {
                 // The row that said READY has no file behind it: put the picker right now, rather
                 // than leaving it to the next Home or Settings visit (#308).
                 modelManager.refreshModelList()
             }
+            val noticeMs = if (failure != null) FAILURE_NOTICE_MS else NOTICE_MS
             withContext(Dispatchers.Main) {
                 if (shown != null) {
-                    showFinishedPage(shown, failure ?: shown.translationResult.untranslatedNotice(), if (failure != null) FAILURE_NOTICE_MS else NOTICE_MS)
+                    showFinishedPage(shown, failure ?: shown.translationResult.untranslatedNotice(), noticeMs)
                 } else {
                     // The OCR pass may already have drawn its bubbles, and that overlay is
                     // untouchable — without this the reader is left with pinned Japanese (#308).
                     translationRenderOverlay.remove()
                     // A null result already put the pipeline's own "Failed: …" on the status line.
                     failure?.let { statusOverlay.showOrUpdate("Failed: $it") }
-                    delay(if (failure != null) FAILURE_NOTICE_MS else NOTICE_MS)
+                    delay(noticeMs)
                     statusOverlay.remove()
                 }
                 floatingButton?.setState(FloatingButtonView.State.IDLE)

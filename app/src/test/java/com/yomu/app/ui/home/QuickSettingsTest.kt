@@ -56,8 +56,8 @@ class QuickSettingsTest {
         val onServer = state.copy(translationSelectedId = "qwen", serverModels = listOf("gemma3:4b", "qwen2.5:7b"), activeServerModel = "gemma3:4b")
 
         assertEquals("gemma3:4b", onServer.translationChipLabel())
-        assertTrue(onServer.checked("gemma3:4b"))
-        assertFalse(onServer.checked("qwen2.5:7b"))
+        assertTrue(onServer.serverModelChecked("gemma3:4b"))
+        assertFalse(onServer.serverModelChecked("qwen2.5:7b"))
         assertFalse("the phone model stays selected but doesn't take the page", onServer.checked(qwen))
     }
 
@@ -67,7 +67,7 @@ class QuickSettingsTest {
 
         assertTrue(onPhone.checked(qwen))
         assertFalse(onPhone.checked(cat))
-        assertFalse(onPhone.checked("gemma3:4b"))
+        assertFalse(onPhone.serverModelChecked("gemma3:4b"))
     }
 
     @Test

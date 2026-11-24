@@ -63,9 +63,8 @@ data class HomeUiState(
 
     fun languageBlock(deliverable: SlotDeliverable): String? = ModelSlotSelection.languageBlock(deliverable, targetLanguage)
 
-    /** Why [language] can't be chosen, or null. English only is a phone-model rule, so never while a server model is picked. */
-    fun languageUnavailable(language: TargetLanguage): String? = if (activeServerModel != null) null
-        else ModelSlotSelection.languageUnavailable(language, deliverables[ModelType.LLM].orEmpty(), ::fits)
+    fun languageUnavailable(language: TargetLanguage): String? =
+        ModelSlotSelection.languageUnavailable(language, deliverables[ModelType.LLM].orEmpty(), activeServerModel != null, ::fits)
 
     /**
      * The phone models the picker lists, in catalog order: the downloaded ones, any downloading, and the selected and
@@ -81,7 +80,7 @@ data class HomeUiState(
     fun checked(deliverable: SlotDeliverable): Boolean = activeServerModel == null && deliverable.id == translationSelectedId
 
     /** Whether the server model [name]'s row is checked: it takes the next page. */
-    fun checked(name: String): Boolean = name == activeServerModel
+    fun serverModelChecked(name: String): Boolean = name == activeServerModel
 
     fun languageChipLabel(): String = "Japanese → ${targetLanguage.promptName}"
 

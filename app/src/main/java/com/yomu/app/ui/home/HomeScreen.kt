@@ -49,6 +49,8 @@ fun HomeScreen(
             dismissButton = { TextButton(colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface), onClick = { confirmClear = false }) { Text("Keep") } }
         )
     }
+    // Home leaves composition while Settings is open, and returning there doesn't resume the activity.
+    LaunchedEffect(Unit) { viewModel.refreshSlots() }
     state.serverNotice?.let { ServerNoticeDialog(it.address, viewModel::acceptServerNotice, viewModel::declineServerNotice) }
     LazyColumn(
         state = scroll,

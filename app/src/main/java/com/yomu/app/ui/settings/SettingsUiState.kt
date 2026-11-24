@@ -59,8 +59,8 @@ data class SettingsUiState(
 
     fun languageBlock(deliverable: SlotDeliverable): String? = ModelSlotSelection.languageBlock(deliverable, targetLanguage)
 
-    fun languageUnavailable(language: TargetLanguage): String? = if (translatesOnServer) null
-        else ModelSlotSelection.languageUnavailable(language, deliverables[ModelType.LLM].orEmpty(), ::fits)
+    fun languageUnavailable(language: TargetLanguage): String? =
+        ModelSlotSelection.languageUnavailable(language, deliverables[ModelType.LLM].orEmpty(), translatesOnServer, ::fits)
 
     private fun fitBudget() = FitBudget(
         deviceTotalMemBytes,

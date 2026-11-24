@@ -166,7 +166,7 @@ private fun ServerRows(state: HomeUiState, onPick: (String) -> Unit, onSetUp: ()
         DropdownMenuItem(
             text = { Text(name, style = MaterialTheme.typography.titleSmall) },
             onClick = { onPick(name) },
-            leadingIcon = { CheckMark(state.checked(name)) }
+            leadingIcon = { CheckMark(state.serverModelChecked(name)) }
         )
     }
 }

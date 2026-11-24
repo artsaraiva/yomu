@@ -195,9 +195,8 @@ class ModelSlotSelection @Inject constructor(
 
     /** Why [language] can't be chosen on this device, or null; never while a server model takes the pages. */
     fun languageUnavailable(language: TargetLanguage, totalMemBytes: Long): String? {
-        if (translatesOnServer()) return null
         val budget = fitBudget(totalMemBytes)
-        return languageUnavailable(language, deliverables(ModelType.LLM)) { fits(it.id, budget) }
+        return languageUnavailable(language, deliverables(ModelType.LLM), translatesOnServer()) { fits(it.id, budget) }
     }
 
     private fun translatesOnServer(): Boolean = translation.activeTranslator().id == Translator.NETWORK_ID
@@ -274,9 +273,18 @@ class ModelSlotSelection @Inject constructor(
         fun languageBlock(deliverable: SlotDeliverable, language: TargetLanguage): String? =
             "Can't write ${language.promptName}".takeIf { language != TargetLanguage.ENGLISH && deliverable.multilingual == false }
 
-        /** Why [language] can't be chosen, or null: any language but English needs a Multilingual model that [fits]. */
-        fun languageUnavailable(language: TargetLanguage, deliverables: List<SlotDeliverable>, fits: (SlotDeliverable) -> Boolean): String? =
-            NO_MULTILINGUAL_FIT.takeIf { language != TargetLanguage.ENGLISH && deliverables.none { it.multilingual == true && fits(it) } }
+        /**
+         * Why [language] can't be chosen, or null: any language but English needs a Multilingual model that [fits].
+         * English only is a phone-model rule, so nothing is refused while a server model takes the pages ([onServer]).
+         */
+        fun languageUnavailable(
+            language: TargetLanguage,
+            deliverables: List<SlotDeliverable>,
+            onServer: Boolean,
+            fits: (SlotDeliverable) -> Boolean
+        ): String? = NO_MULTILINGUAL_FIT.takeIf {
+            !onServer && language != TargetLanguage.ENGLISH && deliverables.none { it.multilingual == true && fits(it) }
+        }
 
         /** A Slow deliverable asks before gigabytes are downloaded; one that doesn't fit can't be picked at all. */
         fun needsSlowWarning(deliverable: SlotDeliverable, budget: FitBudget): Boolean =

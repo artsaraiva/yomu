@@ -144,6 +144,9 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    /** Re-reads the picks, which Settings and Providers change while Home is off screen. */
+    fun refreshSlots() = _uiState.update { it.withSlots() }
+
     fun openSetup() = _uiState.update { it.copy(setupVisible = true) }
 
     fun dismissSetup() = _uiState.update { it.copy(setupVisible = false) }
