@@ -122,6 +122,9 @@ class OverlayService : Service() {
         private const val CHANNEL_NAME = "Yomu Overlay"
         private const val CHANNEL_DESC = "Yomu translation overlay service"
         private const val RELEASE_WAIT_MS = 2_000L
+        private const val NOTICE_MS = 1_500L
+        /** A failure names its cause and what to do, a sentence too long to read in [NOTICE_MS]. */
+        private const val FAILURE_NOTICE_MS = 4_000L
 
         fun start(context: Context) {
             val intent = Intent(context, OverlayService::class.java)
@@ -507,26 +510,28 @@ class OverlayService : Service() {
             )
             if (result != null) lastPage = PageRecord(bitmap, result, settings, recalled = false)
             val failure = result?.translationResult?.readerFailure()
-            if (result != null && failure == null && result.translationResult.translations.isNotEmpty()) {
-                savePage(result)
+            // A server that failed mid-reply keeps the bubbles it streamed, with its failure as the notice.
+            val shown = result?.takeIf { failure == null || it.translationResult.translations.any { bubble -> bubble.answered } }
+            if (shown != null && shown.translationResult.translations.isNotEmpty()) {
+                savePage(shown)
                 // A setting changed mid-page leaves a result made under neither snapshot.
-                if (pageSettings() == settings) pageRecall.remember(fingerprint, settings, result, recallBegunAt)
+                if (pageSettings() == settings) pageRecall.remember(fingerprint, settings, shown, recallBegunAt)
             }
-            if (failure != null) {
+            if (failure != null && settings.serverModel == null) {
                 // The row that said READY has no file behind it: put the picker right now, rather
                 // than leaving it to the next Home or Settings visit (#308).
                 modelManager.refreshModelList()
             }
             withContext(Dispatchers.Main) {
-                if (result != null && failure == null) {
-                    showFinishedPage(result, result.translationResult.untranslatedNotice())
+                if (shown != null) {
+                    showFinishedPage(shown, failure ?: shown.translationResult.untranslatedNotice(), if (failure != null) FAILURE_NOTICE_MS else NOTICE_MS)
                 } else {
                     // The OCR pass may already have drawn its bubbles, and that overlay is
                     // untouchable — without this the reader is left with pinned Japanese (#308).
                     translationRenderOverlay.remove()
                     // A null result already put the pipeline's own "Failed: …" on the status line.
                     failure?.let { statusOverlay.showOrUpdate("Failed: $it") }
-                    delay(1500)
+                    delay(if (failure != null) FAILURE_NOTICE_MS else NOTICE_MS)
                     statusOverlay.remove()
                 }
                 floatingButton?.setState(FloatingButtonView.State.IDLE)
@@ -542,8 +547,8 @@ class OverlayService : Service() {
         }
     }
 
-    /** Draws a finished page on the main thread, then shows [notice] above it for a moment. */
-    private suspend fun showFinishedPage(page: PipelineResult, notice: String?) {
+    /** Draws a finished page on the main thread, then shows [notice] above it for [noticeMs]. */
+    private suspend fun showFinishedPage(page: PipelineResult, notice: String?, noticeMs: Long = NOTICE_MS) {
         if (page.typesetBubbles.isEmpty()) {
             translationRenderOverlay.remove()
         } else {
@@ -554,7 +559,7 @@ class OverlayService : Service() {
         // Re-adding the status line after the page keeps it above the drawn bubbles.
         notice?.let {
             statusOverlay.showOrUpdate(it)
-            delay(1500)
+            delay(noticeMs)
             statusOverlay.remove()
         }
     }
