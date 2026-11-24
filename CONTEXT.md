@@ -1,6 +1,6 @@
 # Yomu
 
-On-device manga translation for Android. A page is captured on manual trigger, its speech bubbles are detected and read, and the text is translated locally without leaving the device.
+Manga translation for Android, on the device by default. A page is captured on manual trigger, its speech bubbles are detected and read on the phone, and the text is translated there too, unless the reader points Yomu at their own server.
 
 ## Language
 
@@ -75,11 +75,11 @@ _Avoid_: history, memory, conversation history
 ### Reading
 
 **Page recall**:
-Showing an already translated page again, instantly, when the reader captures the same page in the same overlay session with the same [[deliverable]], [[target language]] and every other setting that shapes the result. Keyed on a fingerprint of the captured frame, with the status bar and the floating button left out, never on source lines.
+Showing an already translated page again, instantly, when the reader captures the same page in the same overlay session with the same [[translator]], [[deliverable]], server model (for the [[network translator]]), [[target language]] and every other setting that shapes the result. Keyed on a fingerprint of the captured frame, with the status bar and the floating button left out, never on source lines.
 _Avoid_: page cache, translation cache, page memory
 
 **Page report**:
-One page's evidence for a bug report: its capture, each bubble's OCR text, the model's raw reply, the model and settings used, and per-stage timings. It leaves the phone only through the share sheet, when the reader sends it.
+One page's evidence for a bug report: its capture, each bubble's OCR text, the model's raw reply, the translator, model and settings used, and per-stage timings. A page from the [[network translator]] names the server's model, never its address. It leaves the phone only through the share sheet, when the reader sends it.
 _Avoid_: bug bundle, diagnostics dump, crash report
 
 **Recent**:

@@ -4,7 +4,7 @@ labels: [bug]
 body:
   - type: markdown
     attributes:
-      value: Phone details matter most. Yomu runs every model on your device, so most bugs depend on the phone.
+      value: Phone details matter most. Yomu runs every model on your device unless you point it at your own server, so most bugs depend on the phone.
   - type: input
     id: phone
     attributes:
@@ -38,6 +38,7 @@ body:
     id: model
     attributes:
       label: Translation model and target language
+      description: The phone model, or your server's model name if you translate on your own server.
       placeholder: Qwen2.5 1.5B Instruct, English
   - type: textarea
     id: what
