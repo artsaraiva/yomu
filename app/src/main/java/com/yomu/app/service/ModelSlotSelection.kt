@@ -8,6 +8,7 @@ import com.yomu.app.translation.LlmModelCatalog
 import com.yomu.app.translation.ResourceLimit
 import com.yomu.app.translation.TargetLanguageStore
 import com.yomu.app.translation.TranslationModelSelection
+import com.yomu.app.translation.Translator
 import com.yomu.core.Constants
 import com.yomu.core.TargetLanguage
 import com.yomu.pipeline.TranslationPipeline
@@ -163,11 +164,13 @@ class ModelSlotSelection @Inject constructor(
 
     /**
      * Sets [language] unless the translation model in use, or the one waiting to take over, writes English only;
-     * then the default is offered instead and nothing changes until [accept].
+     * then the default is offered instead and nothing changes until [accept]. English only is a phone-model
+     * rule, so while a server model takes the pages every language is set.
      */
     suspend fun switchLanguage(language: TargetLanguage): LanguageSwitch {
         val options = deliverables(ModelType.LLM)
         val englishOnly = listOfNotNull(selectedId(ModelType.LLM), pending[ModelType.LLM])
+            .takeUnless { translatesOnServer() }.orEmpty()
             .mapNotNull { id -> options.firstOrNull { it.id == id } }
             .firstOrNull { languageBlock(it, language) != null }
         if (englishOnly == null) {
@@ -190,11 +193,14 @@ class ModelSlotSelection @Inject constructor(
         return true
     }
 
-    /** Why [language] can't be chosen on this device, or null. */
+    /** Why [language] can't be chosen on this device, or null; never while a server model takes the pages. */
     fun languageUnavailable(language: TargetLanguage, totalMemBytes: Long): String? {
+        if (translatesOnServer()) return null
         val budget = fitBudget(totalMemBytes)
         return languageUnavailable(language, deliverables(ModelType.LLM)) { fits(it.id, budget) }
     }
+
+    private fun translatesOnServer(): Boolean = translation.activeTranslator().id == Translator.NETWORK_ID
 
     private fun dropPending(id: String) {
         pending.values.remove(id)
