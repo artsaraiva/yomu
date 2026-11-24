@@ -1,6 +1,7 @@
 package com.yomu.app.service
 
 import com.yomu.app.overlay.OverlayBounds
+import com.yomu.app.translation.Translator
 import com.yomu.core.GenerationParams
 import com.yomu.core.GlossaryEntry
 import com.yomu.core.RuntimeLimits
@@ -156,6 +157,19 @@ class PageRecallTest {
 
         for (setting in changed) assertNull("$setting", recall.recall(fingerprint(page(0)), setting))
         assertEquals(result("page 0"), recall.recall(fingerprint(page(0)), settings))
+    }
+
+    @Test
+    fun `switching between the phone and the server, or the server's model, makes the page a fresh translation`() {
+        val recall = PageRecall()
+        val onServer = settings.copy(translator = Translator.NETWORK_ID, serverModel = "qwen2.5:7b")
+        recall.remember(fingerprint(page(0)), settings, result("on the phone"))
+        recall.remember(fingerprint(page(1)), onServer, result("on the server"))
+
+        assertNull("phone page, now on the server", recall.recall(fingerprint(page(0)), onServer))
+        assertNull("server page, now on the phone", recall.recall(fingerprint(page(1)), settings))
+        assertNull("server page, other server model", recall.recall(fingerprint(page(1)), onServer.copy(serverModel = "gemma3:4b")))
+        assertEquals(result("on the server"), recall.recall(fingerprint(page(1)), onServer))
     }
 
     /** Verifies a recall refreshes recency and the thirty-first insertion evicts the oldest unused page. */

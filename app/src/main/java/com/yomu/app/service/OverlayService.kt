@@ -31,11 +31,13 @@ import com.yomu.app.overlay.QuickSettingsPopup
 import com.yomu.app.overlay.TranslationRenderOverlay
 import com.yomu.app.overlay.TranslationStatusOverlay
 import com.yomu.app.overlay.boundsOnScreen
+import com.yomu.app.overlay.stageMessage
 import com.yomu.app.db.entities.ModelType
 import com.yomu.app.translation.ResourceLimitsStore
 import com.yomu.app.translation.NameGlossaryStore
 import com.yomu.app.translation.TargetLanguageStore
 import com.yomu.app.translation.TranslationModelSelection
+import com.yomu.app.translation.Translator
 import com.yomu.core.Constants
 import com.yomu.core.TargetLanguage
 import com.yomu.pipeline.ModelPaths
@@ -72,6 +74,7 @@ class OverlayService : Service() {
     @Inject lateinit var readingSelection: ReadingModelSelection
     @Inject lateinit var slotSelection: ModelSlotSelection
     @Inject lateinit var translationSelection: TranslationModelSelection
+    @Inject lateinit var translatorChoice: TranslatorChoice
 
     private var readingModelFiles: List<File> = emptyList()
     private val pageRecall = PageRecall()
@@ -383,8 +386,9 @@ class OverlayService : Service() {
         }
     }
 
-    private fun translationModelName(): String = slotSelection.selectedId(ModelType.LLM)
-        ?.let { id -> slotSelection.deliverables(ModelType.LLM).firstOrNull { it.id == id }?.name }
+    /** The model that translates the next page: the server's while a server model is picked, else the phone's. */
+    private fun translationModelName(): String = translatorChoice.activeServerModel()
+        ?: slotSelection.selectedId(ModelType.LLM)?.let { id -> slotSelection.deliverables(ModelType.LLM).firstOrNull { it.id == id }?.name }
         ?: "No model selected"
 
     private fun removeQuickSettingsPopup() {
@@ -457,7 +461,7 @@ class OverlayService : Service() {
                 /** Logs pipeline progress and posts the stage message while the translation job is active. */
                 override fun onStageProgress(stage: TranslationPipeline.Stage, progress: Float) {
                     Log.i(TAG, "Pipeline progress stage=$stage progress=$progress")
-                    updateStatus(job, statusOverlay.messageForStage(stage))
+                    updateStatus(job, stageMessage(stage, onServer = settings.serverModel != null))
                 }
 
                 /** Logs a pipeline error and posts its message while the translation job is active. */
@@ -579,18 +583,26 @@ class OverlayService : Service() {
         }
     }
 
-    /** Snapshots the model choices, generation and runtime limits, rendering settings, target language and name glossary used as the recall key. */
-    private fun pageSettings() = PageSettings(
-        translationModel = slotSelection.selectedId(ModelType.LLM),
-        detectionModel = slotSelection.selectedId(ModelType.DETECTION),
-        ocrModel = slotSelection.selectedId(ModelType.OCR),
-        generation = translationSelection.generationProfile().params,
-        runtime = ResourceLimitsStore(sharedPreferences).runtime(),
-        detectionThreshold = translationPipeline.confidenceThreshold,
-        fontScale = translationPipeline.fontSizeScale,
-        targetLanguage = TargetLanguageStore(sharedPreferences).load(),
-        glossary = NameGlossaryStore(sharedPreferences).entriesInUse()
-    )
+    /**
+     * Snapshots the translator, the model choices, generation and runtime limits, rendering settings, target language
+     * and name glossary used as the recall key. The server's model is in it, its address is not (ADR-0023).
+     */
+    private fun pageSettings(): PageSettings {
+        val serverModel = translatorChoice.activeServerModel()
+        return PageSettings(
+            translator = if (serverModel != null) Translator.NETWORK_ID else Translator.ON_DEVICE_ID,
+            serverModel = serverModel,
+            translationModel = slotSelection.selectedId(ModelType.LLM),
+            detectionModel = slotSelection.selectedId(ModelType.DETECTION),
+            ocrModel = slotSelection.selectedId(ModelType.OCR),
+            generation = translationSelection.generationProfile().params,
+            runtime = ResourceLimitsStore(sharedPreferences).runtime(),
+            detectionThreshold = translationPipeline.confidenceThreshold,
+            fontScale = translationPipeline.fontSizeScale,
+            targetLanguage = TargetLanguageStore(sharedPreferences).load(),
+            glossary = NameGlossaryStore(sharedPreferences).entriesInUse()
+        )
+    }
 
     private suspend fun savePage(result: PipelineResult) {
         val translatedText = result.translationResult.translations.joinToString("\n") { translation ->

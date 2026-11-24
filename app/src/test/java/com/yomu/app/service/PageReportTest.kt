@@ -3,6 +3,7 @@ package com.yomu.app.service
 import com.google.gson.JsonNull
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
+import com.yomu.app.translation.Translator
 import com.yomu.core.GenerationParams
 import com.yomu.core.RuntimeLimits
 import com.yomu.core.TargetLanguage
@@ -130,6 +131,32 @@ class PageReportTest {
         assertEquals(0.25f, recorded["detectionThreshold"].asFloat)
         assertEquals(1.2f, recorded["fontScale"].asFloat)
         assertEquals("SPANISH", recorded["targetLanguage"].asString)
+    }
+
+    @Test
+    fun `a page records which translator made it, and the server's model only for a server page`() {
+        val onPhone = json(report(twoBubblePage)).getAsJsonObject("settings")
+        val onServer = json(
+            pageReportFiles(capture, twoBubblePage, settings.copy(translator = Translator.NETWORK_ID, serverModel = "qwen2.5:7b"), false, origin)
+        ).getAsJsonObject("settings")
+
+        assertEquals("on-device", onPhone["translator"].asString)
+        assertEquals(JsonNull.INSTANCE, onPhone["serverModel"])
+        assertEquals("network", onServer["translator"].asString)
+        assertEquals("qwen2.5:7b", onServer["serverModel"].asString)
+    }
+
+    @Test
+    fun `the recorded settings are exactly these, so no server address can reach a report`() {
+        val recorded = json(report(twoBubblePage)).getAsJsonObject("settings")
+
+        assertEquals(
+            setOf(
+                "translator", "serverModel", "translationModel", "detectionModel", "ocrModel", "generation", "runtime",
+                "detectionThreshold", "fontScale", "targetLanguage", "glossary"
+            ),
+            recorded.keySet()
+        )
     }
 
     @Test

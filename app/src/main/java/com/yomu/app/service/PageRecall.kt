@@ -1,5 +1,6 @@
 package com.yomu.app.service
 
+import com.yomu.app.translation.Translator
 import com.yomu.core.GenerationParams
 import com.yomu.core.GlossaryEntry
 import com.yomu.core.RuntimeLimits
@@ -7,8 +8,15 @@ import com.yomu.core.TargetLanguage
 import com.yomu.core.TranslationOutcome
 import com.yomu.pipeline.PipelineResult
 
-/** Every setting that shapes a translated page: a change to any of them makes the next capture a fresh translation. */
+/**
+ * Every setting that shapes a translated page: a change to any of them makes the next capture a fresh translation.
+ * A page report records them all, so none may name the server's address (ADR-0023).
+ */
 data class PageSettings(
+    /** The translator that took the page: on the phone, or the network translator. */
+    val translator: String = Translator.ON_DEVICE_ID,
+    /** The model the network translator asked for, or null for a page translated on the phone. */
+    val serverModel: String? = null,
     val translationModel: String?,
     val detectionModel: String?,
     val ocrModel: String?,
