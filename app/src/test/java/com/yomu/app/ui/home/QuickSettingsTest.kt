@@ -7,7 +7,9 @@ import com.yomu.app.service.SlotDeliverable
 import com.yomu.app.ui.settings.deliverableStatus
 import com.yomu.core.TargetLanguage
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class QuickSettingsTest {
@@ -31,6 +33,32 @@ class QuickSettingsTest {
     @Test
     fun `an empty translation slot says no model is selected`() {
         assertEquals("No model selected", state.translationChipLabel())
+    }
+
+    @Test
+    fun `while a server model is picked the chip names it and only its row is checked`() {
+        val onServer = state.copy(translationSelectedId = "qwen", serverModels = listOf("gemma3:4b", "qwen2.5:7b"), activeServerModel = "gemma3:4b")
+
+        assertEquals("gemma3:4b", onServer.translationChipLabel())
+        assertTrue(onServer.checked("gemma3:4b"))
+        assertFalse(onServer.checked("qwen2.5:7b"))
+        assertFalse("the phone model stays selected but doesn't take the page", onServer.checked(qwen))
+    }
+
+    @Test
+    fun `while the phone translates, its selected model's row is the checked one`() {
+        val onPhone = state.copy(translationSelectedId = "qwen", serverModels = listOf("gemma3:4b"))
+
+        assertTrue(onPhone.checked(qwen))
+        assertFalse(onPhone.checked(cat))
+        assertFalse(onPhone.checked("gemma3:4b"))
+    }
+
+    @Test
+    fun `while a server model is picked every language can be chosen, even with no Multilingual phone model`() {
+        val onServer = state.copy(deliverables = mapOf(ModelType.LLM to listOf(cat)), activeServerModel = "gemma3:4b")
+
+        assertNull(onServer.languageUnavailable(TargetLanguage.FRENCH))
     }
 
     @Test

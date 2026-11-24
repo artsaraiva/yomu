@@ -11,7 +11,6 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.yomu.app.db.HistoryDao
-import com.yomu.app.db.entities.ModelStatus
 import com.yomu.app.db.entities.ModelType
 import com.yomu.app.service.LanguageSwitch
 import com.yomu.app.service.ModelManager
@@ -54,6 +53,7 @@ class HomeViewModel @Inject constructor(
     private var historyJob: Job? = null
     private var countJob: Job? = null
     private var setupJob: Job? = null
+    private val setupDownload = SetupDownload(modelManager, slotSelection, _uiState)
 
     private val serviceStateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -206,43 +206,9 @@ class HomeViewModel @Inject constructor(
     fun prepareSetup() {
         if (setupJob?.isActive == true) return
         setupJob = viewModelScope.launch {
-            _uiState.update {
-                it.copy(setupStarted = true, setupError = false, setupFailedId = null, setupDownloadsReady = false, onMeteredNetwork = modelManager.isOnMeteredNetwork())
-            }
-            var current: String? = null
-            try {
-                modelManager.refreshModelList()
-                for (type in ModelType.entries) {
-                    val id = slotSelection.chosenId(type)
-                    // Refused before downloading: pick would turn it down afterwards, leaving a download that never takes over.
-                    // Its row already says it is too big, so setup just returns to the Download button.
-                    if (!ModelSlotSelection.fits(id, slotSelection.fitBudget(_uiState.value.fitBudget.totalMemBytes))) {
-                        _uiState.update { it.copy(setupStarted = false) }
-                        return@launch
-                    }
-                    if (modelManager.getModel(id)?.status != ModelStatus.READY) {
-                        current = id
-                        val size = slotSelection.deliverables(type).firstOrNull { it.id == id }?.sizeBytes ?: 0L
-                        _uiState.update { it.copy(setupDownload = ModelManager.DownloadProgress(id, 0L, size, 0)) }
-                        val success = modelManager.downloadModel(id) { progress ->
-                            _uiState.update { it.copy(setupDownload = progress) }
-                        }
-                        if (!success) {
-                            _uiState.update { it.copy(setupError = true, setupFailedId = id) }
-                            return@launch
-                        }
-                    }
-                    slotSelection.pick(type, id, ModelStatus.READY, _uiState.value.fitBudget.totalMemBytes)
-                }
-                refreshReadiness()
-                _uiState.update { it.copy(setupDownloadsReady = true) }
-            } catch (cancelled: CancellationException) {
-                throw cancelled
-            } catch (_: Exception) {
-                _uiState.update { it.copy(setupError = true, setupFailedId = current) }
-            } finally {
-                _uiState.update { it.copy(setupDownload = null) }
-            }
+            if (!setupDownload.run()) return@launch
+            refreshReadiness()
+            _uiState.update { it.copy(setupDownloadsReady = true) }
         }
     }
 
