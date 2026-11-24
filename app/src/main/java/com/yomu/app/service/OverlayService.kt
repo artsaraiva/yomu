@@ -31,11 +31,13 @@ import com.yomu.app.overlay.QuickSettingsPopup
 import com.yomu.app.overlay.TranslationRenderOverlay
 import com.yomu.app.overlay.TranslationStatusOverlay
 import com.yomu.app.overlay.boundsOnScreen
+import com.yomu.app.overlay.stageMessage
 import com.yomu.app.db.entities.ModelType
 import com.yomu.app.translation.ResourceLimitsStore
 import com.yomu.app.translation.NameGlossaryStore
 import com.yomu.app.translation.TargetLanguageStore
 import com.yomu.app.translation.TranslationModelSelection
+import com.yomu.app.translation.Translator
 import com.yomu.core.Constants
 import com.yomu.core.TargetLanguage
 import com.yomu.pipeline.ModelPaths
@@ -72,6 +74,7 @@ class OverlayService : Service() {
     @Inject lateinit var readingSelection: ReadingModelSelection
     @Inject lateinit var slotSelection: ModelSlotSelection
     @Inject lateinit var translationSelection: TranslationModelSelection
+    @Inject lateinit var translatorChoice: TranslatorChoice
 
     private var readingModelFiles: List<File> = emptyList()
     private val pageRecall = PageRecall()
@@ -119,6 +122,9 @@ class OverlayService : Service() {
         private const val CHANNEL_NAME = "Yomu Overlay"
         private const val CHANNEL_DESC = "Yomu translation overlay service"
         private const val RELEASE_WAIT_MS = 2_000L
+        private const val NOTICE_MS = 1_500L
+        /** A failure names its cause and what to do, a sentence too long to read in [NOTICE_MS]. */
+        private const val FAILURE_NOTICE_MS = 4_000L
 
         fun start(context: Context) {
             val intent = Intent(context, OverlayService::class.java)
@@ -383,8 +389,9 @@ class OverlayService : Service() {
         }
     }
 
-    private fun translationModelName(): String = slotSelection.selectedId(ModelType.LLM)
-        ?.let { id -> slotSelection.deliverables(ModelType.LLM).firstOrNull { it.id == id }?.name }
+    /** The model that translates the next page: the server's while a server model is picked, else the phone's. */
+    private fun translationModelName(): String = translatorChoice.activeServerModel()
+        ?: slotSelection.selectedId(ModelType.LLM)?.let { id -> slotSelection.deliverables(ModelType.LLM).firstOrNull { it.id == id }?.name }
         ?: "No model selected"
 
     private fun removeQuickSettingsPopup() {
@@ -457,7 +464,7 @@ class OverlayService : Service() {
                 /** Logs pipeline progress and posts the stage message while the translation job is active. */
                 override fun onStageProgress(stage: TranslationPipeline.Stage, progress: Float) {
                     Log.i(TAG, "Pipeline progress stage=$stage progress=$progress")
-                    updateStatus(job, statusOverlay.messageForStage(stage))
+                    updateStatus(job, stageMessage(stage, onServer = settings.serverModel != null))
                 }
 
                 /** Logs a pipeline error and posts its message while the translation job is active. */
@@ -503,26 +510,30 @@ class OverlayService : Service() {
             )
             if (result != null) lastPage = PageRecord(bitmap, result, settings, recalled = false)
             val failure = result?.translationResult?.readerFailure()
-            if (result != null && failure == null && result.translationResult.translations.isNotEmpty()) {
-                savePage(result)
+            // A server that failed mid-reply keeps the bubbles it streamed, with its failure as the notice.
+            val shown = result?.takeIf { failure == null || it.translationResult.translations.any { bubble -> bubble.answered } }
+            if (shown != null && shown.translationResult.translations.isNotEmpty()) {
+                savePage(shown)
                 // A setting changed mid-page leaves a result made under neither snapshot.
-                if (pageSettings() == settings) pageRecall.remember(fingerprint, settings, result, recallBegunAt)
+                if (pageSettings() == settings) pageRecall.remember(fingerprint, settings, shown, recallBegunAt)
             }
-            if (failure != null) {
+            // A server failure leaves the phone's model files as they were, so there is nothing to recheck.
+            if (failure != null && settings.serverModel == null) {
                 // The row that said READY has no file behind it: put the picker right now, rather
                 // than leaving it to the next Home or Settings visit (#308).
                 modelManager.refreshModelList()
             }
+            val noticeMs = if (failure != null) FAILURE_NOTICE_MS else NOTICE_MS
             withContext(Dispatchers.Main) {
-                if (result != null && failure == null) {
-                    showFinishedPage(result, result.translationResult.untranslatedNotice())
+                if (shown != null) {
+                    showFinishedPage(shown, failure ?: shown.translationResult.untranslatedNotice(), noticeMs)
                 } else {
                     // The OCR pass may already have drawn its bubbles, and that overlay is
                     // untouchable — without this the reader is left with pinned Japanese (#308).
                     translationRenderOverlay.remove()
                     // A null result already put the pipeline's own "Failed: …" on the status line.
                     failure?.let { statusOverlay.showOrUpdate("Failed: $it") }
-                    delay(1500)
+                    delay(noticeMs)
                     statusOverlay.remove()
                 }
                 floatingButton?.setState(FloatingButtonView.State.IDLE)
@@ -538,8 +549,8 @@ class OverlayService : Service() {
         }
     }
 
-    /** Draws a finished page on the main thread, then shows [notice] above it for a moment. */
-    private suspend fun showFinishedPage(page: PipelineResult, notice: String?) {
+    /** Draws a finished page on the main thread, then shows [notice] above it for [noticeMs]. */
+    private suspend fun showFinishedPage(page: PipelineResult, notice: String?, noticeMs: Long = NOTICE_MS) {
         if (page.typesetBubbles.isEmpty()) {
             translationRenderOverlay.remove()
         } else {
@@ -550,7 +561,7 @@ class OverlayService : Service() {
         // Re-adding the status line after the page keeps it above the drawn bubbles.
         notice?.let {
             statusOverlay.showOrUpdate(it)
-            delay(1500)
+            delay(noticeMs)
             statusOverlay.remove()
         }
     }
@@ -579,18 +590,26 @@ class OverlayService : Service() {
         }
     }
 
-    /** Snapshots the model choices, generation and runtime limits, rendering settings, target language and name glossary used as the recall key. */
-    private fun pageSettings() = PageSettings(
-        translationModel = slotSelection.selectedId(ModelType.LLM),
-        detectionModel = slotSelection.selectedId(ModelType.DETECTION),
-        ocrModel = slotSelection.selectedId(ModelType.OCR),
-        generation = translationSelection.generationProfile().params,
-        runtime = ResourceLimitsStore(sharedPreferences).runtime(),
-        detectionThreshold = translationPipeline.confidenceThreshold,
-        fontScale = translationPipeline.fontSizeScale,
-        targetLanguage = TargetLanguageStore(sharedPreferences).load(),
-        glossary = NameGlossaryStore(sharedPreferences).entriesInUse()
-    )
+    /**
+     * Snapshots the translator, the model choices, generation and runtime limits, rendering settings, target language
+     * and name glossary used as the recall key. The server's model is in it, its address is not (ADR-0023).
+     */
+    private fun pageSettings(): PageSettings {
+        val serverModel = translatorChoice.activeServerModel()
+        return PageSettings(
+            translator = if (serverModel != null) Translator.NETWORK_ID else Translator.ON_DEVICE_ID,
+            serverModel = serverModel,
+            translationModel = slotSelection.selectedId(ModelType.LLM),
+            detectionModel = slotSelection.selectedId(ModelType.DETECTION),
+            ocrModel = slotSelection.selectedId(ModelType.OCR),
+            generation = translationSelection.generationProfile().params,
+            runtime = ResourceLimitsStore(sharedPreferences).runtime(),
+            detectionThreshold = translationPipeline.confidenceThreshold,
+            fontScale = translationPipeline.fontSizeScale,
+            targetLanguage = TargetLanguageStore(sharedPreferences).load(),
+            glossary = NameGlossaryStore(sharedPreferences).entriesInUse()
+        )
+    }
 
     private suspend fun savePage(result: PipelineResult) {
         val translatedText = result.translationResult.translations.joinToString("\n") { translation ->

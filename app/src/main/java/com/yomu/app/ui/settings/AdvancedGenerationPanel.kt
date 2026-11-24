@@ -60,8 +60,9 @@ internal fun AdvancedGenerationPanel(
                 color = if (overridden) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
-                text = "Sampler settings for the on-device LLM. A value you change applies to every model; " +
-                    "the rest follow what each model's maker recommends. Applied on the next capture.",
+                text = "Sampler settings for the translation model, on this phone or on your server. Top-k applies on the phone only. " +
+                    "A value you change applies to every model; the rest follow what each model's maker recommends. " +
+                    "Applied on the next capture.",
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

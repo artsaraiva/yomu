@@ -13,7 +13,7 @@ body:
     id: idea
     attributes:
       label: What would help?
-      description: How you picture it working. Keep in mind that every model runs on the phone and nothing is sent to a server.
+      description: How you picture it working. Keep in mind that every model runs on the phone, and a page's text leaves it only for a server the reader sets up.
     validations:
       required: true
   - type: textarea

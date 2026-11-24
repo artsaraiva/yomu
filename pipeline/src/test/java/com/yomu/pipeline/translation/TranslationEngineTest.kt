@@ -2,6 +2,12 @@ package com.yomu.pipeline.translation
 
 import android.graphics.RectF
 import com.yomu.core.ERROR_ENGLISH_ONLY
+import com.yomu.core.ERROR_SERVER_FAILED
+import com.yomu.core.ERROR_SERVER_HTTPS_REQUIRED
+import com.yomu.core.ERROR_SERVER_KEY_REJECTED
+import com.yomu.core.ERROR_SERVER_MODEL_NOT_FOUND
+import com.yomu.core.ERROR_SERVER_TIMEOUT
+import com.yomu.core.ERROR_SERVER_UNREACHABLE
 import com.yomu.core.GlossaryEntry
 import com.yomu.core.PageTranslation
 import com.yomu.core.TargetLanguage
@@ -415,6 +421,35 @@ class TranslationEngineTest {
         val result = TranslationEngine { slot }.translate(listOf(block(1 to "\u3053\u3093\u306b\u3061\u306f")), TargetLanguage.GERMAN)
 
         assertEquals("This model is English only \u2014 pick a Multilingual model or English in Settings", result.readerFailure())
+    }
+
+    @Test
+    fun `readerFailure names each server failure and points to a phone model on Home`() = runTest {
+        val expected = mapOf(
+            (TranslationOutcome.ERROR to ERROR_SERVER_UNREACHABLE) to "Can't reach your server",
+            (TranslationOutcome.ERROR to ERROR_SERVER_KEY_REJECTED) to "Your server rejected the key",
+            (TranslationOutcome.ERROR to ERROR_SERVER_MODEL_NOT_FOUND) to "Your server doesn't have this model",
+            (TranslationOutcome.TIMEOUT to ERROR_SERVER_TIMEOUT) to "Your server took too long",
+            (TranslationOutcome.ERROR to ERROR_SERVER_HTTPS_REQUIRED) to "Your server's address needs https://",
+            (TranslationOutcome.ERROR to ERROR_SERVER_FAILED) to "Your server couldn't translate the page"
+        )
+
+        for ((failure, cause) in expected) {
+            val slot = FakeTranslationSlot(PageTranslation(emptyMap(), "", 0L, failure.first, failure.second))
+
+            val result = TranslationEngine { slot }.translate(listOf(block(1 to "\u3053\u3093\u306b\u3061\u306f")))
+
+            assertEquals("$cause \u2014 or pick a phone model in the model picker on Home", result.readerFailure())
+        }
+    }
+
+    @Test
+    fun `readerFailure stays silent for a page the phone timed out on`() = runTest {
+        val slot = FakeTranslationSlot(PageTranslation(mapOf(1 to "Hello"), "", 1L, TranslationOutcome.TIMEOUT, "deadline"))
+
+        val result = TranslationEngine { slot }.translate(listOf(block(1 to "\u3053\u3093\u306b\u3061\u306f", 2 to "\u307e\u305f\u306d")))
+
+        assertNull(result.readerFailure())
     }
 
     /** Builds a panel with synthetic bounds, OCR text keyed by bubble ID, and the requested reading order. */

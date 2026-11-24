@@ -1,5 +1,6 @@
 package com.yomu.app.ui.home
 
+import com.yomu.app.db.entities.ModelEntity
 import com.yomu.app.db.entities.ModelStatus
 import com.yomu.app.db.entities.ModelType
 import com.yomu.app.service.ModelSlotSelection
@@ -7,7 +8,9 @@ import com.yomu.app.service.SlotDeliverable
 import com.yomu.app.ui.settings.deliverableStatus
 import com.yomu.core.TargetLanguage
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class QuickSettingsTest {
@@ -31,6 +34,47 @@ class QuickSettingsTest {
     @Test
     fun `an empty translation slot says no model is selected`() {
         assertEquals("No model selected", state.translationChipLabel())
+    }
+
+    @Test
+    fun `the phone group lists the downloaded models, one downloading, and the pick waiting to take over`() {
+        val hy = SlotDeliverable("hy", "Hy-MT2 1.8B", 1L, "Tencent", multilingual = true)
+        val gemma = SlotDeliverable("gemma", "Gemma 4 E2B", 1L, "Gemma", multilingual = false)
+        val bonsai = SlotDeliverable("bonsai", "Ternary-Bonsai 4B", 1L, "Apache-2.0", multilingual = false)
+        val catalog = state.copy(
+            deliverables = mapOf(ModelType.LLM to listOf(qwen, cat, hy, gemma, bonsai)),
+            models = listOf(entity("qwen", ModelStatus.READY), entity("hy", ModelStatus.DOWNLOADING), entity("bonsai", ModelStatus.ERROR)),
+            translationSelectedId = "qwen",
+            translationPendingId = "cat"
+        )
+
+        assertEquals(listOf(qwen, cat, hy), catalog.phoneRows())
+    }
+
+    @Test
+    fun `while a server model is picked the chip names it and only its row is checked`() {
+        val onServer = state.copy(translationSelectedId = "qwen", serverModels = listOf("gemma3:4b", "qwen2.5:7b"), activeServerModel = "gemma3:4b")
+
+        assertEquals("gemma3:4b", onServer.translationChipLabel())
+        assertTrue(onServer.serverModelChecked("gemma3:4b"))
+        assertFalse(onServer.serverModelChecked("qwen2.5:7b"))
+        assertFalse("the phone model stays selected but doesn't take the page", onServer.checked(qwen))
+    }
+
+    @Test
+    fun `while the phone translates, its selected model's row is the checked one`() {
+        val onPhone = state.copy(translationSelectedId = "qwen", serverModels = listOf("gemma3:4b"))
+
+        assertTrue(onPhone.checked(qwen))
+        assertFalse(onPhone.checked(cat))
+        assertFalse(onPhone.serverModelChecked("gemma3:4b"))
+    }
+
+    @Test
+    fun `while a server model is picked every language can be chosen, even with no Multilingual phone model`() {
+        val onServer = state.copy(deliverables = mapOf(ModelType.LLM to listOf(cat)), activeServerModel = "gemma3:4b")
+
+        assertNull(onServer.languageUnavailable(TargetLanguage.FRENCH))
     }
 
     @Test
@@ -66,4 +110,7 @@ class QuickSettingsTest {
         assertNull(englishOnly.languageUnavailable(TargetLanguage.ENGLISH))
         assertNull(state.languageUnavailable(TargetLanguage.FRENCH))
     }
+
+    private fun entity(id: String, status: ModelStatus) =
+        ModelEntity(id, id, ModelType.LLM, "$id.gguf", 1L, "", "", status, version = "1", isRequired = false)
 }

@@ -1,11 +1,13 @@
 package com.yomu.app.ui.home
 
 import com.yomu.app.db.entities.ModelEntity
+import com.yomu.app.db.entities.ModelStatus
 import com.yomu.app.db.entities.ModelType
 import com.yomu.app.db.entities.TranslationEntity
 import com.yomu.app.service.LanguageSwitch
 import com.yomu.app.service.ModelManager
 import com.yomu.app.service.ModelSlotSelection
+import com.yomu.app.service.ServerPick
 import com.yomu.app.service.SlotDeliverable
 import com.yomu.app.translation.FitBudget
 import com.yomu.app.translation.LlmModelCatalog
@@ -33,6 +35,12 @@ data class HomeUiState(
     val targetLanguage: TargetLanguage = TargetLanguage.ENGLISH,
     /** The model switch a language choice is waiting on the reader to accept or decline (#338), or null. */
     val languageOffer: LanguageSwitch.Offer? = null,
+    /** The server models the picker lists, or null while the server isn't set up (ADR-0023). */
+    val serverModels: List<String>? = null,
+    /** The server model that takes the next page, or null while the phone does. */
+    val activeServerModel: String? = null,
+    /** The first server pick, waiting on the reader to accept that pages go to their server, or null. */
+    val serverNotice: ServerPick.Notice? = null,
     val setupDownloadBytes: Long = 0L,
     val fitBudget: FitBudget = FitBudget(0L, LlmModelCatalog.DEFAULT_FIT_BUDGET_PERCENT, RuntimeLimits.DEFAULT_CONTEXT_TOKENS),
     val onMeteredNetwork: Boolean = false,
@@ -56,11 +64,28 @@ data class HomeUiState(
     fun languageBlock(deliverable: SlotDeliverable): String? = ModelSlotSelection.languageBlock(deliverable, targetLanguage)
 
     fun languageUnavailable(language: TargetLanguage): String? =
-        ModelSlotSelection.languageUnavailable(language, deliverables[ModelType.LLM].orEmpty(), ::fits)
+        ModelSlotSelection.languageUnavailable(language, deliverables[ModelType.LLM].orEmpty(), activeServerModel != null, ::fits)
+
+    /**
+     * The phone models the picker lists, in catalog order: the downloaded ones, any downloading, and the selected and
+     * waiting picks. The rest of the catalog is downloaded from Settings, so the server's group stays in reach.
+     */
+    fun phoneRows(): List<SlotDeliverable> {
+        val onPhone = models.filter { it.status == ModelStatus.READY || it.status == ModelStatus.DOWNLOADING }.mapTo(mutableSetOf()) { it.id }
+        val picked = setOfNotNull(translationSelectedId, translationPendingId)
+        return deliverables[ModelType.LLM].orEmpty().filter { it.id in onPhone || it.id in picked }
+    }
+
+    /** Whether [deliverable]'s row is checked: the selected phone model, while no server model takes the next page. */
+    fun checked(deliverable: SlotDeliverable): Boolean = activeServerModel == null && deliverable.id == translationSelectedId
+
+    /** Whether the server model [name]'s row is checked: it takes the next page. */
+    fun serverModelChecked(name: String): Boolean = name == activeServerModel
 
     fun languageChipLabel(): String = "Japanese → ${targetLanguage.promptName}"
 
     fun translationChipLabel(): String {
+        activeServerModel?.let { return it }
         val options = deliverables[ModelType.LLM].orEmpty()
         val selected = options.firstOrNull { it.id == translationSelectedId }?.name ?: "No model selected"
         return options.firstOrNull { it.id == translationPendingId }?.let { "$selected · ${it.name} when downloaded" } ?: selected

@@ -79,6 +79,16 @@ class ProvidersViewModelTest {
     }
 
     @Test
+    fun `Connect keeps the server's list for the model picker, and reopening the screen shows it without asking again`() = runTest {
+        server.enqueue(MockResponse().setBody(TWO_MODELS))
+        connected()
+
+        assertEquals(listOf("qwen2.5:7b", "gemma3:4b"), store.serverModels())
+        assertEquals(ServerConnection.Connected(listOf("qwen2.5:7b", "gemma3:4b")), viewModel().state.value.connection)
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test
     fun `picking a listed model stores it and the server is set up`() = runTest {
         server.enqueue(MockResponse().setBody(TWO_MODELS))
         val viewModel = connected()
@@ -95,6 +105,7 @@ class ProvidersViewModelTest {
         server.enqueue(MockResponse().setResponseCode(404))
         val viewModel = connected()
         assertEquals(ServerConnection.Connected(emptyList()), viewModel.state.value.connection)
+        assertEquals(emptyList<String>(), store.serverModels())
 
         viewModel.pickModel("qwen2.5:7b-instruct")
 

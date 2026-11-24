@@ -67,6 +67,30 @@ class TranslationModelSelectionTest {
     }
 
     @Test
+    fun `the active translator is the chosen one while it can run, and the phone's otherwise`() {
+        var canRun = true
+        val fake = Translator("fake", "Fake", { canRun }, lazyOf(Mockito.mock(TranslationSlot::class.java)))
+        val selection = selection(others = listOf(fake))
+        assertEquals("nothing chosen", Translator.ON_DEVICE_ID, selection.activeTranslator().id)
+
+        selection.selectTranslator(fake)
+        assertSame(fake, selection.activeTranslator())
+
+        canRun = false
+        assertEquals(Translator.ON_DEVICE_ID, selection.activeTranslator().id)
+    }
+
+    @Test
+    fun `a registered translator is found by its id, and an unknown id finds none`() {
+        val fake = fakeTranslator()
+        val selection = selection(others = listOf(fake))
+
+        assertSame(fake, selection.translator(fake.id))
+        assertEquals(Translator.ON_DEVICE_ID, selection.translator(Translator.ON_DEVICE_ID)?.id)
+        assertEquals(null, selection.translator("retired-translator"))
+    }
+
+    @Test
     fun `currentLlmModel defaults when nothing is picked`() {
         val prefs = Mockito.mock(SharedPreferences::class.java)
         Mockito.`when`(prefs.getString(Constants.PREF_LLM_MODEL, null))

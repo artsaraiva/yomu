@@ -2,15 +2,15 @@
 
 # 読む Yomu
 
-**Read any manga. Offline. In one tap.**
+**Read any manga. Offline by default. In one tap.**
 
 On-device Japanese manga translation for Android, into English, Brazilian Portuguese, Spanish, French, German or Russian.
-Tap once over any manga page, in any app, and read it in your language. Nothing leaves your phone.
+Tap once over any manga page, in any app, and read it in your language. Translation stays on your phone unless you point Yomu at your own server.
 
 ![Platform](https://img.shields.io/badge/platform-Android%208.0%2B-3DDC84?logo=android&logoColor=white)
 ![Kotlin](https://img.shields.io/badge/Kotlin-Jetpack%20Compose-7F52FF?logo=kotlin&logoColor=white)
 ![Inference](https://img.shields.io/badge/inference-ONNX%20Runtime%20%C2%B7%20llama.cpp-E4572E)
-![Privacy](https://img.shields.io/badge/cloud-none-2E2A24)
+![Privacy](https://img.shields.io/badge/translation-on--device%20by%20default-2E2A24)
 
 **[Download the latest APK](https://github.com/artsaraiva/yomu/releases/latest)**
 
@@ -21,7 +21,7 @@ Tap once over any manga page, in any app, and read it in your language. Nothing 
 > [!IMPORTANT]
 > **Before you install**
 > - **Android 8.0 or newer on a 64-bit ARM phone.** Tested on an 8 GB phone (Galaxy S23), where the default model peaks at about 2 GB of RAM. Phones with less RAM are untested; [tell us how yours does](https://github.com/artsaraiva/yomu/issues/new?template=bug_report.yml).
-> - **About 1.1 GB of models download on first launch, over Wi-Fi or mobile data.** Keep about 1.5 GB free. After that, Yomu never uses the network.
+> - **About 1.1 GB of models download on first launch, over Wi-Fi or mobile data.** Keep about 1.5 GB free. After that, Yomu uses the network only if you point it at your own server.
 > - **A page takes seconds, not milliseconds:** about 15 s on a Galaxy S23 with the default model.
 > - **Japanese source only**, read from the screen. Machine translation from a small on-device model makes mistakes.
 
@@ -63,7 +63,8 @@ Tap once over any manga page, in any app, and read it in your language. Nothing 
 
 - **Works over any app.** A floating button sits on top of your reader, browser or gallery. Yomu captures the screen only when you tap it.
 - **Six target languages.** English, Brazilian Portuguese, Spanish, French, German or Russian. Switch from settings or the floating button.
-- **Fully on-device.** Bubble detection, OCR and translation all run locally. No account, no API key, and no usage after the model download.
+- **On-device by default.** Bubble detection, OCR and translation all run locally, with no account and no network use after the model download.
+- **Your own server, if you want one.** Point Yomu at an OpenAI-compatible server you run, or a hosted API you have a key for, to translate with a model too big for a phone. Only the page's text is sent, and only after you agree to it.
 - **Page-level context.** Every bubble on the page goes to the LLM in one call, in reading order, so pronouns and tone hold across a conversation.
 - **Manga-aware typesetting.** Font size and line wrapping are fitted to each bubble's bounds.
 - **Choice of model.** Pick from a curated list of GGUF translation models. Models that won't fit your device's RAM are hidden.

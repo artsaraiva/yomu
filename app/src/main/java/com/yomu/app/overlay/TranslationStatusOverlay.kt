@@ -64,16 +64,17 @@ class TranslationStatusOverlay(
 
     /** Returns the status view’s bounds in screen pixels, or null when no status view is shown. */
     fun boundsOnScreen(): OverlayBounds? = statusView?.boundsOnScreen()
+}
 
-    /** Returns the reader-facing status message for a pipeline stage. */
-    fun messageForStage(stage: TranslationPipeline.Stage): String {
-        return when (stage) {
-            TranslationPipeline.Stage.BUBBLE_DETECTION -> "Finding text bubbles"
-            TranslationPipeline.Stage.OCR -> "Reading Japanese text"
-            TranslationPipeline.Stage.CONTEXT_ASSEMBLY -> "Preparing context"
-            TranslationPipeline.Stage.TRANSLATION -> "Translating"
-            TranslationPipeline.Stage.DONE -> "Drawing translation"
-            TranslationPipeline.Stage.ERROR -> "Failed"
-        }
-    }
+/**
+ * The reader-facing status message for a pipeline stage. While [onServer], the translation stage is marked,
+ * since that is when the page's text is sent to the reader's server (ADR-0023); every other stage runs on the phone.
+ */
+fun stageMessage(stage: TranslationPipeline.Stage, onServer: Boolean): String = when (stage) {
+    TranslationPipeline.Stage.BUBBLE_DETECTION -> "Finding text bubbles"
+    TranslationPipeline.Stage.OCR -> "Reading Japanese text"
+    TranslationPipeline.Stage.CONTEXT_ASSEMBLY -> "Preparing context"
+    TranslationPipeline.Stage.TRANSLATION -> if (onServer) "Translating on your server" else "Translating"
+    TranslationPipeline.Stage.DONE -> "Drawing translation"
+    TranslationPipeline.Stage.ERROR -> "Failed"
 }

@@ -8,6 +8,7 @@ import com.yomu.app.translation.LlmModelCatalog
 import com.yomu.app.translation.ResourceLimit
 import com.yomu.app.translation.TargetLanguageStore
 import com.yomu.app.translation.TranslationModelSelection
+import com.yomu.app.translation.Translator
 import com.yomu.core.Constants
 import com.yomu.core.TargetLanguage
 import com.yomu.pipeline.TranslationPipeline
@@ -163,11 +164,13 @@ class ModelSlotSelection @Inject constructor(
 
     /**
      * Sets [language] unless the translation model in use, or the one waiting to take over, writes English only;
-     * then the default is offered instead and nothing changes until [accept].
+     * then the default is offered instead and nothing changes until [accept]. English only is a phone-model
+     * rule, so while a server model takes the pages every language is set.
      */
     suspend fun switchLanguage(language: TargetLanguage): LanguageSwitch {
         val options = deliverables(ModelType.LLM)
         val englishOnly = listOfNotNull(selectedId(ModelType.LLM), pending[ModelType.LLM])
+            .takeUnless { translatesOnServer() }.orEmpty()
             .mapNotNull { id -> options.firstOrNull { it.id == id } }
             .firstOrNull { languageBlock(it, language) != null }
         if (englishOnly == null) {
@@ -190,11 +193,13 @@ class ModelSlotSelection @Inject constructor(
         return true
     }
 
-    /** Why [language] can't be chosen on this device, or null. */
+    /** Why [language] can't be chosen on this device, or null; never while a server model takes the pages. */
     fun languageUnavailable(language: TargetLanguage, totalMemBytes: Long): String? {
         val budget = fitBudget(totalMemBytes)
-        return languageUnavailable(language, deliverables(ModelType.LLM)) { fits(it.id, budget) }
+        return languageUnavailable(language, deliverables(ModelType.LLM), translatesOnServer()) { fits(it.id, budget) }
     }
+
+    private fun translatesOnServer(): Boolean = translation.activeTranslator().id == Translator.NETWORK_ID
 
     private fun dropPending(id: String) {
         pending.values.remove(id)
@@ -268,9 +273,18 @@ class ModelSlotSelection @Inject constructor(
         fun languageBlock(deliverable: SlotDeliverable, language: TargetLanguage): String? =
             "Can't write ${language.promptName}".takeIf { language != TargetLanguage.ENGLISH && deliverable.multilingual == false }
 
-        /** Why [language] can't be chosen, or null: any language but English needs a Multilingual model that [fits]. */
-        fun languageUnavailable(language: TargetLanguage, deliverables: List<SlotDeliverable>, fits: (SlotDeliverable) -> Boolean): String? =
-            NO_MULTILINGUAL_FIT.takeIf { language != TargetLanguage.ENGLISH && deliverables.none { it.multilingual == true && fits(it) } }
+        /**
+         * Why [language] can't be chosen, or null: any language but English needs a Multilingual model that [fits].
+         * English only is a phone-model rule, so nothing is refused while a server model takes the pages ([onServer]).
+         */
+        fun languageUnavailable(
+            language: TargetLanguage,
+            deliverables: List<SlotDeliverable>,
+            onServer: Boolean,
+            fits: (SlotDeliverable) -> Boolean
+        ): String? = NO_MULTILINGUAL_FIT.takeIf {
+            !onServer && language != TargetLanguage.ENGLISH && deliverables.none { it.multilingual == true && fits(it) }
+        }
 
         /** A Slow deliverable asks before gigabytes are downloaded; one that doesn't fit can't be picked at all. */
         fun needsSlowWarning(deliverable: SlotDeliverable, budget: FitBudget): Boolean =
