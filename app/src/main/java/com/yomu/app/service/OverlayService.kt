@@ -43,7 +43,6 @@ import com.yomu.core.TargetLanguage
 import com.yomu.pipeline.ModelPaths
 import com.yomu.pipeline.PipelineResult
 import com.yomu.pipeline.TranslationPipeline
-import com.yomu.pipeline.translation.readerFailure
 import com.yomu.pipeline.translation.untranslatedNotice
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -510,9 +509,9 @@ class OverlayService : Service() {
                 glossary = settings.glossary
             )
             if (result != null) lastPage = PageRecord(bitmap, result, settings, recalled = false)
-            val failure = result?.translationResult?.readerFailure()
-            // A server that failed mid-reply keeps the bubbles it streamed, with its failure as the notice.
-            val shown = result?.takeIf { failure == null || it.translationResult.translations.any { bubble -> bubble.answered } }
+            val end = pageEnd(result, translationSelection.translator(settings.translator))
+            val failure = end.failure
+            val shown = end.shown
             if (shown != null && shown.translationResult.translations.isNotEmpty()) {
                 savePage(shown)
                 // A setting changed mid-page leaves a result made under neither snapshot.
@@ -527,13 +526,12 @@ class OverlayService : Service() {
             val noticeMs = if (failure != null) FAILURE_NOTICE_MS else NOTICE_MS
             withContext(Dispatchers.Main) {
                 if (shown != null) {
-                    showFinishedPage(shown, failure ?: shown.translationResult.untranslatedNotice(), noticeMs)
+                    showFinishedPage(shown, end.statusLine, noticeMs)
                 } else {
                     // The OCR pass may already have drawn its bubbles, and that overlay is
                     // untouchable — without this the reader is left with pinned Japanese (#308).
                     translationRenderOverlay.remove()
-                    // A null result already put the pipeline's own "Failed: …" on the status line.
-                    failure?.let { statusOverlay.showOrUpdate("Failed: $it") }
+                    end.statusLine?.let(statusOverlay::showOrUpdate)
                     delay(noticeMs)
                     statusOverlay.remove()
                 }
