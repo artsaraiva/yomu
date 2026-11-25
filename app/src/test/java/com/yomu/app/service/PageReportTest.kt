@@ -147,6 +147,14 @@ class PageReportTest {
     }
 
     @Test
+    fun `a page from another translator records that translator's id`() {
+        val recorded = json(pageReportFiles(capture, twoBubblePage, settings.copy(translator = "third"), false, origin)).getAsJsonObject("settings")
+
+        assertEquals("third", recorded["translator"].asString)
+        assertEquals(JsonNull.INSTANCE, recorded["serverModel"])
+    }
+
+    @Test
     fun `the recorded settings are exactly these, so no server address can reach a report`() {
         val recorded = json(report(twoBubblePage)).getAsJsonObject("settings")
 

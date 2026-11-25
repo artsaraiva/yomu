@@ -172,6 +172,19 @@ class PageRecallTest {
         assertEquals(result("on the server"), recall.recall(fingerprint(page(1)), onServer))
     }
 
+    @Test
+    fun `a page from another translator and a phone page of the same capture don't stand in for each other`() {
+        val recall = PageRecall()
+        val third = settings.copy(translator = "third")
+        recall.remember(fingerprint(page(0)), settings, result("on the phone"))
+
+        assertNull("phone page, now another translator", recall.recall(fingerprint(page(0)), third))
+
+        recall.remember(fingerprint(page(0)), third, result("another translator"))
+        assertEquals(result("on the phone"), recall.recall(fingerprint(page(0)), settings))
+        assertEquals(result("another translator"), recall.recall(fingerprint(page(0)), third))
+    }
+
     /** Verifies a recall refreshes recency and the thirty-first insertion evicts the oldest unused page. */
     @Test
     fun `the least recently used page is dropped past thirty pages`() {

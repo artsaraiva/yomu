@@ -10,6 +10,7 @@ import com.yomu.app.translation.TranslationModelSelection
 import com.yomu.app.translation.Translator
 import com.yomu.core.Constants
 import com.yomu.core.TargetLanguage
+import com.yomu.core.TranslationSlot
 import com.yomu.ml.LlamaTranslationBridge
 import com.yomu.pipeline.TranslationPipeline
 import com.yomu.pipeline.bubble.BubbleDetector
@@ -34,8 +35,9 @@ class TranslatorChoiceTest {
     private val key = KeyGenerator.getInstance("AES").apply { init(256) }.generateKey()
     private val store = ServerSettingsStore(prefs, MapSharedPreferences()) { key }
     private val llama = Mockito.mock(LlamaTranslationBridge::class.java)
+    private val third = Translator("third", "Third", { true }, lazyOf(Mockito.mock(TranslationSlot::class.java)))
     private val translation = TranslationModelSelection(
-        llama, prefs, File("models"), translators = setOf(Translator.onDevice(llama), Translator.network(store, prefs, OkHttpClient()))
+        llama, prefs, File("models"), translators = setOf(Translator.onDevice(llama), Translator.network(store, prefs, OkHttpClient()), third)
     )
     private val slots = ModelSlotSelection(
         translation,
@@ -189,6 +191,18 @@ class TranslatorChoiceTest {
         assertEquals(LanguageSwitch.Done, slots.switchLanguage(TargetLanguage.FRENCH))
 
         assertEquals(TargetLanguage.FRENCH, slots.targetLanguage())
+    }
+
+    @Test
+    fun `a page names the translator that takes it, and the server model only for the network translator`() {
+        assertEquals("nothing chosen", PageTranslator(Translator.ON_DEVICE_ID, null), choice.forPage())
+
+        setUpServer()
+        choice.acceptNotice(choice.pickServerModel("gemma3:4b") as ServerPick.Notice)
+        assertEquals(PageTranslator(Translator.NETWORK_ID, "gemma3:4b"), choice.forPage())
+
+        translation.selectTranslator(third)
+        assertEquals(PageTranslator("third", null), choice.forPage())
     }
 
     private fun setUpServer(listed: List<String> = listOf("qwen2.5:7b", "gemma3:4b"), model: String = "qwen2.5:7b") {
