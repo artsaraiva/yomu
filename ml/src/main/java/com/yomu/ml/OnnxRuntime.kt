@@ -19,6 +19,8 @@ class OnnxRuntime(private val context: Context) {
         private const val TAG = "OnnxRuntime"
         // The detector was trained on pages stretched to this square, not letterboxed (#437).
         private const val DETECTOR_INPUT_SIZE = 640
+        /** The RT-DETR's class 0: the balloon around a text box, not text to read (#530). */
+        const val BALLOON_LABEL = "bubble"
     }
 
     data class Detection(
@@ -221,19 +223,19 @@ internal fun bitmapPixelsToCHW(pixels: IntArray, width: Int, height: Int): Float
 }
 
 private const val RT_DETR_TEXT_FREE = 2L
-/** The ogkalu RT-DETR's text classes by label id; class 0, `bubble`, frames a balloon rather than its text. */
-private val RT_DETR_TEXT_CLASSES = mapOf(1L to "text_bubble", RT_DETR_TEXT_FREE to "text_free")
+/** The ogkalu RT-DETR's classes by label id; class 0 frames a balloon rather than its text. */
+private val RT_DETR_CLASSES = mapOf(0L to OnnxRuntime.BALLOON_LABEL, 1L to "text_bubble", RT_DETR_TEXT_FREE to "text_free")
 // Below this, `text_free` boxes sound effects and the viewing app's own toolbar labels (#437).
 private const val RT_DETR_TEXT_FREE_FLOOR = 0.5f
 
-/** Turns the RT-DETR's `labels`, `boxes` (xyxy, page pixels, four per box) and `scores` into text detections. */
+/** Turns the RT-DETR's `labels`, `boxes` (xyxy, page pixels, four per box) and `scores` into detections: balloons and text. */
 internal fun parseRtDetrDetections(
     labels: LongArray,
     boxes: FloatArray,
     scores: FloatArray,
     confidenceThreshold: Float
 ): List<OnnxRuntime.Detection> = scores.indices.mapNotNull { i ->
-    val label = RT_DETR_TEXT_CLASSES[labels[i]]
+    val label = RT_DETR_CLASSES[labels[i]]
     val threshold = if (labels[i] == RT_DETR_TEXT_FREE) maxOf(confidenceThreshold, RT_DETR_TEXT_FREE_FLOOR) else confidenceThreshold
     if (label == null || scores[i] < threshold) null
     else OnnxRuntime.Detection(label, scores[i], boxes.copyOfRange(i * 4, i * 4 + 4))
