@@ -47,8 +47,9 @@ internal data class BubbleInterior(val renderBox: FloatArray, val shape: Balloon
  * gets the ellipse inscribed in the balloon box when no interior is found there (an open balloon).
  * One without a balloon searches around its glyphs and keeps its detector box with no shape when
  * no enclosed interior is found (text on art, screentone bubbles, open bubbles). Either way it
- * keeps its detector box when its box or shape would reach another bubble's glyphs, which would
- * paint two translations over each other (#88).
+ * keeps its detector box when its box would reach another bubble's glyphs, which would paint two
+ * translations over each other (#88); a balloon's shape must miss them too. Without a balloon the
+ * interior can be a whole panel holding other balloons, whose glyphs the lines already stay clear of.
  */
 fun bubbleRenderAreas(
     bitmap: Bitmap,
@@ -58,7 +59,7 @@ fun bubbleRenderAreas(
     val balloon = balloonBoxes[id]
     val interior = if (balloon != null) balloonInterior(bitmap, glyphs, balloon) else bubbleInterior(bitmap, glyphs)
     val reachesOther = interior != null && textBoxes.any { (otherId, other) ->
-        otherId != id && (intersects(interior.renderBox, other) || shapeMeets(interior.shape, other))
+        otherId != id && (intersects(interior.renderBox, other) || balloon != null && shapeMeets(interior.shape, other))
     }
     if (interior == null || reachesOther) RenderArea(glyphs, null, glyphs)
     else RenderArea(interior.renderBox, interior.shape, glyphs)

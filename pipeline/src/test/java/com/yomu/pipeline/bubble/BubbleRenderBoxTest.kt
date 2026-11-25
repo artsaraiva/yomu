@@ -114,6 +114,20 @@ class BubbleRenderBoxTest {
     }
 
     @Test
+    fun `without a balloon box a glyph box outside the render box leaves the shape alone`() {
+        // Free text in a panel: the panel's interior ellipse holds a neighbour's glyph box, which
+        // the render box inside it misses. Main draws the lines clear of it, so the shape stays.
+        val pixels = page(width = 600, height = 800, cx = 400, cy = 500)
+        val glyphs = floatArrayOf(392f, 455f, 408f, 545f)
+        val neighbour = floatArrayOf(462f, 490f, 470f, 510f)
+
+        val area = bubbleRenderAreas(bitmap(600, 800, pixels), mapOf(1 to glyphs, 2 to neighbour)).getValue(1)
+
+        assertTrue("render box misses the neighbour: ${area.box.toList()}", area.box[2] < 462f)
+        assertTrue("shape kept", area.shape != null)
+    }
+
+    @Test
     fun `a round bubble's shape is the ellipse of its interior`() {
         val shape = findBubbleInterior(page(), 200, 300, textBox)!!.shape
 
