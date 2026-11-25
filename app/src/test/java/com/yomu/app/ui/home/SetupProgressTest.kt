@@ -17,7 +17,7 @@ import org.junit.Test
 class SetupProgressTest {
     private val mb = 1024L * 1024
     private val detector = SlotDeliverable(Constants.BUBBLE_DETECTION_MODEL_ID, "RT-DETR v4-s", 40 * mb, "Apache-2.0")
-    private val reader = SlotDeliverable(Constants.MANGA_OCR_MODEL_ID, "manga-ocr", 100 * mb, "Apache-2.0")
+    private val reader = SlotDeliverable(Constants.HAYAI_OCR_MODEL_ID, "hayai", 100 * mb, "Apache-2.0")
     private val translator = SlotDeliverable(LlmModelCatalog.DEFAULT.id, "Qwen2.5 1.5B Instruct", 900 * mb, "Apache-2.0", multilingual = true)
     private val huge = SlotDeliverable(Constants.QWEN35_9B_MODEL_ID, "Qwen3.5 9B", 5_400 * mb, "Apache-2.0", multilingual = true)
     private val eightGb = FitBudget(8L * 1024 * mb, LlmModelCatalog.DEFAULT_FIT_BUDGET_PERCENT, RuntimeLimits.DEFAULT_CONTEXT_TOKENS)

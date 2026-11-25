@@ -4,7 +4,6 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
-import com.yomu.core.Constants
 import com.yomu.app.db.entities.ModelEntity
 import com.yomu.app.db.entities.TranslationCacheEntity
 import com.yomu.app.db.entities.TranslationEntity
@@ -39,7 +38,7 @@ abstract class AppDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 // The detector's id at version 3; refreshModelList drops that row and its file as no longer curated.
                 db.execSQL("UPDATE models SET type = 'DETECTION' WHERE id = 'bubble_detection_v1'")
-                db.execSQL("UPDATE models SET type = 'OCR' WHERE id = '${Constants.MANGA_OCR_MODEL_ID}'")
+                db.execSQL("UPDATE models SET type = 'OCR' WHERE id = 'manga_ocr_v1'")
                 db.execSQL("DELETE FROM models WHERE type NOT IN ('DETECTION', 'OCR', 'LLM')")
             }
         }

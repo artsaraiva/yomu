@@ -16,7 +16,7 @@ class ReadingModelSelectionTest {
     @Test
     fun `an unset slot falls back to its curated default`() {
         assertEquals(Constants.BUBBLE_DETECTION_MODEL_ID, selection.selected(ModelType.DETECTION).id)
-        assertEquals(Constants.MANGA_OCR_MODEL_ID, selection.selected(ModelType.OCR).id)
+        assertEquals(Constants.HAYAI_OCR_MODEL_ID, selection.selected(ModelType.OCR).id)
     }
 
     @Test
@@ -48,7 +48,7 @@ class ReadingModelSelectionTest {
         prefs.values[Constants.PREF_OCR_MODEL] = Constants.BUBBLE_DETECTION_MODEL_ID
 
         assertEquals(Constants.BUBBLE_DETECTION_MODEL_ID, selection.selected(ModelType.DETECTION).id)
-        assertEquals(Constants.MANGA_OCR_MODEL_ID, selection.selected(ModelType.OCR).id)
+        assertEquals(Constants.HAYAI_OCR_MODEL_ID, selection.selected(ModelType.OCR).id)
     }
 
     @Test

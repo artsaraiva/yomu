@@ -49,9 +49,10 @@ class SpeedBenchmarkTest {
         val vision = stage(Constants.VISION_MODELS_DIR, VISION_FILES)
         val modelPaths = ModelPaths(
             bubbleDetectionPath = File(vision, Constants.BUBBLE_DETECTION_MODEL).absolutePath,
-            ocrEncoderPath = File(vision, Constants.OCR_ENCODER_MODEL).absolutePath,
-            ocrDecoderPath = File(vision, Constants.OCR_DECODER_MODEL).absolutePath,
-            ocrVocabPath = File(vision, Constants.OCR_VOCAB_FILE).absolutePath
+            ocrPrefillPath = File(vision, Constants.OCR_PREFILL_MODEL).absolutePath,
+            ocrDecodePath = File(vision, Constants.OCR_DECODE_MODEL).absolutePath,
+            ocrTokenizerPath = File(vision, Constants.OCR_TOKENIZER_FILE).absolutePath,
+            ocrPositionsPath = File(vision, Constants.OCR_POSITIONS_FILE).absolutePath
         )
         val sampler = PssSampler().also { it.start() }
         // Shared across entries: its ORT environment is a process singleton, so one per model would leak.
@@ -208,9 +209,10 @@ class SpeedBenchmarkTest {
         private const val SAMPLE_INTERVAL_MS = 500L
         private val VISION_FILES = listOf(
             Constants.BUBBLE_DETECTION_MODEL,
-            Constants.OCR_ENCODER_MODEL,
-            Constants.OCR_DECODER_MODEL,
-            Constants.OCR_VOCAB_FILE
+            Constants.OCR_PREFILL_MODEL,
+            Constants.OCR_DECODE_MODEL,
+            Constants.OCR_TOKENIZER_FILE,
+            Constants.OCR_POSITIONS_FILE
         )
     }
 }

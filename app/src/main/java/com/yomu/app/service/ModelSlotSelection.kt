@@ -264,7 +264,8 @@ class ModelSlotSelection @Inject constructor(
     companion object {
         private val READING_LICENCES = mapOf(
             Constants.BUBBLE_DETECTION_MODEL_ID to "Apache-2.0 (RT-DETR)",
-            Constants.MANGA_OCR_MODEL_ID to "Apache-2.0 (manga-ocr)"
+            // The weights are Apache-2.0; the ONNX conversion Yomu downloads carries no licence tag until #519 hosts its own.
+            Constants.HAYAI_OCR_MODEL_ID to "Apache-2.0 weights (Hayai)"
         )
 
         const val NO_MULTILINGUAL_FIT = "No Multilingual model fits this device"
