@@ -20,7 +20,9 @@ private class ReportedBubble(
     /** OCR read [ocrText] but found no Japanese in it, so it was never translated or drawn. */
     val ocrDropped: Boolean,
     val translation: String?,
-    val answered: Boolean
+    val answered: Boolean,
+    /** Spike #471: balloon box, render plans and both typesets. */
+    val spike: com.yomu.pipeline.SpikeBubble?
 )
 
 private class ReportedTimings(
@@ -42,7 +44,10 @@ private class ReportedPage(
     val timings: ReportedTimings,
     val appVersion: String,
     val device: String,
-    val bubbles: List<ReportedBubble>
+    val bubbles: List<ReportedBubble>,
+    /** Spike #471: every kept balloon box, and the bubble ids in prompt order. */
+    val balloons: List<FloatArray>?,
+    val readingOrder: List<Int>?
 )
 
 private val gson = GsonBuilder().serializeNulls().disableHtmlEscaping().setPrettyPrinting().create()
@@ -85,9 +90,12 @@ fun pageReportFiles(
                 skipped = read?.unsure == true,
                 ocrDropped = id in page.droppedReads,
                 translation = bubble?.takeIf { it.answered }?.translatedText,
-                answered = bubble?.answered == true
+                answered = bubble?.answered == true,
+                spike = page.spike?.bubbles?.get(id)
             )
-        }
+        },
+        balloons = page.spike?.balloons,
+        readingOrder = page.spike?.readingOrder
     )
     return linkedMapOf(
         "capture.png" to capturePng,

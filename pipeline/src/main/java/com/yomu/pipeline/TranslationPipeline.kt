@@ -7,6 +7,7 @@ import com.yomu.core.GlossaryEntry
 import com.yomu.core.TargetLanguage
 import com.yomu.pipeline.bubble.BubbleDetector
 import com.yomu.pipeline.bubble.bubbleRenderBoxes
+import com.yomu.pipeline.bubble.renderPlans
 import com.yomu.pipeline.bubble.centeredOutside
 import com.yomu.pipeline.context.ContextAssembler
 import com.yomu.pipeline.ocr.OcrEngine
@@ -16,12 +17,16 @@ import com.yomu.pipeline.translation.readsAsJapanese
 import com.yomu.pipeline.typesetting.TypesetBubble
 import com.yomu.pipeline.typesetting.Typesetter
 import kotlin.coroutines.coroutineContext
+
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+
+/** Spike #471: draw the shaped typeset where one fits; the rectangle one is still measured either way. */
+private const val SPIKE_DRAW_SHAPED = true
 
 data class ModelPaths(
     val bubbleDetectionPath: String,
@@ -233,6 +238,25 @@ class TranslationPipeline(
                 )
             }
             val bubbleBounds = bubbleRenderBoxes(bitmap, detectedBounds)
+            // Spike #471: the balloon-box render plan beside today's render box.
+            val plans = renderPlans(
+                bitmap,
+                detectedBounds,
+                bubbles.associate { b -> b.id to b.balloonBox?.let { floatArrayOf(it.left, it.top, it.right, it.bottom) } }
+            )
+            val spikeBubbles = bubbles.associate { b ->
+                val plan = plans.getValue(b.id)
+                b.id to SpikeBubble(
+                    label = b.label,
+                    balloonBox = b.balloonBox?.let { floatArrayOf(it.left, it.top, it.right, it.bottom) },
+                    todayOutcome = plan.today.name.lowercase(),
+                    todayRenderBox = plan.todayBox,
+                    shapeSource = plan.shape?.source?.name?.lowercase(),
+                    noShapeReason = plan.noShapeReason,
+                    shapeBounds = plan.shape?.bounds,
+                    fillRatio = plan.fillRatio
+                )
+            }
             typesetter.fontSizeScale = fontSizeScale
             endStage(Stage.CONTEXT_ASSEMBLY)
             callback?.onStageProgress(Stage.CONTEXT_ASSEMBLY, 0.6f)
@@ -244,7 +268,18 @@ class TranslationPipeline(
             val arrived = mutableMapOf<Int, TypesetBubble>()
             var firstBubbleAt: Long? = null
             val translationResult = translationEngine.translate(pageContext.blocks, targetLanguage, glossary) { translated ->
-                val typeset = typesetter.typeset(listOf(translated), bubbleBounds).single()
+                val rect = typesetter.typeset(listOf(translated), bubbleBounds).single()
+                val plan = plans[translated.bubbleId]
+                val info = spikeBubbles[translated.bubbleId]
+                val shaped = plan?.shape?.let { shape ->
+                    typesetter.typesetShaped(translated, shape.bounds, shape.ellipse, detectedBounds.getValue(translated.bubbleId))
+                }
+                info?.rectFontSize = rect.fontSize
+                info?.rectLines = rect.textLines.size
+                info?.shapedFontSize = shaped?.fontSize
+                info?.shapedLines = shaped?.textLines?.size
+                val typeset = if (SPIKE_DRAW_SHAPED && shaped != null) shaped else rect
+                info?.drawn = if (typeset === shaped) "shaped" else "rect"
                 if (firstBubbleAt == null) firstBubbleAt = System.currentTimeMillis()
                 arrived[typeset.bubbleId] = typeset
                 onBubble?.invoke(typeset)
@@ -267,7 +302,12 @@ class TranslationPipeline(
                 stageTimesMs = stageTimesMs,
                 bubbleBounds = detectedBounds,
                 reads = reads,
-                droppedReads = droppedReads
+                droppedReads = droppedReads,
+                spike = SpikePage(
+                    balloons = bubbleDetector.lastBalloons.map { floatArrayOf(it.left, it.top, it.right, it.bottom) },
+                    readingOrder = pageContext.blocks.flatMap { it.readingOrder },
+                    bubbles = spikeBubbles
+                )
             )
 
             lastPageTotalMs = result.totalTimeMs

@@ -93,7 +93,14 @@ private fun fillablePixels(pixels: IntArray, width: Int, height: Int): BooleanAr
  * interior is the region most of the box sits in. A region reaching the window edge has leaked
  * into the page and is never chosen.
  */
-private fun interiorAround(fillable: BooleanArray, width: Int, height: Int, textBox: FloatArray): IntArray? {
+private fun interiorAround(fillable: BooleanArray, width: Int, height: Int, textBox: FloatArray): IntArray? =
+    regionAround(fillable, width, height, textBox)?.first
+
+/** Spike #471: bounds and pixel count of the enclosed region around [textBox], as [findBubbleInterior] picks it. */
+internal fun interiorRegion(pixels: IntArray, width: Int, height: Int, textBox: FloatArray): Pair<IntArray, Int>? =
+    regionAround(fillablePixels(pixels, width, height), width, height, textBox)
+
+private fun regionAround(fillable: BooleanArray, width: Int, height: Int, textBox: FloatArray): Pair<IntArray, Int>? {
     val seedLeft = (textBox[0].toInt() - SEED_PAD).coerceIn(0, width - 1)
     val seedTop = (textBox[1].toInt() - SEED_PAD).coerceIn(0, height - 1)
     val seedRight = (textBox[2].toInt() + SEED_PAD).coerceIn(seedLeft + 1, width)
@@ -104,6 +111,7 @@ private fun interiorAround(fillable: BooleanArray, width: Int, height: Int, text
     val bounds = mutableListOf<IntArray>()
     val leaks = mutableListOf<Boolean>()
     val seedCounts = mutableListOf<Int>()
+    val sizes = mutableListOf<Int>()
 
     for (sy in seedTop until seedBottom) for (sx in seedLeft until seedRight) {
         val seed = sy * width + sx
@@ -129,6 +137,7 @@ private fun interiorAround(fillable: BooleanArray, width: Int, height: Int, text
                 if (y < height - 1 && fillable[i + width] && region[i + width] == 0) { region[i + width] = label; queue[tail++] = i + width }
             }
             bounds.add(box)
+            sizes.add(tail) // unused: glyph holes make pixel counts useless for the shape test
             // A bubble clipped by the screen edge counts as leaked and falls back;
             // handle it if captures often cut bubbles.
             leaks.add(box[0] == 0 || box[1] == 0 || box[2] == width || box[3] == height)
@@ -138,10 +147,20 @@ private fun interiorAround(fillable: BooleanArray, width: Int, height: Int, text
     }
 
     val best = seedCounts.indices.filter { !leaks[it] }.maxByOrNull { seedCounts[it] } ?: return null
-    return bounds[best]
+    // Row-span area fills the glyph holes, so a round balloon measures near π/4 of its bounds.
+    var spanArea = 0
+    val label = best + 1
+    val box = bounds[best]
+    for (y in box[1] until box[3]) {
+        var minX = -1
+        var maxX = -1
+        for (x in box[0] until box[2]) if (region[y * width + x] == label) { if (minX < 0) minX = x; maxX = x }
+        if (minX >= 0) spanArea += maxX - minX + 1
+    }
+    return box to spanArea
 }
 
-private fun intersects(a: FloatArray, b: FloatArray): Boolean =
+internal fun intersects(a: FloatArray, b: FloatArray): Boolean =
     a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3]
 
 internal fun luminance(argb: Int): Int =

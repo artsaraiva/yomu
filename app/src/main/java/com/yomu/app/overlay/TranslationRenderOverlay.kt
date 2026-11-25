@@ -198,10 +198,25 @@ class TranslationRenderOverlay(
 
         paint.isAntiAlias = true
         paint.color = bubble.backgroundColor
-        canvas.drawRoundRect(bx, by, bx + bw, by + bh, radius, radius, paint)
-
         val saveCount = canvas.save()
-        canvas.clipRect(bx, by, bx + bw, by + bh)
+        val cover = bubble.coverBox
+        if (bubble.shapeBounds != null && cover != null) {
+            // Spike #471: paint the balloon's own shape plus the glyph box, so the Japanese stays hidden.
+            val c = OverlayCoordinateMapper.map(cover, params)
+            val path = android.graphics.Path().apply {
+                if (bubble.shapeIsEllipse) addOval(bx, by, bx + bw, by + bh, android.graphics.Path.Direction.CW)
+                else addRect(bx, by, bx + bw, by + bh, android.graphics.Path.Direction.CW)
+                val cr = minOf(c.width(), c.height()) * 0.12f
+                op(android.graphics.Path().apply {
+                    addRoundRect(c.left, c.top, c.right, c.bottom, cr, cr, android.graphics.Path.Direction.CW)
+                }, android.graphics.Path.Op.UNION)
+            }
+            canvas.drawPath(path, paint)
+            canvas.clipPath(path)
+        } else {
+            canvas.drawRoundRect(bx, by, bx + bw, by + bh, radius, radius, paint)
+            canvas.clipRect(bx, by, bx + bw, by + bh)
+        }
 
         paint.color = bubble.textColor
         // The box is mapped into canvas space; the typeset size has to follow it or text that

@@ -12,7 +12,12 @@ data class TypesetBubble(
     val textLines: List<String>,
     val boundingBox: FloatArray,
     val backgroundColor: Int = 0xF0FFFFFF.toInt(),
-    val textColor: Int = 0xFF000000.toInt()
+    val textColor: Int = 0xFF000000.toInt(),
+    /** Spike #471: the balloon shape the lines follow; the overlay paints it as an oval (or rectangle) plus [coverBox]. */
+    val shapeBounds: FloatArray? = null,
+    val shapeIsEllipse: Boolean = false,
+    /** Spike #471: the glyph box, painted too so the Japanese stays covered where the oval is narrower. */
+    val coverBox: FloatArray? = null
 ) {
     // Typesetting fits the box against this height, so rendering has to draw with it too.
     val lineHeight: Float get() = fontSize * LINE_HEIGHT_RATIO
@@ -33,6 +38,8 @@ class Typesetter(var fontSizeScale: Float = 1.0f) {
         // CJK punctuation, kana and ideographs all sit at or above U+3000.
         private const val CJK_START = 0x3000
         private const val PADDING = 0.1f
+        // Spike #471: the balloon's ellipse is its interior, not a box inside it, so the margin is smaller.
+        private const val SHAPE_PADDING = 0.06f
         // Fixed growth budget, take page bounds into the Typesetter if bubbles need
         // to grow against real page room rather than a multiple of their own box.
         private const val MAX_BOX_GROWTH = 3f
@@ -73,6 +80,78 @@ class Typesetter(var fontSizeScale: Float = 1.0f) {
                 boundingBox = grownBounds(bounds, maxWidth, textHeight)
             )
         }
+    }
+
+    /**
+     * Spike #471: typesets [translation] inside [shape] ({left, top, right, bottom}). An ellipse gives
+     * each line the chord at its band edge farther from the centre; a rectangle gives every line its
+     * full padded width. Tries font sizes from the largest down and, per size, line counts from one up,
+     * keeping the first fit (BallonsTranslator's search). Null when nothing fits at the smallest size.
+     */
+    fun typesetShaped(
+        translation: TranslatedBubble,
+        shape: FloatArray,
+        ellipse: Boolean,
+        coverBox: FloatArray
+    ): TypesetBubble? {
+        val cleaned = cleanText(translation.translatedText)
+        if (cleaned.isEmpty()) return null
+        val cx = (shape[0] + shape[2]) / 2f
+        val cy = (shape[1] + shape[3]) / 2f
+        val pad = if (ellipse) SHAPE_PADDING else PADDING
+        val a = (shape[2] - shape[0]) / 2f * (1 - pad * 2)
+        val b = (shape[3] - shape[1]) / 2f * (1 - pad * 2)
+        var size = MAX_FONT_SIZE
+        while (size >= MIN_FONT_SIZE) {
+            val lh = lineHeight(size)
+            val maxLines = (2 * b / lh).toInt()
+            for (n in 1..maxLines) {
+                val widths = FloatArray(n) { i ->
+                    if (!ellipse) return@FloatArray 2 * a
+                    val top = cy - n * lh / 2f + i * lh
+                    val d = maxOf(kotlin.math.abs(top - cy), kotlin.math.abs(top + lh - cy))
+                    if (d >= b) 0f else 2 * a * kotlin.math.sqrt(1 - (d / b) * (d / b))
+                }
+                val lines = wrapInto(cleaned, widths, size) ?: continue
+                val scaled = (size * fontSizeScale).coerceIn(MIN_FONT_SIZE, MAX_FONT_SIZE * 2f)
+                if (scaled != size) return null // the reader's scale would need its own wrap; out of spike scope
+                return TypesetBubble(
+                    bubbleId = translation.bubbleId,
+                    translatedText = cleaned,
+                    originalText = translation.originalText,
+                    fontSize = size,
+                    textLines = lines,
+                    boundingBox = shape,
+                    shapeBounds = shape,
+                    shapeIsEllipse = ellipse,
+                    coverBox = coverBox
+                )
+            }
+            size -= 1f
+        }
+        return null
+    }
+
+    /** Greedy wrap into exactly the given line widths; null when a word does not fit its line or lines run out. */
+    private fun wrapInto(text: String, widths: FloatArray, fontSize: Float): List<String>? {
+        paint.textSize = fontSize
+        val lines = mutableListOf<String>()
+        var current = ""
+        for (word in text.split(" ")) {
+            val test = if (current.isEmpty()) word else "$current $word"
+            val line = lines.size
+            if (line >= widths.size) return null
+            if (paint.measureText(test) <= widths[line]) {
+                current = test
+            } else {
+                if (current.isEmpty()) return null
+                lines.add(current)
+                if (lines.size >= widths.size || paint.measureText(word) > widths[lines.size]) return null
+                current = word
+            }
+        }
+        if (current.isNotEmpty()) lines.add(current)
+        return lines
     }
 
     private fun cleanText(text: String): String =

@@ -19,5 +19,30 @@ data class PipelineResult(
     /** Every read with kana or kanji in it, by bubble id, including the [OcrResult.unsure] ones never translated. */
     val reads: Map<Int, OcrResult> = emptyMap(),
     /** OCR text with no kana or kanji, by bubble id. Only the page report reads it; it is never previewed, translated or drawn. */
-    val droppedReads: Map<Int, String> = emptyMap()
+    val droppedReads: Map<Int, String> = emptyMap(),
+    /** Spike #471: balloon boxes, render plans and both typesets per bubble. */
+    val spike: SpikePage? = null
+)
+
+/** Spike #471 measurements for the page report. */
+data class SpikePage(
+    val balloons: List<FloatArray>,
+    val readingOrder: List<Int>,
+    val bubbles: Map<Int, SpikeBubble>
+)
+
+data class SpikeBubble(
+    val label: String,
+    val balloonBox: FloatArray?,
+    val todayOutcome: String,
+    val todayRenderBox: FloatArray,
+    val shapeSource: String?,
+    val noShapeReason: String?,
+    val shapeBounds: FloatArray?,
+    val fillRatio: Float?,
+    var rectFontSize: Float? = null,
+    var rectLines: Int? = null,
+    var shapedFontSize: Float? = null,
+    var shapedLines: Int? = null,
+    var drawn: String? = null
 )
