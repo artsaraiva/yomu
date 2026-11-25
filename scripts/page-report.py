@@ -185,6 +185,20 @@ def describe(bubble: dict | None) -> str:
     return f"#{bubble['id']} {bubble['ocrText']!r}{score}{dropped} -> {bubble['translation']!r}"
 
 
+def spike_line(bubble: dict | None) -> str:
+    """Spike #471: today's render outcome, the balloon shape, and font size / lines for both typesets."""
+    spike = (bubble or {}).get("spike")
+    if not spike:
+        return ""
+    shape = spike["shapeSource"] or f"no shape ({spike['noShapeReason']})"
+    ratio = "" if spike["fillRatio"] is None else f" fill={spike['fillRatio']:.2f}"
+    def size(prefix: str) -> str:
+        font = spike[prefix + "FontSize"]
+        return "-" if font is None else f"{font:.0f}px/{spike[prefix + 'Lines']}l"
+    return (f"\n    {spike['label']} today={spike['todayOutcome']} {shape}{ratio}"
+            f" rect={size('rect')} shaped={size('shaped')} drawn={spike['drawn']}")
+
+
 def bounds(bubble: dict) -> str:
     return "[" + ",".join(str(int(v)) for v in bubble["bounds"]) + "]"
 
@@ -192,7 +206,7 @@ def bounds(bubble: dict) -> str:
 def print_bubbles(page: dict) -> None:
     print(f"recalled={page['recalled']} bubbles={len(page['bubbles'])}")
     for bubble in page["bubbles"]:
-        print(f"{bounds(bubble):24} {describe(bubble)}")
+        print(f"{bounds(bubble):24} {describe(bubble)}{spike_line(bubble)}")
 
 
 def centre(bubble: dict) -> tuple[float, float]:
@@ -215,9 +229,12 @@ def compare(first: Path, second: Path) -> None:
             status = "ONLY IN A"
         else:
             status = "same OCR" if twin["ocrText"] == bubble["ocrText"] else "OCR CHANGED"
-        print(f"{bounds(bubble):24} {status}\n  A {describe(bubble)}\n  B {describe(twin)}")
+        print(f"{bounds(bubble):24} {status}\n  A {describe(bubble)}{spike_line(bubble)}\n  B {describe(twin)}{spike_line(twin)}")
     for bubble in unmatched:
-        print(f"{bounds(bubble):24} ONLY IN B\n  A -\n  B {describe(bubble)}")
+        print(f"{bounds(bubble):24} ONLY IN B\n  A -\n  B {describe(bubble)}{spike_line(bubble)}")
+    order = load(second).get("readingOrder")
+    if order:
+        print(f"B prompt order: {order}")
 
 
 def main(args: list[str]) -> None:
