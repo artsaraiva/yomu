@@ -120,7 +120,7 @@ class BubbleDetectorNmsTest {
 
     private fun detection(confidence: Float, bbox: FloatArray): OnnxRuntime.Detection {
         return OnnxRuntime.Detection(
-            label = "bubble",
+            label = "text_bubble",
             confidence = confidence,
             bbox = bbox
         )

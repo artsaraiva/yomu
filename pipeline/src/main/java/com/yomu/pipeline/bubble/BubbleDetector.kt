@@ -9,7 +9,9 @@ data class Bubble(
     val id: Int,
     val boundingBox: RectF,
     val confidence: Float,
-    val textRegion: RectF? = null
+    val textRegion: RectF? = null,
+    /** The smallest balloon box holding at least 0.90 of [boundingBox]; it bounds the render area (#530). */
+    val balloonBox: RectF? = null
 )
 
 class BubbleDetector(private val onnxRuntime: OnnxRuntime) {
@@ -48,26 +50,28 @@ class BubbleDetector(private val onnxRuntime: OnnxRuntime) {
         val path = modelPath ?: return emptyList()
 
         val rawDetections = onnxRuntime.runBitmapInference(path, bitmap, confidenceThreshold)
-        val detections = keptDetections(rawDetections, confidenceThreshold)
+        val kept = keptTextWithBalloons(rawDetections, confidenceThreshold)
         Log.d(
             TAG,
-            "Bubble detection raw=${rawDetections.size} threshold=$confidenceThreshold kept=${detections.size}"
+            "Bubble detection raw=${rawDetections.size} threshold=$confidenceThreshold kept=${kept.size} " +
+                "inBalloon=${kept.count { it.balloon != null }}"
         )
-        detections.forEachIndexed { index, detection ->
+        kept.forEachIndexed { index, (detection, _) ->
             Log.d(
                 TAG,
                 "Bubble kept index=$index label=${detection.label} confidence=${detection.confidence} bbox=${detection.bbox.joinToString(",") }"
             )
         }
 
-        return detections
-            .mapIndexed { index, detection ->
+        return kept
+            .mapIndexed { index, (detection, balloon) ->
                 val (x1, y1, x2, y2) = detection.bbox
                 Bubble(
                     id = index + 1,
                     boundingBox = RectF(x1, y1, x2, y2),
                     confidence = detection.confidence,
-                    textRegion = RectF(x1, y1, x2, y2)
+                    textRegion = RectF(x1, y1, x2, y2),
+                    balloonBox = balloon?.let { (bx1, by1, bx2, by2) -> RectF(bx1, by1, bx2, by2) }
                 )
             }
     }
@@ -76,6 +80,28 @@ class BubbleDetector(private val onnxRuntime: OnnxRuntime) {
         modelPath?.let { onnxRuntime.releaseModel(it) }
         isLoaded = false
         modelPath = null
+    }
+}
+
+/** A kept text box and the smallest balloon box, {left, top, right, bottom}, holding it. */
+internal data class KeptText(val detection: OnnxRuntime.Detection, val balloon: FloatArray?)
+
+/**
+ * The text boxes [keptDetections] keeps, each with its balloon. Balloon boxes are NMS'd only among
+ * themselves: in the text NMS, the containment rule would drop a text box inside its balloon and
+ * the #370 swap would put the balloon in its place.
+ */
+internal fun keptTextWithBalloons(
+    detections: List<OnnxRuntime.Detection>,
+    confidenceThreshold: Float
+): List<KeptText> {
+    val (balloonDetections, textDetections) = detections.partition { it.label == OnnxRuntime.BALLOON_LABEL }
+    val balloons = keptDetections(balloonDetections, confidenceThreshold)
+    return keptDetections(textDetections, confidenceThreshold).map { text ->
+        val balloon = balloons
+            .filter { detectionContainedFraction(text, it) >= BubbleDetector.NMS_CONTAINMENT_THRESHOLD }
+            .minByOrNull { (it.bbox[2] - it.bbox[0]) * (it.bbox[3] - it.bbox[1]) }
+        KeptText(text, balloon?.bbox)
     }
 }
 
