@@ -14,6 +14,7 @@ This file governs all AI agent behavior in this repository.
    ```
 4. **no force push.** Never rewrite pushed history.
 5. **commit after every passing test.** Each green test = one commit.
+6. **clean up when the issue is done.** Once the PR merges (or a spike's tag is pushed), remove the worktree with `git worktree remove --force <path>` then `git worktree prune`, along with any scratch files you made outside it (models, captures, venvs, fixtures). Each worktree holds its own build output and llama.cpp copy, 2–7 GB; leftovers once filled 200 GB. A desktop session's worktree goes when the session is archived. The branch survives removal, so committed work is safe; uncommitted changes are not.
 
 ### Issue and Branch Workflow
 
