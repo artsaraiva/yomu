@@ -1,0 +1,370 @@
+{
+  "appVersion": "1.0",
+  "batchOverflowFallback": false,
+  "bubbles": [
+    {
+      "answered": true,
+      "bounds": [
+        977.73755,
+        1246.929,
+        1156.437,
+        1491.3165
+      ],
+      "id": 1,
+      "ocrConfidence": 0.9894366,
+      "ocrDropped": false,
+      "ocrText": "腰の銃でイかれた脳みそぶちまけてみるか?",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "With a gun to my waist, let's see if I can make it happen?"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        514.76996,
+        1246.339,
+        651.57385,
+        1498.8606
+      ],
+      "id": 2,
+      "ocrConfidence": 0.9897477,
+      "ocrDropped": false,
+      "ocrText": "ちょっとやめてよ!こんなとこで!",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "Stop it! This is not the place!"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        754.3879,
+        1325.1627,
+        827.4691,
+        1430.6613
+      ],
+      "id": 3,
+      "ocrConfidence": 0.9894975,
+      "ocrDropped": false,
+      "ocrText": "あ、あの...",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "Ah, that's it..."
+    },
+    {
+      "answered": true,
+      "bounds": [
+        315.38098,
+        1650.5674,
+        409.03564,
+        1843.0814
+      ],
+      "id": 4,
+      "ocrConfidence": 0.98993737,
+      "ocrDropped": false,
+      "ocrText": "面見せてみろ",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "Show me your face"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        39.463158,
+        1658.0458,
+        184.13336,
+        1907.2825
+      ],
+      "id": 5,
+      "ocrConfidence": 0.9848086,
+      "ocrDropped": false,
+      "ocrText": "閉じ眼でも器量が良けりゃ買い手は...",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "Closing my eyes, I can still buy it..."
+    },
+    {
+      "answered": true,
+      "bounds": [
+        946.9101,
+        589.3076,
+        1142.37,
+        935.8472
+      ],
+      "id": 6,
+      "ocrConfidence": 0.9723616,
+      "ocrDropped": false,
+      "ocrText": "マフィア舐めんのも大概にしやがれ",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "Mafia licking my brain is about to happen"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        763.96313,
+        1704.3152,
+        846.9276,
+        1871.6852
+      ],
+      "id": 7,
+      "ocrConfidence": 0.98842067,
+      "ocrDropped": false,
+      "ocrText": "女か?",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "Girl?"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        919.0024,
+        1358.4572,
+        964.1345,
+        1444.4866
+      ],
+      "id": 8,
+      "ocrConfidence": 0.9892038,
+      "ocrDropped": false,
+      "ocrText": "あ?",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "Ah?"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        63.1687,
+        2007.2572,
+        151.261,
+        2220.7356
+      ],
+      "id": 9,
+      "ocrConfidence": 0.981644,
+      "ocrDropped": false,
+      "ocrText": "やっちょっと...!",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "Just a little...!"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        149.36148,
+        1437.3207,
+        196.04384,
+        1528.0176
+      ],
+      "id": 10,
+      "ocrConfidence": 0.9904296,
+      "ocrDropped": false,
+      "ocrText": "ん?",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "?"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        1042.42,
+        1650.1969,
+        1150.2191,
+        1853.7579
+      ],
+      "id": 11,
+      "ocrConfidence": 0.9922948,
+      "ocrDropped": false,
+      "ocrText": "お前もしかして",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "You too, maybe"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        326.76575,
+        737.6207,
+        389.81125,
+        850.7847
+      ],
+      "id": 12,
+      "ocrConfidence": 0.9897785,
+      "ocrDropped": false,
+      "ocrText": "あっ",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "Ah"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        729.10767,
+        2004.2677,
+        851.6464,
+        2260.3882
+      ],
+      "id": 13,
+      "ocrConfidence": 0.98937815,
+      "ocrDropped": false,
+      "ocrText": "えっはい...そうですけど...",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "Huh? Yeah, but..."
+    },
+    {
+      "answered": true,
+      "bounds": [
+        465.90125,
+        2043.2505,
+        522.82983,
+        2157.1213
+      ],
+      "id": 14,
+      "ocrConfidence": 0.9258607,
+      "ocrDropped": false,
+      "ocrText": "ほぉ",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "Huh"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        73.55362,
+        620.1626,
+        228.42151,
+        897.92084
+      ],
+      "id": 15,
+      "ocrConfidence": 0.98897123,
+      "ocrDropped": false,
+      "ocrText": "閉じ眼が用心棒だ?",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "Closing my eyes is a dagger"
+    },
+    {
+      "answered": false,
+      "bounds": [
+        145.62794,
+        2602.2305,
+        281.7497,
+        2785.2947
+      ],
+      "id": 16,
+      "ocrConfidence": null,
+      "ocrDropped": true,
+      "ocrText": "Share",
+      "skipped": false,
+      "sourceText": null,
+      "translation": null
+    },
+    {
+      "answered": false,
+      "bounds": [
+        1003.3954,
+        2611.2336,
+        1130.9622,
+        2784.2512
+      ],
+      "id": 18,
+      "ocrConfidence": null,
+      "ocrDropped": true,
+      "ocrText": "@Trash",
+      "skipped": false,
+      "sourceText": null,
+      "translation": null
+    },
+    {
+      "answered": false,
+      "bounds": [
+        582.7295,
+        2605.3562,
+        697.61,
+        2779.593
+      ],
+      "id": 19,
+      "ocrConfidence": null,
+      "ocrDropped": true,
+      "ocrText": "o— Éo Edit",
+      "skipped": false,
+      "sourceText": null,
+      "translation": null
+    },
+    {
+      "answered": false,
+      "bounds": [
+        414.01425,
+        1254.4839,
+        460.181,
+        1364.1986
+      ],
+      "id": 21,
+      "ocrConfidence": null,
+      "ocrDropped": true,
+      "ocrText": "...",
+      "skipped": false,
+      "sourceText": null,
+      "translation": null
+    },
+    {
+      "answered": true,
+      "bounds": [
+        226.14745,
+        1726.113,
+        270.0506,
+        1805.6844
+      ],
+      "id": 23,
+      "ocrConfidence": 0.9888088,
+      "ocrDropped": false,
+      "ocrText": "えっ",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "Ah"
+    }
+  ],
+  "device": "Google sdk_gphone16k_arm64",
+  "errorCode": null,
+  "outcome": "SUCCESS",
+  "pageHeight": 2856,
+  "pageWidth": 1280,
+  "recalled": false,
+  "settings": {
+    "detectionModel": "rtdetr_v4s_v1",
+    "detectionThreshold": 0.25,
+    "fontScale": 1.0,
+    "generation": {
+      "lineExcludesIdBracket": true,
+      "maxTokens": 256,
+      "penaltyFreq": 0.0,
+      "penaltyLastN": 64,
+      "penaltyPresent": 0.0,
+      "penaltyRepeat": 1.0,
+      "seed": -1,
+      "temperature": 0.2,
+      "topK": 40,
+      "topP": 0.9
+    },
+    "glossary": [],
+    "ocrModel": "hayai_ocr_v2.7",
+    "runtime": {
+      "contextTokens": 2048,
+      "threads": 4
+    },
+    "serverModel": null,
+    "targetLanguage": "ENGLISH",
+    "translationModel": "qwen25_1.5b_instruct_v1",
+    "translator": "on-device"
+  },
+  "timings": {
+    "stagesMs": {
+      "BUBBLE_DETECTION": 66,
+      "OCR": 1222,
+      "CONTEXT_ASSEMBLY": 104,
+      "TRANSLATION": 2703
+    },
+    "timeToFirstBubbleMs": 2315,
+    "totalMs": 4095,
+    "translationCallMs": 2702
+  }
+}

@@ -1,0 +1,512 @@
+{
+  "appVersion": "1.0",
+  "balloons": [
+    [
+      400.6604,
+      1214.1493,
+      633.9226,
+      1428.8375
+    ],
+    [
+      972.46765,
+      1817.7953,
+      1159.8615,
+      2152.6702
+    ],
+    [
+      93.39586,
+      1212.9475,
+      249.23262,
+      1448.8635
+    ],
+    [
+      465.44708,
+      576.043,
+      710.1034,
+      948.0198
+    ],
+    [
+      91.655464,
+      672.81433,
+      263.54596,
+      993.9041
+    ],
+    [
+      218.03444,
+      1806.3595,
+      387.62558,
+      2133.531
+    ],
+    [
+      93.08636,
+      1849.6425,
+      247.18814,
+      2191.5273
+    ],
+    [
+      439.27148,
+      213.0428,
+      839.2786,
+      338.46902
+    ],
+    [
+      184.41696,
+      31.292168,
+      399.6402,
+      121.50259
+    ],
+    [
+      1084.8903,
+      2375.7766,
+      1262.357,
+      2559.9626
+    ]
+  ],
+  "batchOverflowFallback": false,
+  "bubbles": [
+    {
+      "answered": true,
+      "bounds": [
+        109.40233,
+        710.27997,
+        234.81726,
+        960.77246
+      ],
+      "id": 1,
+      "ocrConfidence": 0.9417983,
+      "ocrDropped": false,
+      "ocrText": "ああ夕べちょっと作ってみたんだ",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          91.655464,
+          672.81433,
+          263.54596,
+          993.9041
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.8421127,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 21.25,
+        "rectLines": 4,
+        "shapeBounds": [
+          105.0,
+          687.0,
+          251.0,
+          978.0
+        ],
+        "shapeSource": "fill_ellipse",
+        "shapedFontSize": 25.0,
+        "shapedLines": 5,
+        "todayOutcome": "unchanged",
+        "todayRenderBox": [
+          109.40233,
+          710.27997,
+          234.81726,
+          960.77246
+        ]
+      },
+      "translation": "Ah, I made a little something last night"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        109.74583,
+        1227.2816,
+        228.80582,
+        1412.412
+      ],
+      "id": 2,
+      "ocrConfidence": 0.98960376,
+      "ocrDropped": false,
+      "ocrText": "これで店員らしくなったかな",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          93.39586,
+          1212.9475,
+          249.23262,
+          1448.8635
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.87460065,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 19.5,
+        "rectLines": 5,
+        "shapeBounds": [
+          105.0,
+          1226.0,
+          240.0,
+          1437.0
+        ],
+        "shapeSource": "fill_ellipse",
+        "shapedFontSize": 19.0,
+        "shapedLines": 5,
+        "todayOutcome": "unchanged",
+        "todayRenderBox": [
+          109.74583,
+          1227.2816,
+          228.80582,
+          1412.412
+        ]
+      },
+      "translation": "Does this make me seem like a shop assistant?"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        117.44689,
+        1879.7173,
+        221.83731,
+        2156.833
+      ],
+      "id": 3,
+      "ocrConfidence": 0.9890466,
+      "ocrDropped": false,
+      "ocrText": "メルも自分の物何か買って来な?",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          93.08636,
+          1849.6425,
+          247.18814,
+          2191.5273
+        ],
+        "drawn": "rect",
+        "fillRatio": null,
+        "label": "text_bubble",
+        "noShapeReason": "reach",
+        "rectFontSize": 21.25,
+        "rectLines": 6,
+        "shapeBounds": null,
+        "shapeSource": null,
+        "shapedFontSize": null,
+        "shapedLines": null,
+        "todayOutcome": "reach",
+        "todayRenderBox": [
+          117.44689,
+          1879.7173,
+          221.83731,
+          2156.833
+        ]
+      },
+      "translation": "Should I get some of my own things too?"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        1009.6199,
+        1845.1547,
+        1125.5751,
+        2124.1814
+      ],
+      "id": 4,
+      "ocrConfidence": 0.97239864,
+      "ocrDropped": false,
+      "ocrText": "今日は買い物をお願いしたいんだ",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          972.46765,
+          1817.7953,
+          1159.8615,
+          2152.6702
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.82636845,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 21.25,
+        "rectLines": 4,
+        "shapeBounds": [
+          983.0,
+          1831.0,
+          1147.0,
+          2138.0
+        ],
+        "shapeSource": "fill_ellipse",
+        "shapedFontSize": 30.0,
+        "shapedLines": 5,
+        "todayOutcome": "grown",
+        "todayRenderBox": [
+          1007.026,
+          1845.1547,
+          1125.5751,
+          2124.1814
+        ]
+      },
+      "translation": "I want to do some shopping today"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        444.90747,
+        1227.3679,
+        594.5269,
+        1403.1691
+      ],
+      "id": 5,
+      "ocrConfidence": 0.9847723,
+      "ocrDropped": false,
+      "ocrText": "すごい!カエルもついてる!!",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          400.6604,
+          1214.1493,
+          633.9226,
+          1428.8375
+        ],
+        "drawn": "shaped",
+        "fillRatio": null,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 30.0,
+        "rectLines": 3,
+        "shapeBounds": [
+          414.65613,
+          1227.0306,
+          619.9269,
+          1415.9562
+        ],
+        "shapeSource": "balloon_ellipse",
+        "shapedFontSize": 31.0,
+        "shapedLines": 3,
+        "todayOutcome": "grown",
+        "todayRenderBox": [
+          442.2045,
+          1227.3679,
+          594.5269,
+          1403.1691
+        ]
+      },
+      "translation": "Wow! It even has a frog!"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        237.09068,
+        1833.0446,
+        348.19617,
+        2107.0066
+      ],
+      "id": 6,
+      "ocrConfidence": 0.988513,
+      "ocrDropped": false,
+      "ocrText": "お金は少し多めに入れといたから",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          218.03444,
+          1806.3595,
+          387.62558,
+          2133.531
+        ],
+        "drawn": "shaped",
+        "fillRatio": null,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 17.75,
+        "rectLines": 7,
+        "shapeBounds": [
+          228.2099,
+          1825.9897,
+          377.4501,
+          2113.9006
+        ],
+        "shapeSource": "balloon_ellipse",
+        "shapedFontSize": 21.0,
+        "shapedLines": 7,
+        "todayOutcome": "reach",
+        "todayRenderBox": [
+          237.09068,
+          1833.0446,
+          348.19617,
+          2107.0066
+        ]
+      },
+      "translation": "I put a little extra in the money because I thought it would look nicer"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        523.5055,
+        608.31146,
+        670.2243,
+        917.9442
+      ],
+      "id": 7,
+      "ocrConfidence": 0.99117845,
+      "ocrDropped": false,
+      "ocrText": "店長!これボクのエプロン?!",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          465.44708,
+          576.043,
+          710.1034,
+          948.0198
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.75315523,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 30.0,
+        "rectLines": 3,
+        "shapeBounds": [
+          476.0,
+          592.0,
+          699.0,
+          937.0
+        ],
+        "shapeSource": "fill_ellipse",
+        "shapedFontSize": 36.0,
+        "shapedLines": 3,
+        "todayOutcome": "grown",
+        "todayRenderBox": [
+          508.6695,
+          608.31146,
+          670.2243,
+          917.9442
+        ]
+      },
+      "translation": "Manager! Is this my apron?"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        394.71124,
+        1882.322,
+        472.13953,
+        2047.6768
+      ],
+      "id": 8,
+      "ocrConfidence": 0.9915557,
+      "ocrDropped": false,
+      "ocrText": "はいお金とメモ",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": null,
+        "drawn": "rect",
+        "fillRatio": null,
+        "label": "text_free",
+        "noShapeReason": "no-host",
+        "rectFontSize": 19.5,
+        "rectLines": 4,
+        "shapeBounds": null,
+        "shapeSource": null,
+        "shapedFontSize": null,
+        "shapedLines": null,
+        "todayOutcome": "unchanged",
+        "todayRenderBox": [
+          394.71124,
+          1882.322,
+          472.13953,
+          2047.6768
+        ]
+      },
+      "translation": "Yes, money and a memo"
+    },
+    {
+      "answered": false,
+      "bounds": [
+        143.61407,
+        2601.96,
+        283.60187,
+        2784.449
+      ],
+      "id": 10,
+      "ocrConfidence": null,
+      "ocrDropped": true,
+      "ocrText": "Share",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": null,
+        "drawn": null,
+        "fillRatio": null,
+        "label": "text_free",
+        "noShapeReason": "no-host",
+        "rectFontSize": null,
+        "rectLines": null,
+        "shapeBounds": null,
+        "shapeSource": null,
+        "shapedFontSize": null,
+        "shapedLines": null,
+        "todayOutcome": "unchanged",
+        "todayRenderBox": [
+          143.61407,
+          2601.96,
+          283.60187,
+          2784.449
+        ]
+      },
+      "translation": null
+    }
+  ],
+  "device": "Google sdk_gphone16k_arm64",
+  "errorCode": null,
+  "outcome": "SUCCESS",
+  "pageHeight": 2856,
+  "pageWidth": 1280,
+  "readingOrder": [
+    7,
+    1,
+    5,
+    2,
+    4,
+    8,
+    6,
+    3,
+    10
+  ],
+  "recalled": false,
+  "settings": {
+    "detectionModel": "rtdetr_v4s_v1",
+    "detectionThreshold": 0.25,
+    "fontScale": 1.0,
+    "generation": {
+      "lineExcludesIdBracket": true,
+      "maxTokens": 256,
+      "penaltyFreq": 0.0,
+      "penaltyLastN": 64,
+      "penaltyPresent": 0.0,
+      "penaltyRepeat": 1.0,
+      "seed": -1,
+      "temperature": 0.2,
+      "topK": 40,
+      "topP": 0.9
+    },
+    "glossary": [],
+    "ocrModel": "hayai_ocr_v2.7",
+    "runtime": {
+      "contextTokens": 2048,
+      "threads": 4
+    },
+    "serverModel": null,
+    "targetLanguage": "ENGLISH",
+    "translationModel": "qwen25_1.5b_instruct_v1",
+    "translator": "on-device"
+  },
+  "timings": {
+    "stagesMs": {
+      "BUBBLE_DETECTION": 72,
+      "OCR": 656,
+      "CONTEXT_ASSEMBLY": 128,
+      "TRANSLATION": 1742
+    },
+    "timeToFirstBubbleMs": 1506,
+    "totalMs": 2598,
+    "translationCallMs": 1741
+  }
+}

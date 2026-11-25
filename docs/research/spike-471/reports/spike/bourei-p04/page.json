@@ -1,0 +1,554 @@
+{
+  "appVersion": "1.0",
+  "balloons": [
+    [
+      917.08923,
+      648.0245,
+      1055.3677,
+      843.9379
+    ],
+    [
+      571.66815,
+      1664.55,
+      738.5404,
+      1879.3303
+    ],
+    [
+      120.34016,
+      2078.3547,
+      440.51425,
+      2209.8694
+    ],
+    [
+      348.77792,
+      1789.5414,
+      451.44272,
+      1934.0436
+    ],
+    [
+      440.44983,
+      217.64212,
+      838.0183,
+      336.232
+    ],
+    [
+      461.2198,
+      1357.0684,
+      548.08075,
+      1464.0428
+    ],
+    [
+      613.17535,
+      2045.5952,
+      1104.3052,
+      2191.6025
+    ],
+    [
+      185.22198,
+      33.977417,
+      399.395,
+      120.12054
+    ],
+    [
+      1087.7404,
+      2379.7302,
+      1261.0498,
+      2558.1763
+    ],
+    [
+      552.26935,
+      814.58636,
+      706.8763,
+      1080.6024
+    ]
+  ],
+  "batchOverflowFallback": false,
+  "bubbles": [
+    {
+      "answered": true,
+      "bounds": [
+        43.206978,
+        1082.4847,
+        293.20416,
+        1211.5228
+      ],
+      "id": 1,
+      "ocrConfidence": 0.97745526,
+      "ocrDropped": false,
+      "ocrText": "ようこそ亡霊葬儀屋さん吉良いと",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": null,
+        "drawn": "rect",
+        "fillRatio": null,
+        "label": "text_free",
+        "noShapeReason": "no-host",
+        "rectFontSize": 21.25,
+        "rectLines": 3,
+        "shapeBounds": null,
+        "shapeSource": null,
+        "shapedFontSize": null,
+        "shapedLines": null,
+        "todayOutcome": "none",
+        "todayRenderBox": [
+          43.206978,
+          1082.4847,
+          293.20416,
+          1211.5228
+        ]
+      },
+      "translation": "Welcome to the ghost funeral home, Jigiyuu"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        951.1846,
+        676.1878,
+        1020.1378,
+        808.98474
+      ],
+      "id": 3,
+      "ocrConfidence": 0.98939997,
+      "ocrDropped": false,
+      "ocrText": "死んでるんですよねぇ",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          917.08923,
+          648.0245,
+          1055.3677,
+          843.9379
+        ],
+        "drawn": "shaped",
+        "fillRatio": null,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 17.75,
+        "rectLines": 3,
+        "shapeBounds": [
+          925.3859,
+          659.7793,
+          1047.0709,
+          832.1831
+        ],
+        "shapeSource": "balloon_ellipse",
+        "shapedFontSize": 21.0,
+        "shapedLines": 3,
+        "todayOutcome": "grown",
+        "todayRenderBox": [
+          928.924,
+          676.1878,
+          1025.076,
+          809.50903
+        ]
+      },
+      "translation": "You're dead, aren't you"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        141.15018,
+        2099.3865,
+        415.04147,
+        2190.4783
+      ],
+      "id": 4,
+      "ocrConfidence": 0.9847073,
+      "ocrDropped": false,
+      "ocrText": "葬儀依頼人桜野すずめ19歳",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          120.34016,
+          2078.3547,
+          440.51425,
+          2209.8694
+        ],
+        "drawn": "shaped",
+        "fillRatio": 1.0,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 16.0,
+        "rectLines": 3,
+        "shapeBounds": [
+          128.0,
+          2091.0,
+          432.0,
+          2203.0
+        ],
+        "shapeSource": "fill_rect",
+        "shapedFontSize": 19.0,
+        "shapedLines": 3,
+        "todayOutcome": "unchanged",
+        "todayRenderBox": [
+          141.15018,
+          2099.3865,
+          415.04147,
+          2190.4783
+        ]
+      },
+      "translation": "The person who requested the funeral is Suzume, 19 years old"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        637.86444,
+        2071.6821,
+        1077.7181,
+        2158.7068
+      ],
+      "id": 5,
+      "ocrConfidence": 0.965724,
+      "ocrDropped": false,
+      "ocrText": "烏丸葬儀社社長鳥丸枢(からすまくるる)25歳",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          613.17535,
+          2045.5952,
+          1104.3052,
+          2191.6025
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.9993946,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 23.0,
+        "rectLines": 2,
+        "shapeBounds": [
+          625.0,
+          2058.0,
+          1095.0,
+          2181.0
+        ],
+        "shapeSource": "fill_rect",
+        "shapedFontSize": 31.0,
+        "shapedLines": 2,
+        "todayOutcome": "grown",
+        "todayRenderBox": [
+          637.86444,
+          2071.6821,
+          1077.7181,
+          2162.9805
+        ]
+      },
+      "translation": "Ootoru Funeral Home, 25 years old, Ootoru Kusukuru"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        600.3061,
+        1696.1348,
+        713.95294,
+        1846.1483
+      ],
+      "id": 6,
+      "ocrConfidence": 0.98460287,
+      "ocrDropped": false,
+      "ocrText": "亡くなったお姉さんのお化粧を?",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          571.66815,
+          1664.55,
+          738.5404,
+          1879.3303
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.76501954,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 19.5,
+        "rectLines": 4,
+        "shapeBounds": [
+          581.0,
+          1676.0,
+          732.0,
+          1871.0
+        ],
+        "shapeSource": "fill_ellipse",
+        "shapedFontSize": 21.0,
+        "shapedLines": 3,
+        "todayOutcome": "unchanged",
+        "todayRenderBox": [
+          600.3061,
+          1696.1348,
+          713.95294,
+          1846.1483
+        ]
+      },
+      "translation": "What about my sister's makeup?"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        370.8664,
+        1813.8425,
+        428.5172,
+        1913.4406
+      ],
+      "id": 7,
+      "ocrConfidence": 0.98868066,
+      "ocrDropped": false,
+      "ocrText": "はい...",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          348.77792,
+          1789.5414,
+          451.44272,
+          1934.0436
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.774982,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 19.5,
+        "rectLines": 1,
+        "shapeBounds": [
+          355.0,
+          1803.0,
+          443.0,
+          1929.0
+        ],
+        "shapeSource": "fill_ellipse",
+        "shapedFontSize": 29.0,
+        "shapedLines": 1,
+        "todayOutcome": "grown",
+        "todayRenderBox": [
+          367.892,
+          1813.8425,
+          430.108,
+          1913.4406
+        ]
+      },
+      "translation": "Yes..."
+    },
+    {
+      "answered": true,
+      "bounds": [
+        482.15106,
+        1376.1654,
+        530.6978,
+        1444.5994
+      ],
+      "id": 9,
+      "ocrConfidence": 0.99107355,
+      "ocrDropped": false,
+      "ocrText": "え?",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          461.2198,
+          1357.0684,
+          548.08075,
+          1464.0428
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.76907957,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 35.25,
+        "rectLines": 1,
+        "shapeBounds": [
+          470.0,
+          1369.0,
+          541.0,
+          1455.0
+        ],
+        "shapeSource": "fill_ellipse",
+        "shapedFontSize": 36.0,
+        "shapedLines": 1,
+        "todayOutcome": "grown",
+        "todayRenderBox": [
+          480.4015,
+          1376.1654,
+          530.6978,
+          1444.5994
+        ]
+      },
+      "translation": "?"
+    },
+    {
+      "answered": false,
+      "bounds": [
+        798.1804,
+        1228.4579,
+        1280.4261,
+        1301.2732
+      ],
+      "id": 10,
+      "ocrConfidence": null,
+      "ocrDropped": true,
+      "ocrText": "...",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": null,
+        "drawn": null,
+        "fillRatio": null,
+        "label": "text_free",
+        "noShapeReason": "no-host",
+        "rectFontSize": null,
+        "rectLines": null,
+        "shapeBounds": null,
+        "shapeSource": null,
+        "shapedFontSize": null,
+        "shapedLines": null,
+        "todayOutcome": "none",
+        "todayRenderBox": [
+          798.1804,
+          1228.4579,
+          1280.4261,
+          1301.2732
+        ]
+      },
+      "translation": null
+    },
+    {
+      "answered": true,
+      "bounds": [
+        591.4215,
+        850.9324,
+        677.848,
+        1043.9867
+      ],
+      "id": 11,
+      "ocrConfidence": 0.9895577,
+      "ocrDropped": false,
+      "ocrText": "「視える」人間ってヤツでして",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          552.26935,
+          814.58636,
+          706.8763,
+          1080.6024
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.9997465,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 21.25,
+        "rectLines": 4,
+        "shapeBounds": [
+          559.0,
+          825.0,
+          701.0,
+          1075.0
+        ],
+        "shapeSource": "fill_rect",
+        "shapedFontSize": 31.0,
+        "shapedLines": 4,
+        "todayOutcome": "grown",
+        "todayRenderBox": [
+          579.803,
+          850.9324,
+          680.197,
+          1043.9867
+        ]
+      },
+      "translation": "\"Visible\" people are like you"
+    },
+    {
+      "answered": false,
+      "bounds": [
+        146.38078,
+        2603.4136,
+        282.40567,
+        2778.4958
+      ],
+      "id": 12,
+      "ocrConfidence": null,
+      "ocrDropped": true,
+      "ocrText": "Share",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": null,
+        "drawn": null,
+        "fillRatio": null,
+        "label": "text_free",
+        "noShapeReason": "no-host",
+        "rectFontSize": null,
+        "rectLines": null,
+        "shapeBounds": null,
+        "shapeSource": null,
+        "shapedFontSize": null,
+        "shapedLines": null,
+        "todayOutcome": "unchanged",
+        "todayRenderBox": [
+          146.38078,
+          2603.4136,
+          282.40567,
+          2778.4958
+        ]
+      },
+      "translation": null
+    }
+  ],
+  "device": "Google sdk_gphone16k_arm64",
+  "errorCode": null,
+  "outcome": "SUCCESS",
+  "pageHeight": 2856,
+  "pageWidth": 1280,
+  "readingOrder": [
+    3,
+    11,
+    1,
+    10,
+    9,
+    6,
+    7,
+    5,
+    4,
+    12
+  ],
+  "recalled": false,
+  "settings": {
+    "detectionModel": "rtdetr_v4s_v1",
+    "detectionThreshold": 0.25,
+    "fontScale": 1.0,
+    "generation": {
+      "lineExcludesIdBracket": true,
+      "maxTokens": 256,
+      "penaltyFreq": 0.0,
+      "penaltyLastN": 64,
+      "penaltyPresent": 0.0,
+      "penaltyRepeat": 1.0,
+      "seed": -1,
+      "temperature": 0.2,
+      "topK": 40,
+      "topP": 0.9
+    },
+    "glossary": [],
+    "ocrModel": "hayai_ocr_v2.7",
+    "runtime": {
+      "contextTokens": 2048,
+      "threads": 4
+    },
+    "serverModel": null,
+    "targetLanguage": "ENGLISH",
+    "translationModel": "qwen25_1.5b_instruct_v1",
+    "translator": "on-device"
+  },
+  "timings": {
+    "stagesMs": {
+      "BUBBLE_DETECTION": 108,
+      "OCR": 675,
+      "CONTEXT_ASSEMBLY": 126,
+      "TRANSLATION": 1773
+    },
+    "timeToFirstBubbleMs": 1601,
+    "totalMs": 2682,
+    "translationCallMs": 1772
+  }
+}

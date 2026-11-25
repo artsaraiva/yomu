@@ -1,0 +1,258 @@
+{
+  "appVersion": "1.0",
+  "batchOverflowFallback": false,
+  "bubbles": [
+    {
+      "answered": true,
+      "bounds": [
+        880.69336,
+        1531.5048,
+        995.91766,
+        1677.0474
+      ],
+      "id": 1,
+      "ocrConfidence": 0.98996884,
+      "ocrDropped": false,
+      "ocrText": "お前は石鳥たちを基準に考えたんだろうけど...",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "You thought you were basing it on the Stone Birds, right?"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        1027.4506,
+        1433.7261,
+        1134.8834,
+        1586.0677
+      ],
+      "id": 2,
+      "ocrConfidence": 0.9868113,
+      "ocrDropped": false,
+      "ocrText": "しかもあいつは初対面だぞ!?やっぱりとばしすぎだ!!",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "And he's the one who's never met before! It's like he's being too presumptuous..."
+    },
+    {
+      "answered": true,
+      "bounds": [
+        697.35645,
+        1553.0133,
+        822.12537,
+        1678.8735
+      ],
+      "id": 3,
+      "ocrConfidence": 0.9893936,
+      "ocrDropped": false,
+      "ocrText": "あいつらはあいつらで異常なこと忘れてねぇか...!!",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "They can't forget that they are different from each other..."
+    },
+    {
+      "answered": true,
+      "bounds": [
+        1148.544,
+        1419.4513,
+        1268.161,
+        1563.178
+      ],
+      "id": 4,
+      "ocrConfidence": 0.9830853,
+      "ocrDropped": false,
+      "ocrText": "無言で着替えまくってるだけで何が伝わるんだよ!!",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "Just by changing clothes without saying anything, what does that convey?"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        23.338242,
+        1245.4541,
+        131.99187,
+        1382.363
+      ],
+      "id": 5,
+      "ocrConfidence": 0.98993003,
+      "ocrDropped": false,
+      "ocrText": "どうしよう...笑わせるのってこんなに難しいのか...!?",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "How can I... make them laugh like this? This is so difficult..."
+    },
+    {
+      "answered": true,
+      "bounds": [
+        252.91536,
+        992.6394,
+        388.76144,
+        1152.6787
+      ],
+      "id": 6,
+      "ocrConfidence": 0.9854541,
+      "ocrDropped": false,
+      "ocrText": "最近悪魔ちゃんが受け入れられてるせいか...その前提を忘れてしまっていた...!?",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "Because of the recent acceptance of the Evil Girl, I had forgotten the premise..."
+    },
+    {
+      "answered": true,
+      "bounds": [
+        445.11664,
+        991.77814,
+        577.50494,
+        1144.2802
+      ],
+      "id": 7,
+      "ocrConfidence": 0.99137825,
+      "ocrDropped": false,
+      "ocrText": "皆が皆好奇心の目で見てくれるとは限らない...",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "It's not possible for everyone to see it with the same curiosity..."
+    },
+    {
+      "answered": true,
+      "bounds": [
+        723.75116,
+        1749.2661,
+        820.26575,
+        1865.3381
+      ],
+      "id": 8,
+      "ocrConfidence": 0.98997664,
+      "ocrDropped": false,
+      "ocrText": "し...しまった...!!",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "...I failed..."
+    },
+    {
+      "answered": true,
+      "bounds": [
+        103.319,
+        1001.3759,
+        189.92163,
+        1124.3334
+      ],
+      "id": 9,
+      "ocrConfidence": 0.9888584,
+      "ocrDropped": false,
+      "ocrText": "しかも愛森さんは状況が状況...",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "And even when it comes to the situation, it's not just about the situation..."
+    },
+    {
+      "answered": true,
+      "bounds": [
+        1133.8346,
+        983.8787,
+        1221.6749,
+        1145.7002
+      ],
+      "id": 10,
+      "ocrConfidence": 0.98907006,
+      "ocrDropped": false,
+      "ocrText": "ついてこれてない!?",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "You're not paying attention!"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        737.2959,
+        1089.3208,
+        809.4442,
+        1318.8049
+      ],
+      "id": 11,
+      "ocrConfidence": 0.98981386,
+      "ocrDropped": false,
+      "ocrText": "当たり前だろ!!",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "Of course!"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        119.27746,
+        1461.4261,
+        209.80267,
+        1578.7214
+      ],
+      "id": 12,
+      "ocrConfidence": 0.98819107,
+      "ocrDropped": false,
+      "ocrText": "じゃあ一体どうすれば...!!",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "So, how can I...?"
+    },
+    {
+      "answered": false,
+      "bounds": [
+        144.7418,
+        2605.3132,
+        284.2425,
+        2783.3801
+      ],
+      "id": 16,
+      "ocrConfidence": null,
+      "ocrDropped": true,
+      "ocrText": "Share",
+      "skipped": false,
+      "sourceText": null,
+      "translation": null
+    }
+  ],
+  "device": "Google sdk_gphone16k_arm64",
+  "errorCode": null,
+  "outcome": "SUCCESS",
+  "pageHeight": 2856,
+  "pageWidth": 1280,
+  "recalled": false,
+  "settings": {
+    "detectionModel": "rtdetr_v4s_v1",
+    "detectionThreshold": 0.25,
+    "fontScale": 1.0,
+    "generation": {
+      "lineExcludesIdBracket": true,
+      "maxTokens": 256,
+      "penaltyFreq": 0.0,
+      "penaltyLastN": 64,
+      "penaltyPresent": 0.0,
+      "penaltyRepeat": 1.0,
+      "seed": -1,
+      "temperature": 0.2,
+      "topK": 40,
+      "topP": 0.9
+    },
+    "glossary": [],
+    "ocrModel": "hayai_ocr_v2.7",
+    "runtime": {
+      "contextTokens": 2048,
+      "threads": 4
+    },
+    "serverModel": null,
+    "targetLanguage": "ENGLISH",
+    "translationModel": "qwen25_1.5b_instruct_v1",
+    "translator": "on-device"
+  },
+  "timings": {
+    "stagesMs": {
+      "BUBBLE_DETECTION": 71,
+      "OCR": 997,
+      "CONTEXT_ASSEMBLY": 64,
+      "TRANSLATION": 3255
+    },
+    "timeToFirstBubbleMs": 2097,
+    "totalMs": 4387,
+    "translationCallMs": 3252
+  }
+}

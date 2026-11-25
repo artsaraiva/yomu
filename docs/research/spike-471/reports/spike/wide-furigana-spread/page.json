@@ -1,0 +1,756 @@
+{
+  "appVersion": "1.0",
+  "balloons": [
+    [
+      645.9852,
+      1472.515,
+      874.8302,
+      1757.9602
+    ],
+    [
+      388.99814,
+      1524.2683,
+      582.2982,
+      1720.3715
+    ],
+    [
+      930.7916,
+      988.65125,
+      1073.7213,
+      1249.9584
+    ],
+    [
+      464.92142,
+      1185.3925,
+      596.4035,
+      1363.0123
+    ],
+    [
+      271.4449,
+      1524.6769,
+      361.8892,
+      1671.6194
+    ],
+    [
+      24.490818,
+      1360.5472,
+      148.20976,
+      1524.6926
+    ],
+    [
+      16.180706,
+      995.88104,
+      153.53918,
+      1153.9011
+    ],
+    [
+      750.7294,
+      1075.7354,
+      889.26135,
+      1320.9539
+    ],
+    [
+      66.578705,
+      1660.399,
+      200.63443,
+      1871.7052
+    ],
+    [
+      90.88554,
+      1243.408,
+      241.77505,
+      1429.2466
+    ],
+    [
+      129.36017,
+      1533.4355,
+      270.20703,
+      1730.5446
+    ],
+    [
+      279.68756,
+      975.8028,
+      366.40326,
+      1097.4485
+    ],
+    [
+      845.08545,
+      1000.89856,
+      933.78674,
+      1246.0673
+    ],
+    [
+      439.66965,
+      216.5077,
+      839.46655,
+      337.34225
+    ]
+  ],
+  "batchOverflowFallback": false,
+  "bubbles": [
+    {
+      "answered": true,
+      "bounds": [
+        416.77924,
+        1551.6697,
+        557.82434,
+        1689.0405
+      ],
+      "id": 1,
+      "ocrConfidence": 0.9881334,
+      "ocrDropped": false,
+      "ocrText": "樺山武美の死の瞬間を目撃した者が名乗り出てくれてね",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          388.99814,
+          1524.2683,
+          582.2982,
+          1720.3715
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.85597825,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 12.5,
+        "rectLines": 5,
+        "shapeBounds": [
+          394.0,
+          1533.0,
+          578.0,
+          1715.0
+        ],
+        "shapeSource": "fill_ellipse",
+        "shapedFontSize": 16.0,
+        "shapedLines": 5,
+        "todayOutcome": "unchanged",
+        "todayRenderBox": [
+          416.77924,
+          1551.6697,
+          557.82434,
+          1689.0405
+        ]
+      },
+      "translation": "Someone who witnessed the moment of her death would please come forward"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        680.16504,
+        1515.785,
+        838.5651,
+        1721.8903
+      ],
+      "id": 2,
+      "ocrConfidence": 0.98231536,
+      "ocrDropped": false,
+      "ocrText": "樺山武美の死が不幸な事故死だったとしたら...?",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          645.9852,
+          1472.515,
+          874.8302,
+          1757.9602
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.82088643,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 21.25,
+        "rectLines": 5,
+        "shapeBounds": [
+          651.0,
+          1475.0,
+          869.0,
+          1753.0
+        ],
+        "shapeSource": "fill_ellipse",
+        "shapedFontSize": 24.0,
+        "shapedLines": 5,
+        "todayOutcome": "grown",
+        "todayRenderBox": [
+          680.16504,
+          1515.727,
+          838.5651,
+          1721.8903
+        ]
+      },
+      "translation": "If the death of Masahiro Sakurai had been a tragic accident..."
+    },
+    {
+      "answered": true,
+      "bounds": [
+        38.498344,
+        1018.805,
+        133.4895,
+        1124.768
+      ],
+      "id": 3,
+      "ocrConfidence": 0.99060977,
+      "ocrDropped": false,
+      "ocrText": "カマを掛けてる...ってことですか",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          16.180706,
+          995.88104,
+          153.53918,
+          1153.9011
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.8145161,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 12.5,
+        "rectLines": 4,
+        "shapeBounds": [
+          24.0,
+          1002.0,
+          148.0,
+          1146.0
+        ],
+        "shapeSource": "fill_ellipse",
+        "shapedFontSize": 17.0,
+        "shapedLines": 4,
+        "todayOutcome": "grown",
+        "todayRenderBox": [
+          38.498344,
+          1018.805,
+          133.4895,
+          1124.904
+        ]
+      },
+      "translation": "You're hanging a cherry tree... right?"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        781.2578,
+        1098.4385,
+        865.6017,
+        1293.5706
+      ],
+      "id": 4,
+      "ocrConfidence": 0.9893013,
+      "ocrDropped": false,
+      "ocrText": "お前さんも何も悪くなくて",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          750.7294,
+          1075.7354,
+          889.26135,
+          1320.9539
+        ],
+        "drawn": "rect",
+        "fillRatio": null,
+        "label": "text_bubble",
+        "noShapeReason": "reach",
+        "rectFontSize": 16.0,
+        "rectLines": 6,
+        "shapeBounds": null,
+        "shapeSource": null,
+        "shapedFontSize": null,
+        "shapedLines": null,
+        "todayOutcome": "reach",
+        "todayRenderBox": [
+          781.2578,
+          1098.4385,
+          865.6017,
+          1293.5706
+        ]
+      },
+      "translation": "You're not any worse than anyone else"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        956.2971,
+        1040.3885,
+        1034.7937,
+        1211.9854
+      ],
+      "id": 5,
+      "ocrConfidence": 0.98936296,
+      "ocrDropped": false,
+      "ocrText": "は...?",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          930.7916,
+          988.65125,
+          1073.7213,
+          1249.9584
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.85742855,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 19.5,
+        "rectLines": 2,
+        "shapeBounds": [
+          941.0,
+          999.0,
+          1065.0,
+          1245.0
+        ],
+        "shapeSource": "fill_ellipse",
+        "shapedFontSize": 28.0,
+        "shapedLines": 2,
+        "todayOutcome": "grown",
+        "todayRenderBox": [
+          956.2971,
+          1035.0391,
+          1046.834,
+          1211.9854
+        ]
+      },
+      "translation": "What about...?"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        158.3733,
+        1561.2467,
+        243.48346,
+        1713.4232
+      ],
+      "id": 6,
+      "ocrConfidence": 0.9861757,
+      "ocrDropped": false,
+      "ocrText": "こういう物的証拠に乏しい事件では",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          129.36017,
+          1533.4355,
+          270.20703,
+          1730.5446
+        ],
+        "drawn": "rect",
+        "fillRatio": null,
+        "label": "text_bubble",
+        "noShapeReason": "reach",
+        "rectFontSize": 16.0,
+        "rectLines": 5,
+        "shapeBounds": null,
+        "shapeSource": null,
+        "shapedFontSize": null,
+        "shapedLines": null,
+        "todayOutcome": "reach",
+        "todayRenderBox": [
+          158.3733,
+          1561.2467,
+          243.48346,
+          1713.4232
+        ]
+      },
+      "translation": "In cases where there are no physical evidence..."
+    },
+    {
+      "answered": true,
+      "bounds": [
+        95.718994,
+        1687.9078,
+        168.14722,
+        1844.7524
+      ],
+      "id": 7,
+      "ocrConfidence": 0.9894076,
+      "ocrDropped": false,
+      "ocrText": "目撃者の証言は貴重だから",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          66.578705,
+          1660.399,
+          200.63443,
+          1871.7052
+        ],
+        "drawn": "rect",
+        "fillRatio": null,
+        "label": "text_bubble",
+        "noShapeReason": "reach",
+        "rectFontSize": 16.0,
+        "rectLines": 5,
+        "shapeBounds": null,
+        "shapeSource": null,
+        "shapedFontSize": null,
+        "shapedLines": null,
+        "todayOutcome": "reach",
+        "todayRenderBox": [
+          95.718994,
+          1687.9078,
+          168.14722,
+          1844.7524
+        ]
+      },
+      "translation": "The testimony of witnesses is valuable, so..."
+    },
+    {
+      "answered": true,
+      "bounds": [
+        869.4772,
+        1043.8851,
+        920.6504,
+        1203.0101
+      ],
+      "id": 8,
+      "ocrConfidence": 0.98926616,
+      "ocrDropped": false,
+      "ocrText": "沢井善雄も",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          845.08545,
+          1000.89856,
+          933.78674,
+          1246.0673
+        ],
+        "drawn": "rect",
+        "fillRatio": null,
+        "label": "text_bubble",
+        "noShapeReason": "reach",
+        "rectFontSize": 19.5,
+        "rectLines": 3,
+        "shapeBounds": null,
+        "shapeSource": null,
+        "shapedFontSize": null,
+        "shapedLines": null,
+        "todayOutcome": "reach",
+        "todayRenderBox": [
+          869.4772,
+          1043.8851,
+          920.6504,
+          1203.0101
+        ]
+      },
+      "translation": "Masahiro Sakurai also..."
+    },
+    {
+      "answered": true,
+      "bounds": [
+        497.90216,
+        1207.7987,
+        563.41956,
+        1336.2859
+      ],
+      "id": 9,
+      "ocrConfidence": 0.9864229,
+      "ocrDropped": false,
+      "ocrText": "その手には乗りませんよ",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          464.92142,
+          1185.3925,
+          596.4035,
+          1363.0123
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.78496903,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 16.0,
+        "rectLines": 3,
+        "shapeBounds": [
+          470.0,
+          1193.0,
+          591.0,
+          1353.0
+        ],
+        "shapeSource": "fill_ellipse",
+        "shapedFontSize": 21.0,
+        "shapedLines": 4,
+        "todayOutcome": "grown",
+        "todayRenderBox": [
+          487.7265,
+          1207.7987,
+          573.2735,
+          1336.2859
+        ]
+      },
+      "translation": "You can't even ride that hand"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        293.89157,
+        1543.5544,
+        349.88864,
+        1642.4967
+      ],
+      "id": 10,
+      "ocrConfidence": 0.9903038,
+      "ocrDropped": false,
+      "ocrText": "幸運だったよ",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          271.4449,
+          1524.6769,
+          361.8892,
+          1671.6194
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.8859358,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 16.0,
+        "rectLines": 3,
+        "shapeBounds": [
+          277.0,
+          1533.0,
+          354.0,
+          1662.0
+        ],
+        "shapeSource": "fill_ellipse",
+        "shapedFontSize": 17.0,
+        "shapedLines": 3,
+        "todayOutcome": "grown",
+        "todayRenderBox": [
+          288.28052,
+          1543.5544,
+          349.88864,
+          1643.1016
+        ]
+      },
+      "translation": "It was good luck"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        116.843956,
+        1272.2493,
+        213.74275,
+        1396.0443
+      ],
+      "id": 11,
+      "ocrConfidence": 0.989272,
+      "ocrDropped": false,
+      "ocrText": "試すならもう少し上手く...",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          90.88554,
+          1243.408,
+          241.77505,
+          1429.2466
+        ],
+        "drawn": "rect",
+        "fillRatio": 0.7289355,
+        "label": "text_bubble",
+        "noShapeReason": "reach",
+        "rectFontSize": 21.25,
+        "rectLines": 2,
+        "shapeBounds": null,
+        "shapeSource": null,
+        "shapedFontSize": null,
+        "shapedLines": null,
+        "todayOutcome": "reach",
+        "todayRenderBox": [
+          116.843956,
+          1272.2493,
+          213.74275,
+          1396.0443
+        ]
+      },
+      "translation": "Try harder..."
+    },
+    {
+      "answered": true,
+      "bounds": [
+        51.918026,
+        1389.4418,
+        117.81433,
+        1492.5321
+      ],
+      "id": 12,
+      "ocrConfidence": 0.98960996,
+      "ocrDropped": false,
+      "ocrText": "実は",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          24.490818,
+          1360.5472,
+          148.20976,
+          1524.6926
+        ],
+        "drawn": "rect",
+        "fillRatio": 0.82662755,
+        "label": "text_bubble",
+        "noShapeReason": "reach",
+        "rectFontSize": 19.5,
+        "rectLines": 1,
+        "shapeBounds": null,
+        "shapeSource": null,
+        "shapedFontSize": null,
+        "shapedLines": null,
+        "todayOutcome": "reach",
+        "todayRenderBox": [
+          51.918026,
+          1389.4418,
+          117.81433,
+          1492.5321
+        ]
+      },
+      "translation": "Actually"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        303.63672,
+        999.71265,
+        344.2666,
+        1071.4714
+      ],
+      "id": 14,
+      "ocrConfidence": 0.98943454,
+      "ocrDropped": false,
+      "ocrText": "...ああ",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          279.68756,
+          975.8028,
+          366.40326,
+          1097.4485
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.77503973,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 19.5,
+        "rectLines": 1,
+        "shapeBounds": [
+          286.0,
+          987.0,
+          360.0,
+          1089.0
+        ],
+        "shapeSource": "fill_ellipse",
+        "shapedFontSize": 28.0,
+        "shapedLines": 1,
+        "todayOutcome": "grown",
+        "todayRenderBox": [
+          296.841,
+          999.71265,
+          349.159,
+          1074.057
+        ]
+      },
+      "translation": "Ah..."
+    },
+    {
+      "answered": false,
+      "bounds": [
+        140.79631,
+        2602.8945,
+        288.98694,
+        2783.4082
+      ],
+      "id": 16,
+      "ocrConfidence": null,
+      "ocrDropped": true,
+      "ocrText": "Share",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": null,
+        "drawn": null,
+        "fillRatio": null,
+        "label": "text_free",
+        "noShapeReason": "no-host",
+        "rectFontSize": null,
+        "rectLines": null,
+        "shapeBounds": null,
+        "shapeSource": null,
+        "shapedFontSize": null,
+        "shapedLines": null,
+        "todayOutcome": "unchanged",
+        "todayRenderBox": [
+          140.79631,
+          2602.8945,
+          288.98694,
+          2783.4082
+        ]
+      },
+      "translation": null
+    }
+  ],
+  "device": "Google sdk_gphone16k_arm64",
+  "errorCode": null,
+  "outcome": "SUCCESS",
+  "pageHeight": 2856,
+  "pageWidth": 1280,
+  "readingOrder": [
+    5,
+    8,
+    4,
+    9,
+    14,
+    11,
+    3,
+    12,
+    2,
+    1,
+    10,
+    6,
+    7,
+    16
+  ],
+  "recalled": false,
+  "settings": {
+    "detectionModel": "rtdetr_v4s_v1",
+    "detectionThreshold": 0.25,
+    "fontScale": 1.0,
+    "generation": {
+      "lineExcludesIdBracket": true,
+      "maxTokens": 256,
+      "penaltyFreq": 0.0,
+      "penaltyLastN": 64,
+      "penaltyPresent": 0.0,
+      "penaltyRepeat": 1.0,
+      "seed": -1,
+      "temperature": 0.2,
+      "topK": 40,
+      "topP": 0.9
+    },
+    "glossary": [],
+    "ocrModel": "hayai_ocr_v2.7",
+    "runtime": {
+      "contextTokens": 2048,
+      "threads": 4
+    },
+    "serverModel": null,
+    "targetLanguage": "ENGLISH",
+    "translationModel": "qwen25_1.5b_instruct_v1",
+    "translator": "on-device"
+  },
+  "timings": {
+    "stagesMs": {
+      "BUBBLE_DETECTION": 66,
+      "OCR": 926,
+      "CONTEXT_ASSEMBLY": 104,
+      "TRANSLATION": 2616
+    },
+    "timeToFirstBubbleMs": 1944,
+    "totalMs": 3712,
+    "translationCallMs": 2614
+  }
+}

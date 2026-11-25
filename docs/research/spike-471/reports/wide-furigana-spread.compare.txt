@@ -1,0 +1,61 @@
+A=main/wide-furigana-spread (15 bubbles)  B=spike/wide-furigana-spread (14 bubbles)
+[416,1551,557,1689]      same OCR
+  A #1 '樺山武美の死の瞬間を目撃した者が名乗り出てくれてね' p=0.988 -> "Someone who witnessed Kojima Yuko's death would please come forward"
+  B #1 '樺山武美の死の瞬間を目撃した者が名乗り出てくれてね' p=0.988 -> 'Someone who witnessed the moment of her death would please come forward'
+    text_bubble today=unchanged fill_ellipse fill=0.86 rect=12px/5l shaped=16px/5l drawn=shaped
+[781,1098,864,1294]      same OCR
+  A #2 'お前さんも何も悪くなくて' p=0.989 -> "You're not any worse than me either"
+  B #4 'お前さんも何も悪くなくて' p=0.989 -> "You're not any worse than anyone else"
+    text_bubble today=reach no shape (reach) rect=16px/6l shaped=- drawn=rect
+[38,1019,133,1124]       same OCR
+  A #3 'カマを掛けてる...ってことですか' p=0.990 -> "I'm carrying a stick... isn't that what you mean?"
+  B #3 'カマを掛けてる...ってことですか' p=0.991 -> "You're hanging a cherry tree... right?"
+    text_bubble today=grown fill_ellipse fill=0.81 rect=12px/4l shaped=17px/4l drawn=shaped
+[680,1516,837,1721]      same OCR
+  A #4 '樺山武美の死が不幸な事故死だったとしたら...?' p=0.986 -> "If Kojima Yuko's death was a tragic accident..."
+  B #2 '樺山武美の死が不幸な事故死だったとしたら...?' p=0.982 -> 'If the death of Masahiro Sakurai had been a tragic accident...'
+    text_bubble today=grown fill_ellipse fill=0.82 rect=21px/5l shaped=24px/5l drawn=shaped
+[158,1561,243,1714]      same OCR
+  A #5 'こういう物的証拠に乏しい事件では' p=0.989 -> 'In cases like this, where there are no physical evidence...'
+  B #6 'こういう物的証拠に乏しい事件では' p=0.986 -> 'In cases where there are no physical evidence...'
+    text_bubble today=reach no shape (reach) rect=16px/5l shaped=- drawn=rect
+[869,1043,920,1202]      same OCR
+  A #6 '沢井善雄も' p=0.989 -> "Kajiwara Shun'ichi also..."
+  B #8 '沢井善雄も' p=0.989 -> 'Masahiro Sakurai also...'
+    text_bubble today=reach no shape (reach) rect=20px/3l shaped=- drawn=rect
+[293,1544,350,1642]      same OCR
+  A #7 '幸運だったよ' p=0.990 -> 'It was lucky'
+  B #10 '幸運だったよ' p=0.990 -> 'It was good luck'
+    text_bubble today=grown fill_ellipse fill=0.89 rect=16px/3l shaped=17px/3l drawn=shaped
+[96,1688,167,1844]       same OCR
+  A #8 '目撃者の証言は貴重だから' p=0.990 -> 'The testimony of the eyewitnesses is valuable, so...'
+  B #7 '目撃者の証言は貴重だから' p=0.989 -> 'The testimony of witnesses is valuable, so...'
+    text_bubble today=reach no shape (reach) rect=16px/5l shaped=- drawn=rect
+[955,1039,1034,1212]     same OCR
+  A #9 'は...?' p=0.989 -> 'Are you...?'
+  B #5 'は...?' p=0.989 -> 'What about...?'
+    text_bubble today=grown fill_ellipse fill=0.86 rect=20px/2l shaped=28px/2l drawn=shaped
+[117,1272,213,1397]      same OCR
+  A #10 '試すならもう少し上手く...' p=0.989 -> 'Try harder, please...'
+  B #11 '試すならもう少し上手く...' p=0.989 -> 'Try harder...'
+    text_bubble today=reach no shape (reach) fill=0.73 rect=21px/2l shaped=- drawn=rect
+[498,1207,562,1337]      same OCR
+  A #11 'その手には乗りませんよ' p=0.987 -> "You can't even ride that hand"
+  B #9 'その手には乗りませんよ' p=0.986 -> "You can't even ride that hand"
+    text_bubble today=grown fill_ellipse fill=0.78 rect=16px/3l shaped=21px/4l drawn=shaped
+[52,1390,116,1490]       same OCR
+  A #13 '実は' p=0.990 -> 'Actually'
+  B #12 '実は' p=0.990 -> 'Actually'
+    text_bubble today=reach no shape (reach) fill=0.83 rect=20px/1l shaped=- drawn=rect
+[304,998,343,1071]       same OCR
+  A #14 '...ああ' p=0.989 -> '...ah'
+  B #14 '...ああ' p=0.989 -> 'Ah...'
+    text_bubble today=grown fill_ellipse fill=0.78 rect=20px/1l shaped=28px/1l drawn=shaped
+[148,2606,279,2781]      same OCR
+  A #15 'Share' (dropped) -> None
+  B #16 'Share' (dropped) -> None
+    text_free today=unchanged no shape (no-host) rect=- shaped=- drawn=None
+[589,2610,691,2774]      ONLY IN A
+  A #18 'o—o Edit' (dropped) -> None
+  B -
+B prompt order: [5, 8, 4, 9, 14, 11, 3, 12, 2, 1, 10, 6, 7, 16]

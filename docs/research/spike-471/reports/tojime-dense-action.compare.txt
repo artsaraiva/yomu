@@ -1,0 +1,82 @@
+A=main/tojime-dense-action (20 bubbles)  B=spike/tojime-dense-action (20 bubbles)
+[977,1246,1156,1491]     same OCR
+  A #1 '腰の銃でイかれた脳みそぶちまけてみるか?' p=0.989 -> "With a gun to my waist, let's see if I can make it happen?"
+  B #1 '腰の銃でイかれた脳みそぶちまけてみるか?' p=0.990 -> "With the gun on the waist, let's see if we can make it taste"
+    text_bubble today=reach balloon_ellipse rect=25px/5l shaped=22px/5l drawn=shaped
+[514,1246,651,1498]      same OCR
+  A #2 'ちょっとやめてよ!こんなとこで!' p=0.990 -> 'Stop it! This is not the place!'
+  B #2 'ちょっとやめてよ!こんなとこで!' p=0.990 -> 'Stop it! This place is too low!'
+    text_bubble today=grown fill_ellipse fill=0.84 rect=30px/4l shaped=31px/3l drawn=shaped
+[754,1325,827,1430]      same OCR
+  A #3 'あ、あの...' p=0.989 -> "Ah, that's it..."
+  B #3 'あ、あの...' p=0.989 -> "Ah, that's it..."
+    text_bubble today=unchanged fill_ellipse fill=0.74 rect=18px/3l shaped=24px/3l drawn=shaped
+[315,1650,409,1843]      same OCR
+  A #4 '面見せてみろ' p=0.990 -> 'Show me your face'
+  B #6 '面見せてみろ' p=0.990 -> 'Show me your face'
+    text_bubble today=grown fill_ellipse fill=0.87 rect=25px/4l shaped=27px/3l drawn=shaped
+[39,1658,184,1907]       same OCR
+  A #5 '閉じ眼でも器量が良けりゃ買い手は...' p=0.985 -> 'Closing my eyes, I can still buy it...'
+  B #7 '閉じ眼でも器量が良けりゃ買い手は...' p=0.985 -> "Closing eyes, it's not a bad quality"
+    text_bubble today=unchanged fill_ellipse fill=0.77 rect=26px/4l shaped=31px/4l drawn=shaped
+[946,589,1142,935]       same OCR
+  A #6 'マフィア舐めんのも大概にしやがれ' p=0.972 -> 'Mafia licking my brain is about to happen'
+  B #4 'マフィア舐めんのも大概にしやがれ' p=0.973 -> 'Mafia sucking mouth is mostly gone'
+    text_bubble today=unchanged fill_ellipse fill=0.81 rect=35px/5l shaped=36px/5l drawn=shaped
+[763,1704,846,1871]      same OCR
+  A #7 '女か?' p=0.988 -> 'Girl?'
+  B #12 '女か?' p=0.987 -> 'Girl?'
+    text_bubble today=grown fill_ellipse fill=0.75 rect=34px/1l shaped=36px/1l drawn=shaped
+[919,1358,964,1444]      same OCR
+  A #8 'あ?' p=0.989 -> 'Ah?'
+  B #5 'あ?' p=0.990 -> '?'
+    text_bubble today=none balloon_ellipse rect=35px/1l shaped=36px/1l drawn=shaped
+[63,2007,151,2220]       same OCR
+  A #9 'やっちょっと...!' p=0.982 -> 'Just a little...!'
+  B #10 'やっちょっと...!' p=0.977 -> 'Just a little...!'
+    text_bubble today=grown fill_ellipse fill=0.57 rect=28px/2l shaped=36px/2l drawn=shaped
+[149,1437,196,1528]      same OCR
+  A #10 'ん?' p=0.990 -> '?'
+  B #9 'ん?' p=0.991 -> '?'
+    text_bubble today=grown fill_ellipse fill=0.75 rect=35px/1l shaped=36px/1l drawn=shaped
+[1042,1650,1150,1853]    same OCR
+  A #11 'お前もしかして' p=0.992 -> 'You too, maybe'
+  B #11 'お前もしかして' p=0.992 -> 'You too, maybe'
+    text_bubble today=grown fill_ellipse fill=0.87 rect=32px/3l shaped=32px/2l drawn=shaped
+[326,737,389,850]        same OCR
+  A #12 'あっ' p=0.990 -> 'Ah'
+  B #8 'あっ' p=0.990 -> 'Ah'
+    text_bubble today=grown fill_ellipse fill=0.78 rect=35px/1l shaped=36px/1l drawn=shaped
+[729,2004,851,2260]      same OCR
+  A #13 'えっはい...そうですけど...' p=0.989 -> 'Huh? Yeah, but...'
+  B #13 'えっはい...そうですけど...' p=0.989 -> 'Huh, yeah... but...'
+    text_bubble today=grown fill_ellipse fill=0.79 rect=34px/3l shaped=36px/3l drawn=shaped
+[465,2043,522,2157]      same OCR
+  A #14 'ほぉ' p=0.926 -> 'Huh'
+  B #16 'ほぉ' p=0.924 -> 'Hoho'
+    text_bubble today=grown fill_ellipse fill=0.73 rect=20px/1l shaped=30px/1l drawn=shaped
+[73,620,228,897]         same OCR
+  A #15 '閉じ眼が用心棒だ?' p=0.989 -> 'Closing my eyes is a dagger'
+  B #14 '閉じ眼が用心棒だ?' p=0.983 -> 'Closing eyes are the dagger of care?'
+    text_bubble today=grown fill_ellipse fill=0.76 rect=28px/5l shaped=36px/4l drawn=shaped
+[145,2602,281,2785]      same OCR
+  A #16 'Share' (dropped) -> None
+  B #17 'Share' (dropped) -> None
+    text_free today=unchanged no shape (no-host) rect=- shaped=- drawn=None
+[1003,2611,1130,2784]    OCR CHANGED
+  A #18 '@Trash' (dropped) -> None
+  B #22 '血Trash' (dropped) -> None
+    text_free today=unchanged no shape (no-host) rect=- shaped=- drawn=None
+[582,2605,697,2779]      same OCR
+  A #19 'o— Éo Edit' (dropped) -> None
+  B #20 'o— Éo Edit' (dropped) -> None
+    text_free today=unchanged no shape (no-host) rect=- shaped=- drawn=None
+[414,1254,460,1364]      same OCR
+  A #21 '...' (dropped) -> None
+  B #19 '...' (dropped) -> None
+    text_bubble today=grown fill_ellipse fill=0.86 rect=- shaped=- drawn=None
+[226,1726,270,1805]      same OCR
+  A #23 'えっ' p=0.989 -> 'Ah'
+  B #21 'えっ' p=0.990 -> 'Huh'
+    text_bubble today=unchanged fill_ellipse fill=0.89 rect=20px/1l shaped=20px/1l drawn=shaped
+B prompt order: [4, 8, 14, 1, 5, 3, 2, 19, 9, 11, 12, 13, 16, 6, 21, 7, 10, 22, 20, 17]

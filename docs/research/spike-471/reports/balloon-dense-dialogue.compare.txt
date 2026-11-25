@@ -1,0 +1,74 @@
+A=main/balloon-dense-dialogue (18 bubbles)  B=spike/balloon-dense-dialogue (18 bubbles)
+[123,920,266,1116]       same OCR
+  A #1 'ヘリウム入れないと風船は浮かねーよ!!' p=0.985 -> 'Helium is needed to make the balloon float!'
+  B #1 'ヘリウム入れないと風船は浮かねーよ!!' p=0.985 -> "You can't float a helium-filled balloon without helium!"
+    text_bubble today=unchanged balloon_ellipse rect=18px/5l shaped=20px/6l drawn=shaped
+[133,1210,303,1464]      same OCR
+  A #2 '宇宙でフィルム巻いてシャッターきる気か!?' p=0.988 -> 'Are you trying to take photos in space?!'
+  B #2 '宇宙でフィルム巻いてシャッターきる気か!?' p=0.988 -> 'Can you take photos in space with a roll of film and a shutter release?'
+    text_bubble today=unchanged balloon_ellipse rect=21px/6l shaped=22px/6l drawn=shaped
+[1041,554,1260,744]      same OCR
+  A #3 'ただ空気いれた風船をいくら集めても浮くわけねーだろ!!' p=0.991 -> 'Only by collecting as many balloons as possible will they float, no matter how much air you take out!'
+  B #3 'ただ空気いれた風船をいくら集めても浮くわけねーだろ!!' p=0.991 -> 'Only by collecting as many helium-filled balloons as possible will they float, right?'
+    text_bubble today=unchanged balloon_ellipse rect=18px/4l shaped=22px/6l drawn=shaped
+[131,659,255,838]        same OCR
+  A #4 'なにあ然としてんの!?' p=0.981 -> "What's the point!?"
+  B #4 'なにあ然としてんの!?' p=0.982 -> "What's the point!?"
+    text_bubble today=unchanged balloon_ellipse rect=32px/3l shaped=30px/3l drawn=shaped
+[339,1257,411,1400]      same OCR
+  A #5 '安かったので...' p=0.992 -> 'Because it was cheap...'
+  B #5 '安かったので...' p=0.992 -> 'Because it was cheap...'
+    text_bubble today=reach no shape (reach) rect=20px/3l shaped=- drawn=rect
+[107,1944,195,2105]      same OCR
+  A #6 'それはですね...' p=0.989 -> "That's right..."
+  B #6 'それはですね...' p=0.989 -> "That's right..."
+    text_bubble today=unchanged fill_ellipse fill=0.78 rect=25px/2l shaped=31px/2l drawn=shaped
+[582,558,763,789]        same OCR
+  A #7 'こいつ絶対バカだし' p=0.991 -> 'This guy is definitely a fool'
+  B #7 'こいつ絶対バカだし' p=0.991 -> 'This guy is a complete idiot'
+    text_bubble today=unchanged balloon_ellipse rect=30px/4l shaped=36px/4l drawn=shaped
+[921,776,975,906]        same OCR
+  A #8 'むぐっ' p=0.992 -> 'Gumi'
+  B #8 'むぐっ' p=0.992 -> 'Gumi'
+    text_bubble today=grown fill_ellipse fill=0.68 rect=21px/1l shaped=31px/1l drawn=shaped
+[755,1552,875,1845]      same OCR
+  A #9 '地球の写真なんてネット上にいくらでも落ちてるだろ' p=0.988 -> 'Photos of Earth are everywhere on the internet, no matter how much you take out!'
+  B #10 '地球の写真なんてネット上にいくらでも落ちてるだろ' p=0.988 -> 'There are plenty of photos of Earth on the internet, right?'
+    text_bubble today=grown fill_ellipse fill=0.86 rect=21px/6l shaped=27px/6l drawn=shaped
+[413,1229,452,1313]      same OCR
+  A #10 'あっ' p=0.991 -> 'Ah'
+  B #11 'あっ' p=0.990 -> 'Ah'
+    text_bubble today=none no shape (reach) rect=26px/1l shaped=- drawn=rect
+[941,1951,1053,2192]     same OCR
+  A #11 '確かに原理的には可能かもしれないけどな...' p=0.978 -> "Yes, technically it's possible, but..."
+  B #9 '確かに原理的には可能かもしれないけどな...' p=0.978 -> "Yes, theoretically it's possible, but..."
+    text_bubble today=grown fill_rect fill=0.92 rect=20px/4l shaped=25px/4l drawn=shaped
+[248,1561,305,1676]      same OCR
+  A #12 'ああ' p=0.991 -> 'Ah'
+  B #13 'ああ' p=0.991 -> 'Ah'
+    text_bubble today=grown fill_ellipse fill=0.87 rect=35px/1l shaped=36px/1l drawn=shaped
+[1001,1208,1137,1465]    same OCR
+  A #13 '大体なんで使い捨てカメラなんだよ!' p=0.989 -> "It's probably a disposable camera, right?"
+  B #12 '大体なんで使い捨てカメラなんだよ!' p=0.989 -> "It's a disposable camera, right?"
+    text_bubble today=grown fill_rect fill=0.91 rect=26px/4l shaped=34px/4l drawn=shaped
+[1097,1562,1151,1689]    same OCR
+  A #14 'ったく' p=0.991 -> 'What a shame'
+  B #15 'ったく' p=0.991 -> 'What a waste of time'
+    text_bubble today=grown fill_ellipse fill=0.89 rect=18px/3l shaped=16px/3l drawn=shaped
+[391,1898,480,2161]      same OCR
+  A #15 'わざわざ自分で撮らなくたって...' p=0.989 -> "Even if you don't take photos yourself..."
+  B #14 'わざわざ自分で撮らなくたって...' p=0.989 -> "You'd better not take photos yourself..."
+    text_bubble today=grown fill_ellipse fill=0.82 rect=25px/5l shaped=30px/4l drawn=shaped
+[453,658,526,831]        same OCR
+  A #18 '...?' (dropped) -> None
+  B #18 '...?' (dropped) -> None
+    text_bubble today=grown fill_ellipse fill=0.84 rect=- shaped=- drawn=None
+[837,1212,935,1404]      same OCR
+  A #20 'すご〜くよく写るッス' p=0.986 -> "It's so good at taking photos!"
+  B #19 'すご〜くよく写るッス' p=0.984 -> "It's really good at taking photos"
+    text_bubble today=grown balloon_ellipse rect=21px/4l shaped=20px/4l drawn=shaped
+[146,2602,281,2781]      same OCR
+  A #22 'Share' (dropped) -> None
+  B #22 'Share' (dropped) -> None
+    text_free today=unchanged no shape (no-host) rect=- shaped=- drawn=None
+B prompt order: [3, 8, 7, 18, 4, 1, 12, 19, 11, 5, 2, 15, 9, 10, 14, 13, 6, 22]

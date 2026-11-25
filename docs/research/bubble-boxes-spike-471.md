@@ -8,6 +8,8 @@ Desk research and a desktop check, 2026-11-25, to prepare spike [#471](https://g
 - **Yomu code is cited at `main` `c31b2d1`.** Other repositories are cited at the commit that was cloned on 2026-11-25.
 - **Earlier findings are linked, not repeated:** [2d-text-structure.md §4](2d-text-structure.md#4-asides) (asides and the satellite/`text_free` touch rules on OpenMantra), [jev-bubble-class-hints.md](jev-bubble-class-hints.md) (why no class mark reaches the prompt), [tech-scan-2026-11.md §2 and §6](tech-scan-2026-11.md) (where #471 came from, Fumeto's self-description, balloon-mask models) and [ADR-0020](../adr/0020-rtdetr-text-detector.md) (the detector, its thresholds and the open question).
 
+> **Spike results, 2026-11-25:** the emulator measurements in [§8](#8-spike-results-emulator-2026-11-25) replace the desktop-replica counts below where they differ. In short: build shaped lines and the balloon-bounded render box; do not build grouping.
+
 ## Summary
 
 - **The `bubble` box is the whole balloon, outline included, and it also covers rectangular caption boxes.** The model card defines nothing beyond the names `bubble`, `text_bubble (text inside bubbles)` and `text_free (text outside bubbles)`. Per-class accuracy, the training images and the annotation guide are not published. On the five fixture pages every one of the 66 `text_bubble` boxes sat entirely inside exactly one `bubble` box, with one bubble per text box, no empty bubbles, and the bubble box about 2× the text box's area (1.4–4.4×).
@@ -186,6 +188,60 @@ Fixtures: `scripts/speed-fixtures/pages/` (`balloon-dense-dialogue.jpg`, `bourei
 6. **No worse for ordinary balloons.** For boxes whose outcome on `main` is `grown`, check in `done.png`: no clipped or ellipsized text that was whole before, no overlap with a neighbour, no background over the balloon outline or art, and a font size not smaller than on `main`.
 7. **Speed.** No new model, so the speed benchmark is not required. Note whether the per-size N loop adds measurable typesetting time per page; it should be sub-millisecond (*unmeasured*).
 8. **Publish.** Tag `spike-471`, post the results with a recommendation per use, file an issue for each use worth building, and answer ADR-0020's open question.
+
+## 8. Spike results (emulator, 2026-11-25)
+
+Run on the `Yomu_16G` emulator (1280×2856 captures, Qwen2.5 1.5B, threshold 0.25) with `main` `c31b2d1` and the spike build (tag `spike-471`). The page reports, side-by-side screenshots and the counting script are in [`spike-471/`](spike-471/). Photos' toolbar labels (`Share`, `Edit`, `Trash`, below y = 2580) were detected as `text_free` in some runs (#364) and are left out of every count.
+
+**What the spike build does.** Class 0 is parsed into its own list and NMS'd only against other balloons. Each text box gets `Bubble.balloonBox`, the smallest balloon holding ≥ 0.90 of it. Inside that balloon box (+4 px) the flood fill runs with "touching the window edge" as the leak test. An interior must hold the glyph box's centre and be larger than it, or it is a glyph counter, not the balloon. The interior's fill ratio (row-span area ÷ bounds) picks the shape: above 0.90 a rectangle (caption box), else an ellipse. No interior gives the ellipse inscribed in the balloon box, inset 6% (comic-translate's fallback). A shape that meets another glyph box is dropped (the #88 rule). Lines are typeset into the shape: per font size from 36 down and per line count from 1 up, each line gets the chord at its band's outer edge, and the first fit wins. Both today's rectangle and the shaped typeset are computed from the same translation and both are reported; the overlay draws the shaped one, over an oval plus the glyph box.
+
+**Text boxes unchanged.** Every manga text box on the five fixtures paired between the `main` and spike runs (`--compare`, within 16 px); only toolbar labels differed. `BalloonKeepTest` checks this with a fixed detection list.
+
+### Use 1: render-box fallback
+
+| | Fixtures (68 text boxes) | OpenMantra aside pages (53) |
+|---|---|---|
+| Today: interior grown / unchanged / none / reach | 36 / 18 / 4 / 10 | 25 / 21 / 1 / 6 |
+| Today `none` → usable balloon shape | 1 of 4 (2 have no balloon, 1 meets a neighbour) | 1 of 1 |
+| Today `reach` → usable balloon shape | 3 of 10 (7 still meet a neighbour) | 4 of 6 |
+| Shapes by source: fill ellipse / fill rectangle / balloon ellipse / none | 39 / 6 / 13 / 10 | 25 / 11 / 13 / 4 |
+
+The balloon box rescues 4 of 14 fixture boxes, and 5 of 7 on OpenMantra, that get no room today. Conjoined balloons still fail the #88 rule, as the desk check predicted. The bounded fill also needs the glyph-counter guard: without it, 35 shapes on the first spike run were a few pixels across.
+
+### Use 3: shaped lines
+
+Same translation, rectangle vs shape, font size in px:
+
+| | Fixtures | OpenMantra |
+|---|---|---|
+| Bubbles with both typesets | 56 | 46 |
+| Median gain | +2 (+3.9 on balloons today grows) | +3 |
+| ≥ +2 px | 37 | 25 |
+| ≤ −1 px | 5 | 5 |
+| Median lines, rectangle → shaped | 4 → 3 | 4 → 3 |
+| Shaped size at the 36 px cap | 12 | 7 |
+
+By source: fill ellipse +3 median (26 of 37 gain ≥ 2, one is worse); fill rectangle +6 on the fixtures but +0 on OpenMantra; balloon ellipse +1 to +2, with most of the regressions. The regressions are narrow balloons whose shape is barely larger than the glyph box, where today's minimum-word widening already gives the rectangle more width. Taking the shaped typeset only when it is larger removes them: then the median gain is +2.5 / +2.8 px and nothing gets smaller. The cap hides part of the gain.
+
+Looked at by eye in `done.png`: text is larger and fills round balloons; the oval background stays inside the outline on closed balloons. Two balloon-ellipse cases came out smaller (`tojime-dense-action` "With the gun on the waist…", `balloon-dense-dialogue` "What a waste of time"); the no-worse rule covers both.
+
+### Use 2: grouping and order
+
+- No balloon box holds two text boxes on any of the ten pages.
+- `text_free` within 1% of page width (12.8 px) of a balloon: none on the fixtures, 2 on OpenMantra, both real asides. `tencho 029` `指なくなっちゃう…` already follows its parent. `tencho 012` `はいお金とメモ` sits before its parent `お金は少し多めに…`; moving it would change the prompt order, but the current order (request, "here's the money and a memo", "I put in a bit extra") reads naturally.
+- `tencho 010`'s aside came out as a `text_bubble` with its own balloon and already follows its parent.
+
+### Cost
+
+The spike runs both flood fills, so the context-assembly stage went from 60–164 ms to 104–290 ms on the emulator (about 1.9×). A built version runs one fill per box. Totals were 2–7 s per page.
+
+### Recommendations
+
+1. **Shaped lines: build.** Ellipse lines in the balloon interior, a full-width rectangle for caption boxes (fill ratio > 0.90), and an oval background plus the glyph box. Keep the shaped typeset only when it beats the rectangle.
+2. **Render-box fallback: build, after shaped lines.** Keep the balloon boxes, bound the flood fill by them, add the glyph-counter guard and the inscribed-ellipse fallback. It pays only through shaped typesetting, so it waits for item 1.
+3. **Grouping and order: do not build.** On ten pages there was nothing to merge and one order change of doubtful value.
+
+**ADR-0020's open question:** yes, `bubble` boxes should shape render boxes, as the bound and fallback for the flood fill, with lines that follow the balloon's ellipse. They should not drive grouping or prompt order.
 
 ## Sources
 

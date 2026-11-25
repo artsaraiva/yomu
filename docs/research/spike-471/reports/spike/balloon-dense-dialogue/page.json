@@ -1,0 +1,994 @@
+{
+  "appVersion": "1.0",
+  "balloons": [
+    [
+      697.7943,
+      1543.2368,
+      902.6006,
+      1868.0505
+    ],
+    [
+      398.19983,
+      635.21844,
+      556.3726,
+      872.1728
+    ],
+    [
+      1081.438,
+      1543.8302,
+      1167.2097,
+      1718.1
+    ],
+    [
+      84.377365,
+      1912.8192,
+      215.45032,
+      2143.4126
+    ],
+    [
+      225.653,
+      1542.2693,
+      320.5387,
+      1714.5474
+    ],
+    [
+      340.1327,
+      1859.5193,
+      534.602,
+      2189.7668
+    ],
+    [
+      916.56934,
+      1920.8994,
+      1105.0255,
+      2214.8342
+    ],
+    [
+      110.765724,
+      878.46216,
+      289.73102,
+      1148.3966
+    ],
+    [
+      562.1432,
+      519.9403,
+      802.9556,
+      861.0958
+    ],
+    [
+      944.6388,
+      1194.4506,
+      1168.4594,
+      1490.7941
+    ],
+    [
+      895.2932,
+      740.75775,
+      999.3592,
+      939.8741
+    ],
+    [
+      113.603676,
+      1196.205,
+      327.16864,
+      1498.3807
+    ],
+    [
+      405.88974,
+      1206.4662,
+      466.75085,
+      1337.9375
+    ],
+    [
+      327.15546,
+      1230.7206,
+      421.58936,
+      1424.9211
+    ],
+    [
+      1002.60925,
+      526.0069,
+      1280.332,
+      791.28973
+    ],
+    [
+      109.71504,
+      632.93823,
+      284.81763,
+      872.4967
+    ],
+    [
+      440.31967,
+      216.49358,
+      838.42346,
+      337.4865
+    ],
+    [
+      819.9651,
+      1197.7946,
+      959.6459,
+      1428.114
+    ],
+    [
+      1083.4446,
+      2382.484,
+      1261.7402,
+      2559.116
+    ]
+  ],
+  "batchOverflowFallback": false,
+  "bubbles": [
+    {
+      "answered": true,
+      "bounds": [
+        123.53491,
+        921.44366,
+        266.32574,
+        1115.8436
+      ],
+      "id": 1,
+      "ocrConfidence": 0.9845306,
+      "ocrDropped": false,
+      "ocrText": "ヘリウム入れないと風船は浮かねーよ!!",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          110.765724,
+          878.46216,
+          289.73102,
+          1148.3966
+        ],
+        "drawn": "shaped",
+        "fillRatio": null,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 17.75,
+        "rectLines": 5,
+        "shapeBounds": [
+          121.50364,
+          894.6582,
+          278.9931,
+          1132.2006
+        ],
+        "shapeSource": "balloon_ellipse",
+        "shapedFontSize": 20.0,
+        "shapedLines": 6,
+        "todayOutcome": "unchanged",
+        "todayRenderBox": [
+          123.53491,
+          921.44366,
+          266.32574,
+          1115.8436
+        ]
+      },
+      "translation": "You can't float a helium-filled balloon without helium!"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        133.63396,
+        1210.6338,
+        304.02298,
+        1464.8551
+      ],
+      "id": 2,
+      "ocrConfidence": 0.9879739,
+      "ocrDropped": false,
+      "ocrText": "宇宙でフィルム巻いてシャッターきる気か!?",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          113.603676,
+          1196.205,
+          327.16864,
+          1498.3807
+        ],
+        "drawn": "shaped",
+        "fillRatio": null,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 21.25,
+        "rectLines": 6,
+        "shapeBounds": [
+          126.41757,
+          1214.3354,
+          314.35474,
+          1480.2502
+        ],
+        "shapeSource": "balloon_ellipse",
+        "shapedFontSize": 22.0,
+        "shapedLines": 6,
+        "todayOutcome": "unchanged",
+        "todayRenderBox": [
+          133.63396,
+          1210.6338,
+          304.02298,
+          1464.8551
+        ]
+      },
+      "translation": "Can you take photos in space with a roll of film and a shutter release?"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        1042.0692,
+        554.5502,
+        1259.828,
+        744.2322
+      ],
+      "id": 3,
+      "ocrConfidence": 0.9911163,
+      "ocrDropped": false,
+      "ocrText": "ただ空気いれた風船をいくら集めても浮くわけねーだろ!!",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          1002.60925,
+          526.0069,
+          1280.332,
+          791.28973
+        ],
+        "drawn": "shaped",
+        "fillRatio": null,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 17.75,
+        "rectLines": 4,
+        "shapeBounds": [
+          1019.27264,
+          541.9239,
+          1263.6687,
+          775.37274
+        ],
+        "shapeSource": "balloon_ellipse",
+        "shapedFontSize": 22.0,
+        "shapedLines": 6,
+        "todayOutcome": "unchanged",
+        "todayRenderBox": [
+          1042.0692,
+          554.5502,
+          1259.828,
+          744.2322
+        ]
+      },
+      "translation": "Only by collecting as many helium-filled balloons as possible will they float, right?"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        132.1468,
+        659.2675,
+        255.27591,
+        838.6323
+      ],
+      "id": 4,
+      "ocrConfidence": 0.98168236,
+      "ocrDropped": false,
+      "ocrText": "なにあ然としてんの!?",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          109.71504,
+          632.93823,
+          284.81763,
+          872.4967
+        ],
+        "drawn": "shaped",
+        "fillRatio": null,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 31.75,
+        "rectLines": 3,
+        "shapeBounds": [
+          120.2212,
+          647.31177,
+          274.31146,
+          858.12317
+        ],
+        "shapeSource": "balloon_ellipse",
+        "shapedFontSize": 30.0,
+        "shapedLines": 3,
+        "todayOutcome": "unchanged",
+        "todayRenderBox": [
+          132.1468,
+          659.2675,
+          255.27591,
+          838.6323
+        ]
+      },
+      "translation": "What's the point!?"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        339.35226,
+        1256.9634,
+        411.9278,
+        1400.5245
+      ],
+      "id": 5,
+      "ocrConfidence": 0.9921881,
+      "ocrDropped": false,
+      "ocrText": "安かったので...",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          327.15546,
+          1230.7206,
+          421.58936,
+          1424.9211
+        ],
+        "drawn": "rect",
+        "fillRatio": null,
+        "label": "text_bubble",
+        "noShapeReason": "reach",
+        "rectFontSize": 19.5,
+        "rectLines": 3,
+        "shapeBounds": null,
+        "shapeSource": null,
+        "shapedFontSize": null,
+        "shapedLines": null,
+        "todayOutcome": "reach",
+        "todayRenderBox": [
+          339.35226,
+          1256.9634,
+          411.9278,
+          1400.5245
+        ]
+      },
+      "translation": "Because it was cheap..."
+    },
+    {
+      "answered": true,
+      "bounds": [
+        108.32979,
+        1945.0603,
+        195.63293,
+        2105.2617
+      ],
+      "id": 6,
+      "ocrConfidence": 0.9888677,
+      "ocrDropped": false,
+      "ocrText": "それはですね...",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          84.377365,
+          1912.8192,
+          215.45032,
+          2143.4126
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.7838728,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 24.75,
+        "rectLines": 2,
+        "shapeBounds": [
+          92.0,
+          1923.0,
+          208.0,
+          2135.0
+        ],
+        "shapeSource": "fill_ellipse",
+        "shapedFontSize": 31.0,
+        "shapedLines": 2,
+        "todayOutcome": "unchanged",
+        "todayRenderBox": [
+          108.32979,
+          1945.0603,
+          195.63293,
+          2105.2617
+        ]
+      },
+      "translation": "That's right..."
+    },
+    {
+      "answered": true,
+      "bounds": [
+        582.54126,
+        559.8506,
+        763.25903,
+        788.4815
+      ],
+      "id": 7,
+      "ocrConfidence": 0.9906853,
+      "ocrDropped": false,
+      "ocrText": "こいつ絶対バカだし",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          562.1432,
+          519.9403,
+          802.9556,
+          861.0958
+        ],
+        "drawn": "shaped",
+        "fillRatio": null,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 30.0,
+        "rectLines": 4,
+        "shapeBounds": [
+          576.5919,
+          540.40967,
+          788.5069,
+          840.62646
+        ],
+        "shapeSource": "balloon_ellipse",
+        "shapedFontSize": 36.0,
+        "shapedLines": 4,
+        "todayOutcome": "unchanged",
+        "todayRenderBox": [
+          582.54126,
+          559.8506,
+          763.25903,
+          788.4815
+        ]
+      },
+      "translation": "This guy is a complete idiot"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        921.4764,
+        776.2922,
+        975.14154,
+        905.94116
+      ],
+      "id": 8,
+      "ocrConfidence": 0.9917377,
+      "ocrDropped": false,
+      "ocrText": "むぐっ",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          895.2932,
+          740.75775,
+          999.3592,
+          939.8741
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.67593473,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 21.25,
+        "rectLines": 1,
+        "shapeBounds": [
+          905.0,
+          754.0,
+          994.0,
+          931.0
+        ],
+        "shapeSource": "fill_ellipse",
+        "shapedFontSize": 31.0,
+        "shapedLines": 1,
+        "todayOutcome": "grown",
+        "todayRenderBox": [
+          918.0385,
+          776.2922,
+          980.9615,
+          905.94116
+        ]
+      },
+      "translation": "Gumi"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        942.257,
+        1952.9905,
+        1052.5847,
+        2191.609
+      ],
+      "id": 9,
+      "ocrConfidence": 0.9775626,
+      "ocrDropped": false,
+      "ocrText": "確かに原理的には可能かもしれないけどな...",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          916.56934,
+          1920.8994,
+          1105.0255,
+          2214.8342
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.9188873,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 19.5,
+        "rectLines": 4,
+        "shapeBounds": [
+          923.0,
+          1931.0,
+          1096.0,
+          2208.0
+        ],
+        "shapeSource": "fill_rect",
+        "shapedFontSize": 25.0,
+        "shapedLines": 4,
+        "todayOutcome": "grown",
+        "todayRenderBox": [
+          942.257,
+          1952.9905,
+          1070.6555,
+          2191.609
+        ]
+      },
+      "translation": "Yes, theoretically it's possible, but..."
+    },
+    {
+      "answered": true,
+      "bounds": [
+        757.3728,
+        1553.4897,
+        874.6293,
+        1844.9597
+      ],
+      "id": 10,
+      "ocrConfidence": 0.9882191,
+      "ocrDropped": false,
+      "ocrText": "地球の写真なんてネット上にいくらでも落ちてるだろ",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          697.7943,
+          1543.2368,
+          902.6006,
+          1868.0505
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.8615087,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 21.25,
+        "rectLines": 6,
+        "shapeBounds": [
+          703.0,
+          1553.0,
+          895.0,
+          1863.0
+        ],
+        "shapeSource": "fill_ellipse",
+        "shapedFontSize": 27.0,
+        "shapedLines": 6,
+        "todayOutcome": "grown",
+        "todayRenderBox": [
+          731.128,
+          1553.4897,
+          874.6293,
+          1844.9597
+        ]
+      },
+      "translation": "There are plenty of photos of Earth on the internet, right?"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        412.94247,
+        1229.575,
+        453.2407,
+        1313.4565
+      ],
+      "id": 11,
+      "ocrConfidence": 0.989804,
+      "ocrDropped": false,
+      "ocrText": "あっ",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          405.88974,
+          1206.4662,
+          466.75085,
+          1337.9375
+        ],
+        "drawn": "rect",
+        "fillRatio": null,
+        "label": "text_bubble",
+        "noShapeReason": "reach",
+        "rectFontSize": 26.5,
+        "rectLines": 1,
+        "shapeBounds": null,
+        "shapeSource": null,
+        "shapedFontSize": null,
+        "shapedLines": null,
+        "todayOutcome": "none",
+        "todayRenderBox": [
+          412.94247,
+          1229.575,
+          453.2407,
+          1313.4565
+        ]
+      },
+      "translation": "Ah"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        1002.1416,
+        1209.1669,
+        1136.6188,
+        1466.4308
+      ],
+      "id": 12,
+      "ocrConfidence": 0.98919684,
+      "ocrDropped": false,
+      "ocrText": "大体なんで使い捨てカメラなんだよ!",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          944.6388,
+          1194.4506,
+          1168.4594,
+          1490.7941
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.90660375,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 26.5,
+        "rectLines": 4,
+        "shapeBounds": [
+          946.0,
+          1205.0,
+          1158.0,
+          1475.0
+        ],
+        "shapeSource": "fill_rect",
+        "shapedFontSize": 34.0,
+        "shapedLines": 4,
+        "todayOutcome": "grown",
+        "todayRenderBox": [
+          977.058,
+          1209.1669,
+          1136.6188,
+          1466.4308
+        ]
+      },
+      "translation": "It's a disposable camera, right?"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        248.37451,
+        1561.4158,
+        305.46063,
+        1675.7554
+      ],
+      "id": 13,
+      "ocrConfidence": 0.9906174,
+      "ocrDropped": false,
+      "ocrText": "ああ",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          225.653,
+          1542.2693,
+          320.5387,
+          1714.5474
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.8666941,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 35.25,
+        "rectLines": 1,
+        "shapeBounds": [
+          232.0,
+          1553.0,
+          312.0,
+          1705.0
+        ],
+        "shapeSource": "fill_ellipse",
+        "shapedFontSize": 36.0,
+        "shapedLines": 1,
+        "todayOutcome": "grown",
+        "todayRenderBox": [
+          243.72,
+          1561.4158,
+          305.46063,
+          1682.7319
+        ]
+      },
+      "translation": "Ah"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        393.53003,
+        1899.8625,
+        479.9737,
+        2161.5823
+      ],
+      "id": 14,
+      "ocrConfidence": 0.98916835,
+      "ocrDropped": false,
+      "ocrText": "わざわざ自分で撮らなくたって...",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          340.1327,
+          1859.5193,
+          534.602,
+          2189.7668
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.81849015,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 24.75,
+        "rectLines": 5,
+        "shapeBounds": [
+          345.0,
+          1868.0,
+          528.0,
+          2187.0
+        ],
+        "shapeSource": "fill_ellipse",
+        "shapedFontSize": 30.0,
+        "shapedLines": 4,
+        "todayOutcome": "grown",
+        "todayRenderBox": [
+          371.8095,
+          1899.8625,
+          501.1905,
+          2161.5823
+        ]
+      },
+      "translation": "You'd better not take photos yourself..."
+    },
+    {
+      "answered": true,
+      "bounds": [
+        1098.132,
+        1562.1215,
+        1151.8918,
+        1688.8883
+      ],
+      "id": 15,
+      "ocrConfidence": 0.9910453,
+      "ocrDropped": false,
+      "ocrText": "ったく",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          1081.438,
+          1543.8302,
+          1167.2097,
+          1718.1
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.8889184,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 17.75,
+        "rectLines": 3,
+        "shapeBounds": [
+          1087.0,
+          1553.0,
+          1158.0,
+          1712.0
+        ],
+        "shapeSource": "fill_ellipse",
+        "shapedFontSize": 16.0,
+        "shapedLines": 3,
+        "todayOutcome": "grown",
+        "todayRenderBox": [
+          1097.4015,
+          1562.1215,
+          1151.8918,
+          1688.8883
+        ]
+      },
+      "translation": "What a waste of time"
+    },
+    {
+      "answered": false,
+      "bounds": [
+        454.39194,
+        657.8279,
+        527.2545,
+        831.1309
+      ],
+      "id": 18,
+      "ocrConfidence": null,
+      "ocrDropped": true,
+      "ocrText": "...?",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          398.19983,
+          635.21844,
+          556.3726,
+          872.1728
+        ],
+        "drawn": null,
+        "fillRatio": 0.8371592,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": null,
+        "rectLines": null,
+        "shapeBounds": [
+          402.0,
+          648.0,
+          546.0,
+          864.0
+        ],
+        "shapeSource": "fill_ellipse",
+        "shapedFontSize": null,
+        "shapedLines": null,
+        "todayOutcome": "grown",
+        "todayRenderBox": [
+          423.096,
+          657.8279,
+          527.2545,
+          832.356
+        ]
+      },
+      "translation": null
+    },
+    {
+      "answered": true,
+      "bounds": [
+        837.8285,
+        1213.3269,
+        935.07214,
+        1402.9194
+      ],
+      "id": 19,
+      "ocrConfidence": 0.9841115,
+      "ocrDropped": false,
+      "ocrText": "すご〜くよく写るッス",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          819.9651,
+          1197.7946,
+          959.6459,
+          1428.114
+        ],
+        "drawn": "shaped",
+        "fillRatio": null,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 21.25,
+        "rectLines": 4,
+        "shapeBounds": [
+          828.34595,
+          1211.6138,
+          951.265,
+          1414.2948
+        ],
+        "shapeSource": "balloon_ellipse",
+        "shapedFontSize": 20.0,
+        "shapedLines": 4,
+        "todayOutcome": "grown",
+        "todayRenderBox": [
+          834.5355,
+          1213.3269,
+          938.4645,
+          1402.9194
+        ]
+      },
+      "translation": "It's really good at taking photos"
+    },
+    {
+      "answered": false,
+      "bounds": [
+        146.28645,
+        2602.7993,
+        281.81738,
+        2781.919
+      ],
+      "id": 22,
+      "ocrConfidence": null,
+      "ocrDropped": true,
+      "ocrText": "Share",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": null,
+        "drawn": null,
+        "fillRatio": null,
+        "label": "text_free",
+        "noShapeReason": "no-host",
+        "rectFontSize": null,
+        "rectLines": null,
+        "shapeBounds": null,
+        "shapeSource": null,
+        "shapedFontSize": null,
+        "shapedLines": null,
+        "todayOutcome": "unchanged",
+        "todayRenderBox": [
+          146.28645,
+          2602.7993,
+          281.81738,
+          2781.919
+        ]
+      },
+      "translation": null
+    }
+  ],
+  "device": "Google sdk_gphone16k_arm64",
+  "errorCode": null,
+  "outcome": "SUCCESS",
+  "pageHeight": 2856,
+  "pageWidth": 1280,
+  "readingOrder": [
+    3,
+    8,
+    7,
+    18,
+    4,
+    1,
+    12,
+    19,
+    11,
+    5,
+    2,
+    15,
+    9,
+    10,
+    14,
+    13,
+    6,
+    22
+  ],
+  "recalled": false,
+  "settings": {
+    "detectionModel": "rtdetr_v4s_v1",
+    "detectionThreshold": 0.25,
+    "fontScale": 1.0,
+    "generation": {
+      "lineExcludesIdBracket": true,
+      "maxTokens": 256,
+      "penaltyFreq": 0.0,
+      "penaltyLastN": 64,
+      "penaltyPresent": 0.0,
+      "penaltyRepeat": 1.0,
+      "seed": -1,
+      "temperature": 0.2,
+      "topK": 40,
+      "topP": 0.9
+    },
+    "glossary": [],
+    "ocrModel": "hayai_ocr_v2.7",
+    "runtime": {
+      "contextTokens": 2048,
+      "threads": 4
+    },
+    "serverModel": null,
+    "targetLanguage": "ENGLISH",
+    "translationModel": "qwen25_1.5b_instruct_v1",
+    "translator": "on-device"
+  },
+  "timings": {
+    "stagesMs": {
+      "BUBBLE_DETECTION": 88,
+      "OCR": 1294,
+      "CONTEXT_ASSEMBLY": 290,
+      "TRANSLATION": 4660
+    },
+    "timeToFirstBubbleMs": 4798,
+    "totalMs": 6861,
+    "translationCallMs": 3214
+  }
+}

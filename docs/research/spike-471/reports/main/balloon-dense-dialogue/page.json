@@ -1,0 +1,338 @@
+{
+  "appVersion": "1.0",
+  "batchOverflowFallback": false,
+  "bubbles": [
+    {
+      "answered": true,
+      "bounds": [
+        123.72441,
+        920.7656,
+        266.4114,
+        1116.1854
+      ],
+      "id": 1,
+      "ocrConfidence": 0.984983,
+      "ocrDropped": false,
+      "ocrText": "ヘリウム入れないと風船は浮かねーよ!!",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "Helium is needed to make the balloon float!"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        133.6715,
+        1210.1324,
+        303.94214,
+        1464.3845
+      ],
+      "id": 2,
+      "ocrConfidence": 0.9879739,
+      "ocrDropped": false,
+      "ocrText": "宇宙でフィルム巻いてシャッターきる気か!?",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "Are you trying to take photos in space?!"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        1041.7976,
+        554.45,
+        1260.2675,
+        744.60284
+      ],
+      "id": 3,
+      "ocrConfidence": 0.99065113,
+      "ocrDropped": false,
+      "ocrText": "ただ空気いれた風船をいくら集めても浮くわけねーだろ!!",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "Only by collecting as many balloons as possible will they float, no matter how much air you take out!"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        131.95425,
+        659.1808,
+        255.19897,
+        838.69775
+      ],
+      "id": 4,
+      "ocrConfidence": 0.9813149,
+      "ocrDropped": false,
+      "ocrText": "なにあ然としてんの!?",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "What's the point!?"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        339.49768,
+        1257.5829,
+        411.56714,
+        1400.059
+      ],
+      "id": 5,
+      "ocrConfidence": 0.99201095,
+      "ocrDropped": false,
+      "ocrText": "安かったので...",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "Because it was cheap..."
+    },
+    {
+      "answered": true,
+      "bounds": [
+        107.90564,
+        1944.6752,
+        195.9944,
+        2105.6333
+      ],
+      "id": 6,
+      "ocrConfidence": 0.98910284,
+      "ocrDropped": false,
+      "ocrText": "それはですね...",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "That's right..."
+    },
+    {
+      "answered": true,
+      "bounds": [
+        582.3099,
+        558.8681,
+        763.61804,
+        789.9405
+      ],
+      "id": 7,
+      "ocrConfidence": 0.99110585,
+      "ocrDropped": false,
+      "ocrText": "こいつ絶対バカだし",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "This guy is definitely a fool"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        921.60004,
+        776.1671,
+        975.03326,
+        906.136
+      ],
+      "id": 8,
+      "ocrConfidence": 0.9917377,
+      "ocrDropped": false,
+      "ocrText": "むぐっ",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "Gumi"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        755.79224,
+        1552.6316,
+        875.9964,
+        1845.2911
+      ],
+      "id": 9,
+      "ocrConfidence": 0.9878932,
+      "ocrDropped": false,
+      "ocrText": "地球の写真なんてネット上にいくらでも落ちてるだろ",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "Photos of Earth are everywhere on the internet, no matter how much you take out!"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        413.1572,
+        1229.7911,
+        452.93777,
+        1313.4639
+      ],
+      "id": 10,
+      "ocrConfidence": 0.99050355,
+      "ocrDropped": false,
+      "ocrText": "あっ",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "Ah"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        941.3888,
+        1951.6315,
+        1053.3042,
+        2192.4453
+      ],
+      "id": 11,
+      "ocrConfidence": 0.9783851,
+      "ocrDropped": false,
+      "ocrText": "確かに原理的には可能かもしれないけどな...",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "Yes, technically it's possible, but..."
+    },
+    {
+      "answered": true,
+      "bounds": [
+        248.14114,
+        1561.1349,
+        305.68576,
+        1676.2081
+      ],
+      "id": 12,
+      "ocrConfidence": 0.99135184,
+      "ocrDropped": false,
+      "ocrText": "ああ",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "Ah"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        1001.6664,
+        1208.6039,
+        1137.685,
+        1465.851
+      ],
+      "id": 13,
+      "ocrConfidence": 0.9894176,
+      "ocrDropped": false,
+      "ocrText": "大体なんで使い捨てカメラなんだよ!",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "It's probably a disposable camera, right?"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        1097.9741,
+        1562.1818,
+        1151.7943,
+        1689.9451
+      ],
+      "id": 14,
+      "ocrConfidence": 0.9907152,
+      "ocrDropped": false,
+      "ocrText": "ったく",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "What a shame"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        391.671,
+        1898.9489,
+        480.61813,
+        2161.9792
+      ],
+      "id": 15,
+      "ocrConfidence": 0.988808,
+      "ocrDropped": false,
+      "ocrText": "わざわざ自分で撮らなくたって...",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "Even if you don't take photos yourself..."
+    },
+    {
+      "answered": false,
+      "bounds": [
+        453.36005,
+        658.16174,
+        526.65765,
+        831.3066
+      ],
+      "id": 18,
+      "ocrConfidence": null,
+      "ocrDropped": true,
+      "ocrText": "...?",
+      "skipped": false,
+      "sourceText": null,
+      "translation": null
+    },
+    {
+      "answered": true,
+      "bounds": [
+        837.2589,
+        1212.7562,
+        935.00793,
+        1404.0426
+      ],
+      "id": 20,
+      "ocrConfidence": 0.986043,
+      "ocrDropped": false,
+      "ocrText": "すご〜くよく写るッス",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "It's so good at taking photos!"
+    },
+    {
+      "answered": false,
+      "bounds": [
+        146.6455,
+        2602.357,
+        281.70386,
+        2781.7705
+      ],
+      "id": 22,
+      "ocrConfidence": null,
+      "ocrDropped": true,
+      "ocrText": "Share",
+      "skipped": false,
+      "sourceText": null,
+      "translation": null
+    }
+  ],
+  "device": "Google sdk_gphone16k_arm64",
+  "errorCode": null,
+  "outcome": "SUCCESS",
+  "pageHeight": 2856,
+  "pageWidth": 1280,
+  "recalled": false,
+  "settings": {
+    "detectionModel": "rtdetr_v4s_v1",
+    "detectionThreshold": 0.25,
+    "fontScale": 1.0,
+    "generation": {
+      "lineExcludesIdBracket": true,
+      "maxTokens": 256,
+      "penaltyFreq": 0.0,
+      "penaltyLastN": 64,
+      "penaltyPresent": 0.0,
+      "penaltyRepeat": 1.0,
+      "seed": -1,
+      "temperature": 0.2,
+      "topK": 40,
+      "topP": 0.9
+    },
+    "glossary": [],
+    "ocrModel": "hayai_ocr_v2.7",
+    "runtime": {
+      "contextTokens": 2048,
+      "threads": 4
+    },
+    "serverModel": null,
+    "targetLanguage": "ENGLISH",
+    "translationModel": "qwen25_1.5b_instruct_v1",
+    "translator": "on-device"
+  },
+  "timings": {
+    "stagesMs": {
+      "BUBBLE_DETECTION": 85,
+      "OCR": 1359,
+      "CONTEXT_ASSEMBLY": 164,
+      "TRANSLATION": 5193
+    },
+    "timeToFirstBubbleMs": 5267,
+    "totalMs": 7389,
+    "translationCallMs": 3357
+  }
+}

@@ -1,0 +1,521 @@
+{
+  "appVersion": "1.0",
+  "balloons": [
+    [
+      357.11646,
+      1397.2664,
+      537.11053,
+      1610.216
+    ],
+    [
+      1000.4654,
+      1858.4553,
+      1183.4597,
+      2107.8667
+    ],
+    [
+      182.0089,
+      1264.6771,
+      351.73352,
+      1470.3184
+    ],
+    [
+      755.16907,
+      996.15326,
+      869.31213,
+      1184.0559
+    ],
+    [
+      615.96124,
+      843.81586,
+      692.6153,
+      1000.3438
+    ],
+    [
+      440.2266,
+      218.27228,
+      839.0492,
+      335.61948
+    ],
+    [
+      1078.0295,
+      837.8061,
+      1208.0784,
+      1007.9426
+    ],
+    [
+      1014.1345,
+      976.85345,
+      1123.2261,
+      1135.9614
+    ],
+    [
+      948.9322,
+      2056.5874,
+      1044.2307,
+      2205.1062
+    ]
+  ],
+  "batchOverflowFallback": false,
+  "bubbles": [
+    {
+      "answered": true,
+      "bounds": [
+        1045.8508,
+        1892.6573,
+        1138.9419,
+        2080.6792
+      ],
+      "id": 1,
+      "ocrConfidence": 0.99239373,
+      "ocrDropped": false,
+      "ocrText": "「妹のアンタが一番よくわかっているでしょう?」",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          1000.4654,
+          1858.4553,
+          1183.4597,
+          2107.8667
+        ],
+        "drawn": "shaped",
+        "fillRatio": null,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 19.5,
+        "rectLines": 5,
+        "shapeBounds": [
+          1011.44507,
+          1873.42,
+          1172.4801,
+          2092.902
+        ],
+        "shapeSource": "balloon_ellipse",
+        "shapedFontSize": 19.0,
+        "shapedLines": 5,
+        "todayOutcome": "reach",
+        "todayRenderBox": [
+          1045.8508,
+          1892.6573,
+          1138.9419,
+          2080.6792
+        ]
+      },
+      "translation": "\"You're the one who's the best at understanding your sister\""
+    },
+    {
+      "answered": true,
+      "bounds": [
+        415.8232,
+        1412.2343,
+        480.6456,
+        1592.4266
+      ],
+      "id": 2,
+      "ocrConfidence": 0.9878236,
+      "ocrDropped": false,
+      "ocrText": "「私は側になんていてやらない」",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          357.11646,
+          1397.2664,
+          537.11053,
+          1610.216
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.770415,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 21.25,
+        "rectLines": 4,
+        "shapeBounds": [
+          363.0,
+          1407.0,
+          529.0,
+          1605.0
+        ],
+        "shapeSource": "fill_ellipse",
+        "shapedFontSize": 25.0,
+        "shapedLines": 3,
+        "todayOutcome": "grown",
+        "todayRenderBox": [
+          387.319,
+          1412.2343,
+          504.681,
+          1592.4266
+        ]
+      },
+      "translation": "\"I don't do anything on my side\""
+    },
+    {
+      "answered": true,
+      "bounds": [
+        237.21817,
+        1289.4869,
+        304.53857,
+        1443.1473
+      ],
+      "id": 3,
+      "ocrConfidence": 0.9879307,
+      "ocrDropped": false,
+      "ocrText": "「迷惑なんて思っていたら」",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          182.0089,
+          1264.6771,
+          351.73352,
+          1470.3184
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.7583152,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 19.5,
+        "rectLines": 4,
+        "shapeBounds": [
+          190.0,
+          1274.0,
+          345.0,
+          1467.0
+        ],
+        "shapeSource": "fill_ellipse",
+        "shapedFontSize": 21.0,
+        "shapedLines": 3,
+        "todayOutcome": "grown",
+        "todayRenderBox": [
+          212.7075,
+          1289.4869,
+          322.29248,
+          1443.1473
+        ]
+      },
+      "translation": "\"I thought it was bothering you\""
+    },
+    {
+      "answered": true,
+      "bounds": [
+        1106.6578,
+        861.8039,
+        1178.9126,
+        989.4784
+      ],
+      "id": 5,
+      "ocrConfidence": 0.9903956,
+      "ocrDropped": false,
+      "ocrText": "実際はどうです?",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          1078.0295,
+          837.8061,
+          1208.0784,
+          1007.9426
+        ],
+        "drawn": "shaped",
+        "fillRatio": null,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 21.25,
+        "rectLines": 3,
+        "shapeBounds": [
+          1085.8325,
+          848.0143,
+          1200.2754,
+          997.73444
+        ],
+        "shapeSource": "balloon_ellipse",
+        "shapedFontSize": 25.0,
+        "shapedLines": 2,
+        "todayOutcome": "unchanged",
+        "todayRenderBox": [
+          1106.6578,
+          861.8039,
+          1178.9126,
+          989.4784
+        ]
+      },
+      "translation": "How about it?"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        980.2412,
+        2073.6606,
+        1018.1831,
+        2180.445
+      ],
+      "id": 6,
+      "ocrConfidence": 0.98959243,
+      "ocrDropped": false,
+      "ocrText": "ですって",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          948.9322,
+          2056.5874,
+          1044.2307,
+          2205.1062
+        ],
+        "drawn": "shaped",
+        "fillRatio": null,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 19.5,
+        "rectLines": 1,
+        "shapeBounds": [
+          954.6501,
+          2065.4985,
+          1038.5128,
+          2196.195
+        ],
+        "shapeSource": "balloon_ellipse",
+        "shapedFontSize": 36.0,
+        "shapedLines": 1,
+        "todayOutcome": "none",
+        "todayRenderBox": [
+          980.2412,
+          2073.6606,
+          1018.1831,
+          2180.445
+        ]
+      },
+      "translation": "\"So\""
+    },
+    {
+      "answered": true,
+      "bounds": [
+        1042.6284,
+        991.9445,
+        1100.0853,
+        1119.102
+      ],
+      "id": 7,
+      "ocrConfidence": 0.9891266,
+      "ocrDropped": false,
+      "ocrText": "ツバメさん",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          1014.1345,
+          976.85345,
+          1123.2261,
+          1135.9614
+        ],
+        "drawn": "shaped",
+        "fillRatio": null,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 19.5,
+        "rectLines": 1,
+        "shapeBounds": [
+          1020.68,
+          986.3999,
+          1116.6805,
+          1126.4149
+        ],
+        "shapeSource": "balloon_ellipse",
+        "shapedFontSize": 13.0,
+        "shapedLines": 1,
+        "todayOutcome": "unchanged",
+        "todayRenderBox": [
+          1042.6284,
+          991.9445,
+          1100.0853,
+          1119.102
+        ]
+      },
+      "translation": "Toubaime-san"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        787.7809,
+        1013.7742,
+        840.6854,
+        1163.9753
+      ],
+      "id": 8,
+      "ocrConfidence": 0.988935,
+      "ocrDropped": false,
+      "ocrText": "迷惑だった?",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          755.16907,
+          996.15326,
+          869.31213,
+          1184.0559
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.7659384,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 19.5,
+        "rectLines": 4,
+        "shapeBounds": [
+          761.0,
+          1005.0,
+          863.0,
+          1180.0
+        ],
+        "shapeSource": "fill_ellipse",
+        "shapedFontSize": 19.0,
+        "shapedLines": 3,
+        "todayOutcome": "grown",
+        "todayRenderBox": [
+          775.943,
+          1013.7742,
+          848.057,
+          1163.9753
+        ]
+      },
+      "translation": "Did I cause any trouble?"
+    },
+    {
+      "answered": false,
+      "bounds": [
+        639.78015,
+        864.74744,
+        669.7175,
+        972.33813
+      ],
+      "id": 10,
+      "ocrConfidence": null,
+      "ocrDropped": true,
+      "ocrText": "...?",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          615.96124,
+          843.81586,
+          692.6153,
+          1000.3438
+        ],
+        "drawn": null,
+        "fillRatio": 0.7642052,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": null,
+        "rectLines": null,
+        "shapeBounds": [
+          623.0,
+          856.0,
+          686.0,
+          994.0
+        ],
+        "shapeSource": "fill_ellipse",
+        "shapedFontSize": null,
+        "shapedLines": null,
+        "todayOutcome": "grown",
+        "todayRenderBox": [
+          632.2295,
+          864.74744,
+          676.7705,
+          973.783
+        ]
+      },
+      "translation": null
+    },
+    {
+      "answered": false,
+      "bounds": [
+        141.72665,
+        2604.5183,
+        287.42307,
+        2780.659
+      ],
+      "id": 11,
+      "ocrConfidence": null,
+      "ocrDropped": true,
+      "ocrText": "Share",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": null,
+        "drawn": null,
+        "fillRatio": null,
+        "label": "text_free",
+        "noShapeReason": "no-host",
+        "rectFontSize": null,
+        "rectLines": null,
+        "shapeBounds": null,
+        "shapeSource": null,
+        "shapedFontSize": null,
+        "shapedLines": null,
+        "todayOutcome": "unchanged",
+        "todayRenderBox": [
+          141.72665,
+          2604.5183,
+          287.42307,
+          2780.659
+        ]
+      },
+      "translation": null
+    }
+  ],
+  "device": "Google sdk_gphone16k_arm64",
+  "errorCode": null,
+  "outcome": "SUCCESS",
+  "pageHeight": 2856,
+  "pageWidth": 1280,
+  "readingOrder": [
+    5,
+    10,
+    7,
+    8,
+    2,
+    3,
+    1,
+    6,
+    11
+  ],
+  "recalled": false,
+  "settings": {
+    "detectionModel": "rtdetr_v4s_v1",
+    "detectionThreshold": 0.25,
+    "fontScale": 1.0,
+    "generation": {
+      "lineExcludesIdBracket": true,
+      "maxTokens": 256,
+      "penaltyFreq": 0.0,
+      "penaltyLastN": 64,
+      "penaltyPresent": 0.0,
+      "penaltyRepeat": 1.0,
+      "seed": -1,
+      "temperature": 0.2,
+      "topK": 40,
+      "topP": 0.9
+    },
+    "glossary": [],
+    "ocrModel": "hayai_ocr_v2.7",
+    "runtime": {
+      "contextTokens": 2048,
+      "threads": 4
+    },
+    "serverModel": null,
+    "targetLanguage": "ENGLISH",
+    "translationModel": "qwen25_1.5b_instruct_v1",
+    "translator": "on-device"
+  },
+  "timings": {
+    "stagesMs": {
+      "BUBBLE_DETECTION": 65,
+      "OCR": 519,
+      "CONTEXT_ASSEMBLY": 88,
+      "TRANSLATION": 1404
+    },
+    "timeToFirstBubbleMs": 1247,
+    "totalMs": 2076,
+    "translationCallMs": 1401
+  }
+}

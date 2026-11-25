@@ -1,0 +1,671 @@
+{
+  "appVersion": "1.0",
+  "balloons": [
+    [
+      1018.69763,
+      1750.0383,
+      1185.4211,
+      2103.2249
+    ],
+    [
+      76.53458,
+      1768.4032,
+      242.5335,
+      1996.1537
+    ],
+    [
+      559.6974,
+      1767.7838,
+      718.5255,
+      2007.17
+    ],
+    [
+      83.67252,
+      664.4892,
+      254.27386,
+      896.5621
+    ],
+    [
+      97.78148,
+      1287.5782,
+      238.60638,
+      1517.497
+    ],
+    [
+      457.6966,
+      1378.3253,
+      664.29285,
+      1707.516
+    ],
+    [
+      478.07745,
+      572.9885,
+      626.2347,
+      875.92566
+    ],
+    [
+      1027.6196,
+      1313.6056,
+      1184.1416,
+      1544.014
+    ],
+    [
+      440.98434,
+      218.53294,
+      838.119,
+      336.88525
+    ],
+    [
+      334.23462,
+      648.17267,
+      487.72873,
+      930.70435
+    ],
+    [
+      976.06476,
+      657.2602,
+      1100.1279,
+      845.33704
+    ],
+    [
+      1083.2008,
+      2379.7268,
+      1261.9368,
+      2558.9077
+    ],
+    [
+      186.74278,
+      35.033615,
+      398.07275,
+      118.60359
+    ]
+  ],
+  "batchOverflowFallback": false,
+  "bubbles": [
+    {
+      "answered": true,
+      "bounds": [
+        116.70006,
+        1800.7372,
+        197.91612,
+        1966.7477
+      ],
+      "id": 1,
+      "ocrConfidence": 0.99015784,
+      "ocrDropped": false,
+      "ocrText": "奥に押すように切る",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          76.53458,
+          1768.4032,
+          242.5335,
+          1996.1537
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.7822956,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 16.0,
+        "rectLines": 5,
+        "shapeBounds": [
+          85.0,
+          1777.0,
+          235.0,
+          1989.0
+        ],
+        "shapeSource": "fill_ellipse",
+        "shapedFontSize": 20.0,
+        "shapedLines": 5,
+        "todayOutcome": "grown",
+        "todayRenderBox": [
+          106.975,
+          1800.7372,
+          213.025,
+          1966.7477
+        ]
+      },
+      "translation": "Cut inwards, towards the inside of the object"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        590.7325,
+        1803.9674,
+        674.0612,
+        1972.2076
+      ],
+      "id": 2,
+      "ocrConfidence": 0.9913728,
+      "ocrDropped": false,
+      "ocrText": "刃は左手に添えて",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          559.6974,
+          1767.7838,
+          718.5255,
+          2007.17
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.78801286,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 19.5,
+        "rectLines": 4,
+        "shapeBounds": [
+          568.0,
+          1776.0,
+          711.0,
+          2002.0
+        ],
+        "shapeSource": "fill_ellipse",
+        "shapedFontSize": 25.0,
+        "shapedLines": 4,
+        "todayOutcome": "grown",
+        "todayRenderBox": [
+          588.94946,
+          1803.9674,
+          690.05054,
+          1972.2076
+        ]
+      },
+      "translation": "Place the blade on the left side..."
+    },
+    {
+      "answered": true,
+      "bounds": [
+        520.4664,
+        1421.3865,
+        602.82135,
+        1679.8174
+      ],
+      "id": 3,
+      "ocrConfidence": 0.9891546,
+      "ocrDropped": false,
+      "ocrText": "爪を隠すように野菜を押さえて...",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          457.6966,
+          1378.3253,
+          664.29285,
+          1707.516
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.79365027,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 21.25,
+        "rectLines": 6,
+        "shapeBounds": [
+          464.0,
+          1387.0,
+          658.0,
+          1701.0
+        ],
+        "shapeSource": "fill_ellipse",
+        "shapedFontSize": 26.0,
+        "shapedLines": 6,
+        "todayOutcome": "grown",
+        "todayRenderBox": [
+          492.421,
+          1421.3865,
+          629.579,
+          1679.8174
+        ]
+      },
+      "translation": "Hide your claws by holding the vegetables in front of you..."
+    },
+    {
+      "answered": true,
+      "bounds": [
+        1063.3763,
+        1788.9941,
+        1153.7212,
+        2059.2036
+      ],
+      "id": 4,
+      "ocrConfidence": 0.98474455,
+      "ocrDropped": false,
+      "ocrText": "包丁は上から刃を掴むように握って",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          1018.69763,
+          1750.0383,
+          1185.4211,
+          2103.2249
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.8821632,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 16.0,
+        "rectLines": 9,
+        "shapeBounds": [
+          1026.0,
+          1757.0,
+          1176.0,
+          2096.0
+        ],
+        "shapeSource": "fill_ellipse",
+        "shapedFontSize": 19.0,
+        "shapedLines": 7,
+        "todayOutcome": "grown",
+        "todayRenderBox": [
+          1047.975,
+          1788.9941,
+          1154.025,
+          2059.2036
+        ]
+      },
+      "translation": "Hold the knife with the blade facing upwards, using your right hand to hold the blade..."
+    },
+    {
+      "answered": true,
+      "bounds": [
+        148.56651,
+        1321.8616,
+        185.5516,
+        1459.5453
+      ],
+      "id": 6,
+      "ocrConfidence": 0.9895177,
+      "ocrDropped": false,
+      "ocrText": "そうそう",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          97.78148,
+          1287.5782,
+          238.60638,
+          1517.497
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.8369509,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 35.25,
+        "rectLines": 1,
+        "shapeBounds": [
+          105.0,
+          1295.0,
+          231.0,
+          1510.0
+        ],
+        "shapeSource": "fill_ellipse",
+        "shapedFontSize": 36.0,
+        "shapedLines": 1,
+        "todayOutcome": "grown",
+        "todayRenderBox": [
+          123.459,
+          1321.8616,
+          212.541,
+          1478.5024
+        ]
+      },
+      "translation": "So..."
+    },
+    {
+      "answered": true,
+      "bounds": [
+        124.513084,
+        693.79126,
+        213.1269,
+        867.08215
+      ],
+      "id": 7,
+      "ocrConfidence": 0.9918774,
+      "ocrDropped": false,
+      "ocrText": "...まずは猫の手だな",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          83.67252,
+          664.4892,
+          254.27386,
+          896.5621
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.7706299,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 23.0,
+        "rectLines": 4,
+        "shapeBounds": [
+          94.0,
+          674.0,
+          246.0,
+          895.0
+        ],
+        "shapeSource": "fill_ellipse",
+        "shapedFontSize": 26.0,
+        "shapedLines": 3,
+        "todayOutcome": "grown",
+        "todayRenderBox": [
+          116.268,
+          693.79126,
+          223.732,
+          867.08215
+        ]
+      },
+      "translation": "...First, it's like a cat's paw"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        286.08203,
+        758.9696,
+        354.5117,
+        899.1219
+      ],
+      "id": 8,
+      "ocrConfidence": 0.9836159,
+      "ocrDropped": false,
+      "ocrText": "指なくなっちゃう...",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": null,
+        "drawn": "rect",
+        "fillRatio": null,
+        "label": "text_free",
+        "noShapeReason": "no-host",
+        "rectFontSize": 19.5,
+        "rectLines": 3,
+        "shapeBounds": null,
+        "shapeSource": null,
+        "shapedFontSize": null,
+        "shapedLines": null,
+        "todayOutcome": "unchanged",
+        "todayRenderBox": [
+          286.08203,
+          758.9696,
+          354.5117,
+          899.1219
+        ]
+      },
+      "translation": "My claws will disappear..."
+    },
+    {
+      "answered": true,
+      "bounds": [
+        374.6731,
+        693.543,
+        467.0672,
+        889.0862
+      ],
+      "id": 9,
+      "ocrConfidence": 0.98300654,
+      "ocrDropped": false,
+      "ocrText": "できる気がしないよぉ...",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          334.23462,
+          648.17267,
+          487.72873,
+          930.70435
+        ],
+        "drawn": "rect",
+        "fillRatio": null,
+        "label": "text_bubble",
+        "noShapeReason": "reach",
+        "rectFontSize": 19.5,
+        "rectLines": 5,
+        "shapeBounds": null,
+        "shapeSource": null,
+        "shapedFontSize": null,
+        "shapedLines": null,
+        "todayOutcome": "reach",
+        "todayRenderBox": [
+          374.6731,
+          693.543,
+          467.0672,
+          889.0862
+        ]
+      },
+      "translation": "I don't have the ability to do that..."
+    },
+    {
+      "answered": true,
+      "bounds": [
+        1086.157,
+        1349.1893,
+        1134.6932,
+        1517.6606
+      ],
+      "id": 10,
+      "ocrConfidence": 0.98577803,
+      "ocrDropped": false,
+      "ocrText": "ねこのて?",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          1027.6196,
+          1313.6056,
+          1184.1416,
+          1544.014
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.825048,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 19.5,
+        "rectLines": 1,
+        "shapeBounds": [
+          1035.0,
+          1323.0,
+          1176.0,
+          1537.0
+        ],
+        "shapeSource": "fill_ellipse",
+        "shapedFontSize": 25.0,
+        "shapedLines": 1,
+        "todayOutcome": "grown",
+        "todayRenderBox": [
+          1055.6565,
+          1349.1893,
+          1155.3435,
+          1517.6606
+        ]
+      },
+      "translation": "Nekosuto?"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        514.4787,
+        606.3203,
+        577.84796,
+        833.40454
+      ],
+      "id": 12,
+      "ocrConfidence": 0.9280485,
+      "ocrDropped": false,
+      "ocrText": "てんちょお...",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          478.07745,
+          572.9885,
+          626.2347,
+          875.92566
+        ],
+        "drawn": "shaped",
+        "fillRatio": null,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 19.5,
+        "rectLines": 1,
+        "shapeBounds": [
+          486.9669,
+          591.16473,
+          617.3453,
+          857.74945
+        ],
+        "shapeSource": "balloon_ellipse",
+        "shapedFontSize": 24.0,
+        "shapedLines": 1,
+        "todayOutcome": "reach",
+        "todayRenderBox": [
+          514.4787,
+          606.3203,
+          577.84796,
+          833.40454
+        ]
+      },
+      "translation": "Tenchoo..."
+    },
+    {
+      "answered": false,
+      "bounds": [
+        145.65723,
+        2607.28,
+        281.91312,
+        2779.869
+      ],
+      "id": 14,
+      "ocrConfidence": null,
+      "ocrDropped": true,
+      "ocrText": "Share",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": null,
+        "drawn": null,
+        "fillRatio": null,
+        "label": "text_free",
+        "noShapeReason": "no-host",
+        "rectFontSize": null,
+        "rectLines": null,
+        "shapeBounds": null,
+        "shapeSource": null,
+        "shapedFontSize": null,
+        "shapedLines": null,
+        "todayOutcome": "unchanged",
+        "todayRenderBox": [
+          145.65723,
+          2607.28,
+          281.91312,
+          2779.869
+        ]
+      },
+      "translation": null
+    },
+    {
+      "answered": false,
+      "bounds": [
+        1017.80774,
+        701.13165,
+        1058.0665,
+        793.9003
+      ],
+      "id": 15,
+      "ocrConfidence": null,
+      "ocrDropped": true,
+      "ocrText": "...",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          976.06476,
+          657.2602,
+          1100.1279,
+          845.33704
+        ],
+        "drawn": null,
+        "fillRatio": 0.7703093,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": null,
+        "rectLines": null,
+        "shapeBounds": [
+          987.0,
+          672.0,
+          1088.0,
+          833.0
+        ],
+        "shapeSource": "fill_ellipse",
+        "shapedFontSize": null,
+        "shapedLines": null,
+        "todayOutcome": "grown",
+        "todayRenderBox": [
+          1001.7965,
+          695.5865,
+          1073.2035,
+          809.4135
+        ]
+      },
+      "translation": null
+    }
+  ],
+  "device": "Google sdk_gphone16k_arm64",
+  "errorCode": null,
+  "outcome": "SUCCESS",
+  "pageHeight": 2856,
+  "pageWidth": 1280,
+  "readingOrder": [
+    15,
+    12,
+    9,
+    8,
+    7,
+    10,
+    3,
+    6,
+    4,
+    2,
+    1,
+    14
+  ],
+  "recalled": false,
+  "settings": {
+    "detectionModel": "rtdetr_v4s_v1",
+    "detectionThreshold": 0.25,
+    "fontScale": 1.0,
+    "generation": {
+      "lineExcludesIdBracket": true,
+      "maxTokens": 256,
+      "penaltyFreq": 0.0,
+      "penaltyLastN": 64,
+      "penaltyPresent": 0.0,
+      "penaltyRepeat": 1.0,
+      "seed": -1,
+      "temperature": 0.2,
+      "topK": 40,
+      "topP": 0.9
+    },
+    "glossary": [],
+    "ocrModel": "hayai_ocr_v2.7",
+    "runtime": {
+      "contextTokens": 2048,
+      "threads": 4
+    },
+    "serverModel": null,
+    "targetLanguage": "ENGLISH",
+    "translationModel": "qwen25_1.5b_instruct_v1",
+    "translator": "on-device"
+  },
+  "timings": {
+    "stagesMs": {
+      "BUBBLE_DETECTION": 65,
+      "OCR": 770,
+      "CONTEXT_ASSEMBLY": 118,
+      "TRANSLATION": 2050
+    },
+    "timeToFirstBubbleMs": 1615,
+    "totalMs": 3003,
+    "translationCallMs": 2047
+  }
+}

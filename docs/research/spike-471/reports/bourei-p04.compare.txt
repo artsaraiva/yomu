@@ -1,0 +1,42 @@
+A=main/bourei-p04 (9 bubbles)  B=spike/bourei-p04 (10 bubbles)
+[636,2069,1079,2159]     same OCR
+  A #2 '烏丸葬儀社社長鳥丸枢(からすまくるる)25歳' p=0.974 -> 'Kurogane Funeral Home, Mr. Kurogane, 25 years old'
+  B #5 '烏丸葬儀社社長鳥丸枢(からすまくるる)25歳' p=0.966 -> 'Ootoru Funeral Home, 25 years old, Ootoru Kusukuru'
+    text_bubble today=grown fill_rect fill=1.00 rect=23px/2l shaped=31px/2l drawn=shaped
+[952,676,1018,807]       same OCR
+  A #3 '死んでるんですよねぇ' p=0.990 -> "You're dead, aren't you?"
+  B #3 '死んでるんですよねぇ' p=0.989 -> "You're dead, aren't you"
+    text_bubble today=grown balloon_ellipse rect=18px/3l shaped=21px/3l drawn=shaped
+[43,1083,293,1212]       same OCR
+  A #4 'ようこそ亡霊葬儀屋さん吉良いと' p=0.985 -> 'Welcome to the Ghost Funeral Home, Mr. Kiyomiya'
+  B #1 'ようこそ亡霊葬儀屋さん吉良いと' p=0.977 -> 'Welcome to the ghost funeral home, Jigiyuu'
+    text_free today=none no shape (no-host) rect=21px/3l shaped=- drawn=rect
+[140,2099,415,2190]      same OCR
+  A #5 '葬儀依頼人桜野すずめ19歳' p=0.985 -> 'The funeral requestor, Mr. Sazanami, 19 years old'
+  B #4 '葬儀依頼人桜野すずめ19歳' p=0.985 -> 'The person who requested the funeral is Suzume, 19 years old'
+    text_bubble today=unchanged fill_rect fill=1.00 rect=16px/3l shaped=19px/3l drawn=shaped
+[601,1698,711,1843]      same OCR
+  A #6 '亡くなったお姉さんのお化粧を?' p=0.983 -> "Did you mean to ask about my sister's makeup?"
+  B #6 '亡くなったお姉さんのお化粧を?' p=0.985 -> "What about my sister's makeup?"
+    text_bubble today=unchanged fill_ellipse fill=0.77 rect=20px/4l shaped=21px/3l drawn=shaped
+[372,1814,426,1912]      same OCR
+  A #7 'はい...' p=0.989 -> 'Yes...'
+  B #7 'はい...' p=0.989 -> 'Yes...'
+    text_bubble today=grown fill_ellipse fill=0.77 rect=20px/1l shaped=29px/1l drawn=shaped
+[798,1228,1280,1301]     same OCR
+  A #9 '...' (dropped) -> None
+  B #10 '...' (dropped) -> None
+    text_free today=none no shape (no-host) rect=- shaped=- drawn=None
+[482,1376,529,1443]      same OCR
+  A #10 'え?' p=0.991 -> '?'
+  B #9 'え?' p=0.991 -> '?'
+    text_bubble today=grown fill_ellipse fill=0.77 rect=35px/1l shaped=36px/1l drawn=shaped
+[594,853,673,1042]       same OCR
+  A #11 '「視える」人間ってヤツでして' p=0.989 -> '"Visible" people are like that guy.'
+  B #11 '「視える」人間ってヤツでして' p=0.990 -> '"Visible" people are like you'
+    text_bubble today=grown fill_rect fill=1.00 rect=21px/4l shaped=31px/4l drawn=shaped
+[146,2603,282,2778]      ONLY IN B
+  A -
+  B #12 'Share' (dropped) -> None
+    text_free today=unchanged no shape (no-host) rect=- shaped=- drawn=None
+B prompt order: [3, 11, 1, 10, 9, 6, 7, 5, 4, 12]

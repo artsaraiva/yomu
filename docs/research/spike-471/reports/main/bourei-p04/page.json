@@ -1,0 +1,194 @@
+{
+  "appVersion": "1.0",
+  "batchOverflowFallback": false,
+  "bubbles": [
+    {
+      "answered": true,
+      "bounds": [
+        636.96265,
+        2069.7039,
+        1079.2189,
+        2159.6328
+      ],
+      "id": 2,
+      "ocrConfidence": 0.97417086,
+      "ocrDropped": false,
+      "ocrText": "烏丸葬儀社社長鳥丸枢(からすまくるる)25歳",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "Kurogane Funeral Home, Mr. Kurogane, 25 years old"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        952.43384,
+        676.78796,
+        1018.86774,
+        807.83527
+      ],
+      "id": 3,
+      "ocrConfidence": 0.9895649,
+      "ocrDropped": false,
+      "ocrText": "死んでるんですよねぇ",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "You're dead, aren't you?"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        43.672123,
+        1083.1527,
+        293.08026,
+        1212.6686
+      ],
+      "id": 4,
+      "ocrConfidence": 0.98459125,
+      "ocrDropped": false,
+      "ocrText": "ようこそ亡霊葬儀屋さん吉良いと",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "Welcome to the Ghost Funeral Home, Mr. Kiyomiya"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        140.17496,
+        2099.6196,
+        415.19272,
+        2190.0476
+      ],
+      "id": 5,
+      "ocrConfidence": 0.98506725,
+      "ocrDropped": false,
+      "ocrText": "葬儀依頼人桜野すずめ19歳",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "The funeral requestor, Mr. Sazanami, 19 years old"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        601.9384,
+        1698.3833,
+        711.6523,
+        1843.467
+      ],
+      "id": 6,
+      "ocrConfidence": 0.98330575,
+      "ocrDropped": false,
+      "ocrText": "亡くなったお姉さんのお化粧を?",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "Did you mean to ask about my sister's makeup?"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        372.68008,
+        1814.2144,
+        426.29672,
+        1912.7269
+      ],
+      "id": 7,
+      "ocrConfidence": 0.9890016,
+      "ocrDropped": false,
+      "ocrText": "はい...",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "Yes..."
+    },
+    {
+      "answered": false,
+      "bounds": [
+        798.18164,
+        1228.5652,
+        1280.4408,
+        1301.6823
+      ],
+      "id": 9,
+      "ocrConfidence": null,
+      "ocrDropped": true,
+      "ocrText": "...",
+      "skipped": false,
+      "sourceText": null,
+      "translation": null
+    },
+    {
+      "answered": true,
+      "bounds": [
+        482.97668,
+        1376.4343,
+        529.9791,
+        1443.5638
+      ],
+      "id": 10,
+      "ocrConfidence": 0.9913797,
+      "ocrDropped": false,
+      "ocrText": "え?",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "?"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        594.9793,
+        853.68787,
+        673.71185,
+        1042.0502
+      ],
+      "id": 11,
+      "ocrConfidence": 0.98949003,
+      "ocrDropped": false,
+      "ocrText": "「視える」人間ってヤツでして",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "\"Visible\" people are like that guy."
+    }
+  ],
+  "device": "Google sdk_gphone16k_arm64",
+  "errorCode": null,
+  "outcome": "SUCCESS",
+  "pageHeight": 2856,
+  "pageWidth": 1280,
+  "recalled": false,
+  "settings": {
+    "detectionModel": "rtdetr_v4s_v1",
+    "detectionThreshold": 0.25,
+    "fontScale": 1.0,
+    "generation": {
+      "lineExcludesIdBracket": true,
+      "maxTokens": 256,
+      "penaltyFreq": 0.0,
+      "penaltyLastN": 64,
+      "penaltyPresent": 0.0,
+      "penaltyRepeat": 1.0,
+      "seed": -1,
+      "temperature": 0.2,
+      "topK": 40,
+      "topP": 0.9
+    },
+    "glossary": [],
+    "ocrModel": "hayai_ocr_v2.7",
+    "runtime": {
+      "contextTokens": 2048,
+      "threads": 4
+    },
+    "serverModel": null,
+    "targetLanguage": "ENGLISH",
+    "translationModel": "qwen25_1.5b_instruct_v1",
+    "translator": "on-device"
+  },
+  "timings": {
+    "stagesMs": {
+      "BUBBLE_DETECTION": 68,
+      "OCR": 597,
+      "CONTEXT_ASSEMBLY": 66,
+      "TRANSLATION": 1968
+    },
+    "timeToFirstBubbleMs": 1474,
+    "totalMs": 2699,
+    "translationCallMs": 1967
+  }
+}

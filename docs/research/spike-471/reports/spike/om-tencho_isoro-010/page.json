@@ -1,0 +1,707 @@
+{
+  "appVersion": "1.0",
+  "balloons": [
+    [
+      94.37622,
+      1102.3529,
+      252.9018,
+      1346.1469
+    ],
+    [
+      605.41864,
+      642.3702,
+      747.8112,
+      832.52454
+    ],
+    [
+      982.9111,
+      643.6246,
+      1180.989,
+      944.4538
+    ],
+    [
+      92.92497,
+      1816.7788,
+      241.88211,
+      2182.3445
+    ],
+    [
+      110.040665,
+      736.50494,
+      277.45267,
+      1033.3888
+    ],
+    [
+      1042.0007,
+      1101.9662,
+      1186.8357,
+      1376.8352
+    ],
+    [
+      439.1067,
+      209.86713,
+      840.25604,
+      339.25357
+    ],
+    [
+      237.38797,
+      1644.5221,
+      397.3275,
+      1853.8639
+    ],
+    [
+      227.53403,
+      1857.1095,
+      387.9931,
+      2132.2834
+    ],
+    [
+      613.27203,
+      1678.635,
+      740.4389,
+      1921.0431
+    ],
+    [
+      420.05188,
+      1208.2202,
+      559.7112,
+      1409.1168
+    ],
+    [
+      1083.3655,
+      2378.9639,
+      1262.4481,
+      2560.6577
+    ]
+  ],
+  "batchOverflowFallback": false,
+  "bubbles": [
+    {
+      "answered": true,
+      "bounds": [
+        269.95392,
+        1660.995,
+        357.7907,
+        1829.3635
+      ],
+      "id": 1,
+      "ocrConfidence": 0.9895908,
+      "ocrDropped": false,
+      "ocrText": "集客効果ありそう?",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          237.38797,
+          1644.5221,
+          397.3275,
+          1853.8639
+        ],
+        "drawn": "shaped",
+        "fillRatio": null,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 14.25,
+        "rectLines": 5,
+        "shapeBounds": [
+          246.98434,
+          1657.0826,
+          387.73114,
+          1841.3033
+        ],
+        "shapeSource": "balloon_ellipse",
+        "shapedFontSize": 14.0,
+        "shapedLines": 5,
+        "todayOutcome": "unchanged",
+        "todayRenderBox": [
+          269.95392,
+          1660.995,
+          357.7907,
+          1829.3635
+        ]
+      },
+      "translation": "Could it be that this is having a good effect on attracting customers?"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        635.04083,
+        651.44586,
+        717.61316,
+        814.7517
+      ],
+      "id": 2,
+      "ocrConfidence": 0.9885915,
+      "ocrDropped": false,
+      "ocrText": "よかったら寄っていって",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          605.41864,
+          642.3702,
+          747.8112,
+          832.52454
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.8378558,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 16.0,
+        "rectLines": 5,
+        "shapeBounds": [
+          614.0,
+          654.0,
+          738.0,
+          824.0
+        ],
+        "shapeSource": "fill_ellipse",
+        "shapedFontSize": 19.0,
+        "shapedLines": 4,
+        "todayOutcome": "grown",
+        "todayRenderBox": [
+          632.166,
+          651.44586,
+          719.834,
+          814.7517
+        ]
+      },
+      "translation": "If you want to join in, come over."
+    },
+    {
+      "answered": true,
+      "bounds": [
+        263.44128,
+        1904.8778,
+        361.10114,
+        2079.7021
+      ],
+      "id": 3,
+      "ocrConfidence": 0.98554707,
+      "ocrDropped": false,
+      "ocrText": "人通り多い時間に掃除させよ...",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          227.53403,
+          1857.1095,
+          387.9931,
+          2132.2834
+        ],
+        "drawn": "shaped",
+        "fillRatio": null,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 23.0,
+        "rectLines": 4,
+        "shapeBounds": [
+          237.16158,
+          1873.6199,
+          378.36557,
+          2115.773
+        ],
+        "shapeSource": "balloon_ellipse",
+        "shapedFontSize": 27.0,
+        "shapedLines": 4,
+        "todayOutcome": "grown",
+        "todayRenderBox": [
+          263.44128,
+          1904.8778,
+          401.089,
+          2079.7021
+        ]
+      },
+      "translation": "Clean up during peak hours."
+    },
+    {
+      "answered": true,
+      "bounds": [
+        653.72424,
+        1728.8368,
+        709.3175,
+        1880.1263
+      ],
+      "id": 4,
+      "ocrConfidence": 0.9840121,
+      "ocrDropped": false,
+      "ocrText": "これは...",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          613.27203,
+          1678.635,
+          740.4389,
+          1921.0431
+        ],
+        "drawn": "shaped",
+        "fillRatio": null,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 21.25,
+        "rectLines": 2,
+        "shapeBounds": [
+          620.90204,
+          1693.1794,
+          732.8089,
+          1906.4987
+        ],
+        "shapeSource": "balloon_ellipse",
+        "shapedFontSize": 36.0,
+        "shapedLines": 2,
+        "todayOutcome": "unchanged",
+        "todayRenderBox": [
+          653.72424,
+          1728.8368,
+          709.3175,
+          1880.1263
+        ]
+      },
+      "translation": "This is..."
+    },
+    {
+      "answered": true,
+      "bounds": [
+        1032.6627,
+        665.86365,
+        1139.6886,
+        908.7337
+      ],
+      "id": 5,
+      "ocrConfidence": 0.9870772,
+      "ocrDropped": false,
+      "ocrText": "元気にやってるなあ...",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          982.9111,
+          643.6246,
+          1180.989,
+          944.4538
+        ],
+        "drawn": "shaped",
+        "fillRatio": null,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 35.25,
+        "rectLines": 3,
+        "shapeBounds": [
+          994.7958,
+          661.6743,
+          1169.1044,
+          926.40405
+        ],
+        "shapeSource": "balloon_ellipse",
+        "shapedFontSize": 36.0,
+        "shapedLines": 3,
+        "todayOutcome": "grown",
+        "todayRenderBox": [
+          1007.5675,
+          665.86365,
+          1145.4325,
+          908.7337
+        ]
+      },
+      "translation": "You're doing great!"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        1096.6392,
+        1125.7094,
+        1161.8398,
+        1337.4647
+      ],
+      "id": 6,
+      "ocrConfidence": 0.9812224,
+      "ocrDropped": false,
+      "ocrText": "いらっしゃい",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          1042.0007,
+          1101.9662,
+          1186.8357,
+          1376.8352
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.7429911,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 19.5,
+        "rectLines": 1,
+        "shapeBounds": [
+          1047.0,
+          1112.0,
+          1176.0,
+          1365.0
+        ],
+        "shapeSource": "fill_ellipse",
+        "shapedFontSize": 26.0,
+        "shapedLines": 1,
+        "todayOutcome": "grown",
+        "todayRenderBox": [
+          1065.8984,
+          1125.7094,
+          1161.8398,
+          1337.4647
+        ]
+      },
+      "translation": "Welcome"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        118.755585,
+        1859.8519,
+        198.7227,
+        2130.1929
+      ],
+      "id": 7,
+      "ocrConfidence": 0.98971474,
+      "ocrDropped": false,
+      "ocrText": "また来てねー!",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          92.92497,
+          1816.7788,
+          241.88211,
+          2182.3445
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.8281334,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 35.25,
+        "rectLines": 3,
+        "shapeBounds": [
+          105.0,
+          1830.0,
+          237.0,
+          2168.0
+        ],
+        "shapeSource": "fill_ellipse",
+        "shapedFontSize": 36.0,
+        "shapedLines": 3,
+        "todayOutcome": "grown",
+        "todayRenderBox": [
+          118.755585,
+          1859.8519,
+          217.662,
+          2130.1929
+        ]
+      },
+      "translation": "See you later!"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        155.9786,
+        773.0492,
+        239.77281,
+        996.3194
+      ],
+      "id": 8,
+      "ocrConfidence": 0.9824077,
+      "ocrDropped": false,
+      "ocrText": "いらっしゃい",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          110.040665,
+          736.50494,
+          277.45267,
+          1033.3888
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.80335593,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 19.5,
+        "rectLines": 1,
+        "shapeBounds": [
+          119.0,
+          749.0,
+          267.0,
+          1020.0
+        ],
+        "shapeSource": "fill_ellipse",
+        "shapedFontSize": 30.0,
+        "shapedLines": 1,
+        "todayOutcome": "grown",
+        "todayRenderBox": [
+          140.682,
+          773.0492,
+          245.318,
+          996.3194
+        ]
+      },
+      "translation": "Welcome"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        122.341736,
+        1114.9076,
+        205.63123,
+        1318.1726
+      ],
+      "id": 9,
+      "ocrConfidence": 0.9839475,
+      "ocrDropped": false,
+      "ocrText": "いらっしゃい",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          94.37622,
+          1102.3529,
+          252.9018,
+          1346.1469
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.8382492,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 19.5,
+        "rectLines": 1,
+        "shapeBounds": [
+          105.0,
+          1112.0,
+          247.0,
+          1335.0
+        ],
+        "shapeSource": "fill_ellipse",
+        "shapedFontSize": 29.0,
+        "shapedLines": 1,
+        "todayOutcome": "grown",
+        "todayRenderBox": [
+          122.341736,
+          1114.9076,
+          226.197,
+          1318.1726
+        ]
+      },
+      "translation": "Welcome"
+    },
+    {
+      "answered": false,
+      "bounds": [
+        140.93282,
+        2602.8315,
+        287.28925,
+        2785.0303
+      ],
+      "id": 11,
+      "ocrConfidence": null,
+      "ocrDropped": true,
+      "ocrText": "Share",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": null,
+        "drawn": null,
+        "fillRatio": null,
+        "label": "text_free",
+        "noShapeReason": "no-host",
+        "rectFontSize": null,
+        "rectLines": null,
+        "shapeBounds": null,
+        "shapeSource": null,
+        "shapedFontSize": null,
+        "shapedLines": null,
+        "todayOutcome": "unchanged",
+        "todayRenderBox": [
+          140.93282,
+          2602.8315,
+          287.28925,
+          2785.0303
+        ]
+      },
+      "translation": null
+    },
+    {
+      "answered": false,
+      "bounds": [
+        1002.027,
+        2613.507,
+        1132.7957,
+        2783.9946
+      ],
+      "id": 14,
+      "ocrConfidence": null,
+      "ocrDropped": true,
+      "ocrText": "@Trash",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": null,
+        "drawn": null,
+        "fillRatio": null,
+        "label": "text_free",
+        "noShapeReason": "no-host",
+        "rectFontSize": null,
+        "rectLines": null,
+        "shapeBounds": null,
+        "shapeSource": null,
+        "shapedFontSize": null,
+        "shapedLines": null,
+        "todayOutcome": "unchanged",
+        "todayRenderBox": [
+          1002.027,
+          2613.507,
+          1132.7957,
+          2783.9946
+        ]
+      },
+      "translation": null
+    },
+    {
+      "answered": false,
+      "bounds": [
+        578.4117,
+        2606.4502,
+        701.5978,
+        2777.936
+      ],
+      "id": 15,
+      "ocrConfidence": null,
+      "ocrDropped": true,
+      "ocrText": "o-一oEdit",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": null,
+        "drawn": null,
+        "fillRatio": null,
+        "label": "text_free",
+        "noShapeReason": "no-host",
+        "rectFontSize": null,
+        "rectLines": null,
+        "shapeBounds": null,
+        "shapeSource": null,
+        "shapedFontSize": null,
+        "shapedLines": null,
+        "todayOutcome": "unchanged",
+        "todayRenderBox": [
+          578.4117,
+          2606.4502,
+          701.5978,
+          2777.936
+        ]
+      },
+      "translation": null
+    },
+    {
+      "answered": false,
+      "bounds": [
+        482.03223,
+        1296.5745,
+        526.23206,
+        1358.3599
+      ],
+      "id": 16,
+      "ocrConfidence": null,
+      "ocrDropped": true,
+      "ocrText": "?",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          420.05188,
+          1208.2202,
+          559.7112,
+          1409.1168
+        ],
+        "drawn": null,
+        "fillRatio": 0.7242572,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": null,
+        "rectLines": null,
+        "shapeBounds": [
+          423.0,
+          1221.0,
+          551.0,
+          1404.0
+        ],
+        "shapeSource": "fill_ellipse",
+        "shapedFontSize": null,
+        "shapedLines": null,
+        "todayOutcome": "unchanged",
+        "todayRenderBox": [
+          482.03223,
+          1296.5745,
+          526.23206,
+          1358.3599
+        ]
+      },
+      "translation": null
+    }
+  ],
+  "device": "Google sdk_gphone16k_arm64",
+  "errorCode": null,
+  "outcome": "SUCCESS",
+  "pageHeight": 2856,
+  "pageWidth": 1280,
+  "readingOrder": [
+    5,
+    2,
+    8,
+    6,
+    16,
+    9,
+    4,
+    1,
+    3,
+    7,
+    14,
+    15,
+    11
+  ],
+  "recalled": false,
+  "settings": {
+    "detectionModel": "rtdetr_v4s_v1",
+    "detectionThreshold": 0.25,
+    "fontScale": 1.0,
+    "generation": {
+      "lineExcludesIdBracket": true,
+      "maxTokens": 256,
+      "penaltyFreq": 0.0,
+      "penaltyLastN": 64,
+      "penaltyPresent": 0.0,
+      "penaltyRepeat": 1.0,
+      "seed": -1,
+      "temperature": 0.2,
+      "topK": 40,
+      "topP": 0.9
+    },
+    "glossary": [],
+    "ocrModel": "hayai_ocr_v2.7",
+    "runtime": {
+      "contextTokens": 2048,
+      "threads": 4
+    },
+    "serverModel": null,
+    "targetLanguage": "ENGLISH",
+    "translationModel": "qwen25_1.5b_instruct_v1",
+    "translator": "on-device"
+  },
+  "timings": {
+    "stagesMs": {
+      "BUBBLE_DETECTION": 64,
+      "OCR": 834,
+      "CONTEXT_ASSEMBLY": 124,
+      "TRANSLATION": 1403
+    },
+    "timeToFirstBubbleMs": 1594,
+    "totalMs": 2426,
+    "translationCallMs": 1403
+  }
+}

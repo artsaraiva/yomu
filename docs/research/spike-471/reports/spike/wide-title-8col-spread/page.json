@@ -1,0 +1,745 @@
+{
+  "appVersion": "1.0",
+  "balloons": [
+    [
+      678.85895,
+      1530.2373,
+      837.70935,
+      1693.4464
+    ],
+    [
+      86.96944,
+      975.0874,
+      207.57413,
+      1155.7292
+    ],
+    [
+      1.5368176,
+      1220.2151,
+      159.74321,
+      1403.4281
+    ],
+    [
+      860.80994,
+      1511.3828,
+      1008.7317,
+      1692.45
+    ],
+    [
+      224.48463,
+      962.7104,
+      414.51422,
+      1185.5026
+    ],
+    [
+      1097.1409,
+      964.61115,
+      1261.1621,
+      1163.6808
+    ],
+    [
+      1014.1692,
+      1411.1794,
+      1144.8732,
+      1611.5483
+    ],
+    [
+      696.839,
+      1721.1953,
+      846.3748,
+      1888.6051
+    ],
+    [
+      1134.4427,
+      1396.7231,
+      1279.1995,
+      1594.7167
+    ],
+    [
+      416.72858,
+      969.9122,
+      606.1953,
+      1175.8574
+    ],
+    [
+      85.399284,
+      1436.7742,
+      245.5138,
+      1602.4061
+    ],
+    [
+      689.4504,
+      1054.7067,
+      854.1925,
+      1351.8593
+    ],
+    [
+      440.27466,
+      218.49835,
+      837.9689,
+      336.99365
+    ],
+    [
+      1083.9442,
+      2380.5613,
+      1261.5419,
+      2556.2864
+    ],
+    [
+      186.87927,
+      35.0531,
+      399.32693,
+      117.79871
+    ]
+  ],
+  "batchOverflowFallback": false,
+  "bubbles": [
+    {
+      "answered": true,
+      "bounds": [
+        880.45166,
+        1531.8572,
+        996.05115,
+        1677.4072
+      ],
+      "id": 1,
+      "ocrConfidence": 0.98996884,
+      "ocrDropped": false,
+      "ocrText": "お前は石鳥たちを基準に考えたんだろうけど...",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          860.80994,
+          1511.3828,
+          1008.7317,
+          1692.45
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.9017045,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 12.5,
+        "rectLines": 5,
+        "shapeBounds": [
+          867.0,
+          1517.0,
+          1001.0,
+          1686.0
+        ],
+        "shapeSource": "fill_rect",
+        "shapedFontSize": 15.0,
+        "shapedLines": 6,
+        "todayOutcome": "unchanged",
+        "todayRenderBox": [
+          880.45166,
+          1531.8572,
+          996.05115,
+          1677.4072
+        ]
+      },
+      "translation": "You thought about the birds of prey when you were thinking about them."
+    },
+    {
+      "answered": true,
+      "bounds": [
+        1027.7627,
+        1433.4979,
+        1134.7805,
+        1585.9199
+      ],
+      "id": 2,
+      "ocrConfidence": 0.9868113,
+      "ocrDropped": false,
+      "ocrText": "しかもあいつは初対面だぞ!?やっぱりとばしすぎだ!!",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          1014.1692,
+          1411.1794,
+          1144.8732,
+          1611.5483
+        ],
+        "drawn": "shaped",
+        "fillRatio": null,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 12.5,
+        "rectLines": 6,
+        "shapeBounds": [
+          1022.0114,
+          1423.2015,
+          1137.0309,
+          1599.5262
+        ],
+        "shapeSource": "balloon_ellipse",
+        "shapedFontSize": 14.0,
+        "shapedLines": 6,
+        "todayOutcome": "reach",
+        "todayRenderBox": [
+          1027.7627,
+          1433.4979,
+          1134.7805,
+          1585.9199
+        ]
+      },
+      "translation": "And that person is still the first time! It's like they're being too casual!"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        1148.7438,
+        1419.7021,
+        1268.25,
+        1562.886
+      ],
+      "id": 3,
+      "ocrConfidence": 0.9830853,
+      "ocrDropped": false,
+      "ocrText": "無言で着替えまくってるだけで何が伝わるんだよ!!",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          1134.4427,
+          1396.7231,
+          1279.1995,
+          1594.7167
+        ],
+        "drawn": "shaped",
+        "fillRatio": null,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 14.25,
+        "rectLines": 5,
+        "shapeBounds": [
+          1143.1282,
+          1408.6028,
+          1270.514,
+          1582.837
+        ],
+        "shapeSource": "balloon_ellipse",
+        "shapedFontSize": 13.0,
+        "shapedLines": 7,
+        "todayOutcome": "reach",
+        "todayRenderBox": [
+          1148.7438,
+          1419.7021,
+          1268.25,
+          1562.886
+        ]
+      },
+      "translation": "I don't understand what's being communicated just by changing clothes in silence!"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        696.9884,
+        1552.6497,
+        822.4385,
+        1679.1891
+      ],
+      "id": 4,
+      "ocrConfidence": 0.9893752,
+      "ocrDropped": false,
+      "ocrText": "あいつらはあいつらで異常なこと忘れてねぇか...!!",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          678.85895,
+          1530.2373,
+          837.70935,
+          1693.4464
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.865547,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 12.5,
+        "rectLines": 4,
+        "shapeBounds": [
+          685.0,
+          1540.0,
+          831.0,
+          1686.0
+        ],
+        "shapeSource": "fill_ellipse",
+        "shapedFontSize": 15.0,
+        "shapedLines": 4,
+        "todayOutcome": "unchanged",
+        "todayRenderBox": [
+          696.9884,
+          1552.6497,
+          822.4385,
+          1679.1891
+        ]
+      },
+      "translation": "They can't forget that they're different from each other!"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        23.3531,
+        1245.3561,
+        132.12387,
+        1382.4873
+      ],
+      "id": 5,
+      "ocrConfidence": 0.9892348,
+      "ocrDropped": false,
+      "ocrText": "どうしよう...笑わせるのってこんなに難しいのか...!?",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          1.5368176,
+          1220.2151,
+          159.74321,
+          1403.4281
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.7955518,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 14.25,
+        "rectLines": 4,
+        "shapeBounds": [
+          5.0,
+          1228.0,
+          152.0,
+          1395.0
+        ],
+        "shapeSource": "fill_ellipse",
+        "shapedFontSize": 17.0,
+        "shapedLines": 5,
+        "todayOutcome": "unchanged",
+        "todayRenderBox": [
+          23.3531,
+          1245.3561,
+          132.12387,
+          1382.4873
+        ]
+      },
+      "translation": "What should I do...? It's so hard to make them laugh!"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        252.94685,
+        992.3953,
+        388.91266,
+        1153.0195
+      ],
+      "id": 6,
+      "ocrConfidence": 0.9854541,
+      "ocrDropped": false,
+      "ocrText": "最近悪魔ちゃんが受け入れられてるせいか...その前提を忘れてしまっていた...!?",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          224.48463,
+          962.7104,
+          414.51422,
+          1185.5026
+        ],
+        "drawn": "shaped",
+        "fillRatio": null,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 16.0,
+        "rectLines": 5,
+        "shapeBounds": [
+          235.88641,
+          976.07794,
+          403.11246,
+          1172.135
+        ],
+        "shapeSource": "balloon_ellipse",
+        "shapedFontSize": 17.0,
+        "shapedLines": 5,
+        "todayOutcome": "unchanged",
+        "todayRenderBox": [
+          252.94685,
+          992.3953,
+          388.91266,
+          1153.0195
+        ]
+      },
+      "translation": "Recently, I've forgotten the premise that the demon girl accepted us."
+    },
+    {
+      "answered": true,
+      "bounds": [
+        445.28793,
+        991.7189,
+        577.7339,
+        1143.1903
+      ],
+      "id": 7,
+      "ocrConfidence": 0.99102366,
+      "ocrDropped": false,
+      "ocrText": "皆が皆好奇心の目で見てくれるとは限らない...",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          416.72858,
+          969.9122,
+          606.1953,
+          1175.8574
+        ],
+        "drawn": "shaped",
+        "fillRatio": null,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 16.0,
+        "rectLines": 5,
+        "shapeBounds": [
+          428.0966,
+          982.26886,
+          594.82733,
+          1163.5007
+        ],
+        "shapeSource": "balloon_ellipse",
+        "shapedFontSize": 18.0,
+        "shapedLines": 5,
+        "todayOutcome": "unchanged",
+        "todayRenderBox": [
+          445.28793,
+          991.7189,
+          577.7339,
+          1143.1903
+        ]
+      },
+      "translation": "It's not uncommon for everyone to look at it with curiosity."
+    },
+    {
+      "answered": true,
+      "bounds": [
+        724.0872,
+        1749.0857,
+        819.8755,
+        1865.2921
+      ],
+      "id": 8,
+      "ocrConfidence": 0.98990834,
+      "ocrDropped": false,
+      "ocrText": "し...しまった...!!",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          696.839,
+          1721.1953,
+          846.3748,
+          1888.6051
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.7800448,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 19.5,
+        "rectLines": 2,
+        "shapeBounds": [
+          704.0,
+          1729.0,
+          840.0,
+          1880.0
+        ],
+        "shapeSource": "fill_ellipse",
+        "shapedFontSize": 24.0,
+        "shapedLines": 2,
+        "todayOutcome": "grown",
+        "todayRenderBox": [
+          723.924,
+          1749.0857,
+          820.076,
+          1865.2921
+        ]
+      },
+      "translation": "I... I... I'm sorry...!"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        103.14798,
+        1001.3502,
+        189.91426,
+        1124.6539
+      ],
+      "id": 9,
+      "ocrConfidence": 0.98819304,
+      "ocrDropped": false,
+      "ocrText": "しかも愛森さんは状況が状況...",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          86.96944,
+          975.0874,
+          207.57413,
+          1155.7292
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.79569304,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 12.5,
+        "rectLines": 4,
+        "shapeBounds": [
+          93.0,
+          983.0,
+          202.0,
+          1150.0
+        ],
+        "shapeSource": "fill_ellipse",
+        "shapedFontSize": 15.0,
+        "shapedLines": 5,
+        "todayOutcome": "grown",
+        "todayRenderBox": [
+          103.14798,
+          1001.3502,
+          189.91426,
+          1125.5345
+        ]
+      },
+      "translation": "And even though it's a situation, it's still the same."
+    },
+    {
+      "answered": true,
+      "bounds": [
+        1133.7906,
+        983.97626,
+        1222.0236,
+        1145.2601
+      ],
+      "id": 10,
+      "ocrConfidence": 0.98904794,
+      "ocrDropped": false,
+      "ocrText": "ついてこれてない!?",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          1097.1409,
+          964.61115,
+          1261.1621,
+          1163.6808
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.78229344,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 19.5,
+        "rectLines": 4,
+        "shapeBounds": [
+          1103.0,
+          972.0,
+          1255.0,
+          1158.0
+        ],
+        "shapeSource": "fill_ellipse",
+        "shapedFontSize": 22.0,
+        "shapedLines": 3,
+        "todayOutcome": "grown",
+        "todayRenderBox": [
+          1125.2681,
+          983.97626,
+          1232.7319,
+          1145.2601
+        ]
+      },
+      "translation": "You're not following up on that!"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        736.89484,
+        1089.2339,
+        809.86694,
+        1318.6008
+      ],
+      "id": 11,
+      "ocrConfidence": 0.98992944,
+      "ocrDropped": false,
+      "ocrText": "当たり前だろ!!",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          689.4504,
+          1054.7067,
+          854.1925,
+          1351.8593
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.8139159,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 24.75,
+        "rectLines": 2,
+        "shapeBounds": [
+          700.0,
+          1069.0,
+          848.0,
+          1341.0
+        ],
+        "shapeSource": "fill_ellipse",
+        "shapedFontSize": 36.0,
+        "shapedLines": 2,
+        "todayOutcome": "grown",
+        "todayRenderBox": [
+          721.682,
+          1089.2339,
+          826.318,
+          1318.6008
+        ]
+      },
+      "translation": "Of course!"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        119.23359,
+        1461.4132,
+        209.9722,
+        1578.5743
+      ],
+      "id": 12,
+      "ocrConfidence": 0.98819107,
+      "ocrDropped": false,
+      "ocrText": "じゃあ一体どうすれば...!!",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          85.399284,
+          1436.7742,
+          245.5138,
+          1602.4061
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.78361845,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 19.5,
+        "rectLines": 3,
+        "shapeBounds": [
+          93.0,
+          1446.0,
+          237.0,
+          1597.0
+        ],
+        "shapeSource": "fill_ellipse",
+        "shapedFontSize": 22.0,
+        "shapedLines": 3,
+        "todayOutcome": "grown",
+        "todayRenderBox": [
+          114.096,
+          1461.4132,
+          215.904,
+          1578.5743
+        ]
+      },
+      "translation": "So, what should I do...?"
+    },
+    {
+      "answered": false,
+      "bounds": [
+        144.95029,
+        2605.4045,
+        284.0924,
+        2782.2185
+      ],
+      "id": 16,
+      "ocrConfidence": null,
+      "ocrDropped": true,
+      "ocrText": "Share",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": null,
+        "drawn": null,
+        "fillRatio": null,
+        "label": "text_free",
+        "noShapeReason": "no-host",
+        "rectFontSize": null,
+        "rectLines": null,
+        "shapeBounds": null,
+        "shapeSource": null,
+        "shapedFontSize": null,
+        "shapedLines": null,
+        "todayOutcome": "unchanged",
+        "todayRenderBox": [
+          144.95029,
+          2605.4045,
+          284.0924,
+          2782.2185
+        ]
+      },
+      "translation": null
+    }
+  ],
+  "device": "Google sdk_gphone16k_arm64",
+  "errorCode": null,
+  "outcome": "SUCCESS",
+  "pageHeight": 2856,
+  "pageWidth": 1280,
+  "readingOrder": [
+    10,
+    11,
+    7,
+    6,
+    9,
+    5,
+    3,
+    2,
+    1,
+    4,
+    12,
+    8,
+    16
+  ],
+  "recalled": false,
+  "settings": {
+    "detectionModel": "rtdetr_v4s_v1",
+    "detectionThreshold": 0.25,
+    "fontScale": 1.0,
+    "generation": {
+      "lineExcludesIdBracket": true,
+      "maxTokens": 256,
+      "penaltyFreq": 0.0,
+      "penaltyLastN": 64,
+      "penaltyPresent": 0.0,
+      "penaltyRepeat": 1.0,
+      "seed": -1,
+      "temperature": 0.2,
+      "topK": 40,
+      "topP": 0.9
+    },
+    "glossary": [],
+    "ocrModel": "hayai_ocr_v2.7",
+    "runtime": {
+      "contextTokens": 2048,
+      "threads": 4
+    },
+    "serverModel": null,
+    "targetLanguage": "ENGLISH",
+    "translationModel": "qwen25_1.5b_instruct_v1",
+    "translator": "on-device"
+  },
+  "timings": {
+    "stagesMs": {
+      "BUBBLE_DETECTION": 70,
+      "OCR": 1004,
+      "CONTEXT_ASSEMBLY": 117,
+      "TRANSLATION": 3352
+    },
+    "timeToFirstBubbleMs": 2185,
+    "totalMs": 4543,
+    "translationCallMs": 3351
+  }
+}

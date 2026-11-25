@@ -1,0 +1,951 @@
+{
+  "appVersion": "1.0",
+  "balloons": [
+    [
+      99.35726,
+      1883.4908,
+      243.48648,
+      2142.3357
+    ],
+    [
+      80.889725,
+      1448.4597,
+      226.55754,
+      1708.4825
+    ],
+    [
+      253.31604,
+      1357.4684,
+      404.36264,
+      1636.868
+    ],
+    [
+      1052.245,
+      1972.1045,
+      1201.4275,
+      2230.583
+    ],
+    [
+      897.2363,
+      2062.5889,
+      1011.93695,
+      2259.8506
+    ],
+    [
+      1019.7905,
+      673.97687,
+      1166.656,
+      882.81165
+    ],
+    [
+      1074.2308,
+      1349.4285,
+      1190.4303,
+      1551.5791
+    ],
+    [
+      942.37665,
+      1491.8956,
+      1058.511,
+      1695.6633
+    ],
+    [
+      322.54877,
+      879.5007,
+      466.97485,
+      1086.8572
+    ],
+    [
+      461.56647,
+      1863.5726,
+      562.31006,
+      2015.1332
+    ],
+    [
+      607.39636,
+      1436.7659,
+      720.12036,
+      1633.947
+    ],
+    [
+      909.44324,
+      856.9302,
+      1044.7637,
+      1044.5593
+    ],
+    [
+      710.5089,
+      2049.8677,
+      808.9276,
+      2219.404
+    ],
+    [
+      752.73193,
+      1731.997,
+      896.0501,
+      1976.2673
+    ],
+    [
+      1103.1654,
+      1754.5464,
+      1187.6063,
+      1907.8114
+    ],
+    [
+      683.8191,
+      1888.2368,
+      770.6896,
+      2007.167
+    ],
+    [
+      440.70563,
+      215.23361,
+      838.3583,
+      336.30652
+    ],
+    [
+      1082.9694,
+      2378.6226,
+      1262.6719,
+      2558.1318
+    ]
+  ],
+  "batchOverflowFallback": false,
+  "bubbles": [
+    {
+      "answered": true,
+      "bounds": [
+        1087.8588,
+        1366.8549,
+        1175.1577,
+        1530.9907
+      ],
+      "id": 1,
+      "ocrConfidence": 0.98701245,
+      "ocrDropped": false,
+      "ocrText": "美人女優である桜野ツバメの交通事故死",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          1074.2308,
+          1349.4285,
+          1190.4303,
+          1551.5791
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.96034336,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 12.5,
+        "rectLines": 6,
+        "shapeBounds": [
+          1082.0,
+          1358.0,
+          1183.0,
+          1546.0
+        ],
+        "shapeSource": "fill_rect",
+        "shapedFontSize": 12.0,
+        "shapedLines": 6,
+        "todayOutcome": "unchanged",
+        "todayRenderBox": [
+          1087.8588,
+          1366.8549,
+          1175.1577,
+          1530.9907
+        ]
+      },
+      "translation": "The death of a traffic accident involving a beauty queen named Sakura Tsubame"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        956.2477,
+        1510.88,
+        1044.1749,
+        1673.8086
+      ],
+      "id": 2,
+      "ocrConfidence": 0.9911653,
+      "ocrDropped": false,
+      "ocrText": "世の中では様々な噂に溢れていますが",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          942.37665,
+          1491.8956,
+          1058.511,
+          1695.6633
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.94800794,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 16.0,
+        "rectLines": 4,
+        "shapeBounds": [
+          950.0,
+          1501.0,
+          1052.0,
+          1689.0
+        ],
+        "shapeSource": "fill_rect",
+        "shapedFontSize": 19.0,
+        "shapedLines": 4,
+        "todayOutcome": "unchanged",
+        "todayRenderBox": [
+          956.2477,
+          1510.88,
+          1044.1749,
+          1673.8086
+        ]
+      },
+      "translation": "There are many rumors in the world"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        1073.5063,
+        1996.0233,
+        1179.3794,
+        2200.6292
+      ],
+      "id": 3,
+      "ocrConfidence": 0.94617313,
+      "ocrDropped": false,
+      "ocrText": "ぶっちゃけ好感度も良くないでしょ?",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          1052.245,
+          1972.1045,
+          1201.4275,
+          2230.583
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.9588792,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 21.25,
+        "rectLines": 3,
+        "shapeBounds": [
+          1061.0,
+          1978.0,
+          1192.0,
+          2221.0
+        ],
+        "shapeSource": "fill_rect",
+        "shapedFontSize": 27.0,
+        "shapedLines": 3,
+        "todayOutcome": "unchanged",
+        "todayRenderBox": [
+          1073.5063,
+          1996.0233,
+          1179.3794,
+          2200.6292
+        ]
+      },
+      "translation": "Are you not popular?"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        117.13788,
+        1908.0472,
+        226.11041,
+        2118.0515
+      ],
+      "id": 4,
+      "ocrConfidence": 0.9887785,
+      "ocrDropped": false,
+      "ocrText": "桜野ツバメさんの死の真相に迫っていきた",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          99.35726,
+          1883.4908,
+          243.48648,
+          2142.3357
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.9638493,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 17.75,
+        "rectLines": 6,
+        "shapeBounds": [
+          107.0,
+          1893.0,
+          237.0,
+          2136.0
+        ],
+        "shapeSource": "fill_rect",
+        "shapedFontSize": 19.0,
+        "shapedLines": 6,
+        "todayOutcome": "unchanged",
+        "todayRenderBox": [
+          117.13788,
+          1908.0472,
+          226.11041,
+          2118.0515
+        ]
+      },
+      "translation": "I want to uncover the truth behind Sakura Tsubame's death"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        618.6522,
+        1464.187,
+        707.41943,
+        1606.3165
+      ],
+      "id": 5,
+      "ocrConfidence": 0.990727,
+      "ocrDropped": false,
+      "ocrText": "皆様はどうお考えですか?",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          607.39636,
+          1436.7659,
+          720.12036,
+          1633.947
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.96340775,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 19.5,
+        "rectLines": 3,
+        "shapeBounds": [
+          615.0,
+          1445.0,
+          712.0,
+          1627.0
+        ],
+        "shapeSource": "fill_rect",
+        "shapedFontSize": 16.0,
+        "shapedLines": 3,
+        "todayOutcome": "unchanged",
+        "todayRenderBox": [
+          618.6522,
+          1464.187,
+          707.41943,
+          1606.3165
+        ]
+      },
+      "translation": "How about everyone's thoughts?"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        472.54453,
+        1880.0981,
+        549.2756,
+        1998.1056
+      ],
+      "id": 6,
+      "ocrConfidence": 0.9848994,
+      "ocrDropped": false,
+      "ocrText": "CMの後は引き続き",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          461.56647,
+          1863.5726,
+          562.31006,
+          2015.1332
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.9491979,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 14.25,
+        "rectLines": 4,
+        "shapeBounds": [
+          467.0,
+          1872.0,
+          555.0,
+          2008.0
+        ],
+        "shapeSource": "fill_rect",
+        "shapedFontSize": 13.0,
+        "shapedLines": 4,
+        "todayOutcome": "unchanged",
+        "todayRenderBox": [
+          472.54453,
+          1880.0981,
+          549.2756,
+          1998.1056
+        ]
+      },
+      "translation": "After the commercial break, we'll continue"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        916.07,
+        2078.976,
+        994.4791,
+        2240.8748
+      ],
+      "id": 7,
+      "ocrConfidence": 0.9842254,
+      "ocrDropped": false,
+      "ocrText": "顔と演技力は確かですけど",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          897.2363,
+          2062.5889,
+          1011.93695,
+          2259.8506
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.9620166,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 16.0,
+        "rectLines": 5,
+        "shapeBounds": [
+          907.0,
+          2071.0,
+          1003.0,
+          2252.0
+        ],
+        "shapeSource": "fill_rect",
+        "shapedFontSize": 16.0,
+        "shapedLines": 5,
+        "todayOutcome": "unchanged",
+        "todayRenderBox": [
+          916.07,
+          2078.976,
+          994.4791,
+          2240.8748
+        ]
+      },
+      "translation": "Your face and acting ability are certainly good"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        726.3156,
+        2065.8953,
+        793.5275,
+        2199.7039
+      ],
+      "id": 8,
+      "ocrConfidence": 0.98501,
+      "ocrDropped": false,
+      "ocrText": "中身が...ねぇ?",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          710.5089,
+          2049.8677,
+          808.9276,
+          2219.404
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.96566856,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 19.5,
+        "rectLines": 3,
+        "shapeBounds": [
+          720.0,
+          2060.0,
+          798.0,
+          2209.0
+        ],
+        "shapeSource": "fill_rect",
+        "shapedFontSize": 20.0,
+        "shapedLines": 3,
+        "todayOutcome": "unchanged",
+        "todayRenderBox": [
+          726.3156,
+          2065.8953,
+          793.5275,
+          2199.7039
+        ]
+      },
+      "translation": "What's the inside?"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        1046.1147,
+        694.04266,
+        1139.2615,
+        858.63135
+      ],
+      "id": 9,
+      "ocrConfidence": 0.99030536,
+      "ocrDropped": false,
+      "ocrText": "後悔だらけのお別れは",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          1019.7905,
+          673.97687,
+          1166.656,
+          882.81165
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.80564,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 19.5,
+        "rectLines": 3,
+        "shapeBounds": [
+          1029.0,
+          685.0,
+          1155.0,
+          873.0
+        ],
+        "shapeSource": "fill_ellipse",
+        "shapedFontSize": 15.0,
+        "shapedLines": 3,
+        "todayOutcome": "unchanged",
+        "todayRenderBox": [
+          1046.1147,
+          694.04266,
+          1139.2615,
+          858.63135
+        ]
+      },
+      "translation": "A heart-wrenching goodbye"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        276.20547,
+        1380.0089,
+        378.70197,
+        1607.5208
+      ],
+      "id": 10,
+      "ocrConfidence": 0.9896598,
+      "ocrDropped": false,
+      "ocrText": "誰かに殺されたという噂も立っていますよね",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          253.31604,
+          1357.4684,
+          404.36264,
+          1636.868
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.96417576,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 17.75,
+        "rectLines": 5,
+        "shapeBounds": [
+          261.0,
+          1367.0,
+          397.0,
+          1625.0
+        ],
+        "shapeSource": "fill_rect",
+        "shapedFontSize": 22.0,
+        "shapedLines": 5,
+        "todayOutcome": "unchanged",
+        "todayRenderBox": [
+          276.20547,
+          1380.0089,
+          378.70197,
+          1607.5208
+        ]
+      },
+      "translation": "There's also a rumor that someone was killed"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        772.91077,
+        1749.218,
+        871.0797,
+        1951.984
+      ],
+      "id": 11,
+      "ocrConfidence": 0.9877141,
+      "ocrDropped": false,
+      "ocrText": "まぁいわゆる枕とか...新人潰しとかですね",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          752.73193,
+          1731.997,
+          896.0501,
+          1976.2673
+        ],
+        "drawn": "shaped",
+        "fillRatio": null,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 16.0,
+        "rectLines": 6,
+        "shapeBounds": [
+          761.33105,
+          1746.6532,
+          887.45105,
+          1961.6111
+        ],
+        "shapeSource": "balloon_ellipse",
+        "shapedFontSize": 18.0,
+        "shapedLines": 5,
+        "todayOutcome": "reach",
+        "todayRenderBox": [
+          772.91077,
+          1749.218,
+          871.0797,
+          1951.984
+        ]
+      },
+      "translation": "It's just a rumor about a pillow fight or a rookie's dismissal"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        102.153435,
+        1474.6627,
+        204.10132,
+        1683.7014
+      ],
+      "id": 12,
+      "ocrConfidence": 0.991357,
+      "ocrDropped": false,
+      "ocrText": "彼女は芸能界の中でも変わり者でしたから",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          80.889725,
+          1448.4597,
+          226.55754,
+          1708.4825
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.9654627,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 19.5,
+        "rectLines": 5,
+        "shapeBounds": [
+          88.0,
+          1458.0,
+          219.0,
+          1704.0
+        ],
+        "shapeSource": "fill_rect",
+        "shapedFontSize": 16.0,
+        "shapedLines": 5,
+        "todayOutcome": "unchanged",
+        "todayRenderBox": [
+          102.153435,
+          1474.6627,
+          204.10132,
+          1683.7014
+        ]
+      },
+      "translation": "She was a renegade in the entertainment industry"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        935.3332,
+        875.8232,
+        1021.51526,
+        1021.5204
+      ],
+      "id": 13,
+      "ocrConfidence": 0.9885766,
+      "ocrDropped": false,
+      "ocrText": "寂しいもんですよねぇ",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          909.44324,
+          856.9302,
+          1044.7637,
+          1044.5593
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.7820769,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 19.5,
+        "rectLines": 3,
+        "shapeBounds": [
+          918.0,
+          869.0,
+          1035.0,
+          1036.0
+        ],
+        "shapeSource": "fill_ellipse",
+        "shapedFontSize": 21.0,
+        "shapedLines": 3,
+        "todayOutcome": "grown",
+        "todayRenderBox": [
+          935.1405,
+          875.8232,
+          1021.51526,
+          1021.5204
+        ]
+      },
+      "translation": "It's filled with sadness"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        355.7157,
+        902.71027,
+        437.74817,
+        1064.8477
+      ],
+      "id": 14,
+      "ocrConfidence": 0.98719937,
+      "ocrDropped": false,
+      "ocrText": "らっしゃい!",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          322.54877,
+          879.5007,
+          466.97485,
+          1086.8572
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.77807325,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 33.5,
+        "rectLines": 2,
+        "shapeBounds": [
+          333.0,
+          891.0,
+          457.0,
+          1076.0
+        ],
+        "shapeSource": "fill_ellipse",
+        "shapedFontSize": 36.0,
+        "shapedLines": 2,
+        "todayOutcome": "grown",
+        "todayRenderBox": [
+          351.16602,
+          902.71027,
+          438.83398,
+          1064.8477
+        ]
+      },
+      "translation": "Let's go!"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        696.6897,
+        1899.8623,
+        757.532,
+        1994.7224
+      ],
+      "id": 15,
+      "ocrConfidence": 0.9930974,
+      "ocrDropped": false,
+      "ocrText": "あくまで噂ですが",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          683.8191,
+          1888.2368,
+          770.6896,
+          2007.167
+        ],
+        "drawn": "shaped",
+        "fillRatio": null,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 16.0,
+        "rectLines": 3,
+        "shapeBounds": [
+          689.0313,
+          1895.3727,
+          765.47736,
+          2000.0311
+        ],
+        "shapeSource": "balloon_ellipse",
+        "shapedFontSize": 16.0,
+        "shapedLines": 2,
+        "todayOutcome": "unchanged",
+        "todayRenderBox": [
+          696.6897,
+          1899.8623,
+          757.532,
+          1994.7224
+        ]
+      },
+      "translation": "It's just a rumor"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        1119.9612,
+        1768.541,
+        1169.166,
+        1887.813
+      ],
+      "id": 16,
+      "ocrConfidence": 0.9888687,
+      "ocrDropped": false,
+      "ocrText": "というと?",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": [
+          1103.1654,
+          1754.5464,
+          1187.6063,
+          1907.8114
+        ],
+        "drawn": "shaped",
+        "fillRatio": 0.9572903,
+        "label": "text_bubble",
+        "noShapeReason": null,
+        "rectFontSize": 19.5,
+        "rectLines": 3,
+        "shapeBounds": [
+          1111.0,
+          1765.0,
+          1180.0,
+          1897.0
+        ],
+        "shapeSource": "fill_rect",
+        "shapedFontSize": 21.0,
+        "shapedLines": 3,
+        "todayOutcome": "grown",
+        "todayRenderBox": [
+          1119.9612,
+          1768.541,
+          1169.8915,
+          1887.813
+        ]
+      },
+      "translation": "What about it?"
+    },
+    {
+      "answered": false,
+      "bounds": [
+        142.33946,
+        2603.3386,
+        284.30087,
+        2780.9329
+      ],
+      "id": 19,
+      "ocrConfidence": null,
+      "ocrDropped": true,
+      "ocrText": "Share",
+      "skipped": false,
+      "sourceText": null,
+      "spike": {
+        "balloonBox": null,
+        "drawn": null,
+        "fillRatio": null,
+        "label": "text_free",
+        "noShapeReason": "no-host",
+        "rectFontSize": null,
+        "rectLines": null,
+        "shapeBounds": null,
+        "shapeSource": null,
+        "shapedFontSize": null,
+        "shapedLines": null,
+        "todayOutcome": "unchanged",
+        "todayRenderBox": [
+          142.33946,
+          2603.3386,
+          284.30087,
+          2780.9329
+        ]
+      },
+      "translation": null
+    }
+  ],
+  "device": "Google sdk_gphone16k_arm64",
+  "errorCode": null,
+  "outcome": "SUCCESS",
+  "pageHeight": 2856,
+  "pageWidth": 1280,
+  "readingOrder": [
+    9,
+    13,
+    14,
+    1,
+    2,
+    5,
+    10,
+    12,
+    16,
+    3,
+    7,
+    11,
+    8,
+    15,
+    6,
+    4,
+    19
+  ],
+  "recalled": false,
+  "settings": {
+    "detectionModel": "rtdetr_v4s_v1",
+    "detectionThreshold": 0.25,
+    "fontScale": 1.0,
+    "generation": {
+      "lineExcludesIdBracket": true,
+      "maxTokens": 256,
+      "penaltyFreq": 0.0,
+      "penaltyLastN": 64,
+      "penaltyPresent": 0.0,
+      "penaltyRepeat": 1.0,
+      "seed": -1,
+      "temperature": 0.2,
+      "topK": 40,
+      "topP": 0.9
+    },
+    "glossary": [],
+    "ocrModel": "hayai_ocr_v2.7",
+    "runtime": {
+      "contextTokens": 2048,
+      "threads": 4
+    },
+    "serverModel": null,
+    "targetLanguage": "ENGLISH",
+    "translationModel": "qwen25_1.5b_instruct_v1",
+    "translator": "on-device"
+  },
+  "timings": {
+    "stagesMs": {
+      "BUBBLE_DETECTION": 68,
+      "OCR": 1192,
+      "CONTEXT_ASSEMBLY": 167,
+      "TRANSLATION": 3404
+    },
+    "timeToFirstBubbleMs": 2494,
+    "totalMs": 4831,
+    "translationCallMs": 3401
+  }
+}

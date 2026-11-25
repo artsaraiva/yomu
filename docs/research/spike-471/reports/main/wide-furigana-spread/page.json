@@ -1,0 +1,290 @@
+{
+  "appVersion": "1.0",
+  "batchOverflowFallback": false,
+  "bubbles": [
+    {
+      "answered": true,
+      "bounds": [
+        416.71832,
+        1551.5253,
+        557.7891,
+        1689.2285
+      ],
+      "id": 1,
+      "ocrConfidence": 0.9881334,
+      "ocrDropped": false,
+      "ocrText": "樺山武美の死の瞬間を目撃した者が名乗り出てくれてね",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "Someone who witnessed Kojima Yuko's death would please come forward"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        781.3459,
+        1098.5686,
+        864.88916,
+        1294.2517
+      ],
+      "id": 2,
+      "ocrConfidence": 0.98934317,
+      "ocrDropped": false,
+      "ocrText": "お前さんも何も悪くなくて",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "You're not any worse than me either"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        38.675175,
+        1019.1031,
+        133.0545,
+        1124.9445
+      ],
+      "id": 3,
+      "ocrConfidence": 0.9902783,
+      "ocrDropped": false,
+      "ocrText": "カマを掛けてる...ってことですか",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "I'm carrying a stick... isn't that what you mean?"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        680.963,
+        1516.164,
+        837.5345,
+        1721.4293
+      ],
+      "id": 4,
+      "ocrConfidence": 0.9856536,
+      "ocrDropped": false,
+      "ocrText": "樺山武美の死が不幸な事故死だったとしたら...?",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "If Kojima Yuko's death was a tragic accident..."
+    },
+    {
+      "answered": true,
+      "bounds": [
+        158.41469,
+        1561.5345,
+        243.153,
+        1714.0955
+      ],
+      "id": 5,
+      "ocrConfidence": 0.9887773,
+      "ocrDropped": false,
+      "ocrText": "こういう物的証拠に乏しい事件では",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "In cases like this, where there are no physical evidence..."
+    },
+    {
+      "answered": true,
+      "bounds": [
+        869.23676,
+        1043.3284,
+        920.7962,
+        1202.7152
+      ],
+      "id": 6,
+      "ocrConfidence": 0.98926616,
+      "ocrDropped": false,
+      "ocrText": "沢井善雄も",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "Kajiwara Shun'ichi also..."
+    },
+    {
+      "answered": true,
+      "bounds": [
+        293.93033,
+        1544.0157,
+        350.14478,
+        1642.8038
+      ],
+      "id": 7,
+      "ocrConfidence": 0.9900115,
+      "ocrDropped": false,
+      "ocrText": "幸運だったよ",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "It was lucky"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        96.56231,
+        1688.4222,
+        167.45404,
+        1844.8984
+      ],
+      "id": 8,
+      "ocrConfidence": 0.9904111,
+      "ocrDropped": false,
+      "ocrText": "目撃者の証言は貴重だから",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "The testimony of the eyewitnesses is valuable, so..."
+    },
+    {
+      "answered": true,
+      "bounds": [
+        955.37854,
+        1039.0443,
+        1034.8004,
+        1212.3267
+      ],
+      "id": 9,
+      "ocrConfidence": 0.9894331,
+      "ocrDropped": false,
+      "ocrText": "は...?",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "Are you...?"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        117.385574,
+        1272.7802,
+        213.10492,
+        1397.1688
+      ],
+      "id": 10,
+      "ocrConfidence": 0.98932123,
+      "ocrDropped": false,
+      "ocrText": "試すならもう少し上手く...",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "Try harder, please..."
+    },
+    {
+      "answered": true,
+      "bounds": [
+        498.4818,
+        1207.843,
+        562.8867,
+        1337.1506
+      ],
+      "id": 11,
+      "ocrConfidence": 0.98674464,
+      "ocrDropped": false,
+      "ocrText": "その手には乗りませんよ",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "You can't even ride that hand"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        52.52605,
+        1390.635,
+        116.45779,
+        1490.0962
+      ],
+      "id": 13,
+      "ocrConfidence": 0.98962283,
+      "ocrDropped": false,
+      "ocrText": "実は",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "Actually"
+    },
+    {
+      "answered": true,
+      "bounds": [
+        304.41562,
+        998.635,
+        343.90674,
+        1071.6182
+      ],
+      "id": 14,
+      "ocrConfidence": 0.98886824,
+      "ocrDropped": false,
+      "ocrText": "...ああ",
+      "skipped": false,
+      "sourceText": null,
+      "translation": "...ah"
+    },
+    {
+      "answered": false,
+      "bounds": [
+        148.90964,
+        2606.4045,
+        279.28128,
+        2781.0332
+      ],
+      "id": 15,
+      "ocrConfidence": null,
+      "ocrDropped": true,
+      "ocrText": "Share",
+      "skipped": false,
+      "sourceText": null,
+      "translation": null
+    },
+    {
+      "answered": false,
+      "bounds": [
+        589.095,
+        2610.9377,
+        691.95874,
+        2774.9592
+      ],
+      "id": 18,
+      "ocrConfidence": null,
+      "ocrDropped": true,
+      "ocrText": "o—o Edit",
+      "skipped": false,
+      "sourceText": null,
+      "translation": null
+    }
+  ],
+  "device": "Google sdk_gphone16k_arm64",
+  "errorCode": null,
+  "outcome": "SUCCESS",
+  "pageHeight": 2856,
+  "pageWidth": 1280,
+  "recalled": false,
+  "settings": {
+    "detectionModel": "rtdetr_v4s_v1",
+    "detectionThreshold": 0.25,
+    "fontScale": 1.0,
+    "generation": {
+      "lineExcludesIdBracket": true,
+      "maxTokens": 256,
+      "penaltyFreq": 0.0,
+      "penaltyLastN": 64,
+      "penaltyPresent": 0.0,
+      "penaltyRepeat": 1.0,
+      "seed": -1,
+      "temperature": 0.2,
+      "topK": 40,
+      "topP": 0.9
+    },
+    "glossary": [],
+    "ocrModel": "hayai_ocr_v2.7",
+    "runtime": {
+      "contextTokens": 2048,
+      "threads": 4
+    },
+    "serverModel": null,
+    "targetLanguage": "ENGLISH",
+    "translationModel": "qwen25_1.5b_instruct_v1",
+    "translator": "on-device"
+  },
+  "timings": {
+    "stagesMs": {
+      "BUBBLE_DETECTION": 68,
+      "OCR": 992,
+      "CONTEXT_ASSEMBLY": 60,
+      "TRANSLATION": 2758
+    },
+    "timeToFirstBubbleMs": 1968,
+    "totalMs": 3878,
+    "translationCallMs": 2757
+  }
+}

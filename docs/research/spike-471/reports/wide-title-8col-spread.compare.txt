@@ -1,0 +1,54 @@
+A=main/wide-title-8col-spread (13 bubbles)  B=spike/wide-title-8col-spread (13 bubbles)
+[880,1531,995,1677]      same OCR
+  A #1 'お前は石鳥たちを基準に考えたんだろうけど...' p=0.990 -> 'You thought you were basing it on the Stone Birds, right?'
+  B #1 'お前は石鳥たちを基準に考えたんだろうけど...' p=0.990 -> 'You thought about the birds of prey when you were thinking about them.'
+    text_bubble today=unchanged fill_rect fill=0.90 rect=12px/5l shaped=15px/6l drawn=shaped
+[1027,1433,1134,1586]    same OCR
+  A #2 'しかもあいつは初対面だぞ!?やっぱりとばしすぎだ!!' p=0.987 -> "And he's the one who's never met before! It's like he's being too presumptuous..."
+  B #2 'しかもあいつは初対面だぞ!?やっぱりとばしすぎだ!!' p=0.987 -> "And that person is still the first time! It's like they're being too casual!"
+    text_bubble today=reach balloon_ellipse rect=12px/6l shaped=14px/6l drawn=shaped
+[697,1553,822,1678]      same OCR
+  A #3 'あいつらはあいつらで異常なこと忘れてねぇか...!!' p=0.989 -> "They can't forget that they are different from each other..."
+  B #4 'あいつらはあいつらで異常なこと忘れてねぇか...!!' p=0.989 -> "They can't forget that they're different from each other!"
+    text_bubble today=unchanged fill_ellipse fill=0.87 rect=12px/4l shaped=15px/4l drawn=shaped
+[1148,1419,1268,1563]    same OCR
+  A #4 '無言で着替えまくってるだけで何が伝わるんだよ!!' p=0.983 -> 'Just by changing clothes without saying anything, what does that convey?'
+  B #3 '無言で着替えまくってるだけで何が伝わるんだよ!!' p=0.983 -> "I don't understand what's being communicated just by changing clothes in silence!"
+    text_bubble today=reach balloon_ellipse rect=14px/5l shaped=13px/7l drawn=shaped
+[23,1245,131,1382]       same OCR
+  A #5 'どうしよう...笑わせるのってこんなに難しいのか...!?' p=0.990 -> 'How can I... make them laugh like this? This is so difficult...'
+  B #5 'どうしよう...笑わせるのってこんなに難しいのか...!?' p=0.989 -> "What should I do...? It's so hard to make them laugh!"
+    text_bubble today=unchanged fill_ellipse fill=0.80 rect=14px/4l shaped=17px/5l drawn=shaped
+[252,992,388,1152]       same OCR
+  A #6 '最近悪魔ちゃんが受け入れられてるせいか...その前提を忘れてしまっていた...!?' p=0.985 -> 'Because of the recent acceptance of the Evil Girl, I had forgotten the premise...'
+  B #6 '最近悪魔ちゃんが受け入れられてるせいか...その前提を忘れてしまっていた...!?' p=0.985 -> "Recently, I've forgotten the premise that the demon girl accepted us."
+    text_bubble today=unchanged balloon_ellipse rect=16px/5l shaped=17px/5l drawn=shaped
+[445,991,577,1144]       same OCR
+  A #7 '皆が皆好奇心の目で見てくれるとは限らない...' p=0.991 -> "It's not possible for everyone to see it with the same curiosity..."
+  B #7 '皆が皆好奇心の目で見てくれるとは限らない...' p=0.991 -> "It's not uncommon for everyone to look at it with curiosity."
+    text_bubble today=unchanged balloon_ellipse rect=16px/5l shaped=18px/5l drawn=shaped
+[723,1749,820,1865]      same OCR
+  A #8 'し...しまった...!!' p=0.990 -> '...I failed...'
+  B #8 'し...しまった...!!' p=0.990 -> "I... I... I'm sorry...!"
+    text_bubble today=grown fill_ellipse fill=0.78 rect=20px/2l shaped=24px/2l drawn=shaped
+[103,1001,189,1124]      same OCR
+  A #9 'しかも愛森さんは状況が状況...' p=0.989 -> "And even when it comes to the situation, it's not just about the situation..."
+  B #9 'しかも愛森さんは状況が状況...' p=0.988 -> "And even though it's a situation, it's still the same."
+    text_bubble today=grown fill_ellipse fill=0.80 rect=12px/4l shaped=15px/5l drawn=shaped
+[1133,983,1221,1145]     same OCR
+  A #10 'ついてこれてない!?' p=0.989 -> "You're not paying attention!"
+  B #10 'ついてこれてない!?' p=0.989 -> "You're not following up on that!"
+    text_bubble today=grown fill_ellipse fill=0.78 rect=20px/4l shaped=22px/3l drawn=shaped
+[737,1089,809,1318]      same OCR
+  A #11 '当たり前だろ!!' p=0.990 -> 'Of course!'
+  B #11 '当たり前だろ!!' p=0.990 -> 'Of course!'
+    text_bubble today=grown fill_ellipse fill=0.81 rect=25px/2l shaped=36px/2l drawn=shaped
+[119,1461,209,1578]      same OCR
+  A #12 'じゃあ一体どうすれば...!!' p=0.988 -> 'So, how can I...?'
+  B #12 'じゃあ一体どうすれば...!!' p=0.988 -> 'So, what should I do...?'
+    text_bubble today=grown fill_ellipse fill=0.78 rect=20px/3l shaped=22px/3l drawn=shaped
+[144,2605,284,2783]      same OCR
+  A #16 'Share' (dropped) -> None
+  B #16 'Share' (dropped) -> None
+    text_free today=unchanged no shape (no-host) rect=- shaped=- drawn=None
+B prompt order: [10, 11, 7, 6, 9, 5, 3, 2, 1, 4, 12, 8, 16]
