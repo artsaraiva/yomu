@@ -20,6 +20,8 @@ internal data class PatchGrid(val rows: Int, val columns: Int) {
         private const val MAX_TIER = 192
         private const val MIN_PATCHES = 64
         private const val MAX_SCALE = 4.0
+        private const val SEARCH_STEP = 1e-5
+        private const val UPSCALE_CEILING = 100.0
 
         /** The grid for a crop of [height] × [width] pixels. */
         fun of(height: Int, width: Int): PatchGrid = fit(height, width, min(autoTier(height, width), MAX_TIER))
@@ -76,8 +78,5 @@ internal data class PatchGrid(val rows: Int, val columns: Int) {
             }
             return 256
         }
-
-        private const val SEARCH_STEP = 1e-5
-        private const val UPSCALE_CEILING = 100.0
     }
 }

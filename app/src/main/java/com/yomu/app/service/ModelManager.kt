@@ -59,8 +59,8 @@ class ModelManager @Inject constructor(
     suspend fun getModelsByType(type: ModelType): List<ModelEntity> = modelDao.getModelsByType(type.name)
 
     companion object {
-        // Hayai's smallest ONNX set at a pinned revision; all four files come from it (#510).
-        private const val HAYAI_REVISION =
+        // Where Hayai's smallest ONNX set lives at its pinned revision; all four files come from it (#510).
+        private const val HAYAI_FILES_URL =
             "https://huggingface.co/JustANormalTinkerer/hayai-ocr-v2.7-supernova-onnx/resolve/bc1e39f962b6c500a4855bd8eb4e02f11483bedb"
 
         /** Every model Yomu ships. [refreshModelList] upserts these rows; plain data so JVM tests can read it. */
@@ -83,7 +83,7 @@ class ModelManager @Inject constructor(
                 type = ModelType.OCR,
                 fileName = Constants.OCR_PREFILL_MODEL,
                 fileSize = 137_923_271L,
-                downloadUrl = "$HAYAI_REVISION/hayai_prefill_int4.onnx",
+                downloadUrl = "$HAYAI_FILES_URL/hayai_prefill_int4.onnx",
                 checksum = "ddb1699aa3a711e06cd1756c7adccb65c2a682720090eff6061ff14e0ace173f",
                 status = ModelStatus.AVAILABLE,
                 version = "1.0",
@@ -351,19 +351,19 @@ class ModelManager @Inject constructor(
             Constants.HAYAI_OCR_MODEL_ID -> listOf(
                 AdditionalFile(
                     fileName = Constants.OCR_DECODE_MODEL,
-                    url = "$HAYAI_REVISION/hayai_decode_int8.onnx",
+                    url = "$HAYAI_FILES_URL/hayai_decode_int8.onnx",
                     checksum = "d753e4234d4b271782b16f5fa29b30ab0ddd62467f9070b3646a1c01f4c1286f",
                     size = 87_761_567L
                 ),
                 AdditionalFile(
                     fileName = Constants.OCR_TOKENIZER_FILE,
-                    url = "$HAYAI_REVISION/tokenizer.json",
+                    url = "$HAYAI_FILES_URL/tokenizer.json",
                     checksum = "f8a0a909c628a684fe463094614e236a8b1d3609e7770f77e7beafaf1056bf13",
                     size = 1_247_253L
                 ),
                 AdditionalFile(
                     fileName = Constants.OCR_POSITIONS_FILE,
-                    url = "$HAYAI_REVISION/pos_embedding.npy",
+                    url = "$HAYAI_FILES_URL/pos_embedding.npy",
                     checksum = "39f018f1ad06c8183d0eaa1531186b7241706678304f1bf50814604211ac1039",
                     size = 786_560L
                 )

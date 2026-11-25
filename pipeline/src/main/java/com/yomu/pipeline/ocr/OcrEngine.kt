@@ -25,6 +25,7 @@ class OcrEngine(private val onnxRuntime: OnnxRuntime) {
         // cap, this gate drops 52 of 7,789 reads, 42 of them wrong; 0.90 drops 46 more wrong and 31 more right, and the
         // lowest token probability separates no better (#510). Art reads as "...", which readsAsJapanese drops.
         const val MIN_CONFIDENCE = 0.85f
+        // From hayai_onnx_config.json at the pinned revision; a new pin must re-check them.
         private const val BOS_TOKEN_ID = 16001L
         private const val EOS_TOKEN_ID = 16002
         private const val PAD_TOKEN_ID = 16000

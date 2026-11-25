@@ -106,7 +106,9 @@ class OnnxRuntime(private val context: Context) {
             "l_vis_arange" to OnnxTensor.createTensor(env, LongBuffer.wrap(LongArray(visionTokens) { it.toLong() }), longArrayOf(visionTokens.toLong()))
         )
         return try {
-            HayaiDecode(env, decode, prefill.run(inputs))
+            val result = prefill.run(inputs)
+            // The decode owns the prefill's result from here; if it cannot start, nothing else will close it.
+            runCatching { HayaiDecode(env, decode, result) }.getOrElse { result.close(); throw it }
         } catch (e: Exception) {
             Log.e(TAG, "Hayai prefill failed for $prefillPath: ${e.message}", e)
             null

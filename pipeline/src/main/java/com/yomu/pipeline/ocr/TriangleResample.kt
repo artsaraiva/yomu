@@ -25,11 +25,6 @@ internal fun triangleTaps(outputs: Int, inputs: Int): Array<TriangleTap> {
     }
 }
 
-/** [triangleTaps] spread to full rows, one per output, for reading the weights whole. */
-internal fun triangleWeights(outputs: Int, inputs: Int): Array<FloatArray> = triangleTaps(outputs, inputs).map { tap ->
-    FloatArray(inputs).also { tap.weights.copyInto(it, tap.first) }
-}.toTypedArray()
-
 /**
  * [pixels], ARGB of [width] × [height], resized to [toWidth] × [toHeight] with [triangleTaps]: across, rounded to
  * bytes, then down, as PIL does. Alpha is dropped to opaque.

@@ -8,11 +8,11 @@ class TriangleResampleTest {
 
     @Test
     fun `upsampling interpolates between neighbouring samples`() {
-        val weights = triangleWeights(outputs = 3, inputs = 2)
+        val taps = triangleTaps(outputs = 3, inputs = 2).map { tap -> FloatArray(2).also { tap.weights.copyInto(it, tap.first) } }
 
-        assertArrayEquals(floatArrayOf(1f, 0f), weights[0], 1e-4f)
-        assertArrayEquals(floatArrayOf(0.5f, 0.5f), weights[1], 1e-4f)
-        assertArrayEquals(floatArrayOf(0f, 1f), weights[2], 1e-4f)
+        assertArrayEquals(floatArrayOf(1f, 0f), taps[0], 1e-4f)
+        assertArrayEquals(floatArrayOf(0.5f, 0.5f), taps[1], 1e-4f)
+        assertArrayEquals(floatArrayOf(0f, 1f), taps[2], 1e-4f)
     }
 
     @Test
