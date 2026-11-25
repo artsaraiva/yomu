@@ -194,14 +194,14 @@ class TranslationRenderOverlay(
         val by = mappedBounds.top
         val bw = mappedBounds.width()
         val bh = mappedBounds.height()
-        val radius = minOf(bw, bh) * 0.12f
+        val outline = bubbleOutline(bubble, mappedBounds, params)
 
         paint.isAntiAlias = true
         paint.color = bubble.backgroundColor
-        canvas.drawRoundRect(bx, by, bx + bw, by + bh, radius, radius, paint)
+        canvas.drawPath(outline, paint)
 
         val saveCount = canvas.save()
-        canvas.clipRect(bx, by, bx + bw, by + bh)
+        canvas.clipPath(outline)
 
         paint.color = bubble.textColor
         // The box is mapped into canvas space; the typeset size has to follow it or text that

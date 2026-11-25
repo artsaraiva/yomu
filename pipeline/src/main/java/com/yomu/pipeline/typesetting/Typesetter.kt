@@ -2,7 +2,11 @@ package com.yomu.pipeline.typesetting
 
 import android.graphics.Paint
 import android.graphics.Typeface
+import com.yomu.pipeline.bubble.BalloonShape
+import com.yomu.pipeline.bubble.RenderArea
 import com.yomu.pipeline.translation.TranslatedBubble
+import kotlin.math.abs
+import kotlin.math.sqrt
 
 data class TypesetBubble(
     val bubbleId: Int,
@@ -12,7 +16,11 @@ data class TypesetBubble(
     val textLines: List<String>,
     val boundingBox: FloatArray,
     val backgroundColor: Int = 0xF0FFFFFF.toInt(),
-    val textColor: Int = 0xFF000000.toInt()
+    val textColor: Int = 0xFF000000.toInt(),
+    /** The balloon interior the lines follow, null for a plain box; its bounds are [boundingBox]. */
+    val shape: BalloonShape? = null,
+    /** The glyph box, painted with [shape] so the Japanese stays hidden where an oval is narrower. */
+    val coverBox: FloatArray? = null
 ) {
     // Typesetting fits the box against this height, so rendering has to draw with it too.
     val lineHeight: Float get() = fontSize * LINE_HEIGHT_RATIO
@@ -33,6 +41,8 @@ class Typesetter(var fontSizeScale: Float = 1.0f) {
         // CJK punctuation, kana and ideographs all sit at or above U+3000.
         private const val CJK_START = 0x3000
         private const val PADDING = 0.1f
+        // An ellipse is the interior itself, not a box inside it, so its lines need less margin.
+        private const val ELLIPSE_PADDING = 0.06f
         // Fixed growth budget, take page bounds into the Typesetter if bubbles need
         // to grow against real page room rather than a multiple of their own box.
         private const val MAX_BOX_GROWTH = 3f
@@ -73,6 +83,77 @@ class Typesetter(var fontSizeScale: Float = 1.0f) {
                 boundingBox = grownBounds(bounds, maxWidth, textHeight)
             )
         }
+    }
+
+    /**
+     * Typesets [translation] into [area]: lines shaped to its balloon when that gives a larger font
+     * than today's rectangle, the rectangle otherwise, so no bubble's font shrinks.
+     */
+    fun typeset(translation: TranslatedBubble, area: RenderArea): TypesetBubble {
+        val rect = typeset(listOf(translation), mapOf(translation.bubbleId to area.box)).single()
+        return largerFont(rect, area.shape?.let { typesetShaped(translation, it, area.glyphBox) })
+    }
+
+    /**
+     * Lines inside [shape]: an ellipse gives each line the chord at its band's outer edge, a
+     * rectangle its full padded width. Font sizes go from the largest down and, per size, line
+     * counts from one up; the first fit wins. Null when nothing fits at the smallest size.
+     */
+    private fun typesetShaped(translation: TranslatedBubble, shape: BalloonShape, coverBox: FloatArray): TypesetBubble? {
+        val cleaned = cleanText(translation.translatedText)
+        if (cleaned.isEmpty()) return null
+        val bounds = shape.bounds
+        val pad = if (shape.ellipse) ELLIPSE_PADDING else PADDING
+        val a = (bounds[2] - bounds[0]) / 2f * (1 - pad * 2)
+        val b = (bounds[3] - bounds[1]) / 2f * (1 - pad * 2)
+        // Sizes are final sizes, the reader's scale already applied, so the lines are measured as drawn.
+        val largest = (MAX_FONT_SIZE * fontSizeScale).coerceIn(MIN_FONT_SIZE, MAX_FONT_SIZE * 2f)
+        val smallest = (MIN_FONT_SIZE * fontSizeScale).coerceIn(MIN_FONT_SIZE, MAX_FONT_SIZE * 2f)
+        var size = largest
+        while (size >= smallest) {
+            val lh = lineHeight(size)
+            for (n in 1..(2 * b / lh).toInt()) {
+                val widths = FloatArray(n) { i ->
+                    if (!shape.ellipse) return@FloatArray 2 * a
+                    val top = -n * lh / 2f + i * lh
+                    val d = maxOf(abs(top), abs(top + lh))
+                    if (d >= b) 0f else 2 * a * sqrt(1 - (d / b) * (d / b))
+                }
+                val lines = wrapInto(cleaned, widths, size) ?: continue
+                return TypesetBubble(
+                    bubbleId = translation.bubbleId,
+                    translatedText = cleaned,
+                    originalText = translation.originalText,
+                    fontSize = size,
+                    textLines = lines,
+                    boundingBox = bounds,
+                    shape = shape,
+                    coverBox = coverBox
+                )
+            }
+            size -= 1f
+        }
+        return null
+    }
+
+    /** Greedy wrap into exactly the given line widths; null when a word overruns its line or the lines run out. */
+    private fun wrapInto(text: String, widths: FloatArray, fontSize: Float): List<String>? {
+        paint.textSize = fontSize
+        val lines = mutableListOf<String>()
+        var current = ""
+        for (word in text.split(" ")) {
+            val test = if (current.isEmpty()) word else "$current $word"
+            if (paint.measureText(test) <= widths[lines.size]) {
+                current = test
+                continue
+            }
+            if (current.isEmpty()) return null
+            lines.add(current)
+            if (lines.size >= widths.size || paint.measureText(word) > widths[lines.size]) return null
+            current = word
+        }
+        if (current.isNotEmpty()) lines.add(current)
+        return lines
     }
 
     private fun cleanText(text: String): String =
@@ -180,3 +261,7 @@ class Typesetter(var fontSizeScale: Float = 1.0f) {
         return kept + ELLIPSIS
     }
 }
+
+/** [shaped] when its font is larger than [rect]'s, [rect] otherwise. */
+internal fun largerFont(rect: TypesetBubble, shaped: TypesetBubble?): TypesetBubble =
+    if (shaped != null && shaped.fontSize > rect.fontSize) shaped else rect

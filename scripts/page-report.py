@@ -19,6 +19,7 @@ from __future__ import annotations
 import io
 import json
 import re
+import statistics
 import subprocess
 import sys
 import time
@@ -183,7 +184,30 @@ def describe(bubble: dict | None) -> str:
     confidence = bubble.get("ocrConfidence")
     score = "" if confidence is None else f" p={confidence:.3f}" + (" SKIPPED" if bubble["skipped"] else "")
     dropped = " (dropped)" if bubble.get("ocrDropped") else ""
-    return f"#{bubble['id']} {bubble['ocrText']!r}{score}{dropped} -> {bubble['translation']!r}"
+    return f"#{bubble['id']} {bubble['ocrText']!r}{score}{dropped} -> {bubble['translation']!r}{layout(bubble)}"
+
+
+def layout(bubble: dict) -> str:
+    """Font size, line count and shape of the drawn translation; reports from before #529 have none."""
+    typeset = bubble.get("typeset")
+    if not typeset:
+        return ""
+    cut = " ELLIPSIZED" if ellipsized(typeset) else ""
+    return f" [{typeset['fontSize']:.0f}px {len(typeset['lines'])}l {typeset['shape'] or 'rect'}{cut}]"
+
+
+def ellipsized(typeset: dict) -> bool:
+    return bool(typeset["lines"]) and typeset["lines"][-1].endswith("\u2026")
+
+
+def summary(page: dict) -> str:
+    drawn = [b["typeset"] for b in page["bubbles"] if b.get("typeset")]
+    if not drawn:
+        return "no typeset recorded"
+    sizes = [t["fontSize"] for t in drawn]
+    cut = sum(ellipsized(t) for t in drawn)
+    return (f"median font {statistics.median(sizes):.1f}px, {cut} ellipsized, "
+            f"typeset {page['timings'].get('typesetMs', '-')} ms")
 
 
 def bounds(bubble: dict) -> str:
@@ -219,6 +243,7 @@ def compare(first: Path, second: Path) -> None:
         print(f"{bounds(bubble):24} {status}\n  A {describe(bubble)}\n  B {describe(twin)}")
     for bubble in unmatched:
         print(f"{bounds(bubble):24} ONLY IN B\n  A -\n  B {describe(bubble)}")
+    print(f"A: {summary(load(first))}\nB: {summary(load(second))}")
 
 
 def main(args: list[str]) -> None:

@@ -10,9 +10,11 @@ import com.yomu.core.TargetLanguage
 import com.yomu.core.TranslationOutcome
 import com.yomu.pipeline.PipelineResult
 import com.yomu.pipeline.TranslationPipeline.Stage
+import com.yomu.pipeline.bubble.BalloonShape
 import com.yomu.pipeline.ocr.OcrResult
 import com.yomu.pipeline.translation.TranslatedBubble
 import com.yomu.pipeline.translation.TranslationResult
+import com.yomu.pipeline.typesetting.TypesetBubble
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -59,7 +61,8 @@ class PageReportTest {
         ),
         bubbleBounds = bounds,
         reads = reads,
-        droppedReads = droppedReads
+        droppedReads = droppedReads,
+        typesetMs = 12L
     )
 
     private val twoBubblePage = page(
@@ -168,6 +171,24 @@ class PageReportTest {
     }
 
     @Test
+    fun `a drawn bubble records how it was typeset and an undrawn one records nothing`() {
+        val oval = floatArrayOf(0f, 10f, 120f, 230f)
+        val drawn = twoBubblePage.copy(
+            typesetBubbles = listOf(
+                TypesetBubble(0, "Hello", "こんにちは", 24f, listOf("Hello"), oval, shape = BalloonShape(oval, ellipse = true))
+            )
+        )
+
+        val recorded = json(report(drawn))
+
+        val typeset = recorded.bubble(0).getAsJsonObject("typeset")
+        assertEquals(24f, typeset["fontSize"].asFloat)
+        assertEquals(listOf("Hello"), typeset.getAsJsonArray("lines").map { it.asString })
+        assertEquals("ellipse", typeset["shape"].asString)
+        assertEquals(JsonNull.INSTANCE, recorded.bubble(1)["typeset"])
+    }
+
+    @Test
     fun `a normal page records its timings, outcome, build and device`() {
         val recorded = json(report(twoBubblePage))
         val timings = recorded.getAsJsonObject("timings")
@@ -175,6 +196,7 @@ class PageReportTest {
         assertEquals(9_000L, timings["totalMs"].asLong)
         assertEquals(4_100L, timings["timeToFirstBubbleMs"].asLong)
         assertEquals(5_700L, timings["translationCallMs"].asLong)
+        assertEquals(12L, timings["typesetMs"].asLong)
         assertEquals(
             mapOf("BUBBLE_DETECTION" to 350L, "OCR" to 2_400L, "CONTEXT_ASSEMBLY" to 50L, "TRANSLATION" to 6_200L),
             timings.getAsJsonObject("stagesMs").entrySet().associate { it.key to it.value.asLong }

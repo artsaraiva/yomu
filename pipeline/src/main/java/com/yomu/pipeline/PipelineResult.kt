@@ -19,5 +19,7 @@ data class PipelineResult(
     /** Every read with kana or kanji in it, by bubble id, including the [OcrResult.unsure] ones never translated. */
     val reads: Map<Int, OcrResult> = emptyMap(),
     /** OCR text with no kana or kanji, by bubble id. Only the page report reads it; it is never previewed, translated or drawn. */
-    val droppedReads: Map<Int, String> = emptyMap()
+    val droppedReads: Map<Int, String> = emptyMap(),
+    /** Finding each bubble's render area and typesetting its translation, summed over the page. */
+    val typesetMs: Long = 0L
 )

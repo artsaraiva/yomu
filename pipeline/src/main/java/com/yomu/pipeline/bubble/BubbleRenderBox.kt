@@ -19,24 +19,42 @@ private const val INSCRIBED_FRACTION = 0.707f
 // Fixed search cap, a fraction of page width; keeps the per-bubble pixel copy small.
 // A bubble reaching further than this from its glyphs falls back to the detector box.
 private const val MAX_SEARCH_MARGIN_OF_PAGE_WIDTH = 0.25f
+// An ellipse covers pi/4 (0.785) of its bounds; a caption box covering more than this is a rectangle.
+private const val RECT_FILL_RATIO = 0.90f
+
+/** The balloon interior a translation's lines can follow: its bounds, {left, top, right, bottom}, as an [ellipse] or a rectangle. */
+data class BalloonShape(val bounds: FloatArray, val ellipse: Boolean)
 
 /**
- * The box each bubble's translation is typeset into, keyed like [textBoxes] (detector boxes,
- * {left, top, right, bottom} in page pixels): the rectangle inside the white bubble interior
- * around the glyphs, never smaller than the detector box. A bubble keeps its detector box when
- * no enclosed interior is found (text on art, screentone bubbles, open bubbles) or when its
- * grown box would reach another bubble's glyphs, which would paint two translations over
- * each other (#88).
+ * Where one bubble's translation goes: [box] is the rectangle today's typeset fills, [shape] the
+ * balloon interior around it (null when there is none to follow), [glyphBox] the detector box.
  */
-fun bubbleRenderBoxes(bitmap: Bitmap, textBoxes: Map<Int, FloatArray>): Map<Int, FloatArray> {
-    val grown = textBoxes.mapValues { (_, box) -> bubbleRenderBox(bitmap, box) }
-    return grown.mapValues { (id, box) ->
-        val reachesOther = textBoxes.any { (otherId, other) -> otherId != id && intersects(box, other) }
-        if (reachesOther) textBoxes.getValue(id) else box
+data class RenderArea(val box: FloatArray, val shape: BalloonShape?, val glyphBox: FloatArray)
+
+/** What [findBubbleInterior] found, in window coordinates. */
+internal data class BubbleInterior(val renderBox: FloatArray, val shape: BalloonShape)
+
+/**
+ * The area each bubble's translation is typeset into, keyed like [textBoxes] (detector boxes,
+ * {left, top, right, bottom} in page pixels). Its box is the rectangle inside the white bubble
+ * interior around the glyphs, never smaller than the detector box, and its shape is that interior.
+ * A bubble keeps its detector box and gets no shape when no enclosed interior is found (text on
+ * art, screentone bubbles, open bubbles) or when its grown box would reach another bubble's glyphs,
+ * which would paint two translations over each other (#88).
+ */
+fun bubbleRenderAreas(bitmap: Bitmap, textBoxes: Map<Int, FloatArray>): Map<Int, RenderArea> {
+    val found = textBoxes.mapValues { (_, box) -> bubbleInterior(bitmap, box) }
+    return found.mapValues { (id, interior) ->
+        val glyphs = textBoxes.getValue(id)
+        val reachesOther = interior != null &&
+            textBoxes.any { (otherId, other) -> otherId != id && intersects(interior.renderBox, other) }
+        if (interior == null || reachesOther) RenderArea(glyphs, null, glyphs)
+        else RenderArea(interior.renderBox, interior.shape, glyphs)
     }
 }
 
-private fun bubbleRenderBox(bitmap: Bitmap, textBox: FloatArray): FloatArray {
+/** [findBubbleInterior] around [textBox] on the page, in page coordinates. */
+private fun bubbleInterior(bitmap: Bitmap, textBox: FloatArray): BubbleInterior? {
     val margin = minOf(
         maxOf(textBox[2] - textBox[0], textBox[3] - textBox[1]),
         bitmap.width * MAX_SEARCH_MARGIN_OF_PAGE_WIDTH
@@ -51,26 +69,30 @@ private fun bubbleRenderBox(bitmap: Bitmap, textBox: FloatArray): FloatArray {
     bitmap.getPixels(pixels, 0, width, left, top, width, height)
 
     val inWindow = floatArrayOf(textBox[0] - left, textBox[1] - top, textBox[2] - left, textBox[3] - top)
-    val interior = findBubbleInterior(pixels, width, height, inWindow) ?: return textBox
-    return floatArrayOf(interior[0] + left, interior[1] + top, interior[2] + left, interior[3] + top)
+    val interior = findBubbleInterior(pixels, width, height, inWindow) ?: return null
+    fun toPage(box: FloatArray) = floatArrayOf(box[0] + left, box[1] + top, box[2] + left, box[3] + top)
+    return BubbleInterior(toPage(interior.renderBox), interior.shape.copy(bounds = toPage(interior.shape.bounds)))
 }
 
 /**
- * Pure core of [bubbleRenderBoxes] over an ARGB search window; boxes are in window coordinates.
+ * Pure core of [bubbleRenderAreas] over an ARGB search window; boxes are in window coordinates.
  * Null means no enclosed interior was found.
  */
-internal fun findBubbleInterior(pixels: IntArray, width: Int, height: Int, textBox: FloatArray): FloatArray? {
+internal fun findBubbleInterior(pixels: IntArray, width: Int, height: Int, textBox: FloatArray): BubbleInterior? {
     val fillable = fillablePixels(pixels, width, height)
-    val interior = interiorAround(fillable, width, height, textBox) ?: return null
+    val (interior, spanArea) = interiorAround(fillable, width, height, textBox) ?: return null
 
     val insetX = (interior[2] - interior[0]) * (1 - INSCRIBED_FRACTION) / 2f
     val insetY = (interior[3] - interior[1]) * (1 - INSCRIBED_FRACTION) / 2f
-    return floatArrayOf(
+    val renderBox = floatArrayOf(
         minOf(interior[0] + insetX, textBox[0]),
         minOf(interior[1] + insetY, textBox[1]),
         maxOf(interior[2] - insetX, textBox[2]),
         maxOf(interior[3] - insetY, textBox[3])
     )
+    val bounds = FloatArray(4) { interior[it].toFloat() }
+    val fillRatio = spanArea.toFloat() / ((interior[2] - interior[0]) * (interior[3] - interior[1]))
+    return BubbleInterior(renderBox, BalloonShape(bounds, ellipse = fillRatio <= RECT_FILL_RATIO))
 }
 
 /** White pixels, minus a [OUTLINE_CLOSE_RADIUS] halo around every dark one. */
@@ -88,12 +110,13 @@ private fun fillablePixels(pixels: IntArray, width: Int, height: Int): BooleanAr
 }
 
 /**
- * Bounds of the enclosed region holding the most seed pixels around [textBox]. Seeds also land
- * in glyph counters (口, あ) and, where the box pokes past an outline, outside the bubble; the
- * interior is the region most of the box sits in. A region reaching the window edge has leaked
- * into the page and is never chosen.
+ * Bounds of the enclosed region holding the most seed pixels around [textBox], with its row-span
+ * area: each row counted from its leftmost to its rightmost pixel, so glyph holes inside the
+ * interior don't count against its shape. Seeds also land in glyph counters (口, あ) and, where
+ * the box pokes past an outline, outside the bubble; the interior is the region most of the box
+ * sits in. A region reaching the window edge has leaked into the page and is never chosen.
  */
-private fun interiorAround(fillable: BooleanArray, width: Int, height: Int, textBox: FloatArray): IntArray? {
+private fun interiorAround(fillable: BooleanArray, width: Int, height: Int, textBox: FloatArray): Pair<IntArray, Int>? {
     val seedLeft = (textBox[0].toInt() - SEED_PAD).coerceIn(0, width - 1)
     val seedTop = (textBox[1].toInt() - SEED_PAD).coerceIn(0, height - 1)
     val seedRight = (textBox[2].toInt() + SEED_PAD).coerceIn(seedLeft + 1, width)
@@ -138,7 +161,15 @@ private fun interiorAround(fillable: BooleanArray, width: Int, height: Int, text
     }
 
     val best = seedCounts.indices.filter { !leaks[it] }.maxByOrNull { seedCounts[it] } ?: return null
-    return bounds[best]
+    val box = bounds[best]
+    var spanArea = 0
+    for (y in box[1] until box[3]) {
+        var first = -1
+        var last = -1
+        for (x in box[0] until box[2]) if (region[y * width + x] == best + 1) { if (first < 0) first = x; last = x }
+        if (first >= 0) spanArea += last - first + 1
+    }
+    return box to spanArea
 }
 
 private fun intersects(a: FloatArray, b: FloatArray): Boolean =

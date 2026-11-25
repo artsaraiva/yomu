@@ -5,6 +5,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.view.View
 import android.view.WindowManager
+import com.yomu.pipeline.bubble.BalloonShape
 import com.yomu.pipeline.typesetting.TypesetBubble
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -45,6 +46,36 @@ class TranslationRenderOverlayTest {
             TypesetBubble(1, "Hello", "OCR", 12f, listOf("Hello"), floatArrayOf(10f, 10f, 110f, 70f))
         )
         assertEquals(0xF0FFFFFF.toInt(), pixelAt(view, 20, 40))
+    }
+
+    /** A shaped bubble paints its oval plus the glyph box, leaving the oval's corners to the page. */
+    @Test
+    fun shapedBubblePaintsItsOvalAndGlyphBox() {
+        val windowManager = mock(WindowManager::class.java)
+        val overlay = TranslationRenderOverlay(RuntimeEnvironment.getApplication(), windowManager) { null }
+        overlay.showOcrBubbles(listOf(OverlayBubbleState(1, OverlayBounds(10f, 10f, 110f, 70f), "OCR")), 120, 80)
+        val viewCaptor = ArgumentCaptor.forClass(View::class.java)
+        verify(windowManager).addView(viewCaptor.capture(), any(WindowManager.LayoutParams::class.java))
+        val view = viewCaptor.value.apply {
+            measure(
+                View.MeasureSpec.makeMeasureSpec(120, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(80, View.MeasureSpec.EXACTLY)
+            )
+            layout(0, 0, 120, 80)
+        }
+        val oval = floatArrayOf(10f, 10f, 110f, 70f)
+
+        overlay.showTypesetBubble(
+            TypesetBubble(
+                1, "Hello", "OCR", 12f, listOf("Hello"), oval,
+                shape = BalloonShape(oval, ellipse = true),
+                coverBox = floatArrayOf(55f, 4f, 65f, 76f)
+            )
+        )
+
+        assertEquals("oval centre", 0xF0FFFFFF.toInt(), pixelAt(view, 30, 40))
+        assertEquals("oval corner stays page", Color.TRANSPARENT, pixelAt(view, 13, 13))
+        assertEquals("glyph box past the oval", 0xF0FFFFFF.toInt(), pixelAt(view, 60, 6))
     }
 
     /** Draws the overlay into a fixed-size bitmap and returns the pixel used to check its bubble background. */
