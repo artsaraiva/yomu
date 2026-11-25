@@ -329,6 +329,13 @@ class ModelSlotSelectionTest {
     }
 
     @Test
+    fun `the OCR reader names its licence for the weights only, since its ONNX files carry no licence tag`() {
+        val ocr = selection.deliverables(ModelType.OCR).single { it.id == Constants.HAYAI_OCR_MODEL_ID }
+
+        assertEquals("Apache-2.0 weights (Hayai)", ocr.licence)
+    }
+
+    @Test
     fun `fit is judged by the translation budget`() {
         assertFalse(ModelSlotSelection.fits(Constants.CAT_TRANSLATION_14B_MODEL_ID, selection.fitBudget(oneGb)))
         assertTrue(ModelSlotSelection.fits(LlmModelCatalog.DEFAULT.id, selection.fitBudget(oneGb)))

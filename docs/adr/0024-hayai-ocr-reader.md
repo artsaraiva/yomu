@@ -24,7 +24,9 @@ The #470 results comment and the two #510 comments have the full tables. The spi
 
 ## Licence
 
-The weights repo, [`hayai-ocr-v2.7-supernova`](https://huggingface.co/JustANormalTinkerer/hayai-ocr-v2.7-supernova), is Apache-2.0, and its author publishes the ONNX export script. The ONNX repo itself had no licence tag at `bc1e39f` on 2026-11-25. Before release, either its author tags it, or Yomu exports the same files from the weights and hosts them, as it did for manga-ocr at `artsaraiva/manga-ocr-2025-onnx-past`. The catalog entry changes only in its URLs and checksums if that happens. JMangaBench_Read is CC BY-NC-SA 4.0 and was used for evaluation only. None of it is in the repository.
+The weights repo, [`hayai-ocr-v2.7-supernova`](https://huggingface.co/JustANormalTinkerer/hayai-ocr-v2.7-supernova), is Apache-2.0, and its author publishes the ONNX export script. The ONNX repo itself had no licence tag at `bc1e39f` on 2026-11-25.
+
+Yomu hosts none of these files. Each phone downloads the author's ONNX files from Hugging Face at the pinned revision, so #510's condition that the licence be settled before a file is hosted does not arise. The app labels the model "Apache-2.0 weights" and claims nothing for the conversion. [#519](https://github.com/artsaraiva/yomu/issues/519) moves the download to Yomu's own export of the weights, as it did for manga-ocr at `artsaraiva/manga-ocr-2025-onnx-past`. That makes the files unambiguously Apache-2.0 and keeps new installs working if the upstream repo goes away. The catalog entry changes only in its URLs and checksums. JMangaBench_Read is CC BY-NC-SA 4.0 and was used for evaluation only. None of it is in the repository.
 
 ## Considered Options
 
