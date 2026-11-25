@@ -510,7 +510,6 @@ class OverlayService : Service() {
             )
             if (result != null) lastPage = PageRecord(bitmap, result, settings, recalled = false)
             val end = pageEnd(result, translationSelection.translator(settings.translator))
-            val failure = end.failure
             val shown = end.shown
             if (shown != null && shown.translationResult.translations.isNotEmpty()) {
                 savePage(shown)
@@ -518,12 +517,12 @@ class OverlayService : Service() {
                 if (pageSettings() == settings) pageRecall.remember(fingerprint, settings, shown, recallBegunAt)
             }
             // A server failure leaves the phone's model files as they were, so there is nothing to recheck.
-            if (failure != null && settings.serverModel == null) {
+            if (end.failure != null && settings.serverModel == null) {
                 // The row that said READY has no file behind it: put the picker right now, rather
                 // than leaving it to the next Home or Settings visit (#308).
                 modelManager.refreshModelList()
             }
-            val noticeMs = if (failure != null) FAILURE_NOTICE_MS else NOTICE_MS
+            val noticeMs = if (end.failure != null) FAILURE_NOTICE_MS else NOTICE_MS
             withContext(Dispatchers.Main) {
                 if (shown != null) {
                     showFinishedPage(shown, end.statusLine, noticeMs)

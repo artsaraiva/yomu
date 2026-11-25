@@ -13,9 +13,9 @@ import com.yomu.pipeline.translation.untranslatedNotice
 internal data class PageEnd(val shown: PipelineResult?, val failure: String?, val statusLine: String?)
 
 /**
- * Ends [result] as [translator], the translator that took it, explains it (#509): that translator's message for
- * the page's error code, whatever its outcome, else the phone's own messages. A page with a failure is drawn only
- * when at least one bubble was answered, as a server that failed mid-reply keeps the bubbles it streamed.
+ * How [result] ends on screen. Its failure is the message [translator], the translator that took the page, gives
+ * for its error code, whatever the outcome, else the phone's own message (#509). A failed page is drawn only when
+ * at least one bubble was answered, as a server that failed mid-reply keeps the bubbles it streamed.
  */
 internal fun pageEnd(result: PipelineResult?, translator: Translator?): PageEnd {
     val translation = result?.translationResult
@@ -23,7 +23,7 @@ internal fun pageEnd(result: PipelineResult?, translator: Translator?): PageEnd 
     val shown = result?.takeIf { failure == null || it.translationResult.translations.any { bubble -> bubble.answered } }
     val statusLine = when {
         shown != null -> failure ?: shown.translationResult.untranslatedNotice()
-        // A null result already put the pipeline's own "Failed: …" on the status line.
+        // A null result has no failure here: the pipeline already put its own "Failed: …" on the status line.
         else -> failure?.let { "Failed: $it" }
     }
     return PageEnd(shown, failure, statusLine)
