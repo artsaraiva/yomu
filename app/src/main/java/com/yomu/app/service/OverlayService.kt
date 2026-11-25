@@ -465,7 +465,7 @@ class OverlayService : Service() {
                 /** Logs pipeline progress and posts the stage message while the translation job is active. */
                 override fun onStageProgress(stage: TranslationPipeline.Stage, progress: Float) {
                     Log.i(TAG, "Pipeline progress stage=$stage progress=$progress")
-                    updateStatus(job, stageMessage(stage, onServer = settings.serverModel != null))
+                    updateStatus(job, stageMessage(stage, onServer = settings.translator == Translator.NETWORK_ID))
                 }
 
                 /** Logs a pipeline error and posts its message while the translation job is active. */
@@ -596,10 +596,10 @@ class OverlayService : Service() {
      * and name glossary used as the recall key. The server's model is in it, its address is not (ADR-0023).
      */
     private fun pageSettings(): PageSettings {
-        val serverModel = translatorChoice.activeServerModel()
+        val taken = translatorChoice.forPage()
         return PageSettings(
-            translator = if (serverModel != null) Translator.NETWORK_ID else Translator.ON_DEVICE_ID,
-            serverModel = serverModel,
+            translator = taken.translator,
+            serverModel = taken.serverModel,
             translationModel = slotSelection.selectedId(ModelType.LLM),
             detectionModel = slotSelection.selectedId(ModelType.DETECTION),
             ocrModel = slotSelection.selectedId(ModelType.OCR),

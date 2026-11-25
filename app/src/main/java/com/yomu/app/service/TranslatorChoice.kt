@@ -23,6 +23,9 @@ sealed interface ServerPick {
     data class Notice(val model: String, val address: String) : ServerPick
 }
 
+/** The translator that takes a page, by id, and the model it asks the server for while it is the network translator. */
+data class PageTranslator(val translator: String, val serverModel: String?)
+
 /**
  * Which translator the model picker has chosen: a model on the phone, or one on the reader's server
  * (ADR-0023). The phone model stays selected while a server model is picked, since it is still required
@@ -45,7 +48,13 @@ class TranslatorChoice @Inject constructor(
     }
 
     /** The server model that takes the next page, or null while the on-device translator does. */
-    fun activeServerModel(): String? = server.model().takeIf { translation.activeTranslator().id == Translator.NETWORK_ID }
+    fun activeServerModel(): String? = forPage().serverModel
+
+    /** The translator that takes the next page, read once so its id and server model can't disagree. */
+    fun forPage(): PageTranslator {
+        val id = translation.activeTranslator().id
+        return PageTranslator(id, server.model().takeIf { id == Translator.NETWORK_ID })
+    }
 
     /** Picks [model] on the server, unless it is the first server pick: then the reader is asked first. */
     fun pickServerModel(model: String): ServerPick {
