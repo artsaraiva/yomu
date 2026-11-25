@@ -113,7 +113,7 @@ def clear_overlay(button: tuple[int, int]) -> None:
 
 def reports() -> list[str]:
     # The folder appears with the app's first report; until then, there are none.
-    return adb("shell", f"run-as {APP} ls cache/reports 2>/dev/null || true").split()
+    return adb("shell", f"run-as {APP} sh -c 'ls cache/reports 2>/dev/null || true'").split()
 
 
 def translate(page: str, out: Path) -> None:
