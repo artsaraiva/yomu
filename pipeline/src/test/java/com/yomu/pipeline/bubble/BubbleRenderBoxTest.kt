@@ -24,7 +24,8 @@ class BubbleRenderBoxTest {
         cy: Int = 150,
         outline: Boolean = true,
         gapAt: Int? = null,
-        background: Int = white
+        background: Int = white,
+        glyphAt: (x: Int, y: Int) -> Boolean = { x, y -> x in cx - 5..cx + 5 && y in cy - 40..cy + 40 && y % 10 < 5 }
     ): IntArray = IntArray(width * height) { i ->
         val x = i % width
         val y = i / width
@@ -32,7 +33,7 @@ class BubbleRenderBoxTest {
         val ny = (y - cy) / 120.0
         val r = nx * nx + ny * ny
         val onOutline = outline && r in 0.95..1.05 && (gapAt == null || kotlin.math.abs(y - gapAt) > 3)
-        val glyph = x in cx - 5..cx + 5 && y in cy - 40..cy + 40 && y % 10 < 5
+        val glyph = glyphAt(x, y)
         when {
             onOutline || glyph -> black
             r < 1 -> white
@@ -113,6 +114,20 @@ class BubbleRenderBoxTest {
     }
 
     @Test
+    fun `without a balloon box a glyph box outside the render box leaves the shape alone`() {
+        // Free text in a panel: the panel's interior ellipse holds a neighbour's glyph box, which
+        // the render box inside it misses. Main draws the lines clear of it, so the shape stays.
+        val pixels = page(width = 600, height = 800, cx = 400, cy = 500)
+        val glyphs = floatArrayOf(392f, 455f, 408f, 545f)
+        val neighbour = floatArrayOf(462f, 490f, 470f, 510f)
+
+        val area = bubbleRenderAreas(bitmap(600, 800, pixels), mapOf(1 to glyphs, 2 to neighbour)).getValue(1)
+
+        assertTrue("render box misses the neighbour: ${area.box.toList()}", area.box[2] < 462f)
+        assertTrue("shape kept", area.shape != null)
+    }
+
+    @Test
     fun `a round bubble's shape is the ellipse of its interior`() {
         val shape = findBubbleInterior(page(), 200, 300, textBox)!!.shape
 
@@ -159,5 +174,57 @@ class BubbleRenderBoxTest {
         val bounds = area.shape!!.bounds
         assertTrue("around the bubble: ${bounds.toList()}", bounds[0] in 318f..330f && bounds[2] in 470f..482f && bounds[1] in 378f..392f && bounds[3] in 608f..622f)
         assertArrayEquals("glyph box rides along", glyphs, area.glyphBox, 0f)
+    }
+
+    // A column of three 口 at (400, 500), 20 px squares with 2 px strokes: each counter is an
+    // enclosed region, far smaller than the column's glyph box.
+    private fun counters(x: Int, y: Int): Boolean {
+        if (x !in 390..410) return false
+        return listOf(460, 490, 520).any { top ->
+            y in top..top + 20 && (x <= 391 || x >= 409 || y <= top + 1 || y >= top + 19)
+        }
+    }
+    private val counterGlyphs = floatArrayOf(390f, 460f, 411f, 541f)
+    // The detector's balloon box hugs the outline's outer edge: radii 80x120 at up to 1.05.
+    private val balloonBox = floatArrayOf(317f, 376f, 483f, 624f)
+
+    @Test
+    fun `an open balloon whose only enclosed region is a glyph counter falls back to the balloon ellipse`() {
+        val pixels = page(width = 600, height = 800, cx = 400, cy = 500, gapAt = 500, glyphAt = ::counters)
+
+        val area = bubbleRenderAreas(bitmap(600, 800, pixels), mapOf(1 to counterGlyphs), mapOf(1 to balloonBox)).getValue(1)
+
+        val shape = area.shape!!
+        assertTrue("ellipse", shape.ellipse)
+        // The balloon box inset 6% on each side, inside its outline stroke.
+        assertArrayEquals(floatArrayOf(326.96f, 390.88f, 473.04f, 609.12f), shape.bounds, 0.01f)
+        assertTrue("render box is wider than the glyphs: ${area.box.toList()}", area.box[2] - area.box[0] > 90f)
+        assertTrue("render box stays in the ellipse: ${area.box.toList()}", area.box[0] >= 326f && area.box[2] <= 474f)
+    }
+
+    @Test
+    fun `a closed balloon keeps the interior the fill finds inside its balloon box`() {
+        val pixels = page(width = 600, height = 800, cx = 400, cy = 500)
+        val glyphs = floatArrayOf(392f, 455f, 408f, 545f)
+
+        val bounds = bubbleRenderAreas(bitmap(600, 800, pixels), mapOf(1 to glyphs), mapOf(1 to balloonBox))
+            .getValue(1).shape!!.bounds
+
+        assertTrue("around the interior: ${bounds.toList()}", bounds[0] in 318f..330f && bounds[2] in 470f..482f && bounds[1] in 378f..392f && bounds[3] in 608f..622f)
+    }
+
+    @Test
+    fun `a balloon ellipse meeting another bubble's glyphs keeps the glyph box`() {
+        val pixels = page(width = 600, height = 800, cx = 400, cy = 500, gapAt = 500, glyphAt = ::counters)
+        val neighbour = floatArrayOf(440f, 480f, 450f, 520f)
+
+        val area = bubbleRenderAreas(
+            bitmap(600, 800, pixels),
+            mapOf(1 to counterGlyphs, 2 to neighbour),
+            mapOf(1 to balloonBox)
+        ).getValue(1)
+
+        assertNull(area.shape)
+        assertArrayEquals(counterGlyphs, area.box, 0f)
     }
 }

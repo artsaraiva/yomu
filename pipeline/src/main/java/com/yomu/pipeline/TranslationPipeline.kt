@@ -228,7 +228,10 @@ class TranslationPipeline(
                 bubble.id to with(bubble.boundingBox) { floatArrayOf(left, top, right, bottom) }
             }
             val areasStart = System.nanoTime()
-            val renderAreas = bubbleRenderAreas(bitmap, detectedBounds)
+            val balloonBounds = bubbles.mapNotNull { bubble ->
+                bubble.balloonBox?.let { bubble.id to floatArrayOf(it.left, it.top, it.right, it.bottom) }
+            }.toMap()
+            val renderAreas = bubbleRenderAreas(bitmap, detectedBounds, balloonBounds)
             var typesetNanos = System.nanoTime() - areasStart
             typesetter.fontSizeScale = fontSizeScale
             endStage(Stage.CONTEXT_ASSEMBLY)
