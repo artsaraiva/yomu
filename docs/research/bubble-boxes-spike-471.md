@@ -206,7 +206,7 @@ Run on the `Yomu_16G` emulator (1280×2856 captures, Qwen2.5 1.5B, threshold 0.2
 | Today `reach` → usable balloon shape | 3 of 10 (7 still meet a neighbour) | 4 of 6 |
 | Shapes by source: fill ellipse / fill rectangle / balloon ellipse / none | 39 / 6 / 13 / 10 | 25 / 11 / 13 / 4 |
 
-The balloon box rescues 4 of 14 fixture boxes, and 5 of 7 on OpenMantra, that get no room today. Conjoined balloons still fail the #88 rule, as the desk check predicted. The bounded fill also needs the glyph-counter guard: without it, 35 shapes on the first spike run were a few pixels across.
+The balloon box rescues 4 of 14 fixture boxes, and 5 of 7 on OpenMantra, that get no room today. Conjoined balloons still fail the #88 rule, as the desk check predicted. The bounded fill also needs the glyph-counter guard: without it, 30 of 113 shapes on the first spike run (all ten pages) were narrower or shorter than their glyph box, mostly a few pixels across.
 
 ### Use 3: shaped lines
 
