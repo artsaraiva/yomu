@@ -29,6 +29,9 @@ class BubbleDetector(private val onnxRuntime: OnnxRuntime) {
         // merged box's OCR already carries that text. Genuinely-close distinct balloons the model
         // under-separates are still the detector's problem (#57), not this heuristic's.
         internal const val NMS_CONTAINMENT_THRESHOLD = 0.90f
+        // A balloon box is a text box's balloon when it holds at least this much of it; balloon
+        // boxes hug the outline, so a text box poking past a tail or a thin stroke still belongs (#471).
+        internal const val BALLOON_CONTAINMENT = 0.90f
     }
 
     private var isLoaded = false
@@ -99,7 +102,7 @@ internal fun keptTextWithBalloons(
     val balloons = keptDetections(balloonDetections, confidenceThreshold)
     return keptDetections(textDetections, confidenceThreshold).map { text ->
         val balloon = balloons
-            .filter { detectionContainedFraction(text, it) >= BubbleDetector.NMS_CONTAINMENT_THRESHOLD }
+            .filter { detectionContainedFraction(text, it) >= BubbleDetector.BALLOON_CONTAINMENT }
             .minByOrNull { (it.bbox[2] - it.bbox[0]) * (it.bbox[3] - it.bbox[1]) }
         KeptText(text, balloon?.bbox)
     }

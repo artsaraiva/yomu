@@ -56,7 +56,6 @@ fun bubbleRenderAreas(
     balloonBoxes: Map<Int, FloatArray> = emptyMap()
 ): Map<Int, RenderArea> = textBoxes.mapValues { (id, glyphs) ->
     val balloon = balloonBoxes[id]
-    // One fill per text box: inside its balloon when the detector found one, around its glyphs otherwise.
     val interior = if (balloon != null) balloonInterior(bitmap, glyphs, balloon) else bubbleInterior(bitmap, glyphs)
     val reachesOther = interior != null && textBoxes.any { (otherId, other) ->
         otherId != id && (intersects(interior.renderBox, other) || shapeMeets(interior.shape, other))
