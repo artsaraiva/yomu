@@ -8,6 +8,7 @@
 #include <chrono>
 #include <atomic>
 #include <algorithm>
+#include <memory>
 #include <android/log.h>
 #include <dlfcn.h>
 #include "llama.h"
@@ -72,6 +73,24 @@ static bool abort_if_timed_out(void *) {
     if (g_abort_requested.load(std::memory_order_relaxed)) return true;
     const int64_t deadline_ms = g_abort_deadline_ms.load(std::memory_order_relaxed);
     return deadline_ms > 0 && now_ms() > deadline_ms;
+}
+
+struct BatchExtDeleter {
+    void operator()(llama_batch_ext *batch) const { llama_batch_ext_free(batch); }
+};
+using BatchExtPtr = std::unique_ptr<llama_batch_ext, BatchExtDeleter>;
+
+// Decodes n tokens at KV positions pos_0.. on sequence 0, asking for logits on the last one only.
+// The ext batch (#521) assigns neither positions nor outputs itself, unlike llama_batch_get_one.
+static bool decode_tokens(llama_batch_ext *batch, const llama_token *tokens, int n, llama_pos pos_0) {
+    llama_batch_ext_clear(batch);
+    for (int i = 0; i < n; ++i) {
+        const int32_t idx = llama_batch_ext_add_token(batch, 0, tokens[i]);
+        const llama_pos pos = pos_0 + i;
+        if (idx < 0 || !llama_batch_ext_set_pos(batch, idx, &pos)) return false;
+    }
+    return llama_batch_ext_set_output_logits(batch, n - 1, true)
+        && llama_process(g_ctx, LLAMA_PROCESS_TYPE_DECODE, batch) == 0;
 }
 
 static bool is_past_deadline() {
@@ -328,8 +347,10 @@ Java_com_yomu_ml_LlamaBridge_nativeGenerate(
     }
 
     // Process prompt
-    llama_batch batch = llama_batch_get_one(tokens.data(), (int)tokens.size());
-    if (llama_decode(g_ctx, batch) != 0) {
+    // The memory was cleared above, so the prompt starts at position 0.
+    BatchExtPtr batch(llama_batch_ext_init(g_ctx));
+    llama_pos n_past = 0;
+    if (!decode_tokens(batch.get(), tokens.data(), (int)tokens.size(), n_past)) {
         const int64_t elapsed_ms = now_ms() - started_ms;
         if (is_past_deadline()) {
             LOGW("Decode prompt aborted deadline elapsedMs=%lld", (long long)elapsed_ms);
@@ -341,6 +362,7 @@ Java_com_yomu_ml_LlamaBridge_nativeGenerate(
         g_grammar.reset();
         return to_java_bytes(env, "");
     }
+    n_past += (llama_pos)tokens.size();
 
     // Generation loop
     std::string result;
@@ -374,9 +396,7 @@ Java_com_yomu_ml_LlamaBridge_nativeGenerate(
         }
 
         // Feed token back
-        tokens[0] = new_token_id;
-        batch = llama_batch_get_one(tokens.data(), 1);
-        if (llama_decode(g_ctx, batch) != 0) {
+        if (!decode_tokens(batch.get(), &new_token_id, 1, n_past)) {
             const int64_t elapsed_ms = now_ms() - started_ms;
             if (is_past_deadline()) {
                 LOGW("Decode token aborted deadline generatedTokens=%d elapsedMs=%lld", n_len, (long long)elapsed_ms);
@@ -386,6 +406,7 @@ Java_com_yomu_ml_LlamaBridge_nativeGenerate(
             }
             break;
         }
+        n_past++;
 
         n_len++;
     }
