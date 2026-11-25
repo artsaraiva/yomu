@@ -7,7 +7,7 @@ import org.junit.Test
 class HayaiInputTest {
 
     // A 2 × 2 table of 1-value positions, so a grid's positions are easy to predict.
-    private val table = NpyFloats(listOf(4, 1), floatArrayOf(10f, 20f, 30f, 40f))
+    private val table = PositionTable(NpyFloats(listOf(4, 1), floatArrayOf(10f, 20f, 30f, 40f)))
 
     @Test
     fun `a crop already on the patch grid is not resized and its patches are padded to a multiple of eight`() {

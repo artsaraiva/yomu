@@ -33,7 +33,7 @@ class OcrEngine(private val onnxRuntime: OnnxRuntime) {
     private var prefillPath: String? = null
     private var decodePath: String? = null
     private var vocab: ByteLevelVocab? = null
-    private var positions: NpyFloats? = null
+    private var positions: PositionTable? = null
 
     /** Loads both graphs, the tokenizer and the position table; true only when all four loaded. */
     fun loadModel(prefillPath: String, decodePath: String, tokenizerPath: String, positionsPath: String): Boolean {
@@ -41,7 +41,7 @@ class OcrEngine(private val onnxRuntime: OnnxRuntime) {
         this.prefillPath = prefillPath
         this.decodePath = decodePath
         vocab = runCatching { ByteLevelVocab.load(File(tokenizerPath)) }.getOrNull()
-        positions = runCatching { NpyFloats.read(File(positionsPath)) }.getOrNull()
+        positions = runCatching { PositionTable(NpyFloats.read(File(positionsPath))) }.getOrNull()
         return graphsLoaded && isModelLoaded()
     }
 

@@ -1,7 +1,5 @@
 package com.yomu.pipeline.ocr
 
-import kotlin.math.sqrt
-
 /**
  * One crop as Hayai's prefill takes it: [slots] rows of patch pixels and of positions, the [grid]'s patches first in
  * row order and zero padding after.
@@ -15,9 +13,9 @@ internal class HayaiInput(val grid: PatchGrid, val slots: Int, val pixelValues: 
 
         /**
          * [pixels], ARGB of [width] × [height], resized to [grid] (PIL bilinear) and cut into patches of 16 rows of
-         * RGB scaled to [-1, 1], with [positions], Hayai's square table, resampled to the same grid.
+         * RGB scaled to [-1, 1], with [positions] resampled to the same grid.
          */
-        fun of(pixels: IntArray, width: Int, height: Int, positions: NpyFloats, grid: PatchGrid): HayaiInput {
+        fun of(pixels: IntArray, width: Int, height: Int, positions: PositionTable, grid: PatchGrid): HayaiInput {
             val resized = if (width == grid.width && height == grid.height) pixels
             else resizeRgb(pixels, width, height, grid.width, grid.height)
             val slots = maxOf(SLOT_MULTIPLE, (grid.patches + SLOT_MULTIPLE - 1) / SLOT_MULTIPLE * SLOT_MULTIPLE)
@@ -31,10 +29,8 @@ internal class HayaiInput(val grid: PatchGrid, val slots: Int, val pixelValues: 
                     values[i++] = scale(pixel and 0xFF)
                 }
             }
-            val dimension = positions.shape[1]
-            val side = sqrt(positions.shape[0].toDouble()).toInt()
-            val table = FloatArray(slots * dimension)
-            resamplePositions(positions.values, side, dimension, grid.rows, grid.columns).copyInto(table)
+            val table = FloatArray(slots * positions.dimension)
+            positions.at(grid).copyInto(table)
             return HayaiInput(grid, slots, values, table)
         }
 
