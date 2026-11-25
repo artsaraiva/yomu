@@ -225,14 +225,11 @@ class TranslationPipeline(
             // OCR crops and panel grouping are tuned to. Computed before translation so each bubble
             // is typeset the moment it arrives.
             val detectedBounds = bubbles.associate { bubble ->
-                bubble.id to floatArrayOf(
-                    bubble.boundingBox.left,
-                    bubble.boundingBox.top,
-                    bubble.boundingBox.right,
-                    bubble.boundingBox.bottom
-                )
+                bubble.id to with(bubble.boundingBox) { floatArrayOf(left, top, right, bottom) }
             }
+            val areasStart = System.nanoTime()
             val renderAreas = bubbleRenderAreas(bitmap, detectedBounds)
+            var typesetNanos = System.nanoTime() - areasStart
             typesetter.fontSizeScale = fontSizeScale
             endStage(Stage.CONTEXT_ASSEMBLY)
             callback?.onStageProgress(Stage.CONTEXT_ASSEMBLY, 0.6f)
@@ -244,7 +241,9 @@ class TranslationPipeline(
             val arrived = mutableMapOf<Int, TypesetBubble>()
             var firstBubbleAt: Long? = null
             val translationResult = translationEngine.translate(pageContext.blocks, targetLanguage, glossary) { translated ->
+                val typesetStart = System.nanoTime()
                 val typeset = typesetter.typeset(translated, renderAreas.getValue(translated.bubbleId))
+                typesetNanos += System.nanoTime() - typesetStart
                 if (firstBubbleAt == null) firstBubbleAt = System.currentTimeMillis()
                 arrived[typeset.bubbleId] = typeset
                 onBubble?.invoke(typeset)
@@ -267,7 +266,8 @@ class TranslationPipeline(
                 stageTimesMs = stageTimesMs,
                 bubbleBounds = detectedBounds,
                 reads = reads,
-                droppedReads = droppedReads
+                droppedReads = droppedReads,
+                typesetMs = typesetNanos / 1_000_000
             )
 
             lastPageTotalMs = result.totalTimeMs
@@ -294,3 +294,4 @@ class TranslationPipeline(
         translationEngine.close()
     }
 }
+

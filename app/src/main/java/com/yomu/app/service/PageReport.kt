@@ -20,7 +20,16 @@ private class ReportedBubble(
     /** OCR read [ocrText] but found no Japanese in it, so it was never translated or drawn. */
     val ocrDropped: Boolean,
     val translation: String?,
-    val answered: Boolean
+    val answered: Boolean,
+    /** How the drawn translation was laid out; null for a bubble that was not drawn. */
+    val typeset: ReportedTypeset?
+)
+
+private class ReportedTypeset(
+    val fontSize: Float,
+    val lines: List<String>,
+    /** "ellipse" or "box" when the lines follow the balloon's interior, null for today's rectangle. */
+    val shape: String?
 )
 
 private class ReportedTimings(
@@ -28,6 +37,8 @@ private class ReportedTimings(
     val timeToFirstBubbleMs: Long?,
     /** The slot's own clock for the model call, without the typesetting the translation stage also does. */
     val translationCallMs: Long,
+    /** Render areas plus typesetting, summed over the page; it runs inside the context and translation stages. */
+    val typesetMs: Long,
     val stagesMs: Map<TranslationPipeline.Stage, Long>
 )
 
@@ -62,6 +73,7 @@ fun pageReportFiles(
 ): Map<String, ByteArray> {
     val translation = page.translationResult
     val translated = translation.translations.associateBy { it.bubbleId }
+    val typeset = page.typesetBubbles.associateBy { it.bubbleId }
     val reported = ReportedPage(
         recalled = recalled,
         outcome = translation.outcome,
@@ -70,7 +82,7 @@ fun pageReportFiles(
         pageWidth = page.pageWidth,
         pageHeight = page.pageHeight,
         settings = settings,
-        timings = ReportedTimings(page.totalTimeMs, page.timeToFirstBubbleMs, translation.translationTimeMs, page.stageTimesMs),
+        timings = ReportedTimings(page.totalTimeMs, page.timeToFirstBubbleMs, translation.translationTimeMs, page.typesetMs, page.stageTimesMs),
         appVersion = origin.appVersion,
         device = origin.device,
         bubbles = page.bubbleBounds.map { (id, bounds) ->
@@ -85,7 +97,10 @@ fun pageReportFiles(
                 skipped = read?.unsure == true,
                 ocrDropped = id in page.droppedReads,
                 translation = bubble?.takeIf { it.answered }?.translatedText,
-                answered = bubble?.answered == true
+                answered = bubble?.answered == true,
+                typeset = typeset[id]?.let { drawn ->
+                    ReportedTypeset(drawn.fontSize, drawn.textLines, drawn.shape?.let { if (it.ellipse) "ellipse" else "box" })
+                }
             )
         }
     )
