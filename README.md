@@ -101,7 +101,7 @@ Yomu downloads every model on first launch. Each download is pinned to an exact 
 | Slot | Model | Licence |
 |---|---|---|
 | Bubble detection | [`ogkalu/comic-text-and-bubble-detector`](https://huggingface.co/ogkalu/comic-text-and-bubble-detector/tree/16e8a622f91fabc6b5b65c96d32d1183f8843546) (RT-DETR v4-s, int8 ONNX) | Apache-2.0; see [ADR-0020](docs/adr/0020-rtdetr-text-detector.md) |
-| OCR | [`JustANormalTinkerer/hayai-ocr-v2.7-supernova-onnx`](https://huggingface.co/JustANormalTinkerer/hayai-ocr-v2.7-supernova-onnx/tree/bc1e39f962b6c500a4855bd8eb4e02f11483bedb) (Hayai v2.7, int4 prefill and int8 decode) | Apache-2.0 weights; the ONNX conversion has no licence tag yet ([#519](https://github.com/artsaraiva/yomu/issues/519)); see [ADR-0024](docs/adr/0024-hayai-ocr-reader.md) |
+| OCR | [`artsaraiva/hayai-ocr-v2.7-onnx`](https://huggingface.co/artsaraiva/hayai-ocr-v2.7-onnx/tree/faa0433c8d5150f1745ea1e3b711ecc674498fdc) (Hayai v2.7, int4 prefill and int8 decode; Yomu's export of the weights) | Apache-2.0; see [ADR-0024](docs/adr/0024-hayai-ocr-reader.md) |
 | Translation (default) | **Qwen2.5 1.5B Instruct** Q4_K_M | Apache-2.0 |
 | Translation | CAT-Translate 1.4B Q4_K_M | MIT |
 | Translation (low storage) | CAT-Translate 0.8B Q4_K_M | MIT |

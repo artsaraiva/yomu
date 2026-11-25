@@ -59,9 +59,9 @@ class ModelManager @Inject constructor(
     suspend fun getModelsByType(type: ModelType): List<ModelEntity> = modelDao.getModelsByType(type.name)
 
     companion object {
-        // Where Hayai's smallest ONNX set lives at its pinned revision; all four files come from it (#510).
+        // Yomu's own export of Hayai's smallest ONNX set, at its pinned revision; all four files come from it (#519).
         private const val HAYAI_FILES_URL =
-            "https://huggingface.co/JustANormalTinkerer/hayai-ocr-v2.7-supernova-onnx/resolve/bc1e39f962b6c500a4855bd8eb4e02f11483bedb"
+            "https://huggingface.co/artsaraiva/hayai-ocr-v2.7-onnx/resolve/faa0433c8d5150f1745ea1e3b711ecc674498fdc"
 
         /** Every model Yomu ships. [refreshModelList] upserts these rows; plain data so JVM tests can read it. */
         internal val REGISTRY = listOf(
@@ -82,9 +82,9 @@ class ModelManager @Inject constructor(
                 name = "Hayai OCR v2.7 (Prefill + Decode)",
                 type = ModelType.OCR,
                 fileName = Constants.OCR_PREFILL_MODEL,
-                fileSize = 137_923_271L,
+                fileSize = 109_497_185L,
                 downloadUrl = "$HAYAI_FILES_URL/hayai_prefill_int4.onnx",
-                checksum = "ddb1699aa3a711e06cd1756c7adccb65c2a682720090eff6061ff14e0ace173f",
+                checksum = "53a26559a9180c9c0a2c01a475b0b19b91e54578e3991fa82db3dcd7d7990a83",
                 status = ModelStatus.AVAILABLE,
                 version = "1.0",
                 isRequired = true
@@ -352,8 +352,8 @@ class ModelManager @Inject constructor(
                 AdditionalFile(
                     fileName = Constants.OCR_DECODE_MODEL,
                     url = "$HAYAI_FILES_URL/hayai_decode_int8.onnx",
-                    checksum = "d753e4234d4b271782b16f5fa29b30ab0ddd62467f9070b3646a1c01f4c1286f",
-                    size = 87_761_567L
+                    checksum = "0b96dc072b147123636d643db6708cab991e26345383e2b0efc4a034c268e32a",
+                    size = 87_872_542L
                 ),
                 AdditionalFile(
                     fileName = Constants.OCR_TOKENIZER_FILE,

@@ -329,10 +329,10 @@ class ModelSlotSelectionTest {
     }
 
     @Test
-    fun `the OCR reader names its licence for the weights only, since its ONNX files carry no licence tag`() {
+    fun `the OCR reader names one licence for all its files, since Yomu hosts its own export of the weights`() {
         val ocr = selection.deliverables(ModelType.OCR).single { it.id == Constants.HAYAI_OCR_MODEL_ID }
 
-        assertEquals("Apache-2.0 weights (Hayai)", ocr.licence)
+        assertEquals("Apache-2.0 (Hayai)", ocr.licence)
     }
 
     @Test

@@ -48,6 +48,24 @@ class ModelRegistryTest {
     }
 
     @Test
+    fun `the OCR row and its files download Yomu's own Hayai export`() {
+        val base = "https://huggingface.co/artsaraiva/hayai-ocr-v2.7-onnx/resolve/faa0433c8d5150f1745ea1e3b711ecc674498fdc"
+        val row = registry.single { it.type == ModelType.OCR }
+
+        assertEquals("$base/hayai_prefill_int4.onnx", row.downloadUrl)
+        assertEquals("53a26559a9180c9c0a2c01a475b0b19b91e54578e3991fa82db3dcd7d7990a83", row.checksum)
+        assertEquals(109_497_185L, row.fileSize)
+        assertEquals(
+            listOf(
+                Triple("$base/hayai_decode_int8.onnx", "0b96dc072b147123636d643db6708cab991e26345383e2b0efc4a034c268e32a", 87_872_542L),
+                Triple("$base/tokenizer.json", "f8a0a909c628a684fe463094614e236a8b1d3609e7770f77e7beafaf1056bf13", 1_247_253L),
+                Triple("$base/pos_embedding.npy", "39f018f1ad06c8183d0eaa1531186b7241706678304f1bf50814604211ac1039", 786_560L)
+            ),
+            ModelManager.additionalFiles(row.id).map { Triple(it.url, it.checksum, it.size) }
+        )
+    }
+
+    @Test
     fun `llm rows are exactly the catalog entries`() {
         val llmRowIds = registry.filter { it.type == ModelType.LLM }.map { it.id }.toSet()
         assertEquals(LlmModelCatalog.ALL.map { it.id }.toSet(), llmRowIds)
