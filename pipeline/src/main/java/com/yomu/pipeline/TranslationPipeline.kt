@@ -26,9 +26,10 @@ import kotlinx.coroutines.withContext
 
 data class ModelPaths(
     val bubbleDetectionPath: String,
-    val ocrEncoderPath: String,
-    val ocrDecoderPath: String,
-    val ocrVocabPath: String
+    val ocrPrefillPath: String,
+    val ocrDecodePath: String,
+    val ocrTokenizerPath: String,
+    val ocrPositionsPath: String
 )
 
 class TranslationPipeline(
@@ -78,9 +79,10 @@ class TranslationPipeline(
     suspend fun loadModels(paths: ModelPaths): Boolean = withContext(Dispatchers.IO) {
         val bubbleLoaded = bubbleDetector.loadModel(paths.bubbleDetectionPath)
         val ocrLoaded = ocrEngine.loadModel(
-            paths.ocrEncoderPath,
-            paths.ocrDecoderPath,
-            paths.ocrVocabPath
+            paths.ocrPrefillPath,
+            paths.ocrDecodePath,
+            paths.ocrTokenizerPath,
+            paths.ocrPositionsPath
         )
         bubbleLoaded && ocrLoaded
     }

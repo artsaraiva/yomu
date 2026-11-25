@@ -175,19 +175,19 @@ class ModelSlotSelectionTest {
 
     @Test
     fun `pending choices are kept per slot`() = runTest {
-        selection.delete(Constants.MANGA_OCR_MODEL_ID)
-        selection.pick(ModelType.OCR, Constants.MANGA_OCR_MODEL_ID, ModelStatus.AVAILABLE, eightGb)
+        selection.delete(Constants.HAYAI_OCR_MODEL_ID)
+        selection.pick(ModelType.OCR, Constants.HAYAI_OCR_MODEL_ID, ModelStatus.AVAILABLE, eightGb)
         selection.pick(ModelType.LLM, Constants.CAT_TRANSLATION_MODEL_ID, ModelStatus.AVAILABLE, eightGb)
 
-        assertEquals(Constants.MANGA_OCR_MODEL_ID, selection.pendingId(ModelType.OCR))
+        assertEquals(Constants.HAYAI_OCR_MODEL_ID, selection.pendingId(ModelType.OCR))
         assertNull(selection.pendingId(ModelType.DETECTION))
         assertEquals(Constants.CAT_TRANSLATION_MODEL_ID, selection.pendingId(ModelType.LLM))
 
-        selection.commitPending(mapOf(Constants.MANGA_OCR_MODEL_ID to ModelStatus.READY))
+        selection.commitPending(mapOf(Constants.HAYAI_OCR_MODEL_ID to ModelStatus.READY))
 
         assertNull(selection.pendingId(ModelType.OCR))
         assertEquals(Constants.CAT_TRANSLATION_MODEL_ID, selection.pendingId(ModelType.LLM))
-        assertEquals(Constants.MANGA_OCR_MODEL_ID, prefs.values[Constants.PREF_OCR_MODEL])
+        assertEquals(Constants.HAYAI_OCR_MODEL_ID, prefs.values[Constants.PREF_OCR_MODEL])
     }
 
     @Test
@@ -222,14 +222,14 @@ class ModelSlotSelectionTest {
 
     @Test
     fun `deleting a selected reading model clears only its slot and releases it`() = runTest {
-        selection.delete(Constants.MANGA_OCR_MODEL_ID)
+        selection.delete(Constants.HAYAI_OCR_MODEL_ID)
 
         assertNull(selection.selectedId(ModelType.OCR))
         assertEquals(Constants.BUBBLE_DETECTION_MODEL_ID, selection.selectedId(ModelType.DETECTION))
         assertEquals(LlmModelCatalog.DEFAULT.id, selection.selectedId(ModelType.LLM))
         Mockito.verify(ocr).release()
         Mockito.verifyNoInteractions(detector, llama)
-        assertTrue(deleted(Constants.MANGA_OCR_MODEL_ID))
+        assertTrue(deleted(Constants.HAYAI_OCR_MODEL_ID))
     }
 
     @Test
@@ -254,13 +254,13 @@ class ModelSlotSelectionTest {
 
     @Test
     fun `slots are ready only when every selected model is READY`() = runTest {
-        val statuses = listOf(Constants.BUBBLE_DETECTION_MODEL_ID, Constants.MANGA_OCR_MODEL_ID, LlmModelCatalog.DEFAULT.id)
+        val statuses = listOf(Constants.BUBBLE_DETECTION_MODEL_ID, Constants.HAYAI_OCR_MODEL_ID, LlmModelCatalog.DEFAULT.id)
             .associateWith { ModelStatus.READY }
 
         assertTrue(selection.ready(statuses))
-        assertFalse(selection.ready(statuses + (Constants.MANGA_OCR_MODEL_ID to ModelStatus.DOWNLOADING)))
+        assertFalse(selection.ready(statuses + (Constants.HAYAI_OCR_MODEL_ID to ModelStatus.DOWNLOADING)))
 
-        selection.delete(Constants.MANGA_OCR_MODEL_ID)
+        selection.delete(Constants.HAYAI_OCR_MODEL_ID)
 
         assertFalse(selection.ready(statuses))
     }
@@ -271,11 +271,11 @@ class ModelSlotSelectionTest {
         val size = { id: String -> ModelType.entries.flatMap(selection::deliverables).single { it.id == id }.sizeBytes }
 
         assertEquals(
-            listOf(Constants.BUBBLE_DETECTION_MODEL_ID, Constants.MANGA_OCR_MODEL_ID, Constants.CAT_TRANSLATION_MODEL_ID),
+            listOf(Constants.BUBBLE_DETECTION_MODEL_ID, Constants.HAYAI_OCR_MODEL_ID, Constants.CAT_TRANSLATION_MODEL_ID),
             ModelType.entries.map(selection::chosenId)
         )
         assertEquals(
-            size(Constants.MANGA_OCR_MODEL_ID) + size(Constants.CAT_TRANSLATION_MODEL_ID),
+            size(Constants.HAYAI_OCR_MODEL_ID) + size(Constants.CAT_TRANSLATION_MODEL_ID),
             selection.downloadBytes(mapOf(Constants.BUBBLE_DETECTION_MODEL_ID to ModelStatus.READY))
         )
     }
@@ -289,7 +289,7 @@ class ModelSlotSelectionTest {
         assertEquals(LlmModelCatalog.DEFAULT.id, selection.chosenId(ModelType.LLM))
         assertEquals(
             LlmModelCatalog.DEFAULT.sizeBytes,
-            selection.downloadBytes(mapOf(Constants.BUBBLE_DETECTION_MODEL_ID to ModelStatus.READY, Constants.MANGA_OCR_MODEL_ID to ModelStatus.READY))
+            selection.downloadBytes(mapOf(Constants.BUBBLE_DETECTION_MODEL_ID to ModelStatus.READY, Constants.HAYAI_OCR_MODEL_ID to ModelStatus.READY))
         )
     }
 
@@ -322,8 +322,8 @@ class ModelSlotSelectionTest {
 
     @Test
     fun `a deliverable's size counts its additional files`() {
-        val ocr = selection.deliverables(ModelType.OCR).single { it.id == Constants.MANGA_OCR_MODEL_ID }
-        val entity = ModelManager.REGISTRY.single { it.id == Constants.MANGA_OCR_MODEL_ID }
+        val ocr = selection.deliverables(ModelType.OCR).single { it.id == Constants.HAYAI_OCR_MODEL_ID }
+        val entity = ModelManager.REGISTRY.single { it.id == Constants.HAYAI_OCR_MODEL_ID }
 
         assertEquals(entity.fileSize + ModelManager.additionalFiles(entity.id).sumOf { it.size }, ocr.sizeBytes)
     }
@@ -332,7 +332,7 @@ class ModelSlotSelectionTest {
     fun `fit is judged by the translation budget`() {
         assertFalse(ModelSlotSelection.fits(Constants.CAT_TRANSLATION_14B_MODEL_ID, selection.fitBudget(oneGb)))
         assertTrue(ModelSlotSelection.fits(LlmModelCatalog.DEFAULT.id, selection.fitBudget(oneGb)))
-        assertTrue(ModelSlotSelection.fits(Constants.MANGA_OCR_MODEL_ID, selection.fitBudget(oneGb)))
+        assertTrue(ModelSlotSelection.fits(Constants.HAYAI_OCR_MODEL_ID, selection.fitBudget(oneGb)))
     }
 
     @Test
@@ -341,7 +341,7 @@ class ModelSlotSelectionTest {
         assertFalse(ModelSlotSelection.fits(Constants.QWEN35_08B_MODEL_ID, selection.fitBudget(0L)))
         assertFalse(ModelSlotSelection.fits(Constants.QWEN35_9B_MODEL_ID, selection.fitBudget(0L)))
         assertTrue(ModelSlotSelection.fits(LlmModelCatalog.DEFAULT.id, selection.fitBudget(0L)))
-        assertTrue(ModelSlotSelection.fits(Constants.MANGA_OCR_MODEL_ID, selection.fitBudget(0L)))
+        assertTrue(ModelSlotSelection.fits(Constants.HAYAI_OCR_MODEL_ID, selection.fitBudget(0L)))
     }
 
     @Test

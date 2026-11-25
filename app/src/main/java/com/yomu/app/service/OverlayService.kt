@@ -157,9 +157,10 @@ class OverlayService : Service() {
         readingModelFiles = detectionFiles + ocrFiles
         translationPipeline.modelPaths = ModelPaths(
             bubbleDetectionPath = detectionFiles[0].absolutePath,
-            ocrEncoderPath = ocrFiles[0].absolutePath,
-            ocrDecoderPath = ocrFiles[1].absolutePath,
-            ocrVocabPath = ocrFiles[2].absolutePath
+            ocrPrefillPath = ocrFiles[0].absolutePath,
+            ocrDecodePath = ocrFiles[1].absolutePath,
+            ocrTokenizerPath = ocrFiles[2].absolutePath,
+            ocrPositionsPath = ocrFiles[3].absolutePath
         )
         translationPipeline.fontSizeScale = sharedPreferences.getFloat(
             Constants.PREF_FONT_SIZE_SCALE,

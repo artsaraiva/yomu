@@ -6,7 +6,6 @@ import android.util.Log
 import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
-import ai.onnxruntime.TensorInfo
 import java.io.File
 import java.nio.FloatBuffer
 import java.nio.LongBuffer
@@ -78,66 +77,42 @@ class OnnxRuntime(private val context: Context) {
         }
     }
 
-    fun runInferenceNamed(
-        modelPath: String,
-        inputs: Map<String, FloatArray>,
-        inputShapes: Map<String, LongArray>
-    ): Map<String, FloatArray>? {
-        val session = loadedModels[modelPath] ?: return null
+    /**
+     * Runs Hayai's prefill over one crop and returns its [HayaiDecode], or null when either graph is not loaded or the
+     * prefill fails. [pixelValues] and [positions] hold [slots] rows each, the crop's [rows] × [columns] patches first
+     * and zero padding after; [bosId] is the start token.
+     */
+    @Suppress("LongParameterList")
+    fun startHayaiDecode(
+        prefillPath: String,
+        decodePath: String,
+        pixelValues: FloatArray,
+        positions: FloatArray,
+        slots: Int,
+        rows: Int,
+        columns: Int,
+        bosId: Long
+    ): HayaiDecode? {
+        val prefill = loadedModels[prefillPath] ?: return null
+        val decode = loadedModels[decodePath] ?: return null
         val env = ortEnv ?: return null
-        val inputTensors = mutableMapOf<String, OnnxTensor>()
-
+        // The vision tower merges 2 × 2 patches, so the text attends to this many image tokens.
+        val visionTokens = ((rows + 1) / 2) * ((columns + 1) / 2)
+        val inputs = mapOf(
+            "pixel_values" to OnnxTensor.createTensor(env, FloatBuffer.wrap(pixelValues), longArrayOf(1, slots.toLong(), (pixelValues.size / slots).toLong())),
+            "pos_embeds" to OnnxTensor.createTensor(env, FloatBuffer.wrap(positions), longArrayOf(1, slots.toLong(), (positions.size / slots).toLong())),
+            "spatial_shapes" to OnnxTensor.createTensor(env, LongBuffer.wrap(longArrayOf(rows.toLong(), columns.toLong())), longArrayOf(1, 2)),
+            "bos_ids" to OnnxTensor.createTensor(env, LongBuffer.wrap(longArrayOf(bosId)), longArrayOf(1, 1)),
+            "l_vis_arange" to OnnxTensor.createTensor(env, LongBuffer.wrap(LongArray(visionTokens) { it.toLong() }), longArrayOf(visionTokens.toLong()))
+        )
         return try {
-            for ((name, data) in inputs) {
-                val shape = inputShapes[name] ?: return null
-                inputTensors[name] = OnnxTensor.createTensor(env, FloatBuffer.wrap(data), shape)
-            }
-            val result = session.run(inputTensors)
-            try {
-                readOutputs(session, result)
-            } finally {
-                result.close()
-            }
+            HayaiDecode(env, decode, prefill.run(inputs))
         } catch (e: Exception) {
-            Log.e(TAG, "runInferenceNamed failed for $modelPath: ${e.message}", e)
+            Log.e(TAG, "Hayai prefill failed for $prefillPath: ${e.message}", e)
             null
         } finally {
-            closeTensors(inputTensors.values)
+            closeTensors(inputs.values)
         }
-    }
-
-    /** Starts a [PastKeyValueDecode] of [modelPath] over this encoder output; null when the model is not loaded. */
-    fun startPastKeyValueDecode(modelPath: String, encoderHiddenStates: FloatArray, shape: LongArray): PastKeyValueDecode? {
-        val session = loadedModels[modelPath] ?: return null
-        val env = ortEnv ?: return null
-        return try {
-            PastKeyValueDecode(env, session, OnnxTensor.createTensor(env, FloatBuffer.wrap(encoderHiddenStates), shape))
-        } catch (e: Exception) {
-            Log.e(TAG, "startPastKeyValueDecode failed for $modelPath: ${e.message}", e)
-            null
-        }
-    }
-
-    fun getInputNames(modelPath: String): List<String> {
-        return loadedModels[modelPath]?.getInputNames()?.toList() ?: emptyList()
-    }
-
-    fun getInputShape(modelPath: String, inputName: String): LongArray? {
-        val session = loadedModels[modelPath] ?: return null
-        val info = session.getInputInfo()[inputName] ?: return null
-        val tensorInfo = info.info as? TensorInfo ?: return null
-        return tensorInfo.shape
-    }
-
-    fun getOutputNames(modelPath: String): List<String> {
-        return loadedModels[modelPath]?.getOutputNames()?.toList() ?: emptyList()
-    }
-
-    fun getOutputShape(modelPath: String, outputName: String): LongArray? {
-        val session = loadedModels[modelPath] ?: return null
-        val info = session.getOutputInfo()[outputName] ?: return null
-        val tensorInfo = info.info as? TensorInfo ?: return null
-        return tensorInfo.shape
     }
 
     /**
@@ -187,18 +162,6 @@ class OnnxRuntime(private val context: Context) {
     }
 
     private fun OrtSession.Result.tensor(name: String): OnnxTensor? = get(name).orElse(null) as? OnnxTensor
-
-    private fun readOutputs(
-        session: OrtSession,
-        result: OrtSession.Result
-    ): Map<String, FloatArray> {
-        val outputs = mutableMapOf<String, FloatArray>()
-        for (name in session.getOutputNames()) {
-            val tensor = result.get(name).orElse(null) as? OnnxTensor ?: continue
-            outputs[name] = readFloatBuffer(tensor.getFloatBuffer())
-        }
-        return outputs
-    }
 
     fun releaseModel(modelName: String) {
         loadedModels.remove(modelName)?.close()

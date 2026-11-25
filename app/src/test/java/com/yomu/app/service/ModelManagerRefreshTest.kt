@@ -58,6 +58,24 @@ class ModelManagerRefreshTest {
     }
 
     @Test
+    fun `an upgrade from the manga-ocr reader drops its row and all three of its files`() = runTest {
+        val filesDir = tmp.newFolder()
+        val context = mock(Context::class.java)
+        `when`(context.filesDir).thenReturn(filesDir)
+        val dao = FakeModelDao()
+        val hayai = ModelManager.REGISTRY.single { it.id == Constants.HAYAI_OCR_MODEL_ID }
+        dao.insertModel(hayai.copy(id = "manga_ocr_v1", fileName = "manga_ocr_encoder.onnx", status = ModelStatus.READY))
+        val visionDir = File(filesDir, "${Constants.MODELS_DIR}/${Constants.VISION_MODELS_DIR}").apply { mkdirs() }
+        val oldFiles = listOf("manga_ocr_encoder.onnx", "manga_ocr_decoder.onnx", "vocab.txt")
+            .map { File(visionDir, it).apply { writeText("old weights") } }
+
+        ModelManager(context, dao, OkHttpClient()).refreshModelList()
+
+        assertTrue(oldFiles.none { it.exists() })
+        assertFalse("manga_ocr_v1" in dao.rows.value)
+    }
+
+    @Test
     fun `refresh returns a READY row whose file is gone to AVAILABLE`() = runTest {
         val filesDir = tmp.newFolder()
         val context = mock(Context::class.java)
@@ -94,7 +112,7 @@ class ModelManagerRefreshTest {
         val context = mock(Context::class.java)
         `when`(context.filesDir).thenReturn(filesDir)
         val dao = FakeModelDao()
-        val ocr = ModelManager.REGISTRY.single { it.id == Constants.MANGA_OCR_MODEL_ID }
+        val ocr = ModelManager.REGISTRY.single { it.id == Constants.HAYAI_OCR_MODEL_ID }
         dao.insertModel(ocr.copy(checksum = "the-previous-pin", status = ModelStatus.READY, downloadProgress = 100))
         val manager = ModelManager(context, dao, OkHttpClient())
         val oldFiles = manager.modelFiles(ocr).onEach { it.parentFile?.mkdirs(); it.writeText("old weights") }
@@ -111,13 +129,13 @@ class ModelManagerRefreshTest {
         val filesDir = tmp.newFolder()
         val context = mock(Context::class.java)
         `when`(context.filesDir).thenReturn(filesDir)
-        val ocr = ModelManager.REGISTRY.single { it.id == Constants.MANGA_OCR_MODEL_ID }
+        val ocr = ModelManager.REGISTRY.single { it.id == Constants.HAYAI_OCR_MODEL_ID }
         val visionDir = File(filesDir, "${Constants.MODELS_DIR}/${Constants.VISION_MODELS_DIR}")
 
         val files = ModelManager(context, FakeModelDao(), OkHttpClient()).modelFiles(ocr)
 
         assertEquals(
-            listOf(Constants.OCR_ENCODER_MODEL, Constants.OCR_DECODER_MODEL, Constants.OCR_VOCAB_FILE).map { File(visionDir, it) },
+            listOf(Constants.OCR_PREFILL_MODEL, Constants.OCR_DECODE_MODEL, Constants.OCR_TOKENIZER_FILE, Constants.OCR_POSITIONS_FILE).map { File(visionDir, it) },
             files
         )
     }
