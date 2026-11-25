@@ -59,6 +59,10 @@ class ModelManager @Inject constructor(
     suspend fun getModelsByType(type: ModelType): List<ModelEntity> = modelDao.getModelsByType(type.name)
 
     companion object {
+        // Where Hayai's smallest ONNX set lives at its pinned revision; all four files come from it (#510).
+        private const val HAYAI_FILES_URL =
+            "https://huggingface.co/JustANormalTinkerer/hayai-ocr-v2.7-supernova-onnx/resolve/bc1e39f962b6c500a4855bd8eb4e02f11483bedb"
+
         /** Every model Yomu ships. [refreshModelList] upserts these rows; plain data so JVM tests can read it. */
         internal val REGISTRY = listOf(
             ModelEntity(
@@ -74,13 +78,13 @@ class ModelManager @Inject constructor(
                 isRequired = true
             ),
             ModelEntity(
-                id = Constants.MANGA_OCR_MODEL_ID,
-                name = "MangaOCR (Encoder + Decoder)",
+                id = Constants.HAYAI_OCR_MODEL_ID,
+                name = "Hayai OCR v2.7 (Prefill + Decode)",
                 type = ModelType.OCR,
-                fileName = Constants.OCR_ENCODER_MODEL,
-                fileSize = 22_279_960L,
-                downloadUrl = "https://huggingface.co/artsaraiva/manga-ocr-2025-onnx-past/resolve/151898756903f03a2682fa6be4507dfeff71fb7e/encoder_model.onnx",
-                checksum = "2398ca8799bcc30a6240f2f309b3f9a1b697b5192afa9231338d2f69c3f866ef",
+                fileName = Constants.OCR_PREFILL_MODEL,
+                fileSize = 137_923_271L,
+                downloadUrl = "$HAYAI_FILES_URL/hayai_prefill_int4.onnx",
+                checksum = "ddb1699aa3a711e06cd1756c7adccb65c2a682720090eff6061ff14e0ace173f",
                 status = ModelStatus.AVAILABLE,
                 version = "1.0",
                 isRequired = true
@@ -335,37 +339,48 @@ class ModelManager @Inject constructor(
         /** The curated model each slot holds when nothing (or an unknown id) is selected. */
         val SLOT_DEFAULTS: Map<ModelType, String> = mapOf(
             ModelType.DETECTION to Constants.BUBBLE_DETECTION_MODEL_ID,
-            ModelType.OCR to Constants.MANGA_OCR_MODEL_ID,
+            ModelType.OCR to Constants.HAYAI_OCR_MODEL_ID,
             ModelType.LLM to LlmModelCatalog.DEFAULT.id
         )
 
         /**
-         * Extra files downloaded with a model, in the order its consumer reads them from
-         * [modelFiles]: MangaOCR's decoder, then its vocabulary.
+         * Extra files downloaded with a model, in the order its consumer reads them from [modelFiles]: Hayai's decode
+         * graph, its tokenizer, then its position table.
          */
         internal fun additionalFiles(modelId: String): List<AdditionalFile> = when (modelId) {
-            Constants.MANGA_OCR_MODEL_ID -> listOf(
+            Constants.HAYAI_OCR_MODEL_ID -> listOf(
                 AdditionalFile(
-                    fileName = Constants.OCR_DECODER_MODEL,
-                    url = "https://huggingface.co/artsaraiva/manga-ocr-2025-onnx-past/resolve/151898756903f03a2682fa6be4507dfeff71fb7e/decoder_model_merged.onnx",
-                    checksum = "ac0ac6f48fa89bbfff1ab8d53ffcaa76839a72b145fe20a70923dc59b0b9349e",
-                    size = 118_131_111L
+                    fileName = Constants.OCR_DECODE_MODEL,
+                    url = "$HAYAI_FILES_URL/hayai_decode_int8.onnx",
+                    checksum = "d753e4234d4b271782b16f5fa29b30ab0ddd62467f9070b3646a1c01f4c1286f",
+                    size = 87_761_567L
                 ),
                 AdditionalFile(
-                    fileName = Constants.OCR_VOCAB_FILE,
-                    url = "https://huggingface.co/artsaraiva/manga-ocr-2025-onnx-past/resolve/151898756903f03a2682fa6be4507dfeff71fb7e/vocab.txt",
-                    checksum = "344fbb6b8bf18c57839e924e2c9365434697e0227fac00b88bb4899b78aa594d",
-                    size = 24_072L
+                    fileName = Constants.OCR_TOKENIZER_FILE,
+                    url = "$HAYAI_FILES_URL/tokenizer.json",
+                    checksum = "f8a0a909c628a684fe463094614e236a8b1d3609e7770f77e7beafaf1056bf13",
+                    size = 1_247_253L
+                ),
+                AdditionalFile(
+                    fileName = Constants.OCR_POSITIONS_FILE,
+                    url = "$HAYAI_FILES_URL/pos_embedding.npy",
+                    checksum = "39f018f1ad06c8183d0eaa1531186b7241706678304f1bf50814604211ac1039",
+                    size = 786_560L
                 )
             )
             else -> emptyList()
         }
+
+        /** Extra files of models no longer curated, by model id, so dropping a row also removes them (#510). */
+        private val RETIRED_FILES: Map<String, List<String>> = mapOf(
+            "manga_ocr_v1" to listOf("manga_ocr_decoder.onnx", "vocab.txt")
+        )
     }
 
     suspend fun refreshModelList() = withContext(Dispatchers.IO) {
         val registryIds = REGISTRY.map { it.id }.toSet()
         for (stale in modelDao.getAllModels().first().filterNot { it.id in registryIds }) {
-            deleteFiles(modelFiles(stale))
+            deleteFiles(modelFiles(stale) + RETIRED_FILES[stale.id].orEmpty().map { File(getModelDir(stale.type), it) })
             modelDao.deleteModel(stale)
         }
         for (model in REGISTRY) {

@@ -49,7 +49,7 @@ class ReadingStateTest {
         )
         val unselected = listOf(
             Constants.BUBBLE_DETECTION_MODEL_ID,
-            Constants.MANGA_OCR_MODEL_ID,
+            Constants.HAYAI_OCR_MODEL_ID,
             Constants.CAT_TRANSLATION_MODEL_ID
         )
         ModelStatus.entries.forEach { status ->

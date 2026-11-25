@@ -8,7 +8,7 @@ object Constants {
     const val VISION_MODELS_DIR = "vision"
     const val LLM_MODELS_DIR = "llm"
     const val BUBBLE_DETECTION_MODEL_ID = "rtdetr_v4s_v1"
-    const val MANGA_OCR_MODEL_ID = "manga_ocr_v1"
+    const val HAYAI_OCR_MODEL_ID = "hayai_ocr_v2.7"
     const val CAT_TRANSLATION_MODEL_ID = "cat_translate_0.8b_v1"
     const val CAT_TRANSLATION_14B_MODEL_ID = "cat_translate_1.4b_v1"
     const val QWEN25_15B_MODEL_ID = "qwen25_1.5b_instruct_v1"
@@ -31,9 +31,10 @@ object Constants {
     const val GEMMA4_E4B_UNCENSORED_MODEL_ID = "gemma4_e4b_uncensored_v1"
 
     const val BUBBLE_DETECTION_MODEL = "rtdetr_v4s_int8.onnx"
-    const val OCR_ENCODER_MODEL = "manga_ocr_encoder.onnx"
-    const val OCR_DECODER_MODEL = "manga_ocr_decoder.onnx"
-    const val OCR_VOCAB_FILE = "vocab.txt"
+    const val OCR_PREFILL_MODEL = "hayai_prefill_int4.onnx"
+    const val OCR_DECODE_MODEL = "hayai_decode_int8.onnx"
+    const val OCR_TOKENIZER_FILE = "hayai_tokenizer.json"
+    const val OCR_POSITIONS_FILE = "hayai_pos_embedding.npy"
     const val TRANSLATION_MODEL_4BIT = "cat_translate_0.8b_q4_k_m.gguf"
     const val TRANSLATION_MODEL_8BIT = "cat_translate_0.8b_q8_0.gguf"
 
