@@ -22,7 +22,7 @@ class OnnxRuntimeTest {
     }
 
     @Test
-    fun parseRtDetrDetections_keepsOnlyTextClassesWithTheirPagePixelBoxes() {
+    fun parseRtDetrDetections_keepsAllThreeClassesWithTheirPagePixelBoxes() {
         val detections = parseRtDetrDetections(
             labels = longArrayOf(0, 1, 2),
             boxes = floatArrayOf(
@@ -34,9 +34,10 @@ class OnnxRuntimeTest {
             confidenceThreshold = 0.25f
         )
 
-        assertEquals(listOf("text_bubble", "text_free"), detections.map { it.label })
-        assertArrayEquals(floatArrayOf(40f, 50f, 120f, 260f), detections[0].bbox, 0f)
-        assertArrayEquals(floatArrayOf(500f, 600f, 700f, 650f), detections[1].bbox, 0f)
+        assertEquals(listOf("bubble", "text_bubble", "text_free"), detections.map { it.label })
+        assertArrayEquals(floatArrayOf(10f, 20f, 300f, 400f), detections[0].bbox, 0f)
+        assertArrayEquals(floatArrayOf(40f, 50f, 120f, 260f), detections[1].bbox, 0f)
+        assertArrayEquals(floatArrayOf(500f, 600f, 700f, 650f), detections[2].bbox, 0f)
     }
 
     @Test

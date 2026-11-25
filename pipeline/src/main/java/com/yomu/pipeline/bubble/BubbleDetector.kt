@@ -9,8 +9,15 @@ data class Bubble(
     val id: Int,
     val boundingBox: RectF,
     val confidence: Float,
-    val textRegion: RectF? = null
+    val textRegion: RectF? = null,
+    /** Spike #471: the detector's class, `text_bubble` or `text_free`. */
+    val label: String = "text_bubble",
+    /** Spike #471: the smallest `bubble` box holding at least 0.90 of this text box, if any. */
+    val balloonBox: RectF? = null
 )
+
+/** Spike #471: the detector's `bubble` class label. */
+const val BALLOON_LABEL = "bubble"
 
 class BubbleDetector(private val onnxRuntime: OnnxRuntime) {
 
@@ -28,6 +35,10 @@ class BubbleDetector(private val onnxRuntime: OnnxRuntime) {
         // under-separates are still the detector's problem (#57), not this heuristic's.
         internal const val NMS_CONTAINMENT_THRESHOLD = 0.90f
     }
+
+    /** Spike #471: the page's `bubble` boxes from the last [detect], NMS'd among themselves only. */
+    var lastBalloons: List<RectF> = emptyList()
+        private set
 
     private var isLoaded = false
     private var modelPath: String? = null
@@ -47,7 +58,13 @@ class BubbleDetector(private val onnxRuntime: OnnxRuntime) {
         if (!isLoaded) return emptyList()
         val path = modelPath ?: return emptyList()
 
-        val rawDetections = onnxRuntime.runBitmapInference(path, bitmap, confidenceThreshold)
+        val allDetections = onnxRuntime.runBitmapInference(path, bitmap, confidenceThreshold)
+        // Spike #471: balloons stay out of the text NMS; its containment rule would drop one box of
+        // each balloon/text pair, and the #370 swap would put the balloon in the text box's place.
+        val (balloonDetections, rawDetections) = allDetections.partition { it.label == BALLOON_LABEL }
+        val balloons = keptDetections(balloonDetections, confidenceThreshold)
+        lastBalloons = balloons.map { val (x1, y1, x2, y2) = it.bbox; RectF(x1, y1, x2, y2) }
+        Log.d(TAG, "Balloons raw=${balloonDetections.size} kept=${balloons.size}")
         val detections = keptDetections(rawDetections, confidenceThreshold)
         Log.d(
             TAG,
@@ -67,7 +84,12 @@ class BubbleDetector(private val onnxRuntime: OnnxRuntime) {
                     id = index + 1,
                     boundingBox = RectF(x1, y1, x2, y2),
                     confidence = detection.confidence,
-                    textRegion = RectF(x1, y1, x2, y2)
+                    textRegion = RectF(x1, y1, x2, y2),
+                    label = detection.label,
+                    balloonBox = balloons
+                        .filter { detectionContainedFraction(detection, it) >= NMS_CONTAINMENT_THRESHOLD }
+                        .minByOrNull { (it.bbox[2] - it.bbox[0]) * (it.bbox[3] - it.bbox[1]) }
+                        ?.let { val (bx1, by1, bx2, by2) = it.bbox; RectF(bx1, by1, bx2, by2) }
                 )
             }
     }
