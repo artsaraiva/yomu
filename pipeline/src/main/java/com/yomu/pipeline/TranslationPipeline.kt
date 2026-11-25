@@ -6,7 +6,7 @@ import android.util.Log
 import com.yomu.core.GlossaryEntry
 import com.yomu.core.TargetLanguage
 import com.yomu.pipeline.bubble.BubbleDetector
-import com.yomu.pipeline.bubble.bubbleRenderBoxes
+import com.yomu.pipeline.bubble.bubbleRenderAreas
 import com.yomu.pipeline.bubble.centeredOutside
 import com.yomu.pipeline.context.ContextAssembler
 import com.yomu.pipeline.ocr.OcrEngine
@@ -232,7 +232,7 @@ class TranslationPipeline(
                     bubble.boundingBox.bottom
                 )
             }
-            val bubbleBounds = bubbleRenderBoxes(bitmap, detectedBounds)
+            val renderAreas = bubbleRenderAreas(bitmap, detectedBounds)
             typesetter.fontSizeScale = fontSizeScale
             endStage(Stage.CONTEXT_ASSEMBLY)
             callback?.onStageProgress(Stage.CONTEXT_ASSEMBLY, 0.6f)
@@ -244,7 +244,7 @@ class TranslationPipeline(
             val arrived = mutableMapOf<Int, TypesetBubble>()
             var firstBubbleAt: Long? = null
             val translationResult = translationEngine.translate(pageContext.blocks, targetLanguage, glossary) { translated ->
-                val typeset = typesetter.typeset(listOf(translated), bubbleBounds).single()
+                val typeset = typesetter.typeset(translated, renderAreas.getValue(translated.bubbleId))
                 if (firstBubbleAt == null) firstBubbleAt = System.currentTimeMillis()
                 arrived[typeset.bubbleId] = typeset
                 onBubble?.invoke(typeset)

@@ -44,7 +44,7 @@ class BubbleRenderBoxTest {
 
     @Test
     fun `enclosed bubble widens the render box past the thin glyph box`() {
-        val box = findBubbleInterior(page(), 200, 300, textBox)!!
+        val box = findBubbleInterior(page(), 200, 300, textBox)!!.renderBox
         assertTrue("wider than glyphs: ${box.toList()}", box[2] - box[0] > 90f)
         assertTrue("stays inside the bubble: ${box.toList()}", box[0] >= 20f && box[2] <= 180f)
     }
@@ -62,7 +62,7 @@ class BubbleRenderBoxTest {
     @Test
     fun `render box never shrinks below the glyph box`() {
         val big = floatArrayOf(40f, 60f, 160f, 240f)
-        val box = findBubbleInterior(page(), 200, 300, big)!!
+        val box = findBubbleInterior(page(), 200, 300, big)!!.renderBox
         assertTrue(box[0] <= 40f && box[1] <= 60f && box[2] >= 160f && box[3] >= 240f)
     }
 
@@ -70,7 +70,7 @@ class BubbleRenderBoxTest {
     fun `glyphs whose box pokes past the outline still pick the bubble they mostly sit in`() {
         // The bubble's top edge is at y=30; this box starts above it, out on the page.
         val poking = floatArrayOf(92f, 25f, 108f, 195f)
-        val box = findBubbleInterior(page(), 200, 300, poking)!!
+        val box = findBubbleInterior(page(), 200, 300, poking)!!.renderBox
         assertTrue("wider than glyphs: ${box.toList()}", box[2] - box[0] > 90f)
     }
 
@@ -95,7 +95,7 @@ class BubbleRenderBoxTest {
         // Bubble placed away from the page origin so a window-offset bug shows.
         val pixels = page(width = 600, height = 800, cx = 400, cy = 500)
         val glyphs = floatArrayOf(392f, 455f, 408f, 545f)
-        val box = bubbleRenderBoxes(bitmap(600, 800, pixels), mapOf(1 to glyphs)).getValue(1)
+        val box = bubbleRenderAreas(bitmap(600, 800, pixels), mapOf(1 to glyphs)).getValue(1).box
 
         assertTrue("wider than glyphs: ${box.toList()}", box[2] - box[0] > 90f)
         assertTrue("inside the bubble: ${box.toList()}", box[0] >= 320f && box[2] <= 480f && box[1] >= 380f && box[3] <= 620f)
@@ -106,8 +106,58 @@ class BubbleRenderBoxTest {
         val pixels = page(width = 600, height = 800, cx = 400, cy = 500)
         val glyphs = floatArrayOf(392f, 455f, 408f, 545f)
         val neighbour = floatArrayOf(430f, 400f, 440f, 420f)
-        val boxes = bubbleRenderBoxes(bitmap(600, 800, pixels), mapOf(1 to glyphs, 2 to neighbour))
+        val areas = bubbleRenderAreas(bitmap(600, 800, pixels), mapOf(1 to glyphs, 2 to neighbour))
 
-        assertArrayEquals(glyphs, boxes.getValue(1), 0f)
+        assertArrayEquals(glyphs, areas.getValue(1).box, 0f)
+        assertNull("no shape that would cover the neighbour", areas.getValue(1).shape)
+    }
+
+    @Test
+    fun `a round bubble's shape is the ellipse of its interior`() {
+        val shape = findBubbleInterior(page(), 200, 300, textBox)!!.shape
+
+        assertTrue("ellipse", shape.ellipse)
+        // The outline ring is 0.95..1.05 of radii 80x120, and the close radius eats 2 px more.
+        assertTrue("spans the interior: ${shape.bounds.toList()}", shape.bounds[0] in 18f..30f && shape.bounds[2] in 170f..182f)
+        assertTrue("spans the interior: ${shape.bounds.toList()}", shape.bounds[1] in 28f..42f && shape.bounds[3] in 258f..272f)
+    }
+
+    @Test
+    fun `a caption box's shape is its whole rectangle`() {
+        // A rectangular outline from (40,60) to (160,240), glyphs down the middle.
+        val caption = IntArray(200 * 300) { i ->
+            val x = i % 200
+            val y = i / 200
+            val onOutline = (x in 40..42 || x in 158..160) && y in 60..240 || (y in 60..62 || y in 238..240) && x in 40..160
+            val glyph = x in 95..105 && y in 110..190 && y % 10 < 5
+            if (onOutline || glyph) black else white
+        }
+
+        val shape = findBubbleInterior(caption, 200, 300, textBox)!!.shape
+
+        assertTrue("rectangle", !shape.ellipse)
+    }
+
+    @Test
+    fun `a bubble with no interior has no shape and keeps its glyph box`() {
+        val pixels = page(width = 600, height = 800, cx = 400, cy = 500, outline = false)
+        val glyphs = floatArrayOf(392f, 455f, 408f, 545f)
+
+        val area = bubbleRenderAreas(bitmap(600, 800, pixels), mapOf(1 to glyphs)).getValue(1)
+
+        assertNull(area.shape)
+        assertArrayEquals(glyphs, area.box, 0f)
+    }
+
+    @Test
+    fun `a shape comes back in page coordinates`() {
+        val pixels = page(width = 600, height = 800, cx = 400, cy = 500)
+        val glyphs = floatArrayOf(392f, 455f, 408f, 545f)
+
+        val area = bubbleRenderAreas(bitmap(600, 800, pixels), mapOf(1 to glyphs)).getValue(1)
+
+        val bounds = area.shape!!.bounds
+        assertTrue("around the bubble: ${bounds.toList()}", bounds[0] in 318f..330f && bounds[2] in 470f..482f && bounds[1] in 378f..392f && bounds[3] in 608f..622f)
+        assertArrayEquals("glyph box rides along", glyphs, area.glyphBox, 0f)
     }
 }
