@@ -2,12 +2,6 @@ package com.yomu.pipeline.translation
 
 import com.yomu.core.ERROR_ENGLISH_ONLY
 import com.yomu.core.ERROR_MODEL_MISSING
-import com.yomu.core.ERROR_SERVER_FAILED
-import com.yomu.core.ERROR_SERVER_HTTPS_REQUIRED
-import com.yomu.core.ERROR_SERVER_KEY_REJECTED
-import com.yomu.core.ERROR_SERVER_MODEL_NOT_FOUND
-import com.yomu.core.ERROR_SERVER_TIMEOUT
-import com.yomu.core.ERROR_SERVER_UNREACHABLE
 import com.yomu.core.GlossaryEntry
 import com.yomu.core.TargetLanguage
 import com.yomu.core.TranslatableBubble
@@ -95,28 +89,18 @@ data class TranslationResult(
 )
 
 /**
- * What to tell the reader when the page came back untranslated because the slot could not load, its
- * English-only model refused the target language, or the reader's server failed, or null when the model
- * ran. Such a page still renders every bubble's source text, which reads as a capture that silently did
- * nothing (#308) — the caller shows this instead. A server failure is never retried on the phone
- * (ADR-0023), so its message names the cause and where to pick a phone model.
+ * The phone's own message for a page that came back untranslated because the slot could not load or its
+ * English-only model refused the target language, or null when the model ran. Such a page still renders every
+ * bubble's source text, which reads as a capture that silently did nothing (#308) — the caller shows this
+ * instead. A translator's own error codes are its to explain (`Translator.readerMessage`, #509); this is the
+ * fallback when it has nothing to say.
  */
 fun TranslationResult.readerFailure(): String? = when {
-    errorCode?.let(SERVER_FAILURES::get) != null -> "${SERVER_FAILURES[errorCode]} — or pick a phone model in the model picker on Home"
     errorCode == ERROR_ENGLISH_ONLY -> "This model is English only — pick a Multilingual model or English in Settings"
     outcome != TranslationOutcome.NOT_LOADED -> null
     errorCode == ERROR_MODEL_MISSING -> "Translation model is missing — download it again in Settings"
     else -> "Translation model could not be loaded (${errorCode ?: "not_ready"})"
 }
-
-private val SERVER_FAILURES = mapOf(
-    ERROR_SERVER_UNREACHABLE to "Can't reach your server",
-    ERROR_SERVER_KEY_REJECTED to "Your server rejected the key",
-    ERROR_SERVER_MODEL_NOT_FOUND to "Your server doesn't have this model",
-    ERROR_SERVER_TIMEOUT to "Your server took too long",
-    ERROR_SERVER_HTTPS_REQUIRED to "Your server's address needs https://",
-    ERROR_SERVER_FAILED to "Your server couldn't translate the page"
-)
 
 fun TranslationResult.untranslatedNotice(): String? {
     val unanswered = translations.count { !it.answered }
