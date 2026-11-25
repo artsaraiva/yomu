@@ -6,6 +6,9 @@ plugins {
 android {
     namespace = "com.yomu.ml"
     compileSdk = 36
+    // r28+ links with 16 KB max page size and ships 16 KB-aligned libc++/libomp; older NDKs trip
+    // Android's page-size compatibility check on 16 KB devices (#517).
+    ndkVersion = "28.2.13676358"
     defaultConfig {
         minSdk = 26
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
