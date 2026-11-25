@@ -21,6 +21,10 @@ private const val INSCRIBED_FRACTION = 0.707f
 private const val MAX_SEARCH_MARGIN_OF_PAGE_WIDTH = 0.25f
 // An ellipse covers pi/4 (0.785) of its bounds; a caption box covering more than this is a rectangle.
 private const val RECT_FILL_RATIO = 0.90f
+// Balloon boxes hug the outline's outer edge; the window adds a few pixels so the outline is inside it.
+private const val BALLOON_WINDOW_PAD = 4
+// The fallback ellipse sits inside the balloon box's outline stroke (#471).
+private const val BALLOON_OUTLINE_INSET = 0.06f
 
 /** The balloon interior a translation's lines can follow: its bounds, {left, top, right, bottom}, as an [ellipse] or a rectangle. */
 data class BalloonShape(val bounds: FloatArray, val ellipse: Boolean)
@@ -38,19 +42,27 @@ internal data class BubbleInterior(val renderBox: FloatArray, val shape: Balloon
  * The area each bubble's translation is typeset into, keyed like [textBoxes] (detector boxes,
  * {left, top, right, bottom} in page pixels). Its box is the rectangle inside the white bubble
  * interior around the glyphs, never smaller than the detector box, and its shape is that interior.
- * A bubble keeps its detector box and gets no shape when no enclosed interior is found (text on
- * art, screentone bubbles, open bubbles) or when its grown box would reach another bubble's glyphs,
- * which would paint two translations over each other (#88).
+ *
+ * A text box with a detector balloon in [balloonBoxes] is filled inside that balloon box only, and
+ * gets the ellipse inscribed in the balloon box when no interior is found there (an open balloon).
+ * One without a balloon searches around its glyphs and keeps its detector box with no shape when
+ * no enclosed interior is found (text on art, screentone bubbles, open bubbles). Either way it
+ * keeps its detector box when its box or shape would reach another bubble's glyphs, which would
+ * paint two translations over each other (#88).
  */
-fun bubbleRenderAreas(bitmap: Bitmap, textBoxes: Map<Int, FloatArray>): Map<Int, RenderArea> {
-    val found = textBoxes.mapValues { (_, box) -> bubbleInterior(bitmap, box) }
-    return found.mapValues { (id, interior) ->
-        val glyphs = textBoxes.getValue(id)
-        val reachesOther = interior != null &&
-            textBoxes.any { (otherId, other) -> otherId != id && intersects(interior.renderBox, other) }
-        if (interior == null || reachesOther) RenderArea(glyphs, null, glyphs)
-        else RenderArea(interior.renderBox, interior.shape, glyphs)
+fun bubbleRenderAreas(
+    bitmap: Bitmap,
+    textBoxes: Map<Int, FloatArray>,
+    balloonBoxes: Map<Int, FloatArray> = emptyMap()
+): Map<Int, RenderArea> = textBoxes.mapValues { (id, glyphs) ->
+    val balloon = balloonBoxes[id]
+    // One fill per text box: inside its balloon when the detector found one, around its glyphs otherwise.
+    val interior = if (balloon != null) balloonInterior(bitmap, glyphs, balloon) else bubbleInterior(bitmap, glyphs)
+    val reachesOther = interior != null && textBoxes.any { (otherId, other) ->
+        otherId != id && (intersects(interior.renderBox, other) || shapeMeets(interior.shape, other))
     }
+    if (interior == null || reachesOther) RenderArea(glyphs, null, glyphs)
+    else RenderArea(interior.renderBox, interior.shape, glyphs)
 }
 
 /** [findBubbleInterior] around [textBox] on the page, in page coordinates. */
@@ -59,19 +71,55 @@ private fun bubbleInterior(bitmap: Bitmap, textBox: FloatArray): BubbleInterior?
         maxOf(textBox[2] - textBox[0], textBox[3] - textBox[1]),
         bitmap.width * MAX_SEARCH_MARGIN_OF_PAGE_WIDTH
     ).toInt()
-    val left = (textBox[0].toInt() - margin).coerceIn(0, bitmap.width - 1)
-    val top = (textBox[1].toInt() - margin).coerceIn(0, bitmap.height - 1)
-    val right = (textBox[2].toInt() + margin).coerceIn(left + 1, bitmap.width)
-    val bottom = (textBox[3].toInt() + margin).coerceIn(top + 1, bitmap.height)
-    val width = right - left
-    val height = bottom - top
-    val pixels = IntArray(width * height)
-    bitmap.getPixels(pixels, 0, width, left, top, width, height)
+    val window = Window(
+        bitmap,
+        textBox[0].toInt() - margin, textBox[1].toInt() - margin,
+        textBox[2].toInt() + margin, textBox[3].toInt() + margin
+    )
+    return findBubbleInterior(window.pixels, window.width, window.height, window.local(textBox))?.let(window::onPage)
+}
 
-    val inWindow = floatArrayOf(textBox[0] - left, textBox[1] - top, textBox[2] - left, textBox[3] - top)
-    val interior = findBubbleInterior(pixels, width, height, inWindow) ?: return null
-    fun toPage(box: FloatArray) = floatArrayOf(box[0] + left, box[1] + top, box[2] + left, box[3] + top)
-    return BubbleInterior(toPage(interior.renderBox), interior.shape.copy(bounds = toPage(interior.shape.bounds)))
+/**
+ * [findBubbleInterior] inside [balloon], where a region touching the balloon box has leaked out of
+ * an open balloon. A region that misses the glyph box's centre or is smaller than the glyph box is
+ * a glyph counter (口, あ), not the balloon. Without an interior, the ellipse inscribed in [balloon].
+ */
+private fun balloonInterior(bitmap: Bitmap, textBox: FloatArray, balloon: FloatArray): BubbleInterior {
+    val window = Window(
+        bitmap,
+        balloon[0].toInt() - BALLOON_WINDOW_PAD, balloon[1].toInt() - BALLOON_WINDOW_PAD,
+        balloon[2].toInt() + BALLOON_WINDOW_PAD, balloon[3].toInt() + BALLOON_WINDOW_PAD
+    )
+    val glyphs = window.local(textBox)
+    val interior = findBubbleInterior(window.pixels, window.width, window.height, glyphs)
+        ?.takeIf { holdsGlyphBox(it.shape.bounds, glyphs) }
+    if (interior != null) return window.onPage(interior)
+
+    val insetX = (balloon[2] - balloon[0]) * BALLOON_OUTLINE_INSET
+    val insetY = (balloon[3] - balloon[1]) * BALLOON_OUTLINE_INSET
+    val bounds = floatArrayOf(balloon[0] + insetX, balloon[1] + insetY, balloon[2] - insetX, balloon[3] - insetY)
+    return BubbleInterior(renderBoxIn(bounds, textBox), BalloonShape(bounds, ellipse = true))
+}
+
+private fun holdsGlyphBox(region: FloatArray, glyphs: FloatArray): Boolean {
+    val cx = (glyphs[0] + glyphs[2]) / 2f
+    val cy = (glyphs[1] + glyphs[3]) / 2f
+    return cx > region[0] && cx < region[2] && cy > region[1] && cy < region[3] &&
+        (region[2] - region[0]) * (region[3] - region[1]) >= (glyphs[2] - glyphs[0]) * (glyphs[3] - glyphs[1])
+}
+
+/** A page region copied out for a fill, clamped to the page. */
+private class Window(bitmap: Bitmap, left: Int, top: Int, right: Int, bottom: Int) {
+    val left = left.coerceIn(0, bitmap.width - 1)
+    val top = top.coerceIn(0, bitmap.height - 1)
+    val width = right.coerceIn(this.left + 1, bitmap.width) - this.left
+    val height = bottom.coerceIn(this.top + 1, bitmap.height) - this.top
+    val pixels = IntArray(width * height).also { bitmap.getPixels(it, 0, width, this.left, this.top, width, height) }
+
+    fun local(box: FloatArray) = floatArrayOf(box[0] - left, box[1] - top, box[2] - left, box[3] - top)
+    private fun page(box: FloatArray) = floatArrayOf(box[0] + left, box[1] + top, box[2] + left, box[3] + top)
+    fun onPage(interior: BubbleInterior) =
+        BubbleInterior(page(interior.renderBox), interior.shape.copy(bounds = page(interior.shape.bounds)))
 }
 
 /**
@@ -82,17 +130,21 @@ internal fun findBubbleInterior(pixels: IntArray, width: Int, height: Int, textB
     val fillable = fillablePixels(pixels, width, height)
     val (interior, spanArea) = interiorAround(fillable, width, height, textBox) ?: return null
 
-    val insetX = (interior[2] - interior[0]) * (1 - INSCRIBED_FRACTION) / 2f
-    val insetY = (interior[3] - interior[1]) * (1 - INSCRIBED_FRACTION) / 2f
-    val renderBox = floatArrayOf(
-        minOf(interior[0] + insetX, textBox[0]),
-        minOf(interior[1] + insetY, textBox[1]),
-        maxOf(interior[2] - insetX, textBox[2]),
-        maxOf(interior[3] - insetY, textBox[3])
-    )
     val bounds = FloatArray(4) { interior[it].toFloat() }
     val fillRatio = spanArea.toFloat() / ((interior[2] - interior[0]) * (interior[3] - interior[1]))
-    return BubbleInterior(renderBox, BalloonShape(bounds, ellipse = fillRatio <= RECT_FILL_RATIO))
+    return BubbleInterior(renderBoxIn(bounds, textBox), BalloonShape(bounds, ellipse = fillRatio <= RECT_FILL_RATIO))
+}
+
+/** The rectangle inscribed in the ellipse of [bounds], grown to hold [textBox]. */
+private fun renderBoxIn(bounds: FloatArray, textBox: FloatArray): FloatArray {
+    val insetX = (bounds[2] - bounds[0]) * (1 - INSCRIBED_FRACTION) / 2f
+    val insetY = (bounds[3] - bounds[1]) * (1 - INSCRIBED_FRACTION) / 2f
+    return floatArrayOf(
+        minOf(bounds[0] + insetX, textBox[0]),
+        minOf(bounds[1] + insetY, textBox[1]),
+        maxOf(bounds[2] - insetX, textBox[2]),
+        maxOf(bounds[3] - insetY, textBox[3])
+    )
 }
 
 /** White pixels, minus a [OUTLINE_CLOSE_RADIUS] halo around every dark one. */
@@ -174,6 +226,18 @@ private fun interiorAround(fillable: BooleanArray, width: Int, height: Int, text
 
 private fun intersects(a: FloatArray, b: FloatArray): Boolean =
     a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3]
+
+/** Whether [box] reaches into [shape]: an ellipse by the box's point nearest its centre, a rectangle by overlap. */
+private fun shapeMeets(shape: BalloonShape, box: FloatArray): Boolean {
+    val b = shape.bounds
+    if (!intersects(b, box)) return false
+    if (!shape.ellipse) return true
+    val cx = (b[0] + b[2]) / 2f
+    val cy = (b[1] + b[3]) / 2f
+    val dx = (cx.coerceIn(box[0], box[2]) - cx) / ((b[2] - b[0]) / 2f)
+    val dy = (cy.coerceIn(box[1], box[3]) - cy) / ((b[3] - b[1]) / 2f)
+    return dx * dx + dy * dy < 1f
+}
 
 internal fun luminance(argb: Int): Int =
     ((argb shr 16 and 0xFF) * 299 + (argb shr 8 and 0xFF) * 587 + (argb and 0xFF) * 114) / 1000
