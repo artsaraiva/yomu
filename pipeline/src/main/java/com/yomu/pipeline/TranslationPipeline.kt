@@ -294,4 +294,3 @@ class TranslationPipeline(
         translationEngine.close()
     }
 }
-

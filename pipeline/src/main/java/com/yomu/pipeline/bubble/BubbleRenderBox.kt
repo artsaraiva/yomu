@@ -112,10 +112,9 @@ private fun fillablePixels(pixels: IntArray, width: Int, height: Int): BooleanAr
 /**
  * Bounds of the enclosed region holding the most seed pixels around [textBox], with its row-span
  * area: each row counted from its leftmost to its rightmost pixel, so glyph holes inside the
- * interior don't count against its shape. Seeds also land
- * in glyph counters (口, あ) and, where the box pokes past an outline, outside the bubble; the
- * interior is the region most of the box sits in. A region reaching the window edge has leaked
- * into the page and is never chosen.
+ * interior don't count against its shape. Seeds also land in glyph counters (口, あ) and, where
+ * the box pokes past an outline, outside the bubble; the interior is the region most of the box
+ * sits in. A region reaching the window edge has leaked into the page and is never chosen.
  */
 private fun interiorAround(fillable: BooleanArray, width: Int, height: Int, textBox: FloatArray): Pair<IntArray, Int>? {
     val seedLeft = (textBox[0].toInt() - SEED_PAD).coerceIn(0, width - 1)
