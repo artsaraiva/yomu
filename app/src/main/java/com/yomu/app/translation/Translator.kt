@@ -1,6 +1,12 @@
 package com.yomu.app.translation
 
 import android.content.SharedPreferences
+import com.yomu.core.ERROR_SERVER_FAILED
+import com.yomu.core.ERROR_SERVER_HTTPS_REQUIRED
+import com.yomu.core.ERROR_SERVER_KEY_REJECTED
+import com.yomu.core.ERROR_SERVER_MODEL_NOT_FOUND
+import com.yomu.core.ERROR_SERVER_TIMEOUT
+import com.yomu.core.ERROR_SERVER_UNREACHABLE
 import com.yomu.core.GenerationParams
 import com.yomu.core.TranslationSlot
 import com.yomu.ml.LlamaTranslationBridge
@@ -12,14 +18,19 @@ import okhttp3.OkHttpClient
  * One way to fill the translation slot (#478). Each module registers its own through Hilt's
  * `@IntoSet`, and [TranslationModelSelection] hands out the one the reader chose.
  *
- * The slot is built on first use, so a translator the reader never picks costs nothing.
+ * The slot is built on first use, so a translator the reader never picks costs nothing. Each translator
+ * explains its own error codes to the reader (#509), so the pipeline need not know them.
  */
 class Translator(
     val id: String,
     val displayName: String,
     private val canRun: () -> Boolean,
-    private val slot: Lazy<TranslationSlot>
+    private val slot: Lazy<TranslationSlot>,
+    private val readerMessages: Map<String, String> = emptyMap()
 ) {
+    /** What to tell the reader about a page that ended with [errorCode], or null when this translator has nothing to say. */
+    fun readerMessage(errorCode: String): String? = readerMessages[errorCode]
+
     /** Whether this translator can take a page now; checked before every page, so it must be cheap. */
     fun canRun(): Boolean = canRun.invoke()
 
@@ -48,7 +59,17 @@ class Translator(
                 NetworkTranslationSlot(client, config = {
                     store.translatorConfig()?.copy(generation = readerGeneration(prefs)) ?: NOT_SET_UP
                 })
-            })
+            }, SERVER_FAILURES.mapValues { (_, cause) -> "$cause — or pick a phone model in the model picker on Home" })
+
+        // A server failure is never retried on the phone (ADR-0023), so each names its cause and where to pick a phone model.
+        private val SERVER_FAILURES = mapOf(
+            ERROR_SERVER_UNREACHABLE to "Can't reach your server",
+            ERROR_SERVER_KEY_REJECTED to "Your server rejected the key",
+            ERROR_SERVER_MODEL_NOT_FOUND to "Your server doesn't have this model",
+            ERROR_SERVER_TIMEOUT to "Your server took too long",
+            ERROR_SERVER_HTTPS_REQUIRED to "Your server's address needs https://",
+            ERROR_SERVER_FAILED to "Your server couldn't translate the page"
+        )
 
         // No address, so the slot fails the page before any request: canRun said yes, then the address changed.
         private val NOT_SET_UP = NetworkTranslatorConfig(baseUrl = "", apiKey = "", model = "")

@@ -1,6 +1,13 @@
 package com.yomu.app.translation
 
 import com.google.gson.JsonParser
+import com.yomu.core.ERROR_MODEL_MISSING
+import com.yomu.core.ERROR_SERVER_FAILED
+import com.yomu.core.ERROR_SERVER_HTTPS_REQUIRED
+import com.yomu.core.ERROR_SERVER_KEY_REJECTED
+import com.yomu.core.ERROR_SERVER_MODEL_NOT_FOUND
+import com.yomu.core.ERROR_SERVER_TIMEOUT
+import com.yomu.core.ERROR_SERVER_UNREACHABLE
 import com.yomu.core.GenerationBound
 import com.yomu.core.TranslatableBubble
 import com.yomu.core.TranslatablePage
@@ -14,6 +21,7 @@ import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -97,5 +105,22 @@ class NetworkTranslatorTest {
 
         store.saveAddress("http://192.168.1.21:11434")
         assertSame("chosen but not set up", llama, selection.current())
+    }
+
+    @Test
+    fun `it names each server failure and points to a phone model on Home`() {
+        val expected = mapOf(
+            ERROR_SERVER_UNREACHABLE to "Can't reach your server",
+            ERROR_SERVER_KEY_REJECTED to "Your server rejected the key",
+            ERROR_SERVER_MODEL_NOT_FOUND to "Your server doesn't have this model",
+            ERROR_SERVER_TIMEOUT to "Your server took too long",
+            ERROR_SERVER_HTTPS_REQUIRED to "Your server's address needs https://",
+            ERROR_SERVER_FAILED to "Your server couldn't translate the page"
+        )
+
+        for ((code, cause) in expected) {
+            assertEquals(code, "$cause \u2014 or pick a phone model in the model picker on Home", translator.readerMessage(code))
+        }
+        assertNull("not one of its codes", translator.readerMessage(ERROR_MODEL_MISSING))
     }
 }
