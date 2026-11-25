@@ -81,7 +81,13 @@ private fun balloonShape(bitmap: Bitmap, glyph: FloatArray, balloon: FloatArray)
         balloon[2].toInt() + WINDOW_PAD, balloon[3].toInt() + WINDOW_PAD
     )
     val inWindow = floatArrayOf(glyph[0] - window.left, glyph[1] - window.top, glyph[2] - window.left, glyph[3] - window.top)
-    val region = interiorRegion(window.pixels, window.width, window.height, inWindow)
+    // A leaked interior leaves only glyph counters (口, あ) as enclosed regions; those are not the balloon.
+    val region = interiorRegion(window.pixels, window.width, window.height, inWindow)?.takeIf { (box, _) ->
+        val cx = (inWindow[0] + inWindow[2]) / 2f
+        val cy = (inWindow[1] + inWindow[3]) / 2f
+        cx > box[0] && cx < box[2] && cy > box[1] && cy < box[3] &&
+            (box[2] - box[0]).toFloat() * (box[3] - box[1]) >= (inWindow[2] - inWindow[0]) * (inWindow[3] - inWindow[1])
+    }
     if (region == null) {
         val insetX = (balloon[2] - balloon[0]) * BALLOON_OUTLINE_INSET
         val insetY = (balloon[3] - balloon[1]) * BALLOON_OUTLINE_INSET
