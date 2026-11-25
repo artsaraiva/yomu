@@ -596,10 +596,10 @@ class OverlayService : Service() {
      * and name glossary used as the recall key. The server's model is in it, its address is not (ADR-0023).
      */
     private fun pageSettings(): PageSettings {
-        val taken = translatorChoice.forPage()
+        val pageTranslator = translatorChoice.forPage()
         return PageSettings(
-            translator = taken.translator,
-            serverModel = taken.serverModel,
+            translator = pageTranslator.translator,
+            serverModel = pageTranslator.serverModel,
             translationModel = slotSelection.selectedId(ModelType.LLM),
             detectionModel = slotSelection.selectedId(ModelType.DETECTION),
             ocrModel = slotSelection.selectedId(ModelType.OCR),
