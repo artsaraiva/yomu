@@ -36,11 +36,9 @@ class TranslationPipelineTest {
     private val toolbarLabel = Bubble(6, RectF(200f, 320f, 240f, 390f), 0.9f)
     private val acronymLine = Bubble(7, RectF(250f, 320f, 280f, 390f), 0.9f)
 
-    // The fake OCR sees only a crop, so each box above has its own width to be told apart by; 20 is a
-    // quarter of speech's crop, read in pieces.
+    // The fake OCR sees only a crop, so each box above has its own width to be told apart by.
     private val readsByCropWidth = mapOf(
-        50 to "12:00", 80 to "こんにちは", 60 to "!?", 70 to "よくラるって", 90 to "御意", 40 to "ぺ。Share", 30 to "GPSのっけて",
-        20 to "ひとこと"
+        50 to "12:00", 80 to "こんにちは", 60 to "!?", 70 to "よくラるって", 90 to "御意", 40 to "ぺ。Share", 30 to "GPSのっけて"
     )
     // Emulator scores from #366: a garbled caption, and a clean two-kanji line.
     private val confidenceByCropWidth = mapOf(70 to 0.738f, 90 to 0.898f)
@@ -135,7 +133,7 @@ class TranslationPipelineTest {
     }
 
     @Test
-    fun `a bubble of eight columns reaches OCR two columns at a time`() = runTest {
+    fun `a bubble of eight columns reaches OCR whole, since Hayai keeps its shape`() = runTest {
         // Eight 4 px columns of ink, 6 px apart, across the speech bubble's 80 px crop.
         val page = page().apply {
             for (column in 0 until 8) for (x in 103 + column * 10 until 107 + column * 10) for (y in 110 until 290) setPixel(x, y, Color.BLACK)
@@ -143,7 +141,7 @@ class TranslationPipelineTest {
 
         pipeline(speech).processPage(page, targetLanguage = TargetLanguage.ENGLISH)
 
-        assertEquals(listOf(20, 20, 20, 20), cropWidths)
+        assertEquals(listOf(80), cropWidths)
     }
 
     @Test

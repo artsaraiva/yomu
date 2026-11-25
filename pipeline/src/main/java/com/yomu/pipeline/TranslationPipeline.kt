@@ -11,7 +11,6 @@ import com.yomu.pipeline.bubble.centeredOutside
 import com.yomu.pipeline.context.ContextAssembler
 import com.yomu.pipeline.ocr.OcrEngine
 import com.yomu.pipeline.ocr.OcrResult
-import com.yomu.pipeline.ocr.PieceReader
 import com.yomu.pipeline.translation.TranslationEngine
 import com.yomu.pipeline.translation.readsAsJapanese
 import com.yomu.pipeline.typesetting.TypesetBubble
@@ -60,7 +59,6 @@ class TranslationPipeline(
     }
 
     private var currentStage = Stage.ERROR
-    private val pieceReader = PieceReader(ocrEngine::extractText)
 
     var modelPaths: ModelPaths? = null
     var fontSizeScale: Float = 1.0f
@@ -196,7 +194,7 @@ class TranslationPipeline(
                     cropBounds.height
                 )
 
-                val result = pieceReader.read(bubbleBitmap)
+                val result = ocrEngine.extractText(bubbleBitmap)
                 coroutineContext.ensureActive()
                 if (result != null && result.text.readsAsJapanese()) {
                     reads[bubble.id] = result
