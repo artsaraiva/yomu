@@ -1,8 +1,12 @@
 package com.yomu.app.di
 
 import android.content.SharedPreferences
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.yomu.app.translation.NetworkTranslatorEntries
 import com.yomu.app.translation.ServerSettingsStore
 import com.yomu.app.translation.Translator
+import com.yomu.app.ui.navigation.TranslatorScreen
+import com.yomu.app.ui.settings.ProvidersSettings
 import com.yomu.ml.ServerModelList
 import dagger.Module
 import dagger.Provides
@@ -12,7 +16,7 @@ import dagger.multibindings.IntoSet
 import okhttp3.OkHttpClient
 import javax.inject.Singleton
 
-/** The network translator and the Providers screen's Connect (ADR-0023). */
+/** The network translator, its Providers screen and that screen's Connect (ADR-0023). */
 @Module
 @InstallIn(SingletonComponent::class)
 object NetworkTranslatorModule {
@@ -23,6 +27,12 @@ object NetworkTranslatorModule {
     @IntoSet
     fun provideNetworkTranslator(store: ServerSettingsStore, prefs: SharedPreferences, client: OkHttpClient): Translator =
         Translator.network(store, prefs, client)
+
+    /** Providers, which the network translator's picker entry, Settings row and failures open. */
+    @Provides
+    @IntoSet
+    fun provideProvidersScreen(): TranslatorScreen =
+        TranslatorScreen(NetworkTranslatorEntries.PROVIDERS) { onBack -> ProvidersSettings(hiltViewModel(), onBack) }
 
     @Provides
     @Singleton

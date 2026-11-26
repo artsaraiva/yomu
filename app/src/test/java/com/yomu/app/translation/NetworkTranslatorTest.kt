@@ -12,6 +12,7 @@ import com.yomu.core.GenerationBound
 import com.yomu.core.TranslatableBubble
 import com.yomu.core.TranslatablePage
 import com.yomu.core.TranslationOutcome
+import com.yomu.app.di.NetworkTranslatorModule
 import com.yomu.ml.LlamaTranslationBridge
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
@@ -213,6 +214,18 @@ class NetworkTranslatorTest {
 
         setUpServer()
         assertEquals("Connected to $ADDRESS", row?.summary?.invoke())
+    }
+
+    @Test
+    fun `its module brings the one screen its entries open`() {
+        val opened = buildSet {
+            add((translator.pickerEntries(active = false).single().pick() as TranslatorPick.Open).destination)
+            translator.settingsRow?.let { add(it.destination) }
+            listOf(ERROR_SERVER_UNREACHABLE, ERROR_SERVER_FAILED).forEach { code -> translator.readerMessage(code)?.action?.let { add(it.destination) } }
+        }
+
+        assertEquals(setOf(AppDestination("settings/providers")), opened)
+        assertEquals(opened, setOf(NetworkTranslatorModule.provideProvidersScreen().destination))
     }
 
     private fun entry(model: String) = translator.pickerEntries(active = false).first { it.name == model }
