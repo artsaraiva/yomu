@@ -175,6 +175,69 @@ class TranslatorChoiceTest {
         assertEquals(PageTranslator("third", null), choice.forPage())
     }
 
+    @Test
+    fun `deleting the phone model while a server model is picked keeps reading ready`() = runTest {
+        setUpServer()
+        pickOnServer("gemma3:4b")
+
+        slots.delete(LlmModelCatalog.DEFAULT.id)
+
+        assertNull(slots.selectedId(ModelType.LLM))
+        assertTrue(slots.ready(READING_MODELS))
+    }
+
+    @Test
+    fun `with no phone model, clearing the server's address makes reading not ready`() = runTest {
+        setUpServer()
+        pickOnServer("gemma3:4b")
+        slots.delete(LlmModelCatalog.DEFAULT.id)
+
+        store.saveAddress("http://192.168.1.21:11434")
+
+        assertEquals(Translator.ON_DEVICE_ID, translation.activeTranslator().id)
+        assertFalse(slots.ready(READING_MODELS))
+    }
+
+    @Test
+    fun `any translator that can run lifts the phone model, not only the server`() = runTest {
+        slots.delete(LlmModelCatalog.DEFAULT.id)
+        assertFalse(slots.ready(READING_MODELS))
+
+        translation.selectTranslator(third)
+
+        assertTrue(slots.ready(READING_MODELS))
+    }
+
+    @Test
+    fun `a phone pick with no phone model leaves the server in use until its download completes`() = runTest {
+        setUpServer()
+        pickOnServer("gemma3:4b")
+        slots.delete(LlmModelCatalog.DEFAULT.id)
+
+        assertTrue(choice.pickPhoneModel(LlmModelCatalog.DEFAULT.id, ModelStatus.AVAILABLE, EIGHT_GB))
+
+        assertEquals(LlmModelCatalog.DEFAULT.id, slots.pendingId(ModelType.LLM))
+        assertEquals("gemma3:4b", choice.activeServerModel())
+        assertTrue(slots.ready(READING_MODELS))
+
+        slots.commitPending(mapOf(LlmModelCatalog.DEFAULT.id to ModelStatus.READY))
+
+        assertEquals(Translator.ON_DEVICE_ID, translation.activeTranslator().id)
+        assertEquals(LlmModelCatalog.DEFAULT.id, slots.selectedId(ModelType.LLM))
+    }
+
+    @Test
+    fun `a phone model downloaded from elsewhere leaves the server in use`() = runTest {
+        setUpServer()
+        pickOnServer("gemma3:4b")
+        slots.delete(LlmModelCatalog.DEFAULT.id)
+
+        slots.pick(ModelType.LLM, LlmModelCatalog.DEFAULT.id, ModelStatus.AVAILABLE, EIGHT_GB)
+        slots.commitPending(mapOf(LlmModelCatalog.DEFAULT.id to ModelStatus.READY))
+
+        assertEquals("gemma3:4b", choice.activeServerModel())
+    }
+
     private fun entry(name: String): TranslatorPickerEntry = choice.pickerGroups().single().entries.first { it.name == name }
 
     /** Picks [model] in the server's group and accepts the notice when it is asked. */
@@ -205,5 +268,9 @@ class TranslatorChoiceTest {
     private companion object {
         const val ADDRESS = "http://192.168.1.20:11434"
         const val EIGHT_GB = 8L * 1024 * 1024 * 1024
+        val READING_MODELS = mapOf(
+            ModelManager.SLOT_DEFAULTS.getValue(ModelType.DETECTION) to ModelStatus.READY,
+            ModelManager.SLOT_DEFAULTS.getValue(ModelType.OCR) to ModelStatus.READY
+        )
     }
 }

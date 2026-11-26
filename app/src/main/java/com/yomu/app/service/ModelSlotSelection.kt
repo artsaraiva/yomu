@@ -80,6 +80,8 @@ class ModelSlotSelection @Inject constructor(
     private val pending = mutableMapOf<ModelType, String>()
     /** An accepted offer's language, set when its model takes over so no page asks the old model for it. */
     private var pendingLanguage: Pair<String, TargetLanguage>? = null
+    /** A phone model picked while no phone model was selected; the phone takes the pages once it is downloaded. */
+    private var phoneTakesOver: String? = null
     private val downloads = mutableMapOf<String, Job>()
     private val _progress = MutableStateFlow<Map<String, Int>>(emptyMap())
 
@@ -110,8 +112,20 @@ class ModelSlotSelection @Inject constructor(
     fun chosenId(type: ModelType): String =
         pending[type] ?: selectedId(type) ?: ModelManager.SLOT_DEFAULTS.getValue(type)
 
+    /** The selected models are downloaded; the translation model counts only while the phone takes the pages (#536). */
     fun ready(statuses: Map<String, ModelStatus>): Boolean =
-        ModelType.entries.all { type -> selectedId(type)?.let(statuses::get) == ModelStatus.READY }
+        ModelType.entries.filter { it != ModelType.LLM || phoneTranslates() }
+            .all { type -> selectedId(type)?.let(statuses::get) == ModelStatus.READY }
+
+    fun phoneTranslates(): Boolean = translation.phoneTranslates()
+
+    /**
+     * Hands the pages to the phone once [id], a phone model picked with none selected, takes over: until then the
+     * translator in use keeps them, as no phone model could.
+     */
+    fun phoneTakesOverWith(id: String) {
+        phoneTakesOver = id
+    }
 
     fun downloadBytes(statuses: Map<String, ModelStatus>): Long = ModelType.entries.sumOf { type ->
         val id = chosenId(type).takeIf { statuses[it] != ModelStatus.READY }
@@ -123,6 +137,7 @@ class ModelSlotSelection @Inject constructor(
         val deliverable = deliverables(type).firstOrNull { it.id == id } ?: return false
         if (!fits(id, fitBudget(totalMemBytes)) || languageBlock(deliverable, languages.load()) != null) return false
         if (type == ModelType.LLM && pendingLanguage?.first != id) pendingLanguage = null
+        if (type == ModelType.LLM && phoneTakesOver != id) phoneTakesOver = null
         when {
             id == selectedId(type) -> pending.remove(type)
             status == ModelStatus.READY -> {
@@ -204,6 +219,7 @@ class ModelSlotSelection @Inject constructor(
     private fun dropPending(id: String) {
         pending.values.remove(id)
         if (pendingLanguage?.first == id) pendingLanguage = null
+        if (phoneTakesOver == id) phoneTakesOver = null
     }
 
     /**
@@ -256,6 +272,8 @@ class ModelSlotSelection @Inject constructor(
             LlmModelCatalog.fromId(id)?.let { translation.selectLlmModel(it) }
             pendingLanguage?.takeIf { it.first == id }?.let { languages.save(it.second) }
             pendingLanguage = null
+            if (phoneTakesOver == id) translation.selectOnDevice()
+            phoneTakesOver = null
         } else {
             ModelManager.REGISTRY.firstOrNull { it.id == id }?.let(reading::select)
         }

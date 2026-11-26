@@ -114,7 +114,8 @@ class HomeViewModel @Inject constructor(
                 slotSelection.selectedId(ModelType.DETECTION),
                 slotSelection.selectedId(ModelType.OCR),
                 slotSelection.selectedId(ModelType.LLM),
-                permission
+                permission,
+                slotSelection.phoneTranslates()
             )
             state.copy(
                 readiness = readiness,
