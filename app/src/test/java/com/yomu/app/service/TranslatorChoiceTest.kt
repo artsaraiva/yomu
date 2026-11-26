@@ -122,6 +122,26 @@ class TranslatorChoiceTest {
     }
 
     @Test
+    fun `Home shows the first action a translator offers, in the picker's order, until it offers none`() {
+        var offered = true
+        val needy = Translator(
+            "needy", "Needy", { true }, lazyOf(Mockito.mock(TranslationSlot::class.java)),
+            homeAction = { TranslatorHomeAction("Sign in", AppDestination("settings/needy")).takeIf { offered } }
+        )
+        val later = Translator(
+            "later", "Later", { true }, lazyOf(Mockito.mock(TranslationSlot::class.java)),
+            homeAction = { TranslatorHomeAction("Later", AppDestination("settings/later")) }
+        )
+        val selection = TranslationModelSelection(llama, prefs, File("models"), translators = setOf(Translator.onDevice(llama), needy, later))
+        val choice = TranslatorChoice(selection, store, slots)
+
+        assertEquals(TranslatorHomeAction("Sign in", AppDestination("settings/needy")), choice.homeAction())
+
+        offered = false
+        assertEquals(TranslatorHomeAction("Later", AppDestination("settings/later")), choice.homeAction())
+    }
+
+    @Test
     fun `changing the server's address switches back to the phone until a server model is picked again`() {
         setUpServer()
         pickOnServer("gemma3:4b")
