@@ -13,6 +13,8 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.yomu.app.service.PickerGroup
+import com.yomu.app.translation.TranslatorPickerEntry
 import com.yomu.app.ui.settings.SettingsSection
 import com.yomu.app.ui.settings.SlowDeliverableDialog
 import com.yomu.app.ui.settings.deliverableStatus
@@ -20,15 +22,15 @@ import com.yomu.core.TargetLanguage
 import com.yomu.core.toFileSizeString
 
 /**
- * The model chip and the language chip. The model dropdown lists the phone's models and the server's in
- * two groups, and the checked row is the model that translates the next page (ADR-0023). The phone's group
- * holds only the models on the phone; the rest of the catalog is in Settings › Translation.
+ * The model chip and the language chip. The model dropdown lists the phone's models, then a group for each
+ * registered translator that offers entries (#534), and the checked row is the one that translates the next page
+ * (ADR-0023). The phone's group holds only the models on the phone; the rest of the catalog is in Settings › Translation.
  */
 @Composable
 internal fun QuickSettingsStrip(
     state: HomeUiState,
     onPickTranslationModel: (String) -> Unit,
-    onPickServerModel: (String) -> Unit,
+    onPickTranslatorEntry: (PickerGroup, TranslatorPickerEntry) -> Unit,
     onOpenSettings: (SettingsSection) -> Unit,
     onChooseLanguage: (TargetLanguage) -> Unit
 ) {
@@ -80,13 +82,13 @@ internal fun QuickSettingsStrip(
                     onClick = { open = false; onOpenSettings(SettingsSection.Translation) },
                     leadingIcon = { CheckMark(false) }
                 )
-                Divider()
-                GroupHeader("Your server")
-                ServerRows(
-                    state,
-                    onPick = { name -> open = false; onPickServerModel(name) },
-                    onSetUp = { open = false; onOpenSettings(SettingsSection.Providers) }
-                )
+                state.translatorGroups.forEach { group ->
+                    Divider()
+                    GroupHeader(group.name)
+                    group.entries.forEach { entry ->
+                        TranslatorRow(entry) { open = false; onPickTranslatorEntry(group, entry) }
+                    }
+                }
             }
         }
         Box {
@@ -142,31 +144,16 @@ private fun CheckMark(checked: Boolean) {
     if (checked) Icon(Icons.Default.Check, contentDescription = "Selected") else Spacer(Modifier.size(24.dp))
 }
 
-/**
- * The server's group: the models from the last Connect, or the typed name when the server keeps no list.
- * Until the server is set up, its one row opens Providers, and no server model can be picked.
- */
 @Composable
-private fun ServerRows(state: HomeUiState, onPick: (String) -> Unit, onSetUp: () -> Unit) {
-    val models = state.serverModels
-    if (models == null) {
-        DropdownMenuItem(
-            text = {
-                Column {
-                    Text("Set up your server", style = MaterialTheme.typography.titleSmall)
-                    Text("A server you run, or a hosted API you have a key for", style = MaterialTheme.typography.bodySmall)
-                }
-            },
-            onClick = onSetUp,
-            leadingIcon = { CheckMark(false) }
-        )
-        return
-    }
-    models.forEach { name ->
-        DropdownMenuItem(
-            text = { Text(name, style = MaterialTheme.typography.titleSmall) },
-            onClick = { onPick(name) },
-            leadingIcon = { CheckMark(state.serverModelChecked(name)) }
-        )
-    }
+private fun TranslatorRow(entry: TranslatorPickerEntry, onClick: () -> Unit) {
+    DropdownMenuItem(
+        text = {
+            Column {
+                Text(entry.name, style = MaterialTheme.typography.titleSmall)
+                entry.subtitle?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+            }
+        },
+        onClick = onClick,
+        leadingIcon = { CheckMark(entry.checked) }
+    )
 }

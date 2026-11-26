@@ -5,31 +5,22 @@ import com.yomu.app.db.entities.ModelType
 import com.yomu.app.translation.ServerSettingsStore
 import com.yomu.app.translation.TranslationModelSelection
 import com.yomu.app.translation.Translator
+import com.yomu.app.translation.TranslatorPick
+import com.yomu.app.translation.TranslatorPickerEntry
+import com.yomu.app.translation.TranslatorSettingsRow
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** What picking a server model does (ADR-0023). */
-sealed interface ServerPick {
-    /** The model is stored and the network translator takes the next page. */
-    data object Done : ServerPick
-
-    /** The server isn't set up, or doesn't list the model: nothing changed. */
-    data object Refused : ServerPick
-
-    /**
-     * The first server pick: nothing changes until the reader accepts that each page's text is sent to
-     * [address], and then [model] is picked ([TranslatorChoice.acceptNotice]).
-     */
-    data class Notice(val model: String, val address: String) : ServerPick
-}
+/** A translator's rows in the model picker, shown under its [name]. */
+data class PickerGroup(val translatorId: String, val name: String, val entries: List<TranslatorPickerEntry>)
 
 /** The translator that takes a page, by id, and the model it asks the server for while it is the network translator. */
 data class PageTranslator(val translator: String, val serverModel: String?)
 
 /**
- * Which translator the model picker has chosen: a model on the phone, or one on the reader's server
- * (ADR-0023). The phone model stays selected while a server model is picked, since it is still required
- * and is what translates when the server isn't set up.
+ * Which translator the model picker has chosen: a model on the phone, or an entry another registered
+ * translator offers, such as a model on the reader's server (ADR-0023, #534). The phone model stays selected
+ * meanwhile, since it is still required and is what translates when that translator can't run.
  */
 @Singleton
 class TranslatorChoice @Inject constructor(
@@ -38,13 +29,27 @@ class TranslatorChoice @Inject constructor(
     private val slots: ModelSlotSelection
 ) {
 
+    /** The groups the picker lists after the phone's: each registered translator that offers entries, in registration order. */
+    fun pickerGroups(): List<PickerGroup> {
+        val active = translation.activeTranslator().id
+        return translation.translators().mapNotNull { translator ->
+            translator.pickerEntries(translator.id == active).takeIf { it.isNotEmpty() }
+                ?.let { PickerGroup(translator.id, translator.displayName, it) }
+        }
+    }
+
+    /** The rows registered translators add to Settings, in registration order. */
+    fun settingsRows(): List<TranslatorSettingsRow> = translation.translators().mapNotNull { it.settingsRow }
+
     /**
-     * The server models the picker offers: the names the last Connect listed, or the typed name when the
-     * server keeps no list. Null until the server is set up. Read from the settings, so nothing is sent.
+     * Runs [pick], an entry's pick or a confirmation's accept, for the translator [translatorId]. On
+     * [TranslatorPick.Select] that translator takes the next page; any other result changed nothing here.
      */
-    fun serverModels(): List<String>? {
-        if (!server.isSetUp()) return null
-        return server.serverModels().orEmpty().ifEmpty { listOf(server.model()) }
+    fun pick(translatorId: String, pick: () -> TranslatorPick): TranslatorPick {
+        val translator = translation.translator(translatorId) ?: return TranslatorPick.Refused
+        val result = pick()
+        if (result == TranslatorPick.Select) translation.selectTranslator(translator)
+        return result
     }
 
     /** The server model that takes the next page, or null while the on-device translator does. */
@@ -54,26 +59,6 @@ class TranslatorChoice @Inject constructor(
     fun forPage(): PageTranslator {
         val id = translation.activeTranslator().id
         return PageTranslator(id, server.model().takeIf { id == Translator.NETWORK_ID })
-    }
-
-    /** Picks [model] on the server, unless it is the first server pick: then the reader is asked first. */
-    fun pickServerModel(model: String): ServerPick {
-        if (model !in serverModels().orEmpty()) return ServerPick.Refused
-        if (!server.noticeAccepted()) return ServerPick.Notice(model, server.address())
-        val network = translation.translator(Translator.NETWORK_ID) ?: return ServerPick.Refused
-        server.saveModel(model)
-        translation.selectTranslator(network)
-        return ServerPick.Done
-    }
-
-    /**
-     * The reader accepted [notice]: it is not asked again, and its model is picked. Refused when the
-     * address changed since, as the reader agreed to send pages to the old one.
-     */
-    fun acceptNotice(notice: ServerPick.Notice): Boolean {
-        if (notice.address != server.address()) return false
-        server.acceptNotice()
-        return pickServerModel(notice.model) == ServerPick.Done
     }
 
     /** Picks a phone model as [ModelSlotSelection.pick] does; once it is accepted, the on-device translator takes the next page. */

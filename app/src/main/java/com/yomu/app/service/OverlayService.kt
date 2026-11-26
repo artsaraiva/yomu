@@ -37,6 +37,8 @@ import com.yomu.app.translation.ResourceLimitsStore
 import com.yomu.app.translation.NameGlossaryStore
 import com.yomu.app.translation.TargetLanguageStore
 import com.yomu.app.translation.TranslationModelSelection
+import com.yomu.app.translation.AppDestination
+import com.yomu.app.translation.ReaderAction
 import com.yomu.app.translation.Translator
 import com.yomu.core.Constants
 import com.yomu.core.TargetLanguage
@@ -362,12 +364,21 @@ class OverlayService : Service() {
         }
     }
 
-    private fun openApp(language: TargetLanguage? = null) {
+    private fun openApp(language: TargetLanguage? = null, destination: AppDestination? = null) {
         startActivity(
             Intent(this, MainActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 .apply { language?.let { putExtra(MainActivity.EXTRA_TARGET_LANGUAGE, it.code) } }
+                .apply { destination?.let { putExtra(MainActivity.EXTRA_ROUTE, it.route) } }
         )
+    }
+
+    /** Tapping a status line with [action] opens its screen in the app. */
+    private fun tapAction(action: ReaderAction?): (() -> Unit)? = action?.let {
+        {
+            statusOverlay.remove()
+            openApp(destination = it.destination)
+        }
     }
 
     /** Shares the last page's report through the share sheet; writing it stays off the main thread. */
@@ -525,12 +536,12 @@ class OverlayService : Service() {
             val noticeMs = if (end.failure != null) FAILURE_NOTICE_MS else NOTICE_MS
             withContext(Dispatchers.Main) {
                 if (shown != null) {
-                    showFinishedPage(shown, end.statusLine, noticeMs)
+                    showFinishedPage(shown, end.statusLine, noticeMs, tapAction(end.action))
                 } else {
                     // The OCR pass may already have drawn its bubbles, and that overlay is
                     // untouchable — without this the reader is left with pinned Japanese (#308).
                     translationRenderOverlay.remove()
-                    end.statusLine?.let(statusOverlay::showOrUpdate)
+                    end.statusLine?.let { statusOverlay.showOrUpdate(it, tapAction(end.action)) }
                     delay(noticeMs)
                     statusOverlay.remove()
                 }
@@ -547,8 +558,8 @@ class OverlayService : Service() {
         }
     }
 
-    /** Draws a finished page on the main thread, then shows [notice] above it for [noticeMs]. */
-    private suspend fun showFinishedPage(page: PipelineResult, notice: String?, noticeMs: Long = NOTICE_MS) {
+    /** Draws a finished page on the main thread, then shows [notice] above it for [noticeMs], running [onTap] when it is tapped. */
+    private suspend fun showFinishedPage(page: PipelineResult, notice: String?, noticeMs: Long = NOTICE_MS, onTap: (() -> Unit)? = null) {
         if (page.typesetBubbles.isEmpty()) {
             translationRenderOverlay.remove()
         } else {
@@ -558,7 +569,7 @@ class OverlayService : Service() {
         // Not a toast: Android drops toasts from a background app without notification permission.
         // Re-adding the status line after the page keeps it above the drawn bubbles.
         notice?.let {
-            statusOverlay.showOrUpdate(it)
+            statusOverlay.showOrUpdate(it, onTap)
             delay(noticeMs)
             statusOverlay.remove()
         }

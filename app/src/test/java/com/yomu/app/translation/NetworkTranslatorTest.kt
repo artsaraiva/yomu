@@ -108,7 +108,7 @@ class NetworkTranslatorTest {
     }
 
     @Test
-    fun `it names each server failure and points to a phone model on Home`() {
+    fun `it names each server failure, points to a phone model on Home, and opens Providers`() {
         val expected = mapOf(
             ERROR_SERVER_UNREACHABLE to "Can't reach your server",
             ERROR_SERVER_KEY_REJECTED to "Your server rejected the key",
@@ -119,8 +119,112 @@ class NetworkTranslatorTest {
         )
 
         for ((code, cause) in expected) {
-            assertEquals(code, "$cause \u2014 or pick a phone model in the model picker on Home", translator.readerMessage(code))
+            val message = translator.readerMessage(code)
+            assertEquals(code, "$cause \u2014 or pick a phone model in the model picker on Home", message?.text)
+            assertEquals(code, ReaderAction("Tap to open Providers", NetworkTranslatorEntries.PROVIDERS), message?.action)
         }
         assertNull("not one of its codes", translator.readerMessage(ERROR_MODEL_MISSING))
+    }
+
+    @Test
+    fun `until the server is set up, its one picker entry opens Providers`() {
+        val entry = translator.pickerEntries(active = false).single()
+
+        assertEquals("Set up your server", entry.name)
+        assertEquals("A server you run, or a hosted API you have a key for", entry.subtitle)
+        assertFalse(entry.checked)
+        assertEquals(TranslatorPick.Open(NetworkTranslatorEntries.PROVIDERS), entry.pick())
+    }
+
+    @Test
+    fun `once set up, it offers each listed server model, checked while it takes the page`() {
+        setUpServer()
+
+        val entries = translator.pickerEntries(active = true)
+
+        assertEquals(listOf("qwen2.5:7b", "gemma3:4b"), entries.map { it.name })
+        assertEquals(listOf(null, null), entries.map { it.subtitle })
+        assertEquals(listOf(true, false), entries.map { it.checked })
+        assertEquals("not taking pages", listOf(false, false), translator.pickerEntries(active = false).map { it.checked })
+    }
+
+    @Test
+    fun `a server that keeps no list offers its typed model name`() {
+        setUpServer(listed = emptyList(), model = "qwen2.5:7b-instruct")
+
+        assertEquals(listOf("qwen2.5:7b-instruct"), translator.pickerEntries(active = false).map { it.name })
+    }
+
+    @Test
+    fun `the first pick asks first, and accepting it stores the model and selects the translator`() {
+        setUpServer()
+        val confirm = entry("gemma3:4b").pick() as TranslatorPick.Confirm
+
+        assertEquals("Translate on your server?", confirm.title)
+        assertTrue(confirm.message, confirm.message.contains("sent to $ADDRESS"))
+        assertEquals("Send to my server", confirm.confirmLabel)
+        assertEquals("nothing changes until accepted", "qwen2.5:7b", store.model())
+        assertFalse(store.noticeAccepted())
+
+        assertEquals(TranslatorPick.Select, confirm.accept())
+        assertEquals("gemma3:4b", store.model())
+        assertTrue(store.noticeAccepted())
+    }
+
+    @Test
+    fun `once the notice is accepted, a pick stores its model and selects the translator at once`() {
+        setUpServer()
+        store.acceptNotice()
+
+        assertEquals(TranslatorPick.Select, entry("gemma3:4b").pick())
+
+        assertEquals("gemma3:4b", store.model())
+    }
+
+    @Test
+    fun `a notice for an address the reader has since changed is refused`() {
+        setUpServer()
+        val confirm = entry("gemma3:4b").pick() as TranslatorPick.Confirm
+        store.saveAddress("http://192.168.1.21:11434")
+
+        assertEquals(TranslatorPick.Refused, confirm.accept())
+
+        assertFalse(store.noticeAccepted())
+    }
+
+    @Test
+    fun `a model the server no longer lists is refused`() {
+        setUpServer()
+        store.acceptNotice()
+        val gemma = entry("gemma3:4b")
+        store.saveServerModels(listOf("qwen2.5:7b"))
+
+        assertEquals(TranslatorPick.Refused, gemma.pick())
+        assertEquals("qwen2.5:7b", store.model())
+    }
+
+    @Test
+    fun `its Settings row opens Providers and says whether the server is set up`() {
+        val row = translator.settingsRow
+
+        assertEquals("Providers", row?.title)
+        assertEquals(NetworkTranslatorEntries.PROVIDERS, row?.destination)
+        assertEquals("A server you run, or a hosted API you have a key for.", row?.summary?.invoke())
+
+        setUpServer()
+        assertEquals("Connected to $ADDRESS", row?.summary?.invoke())
+    }
+
+    private fun entry(model: String) = translator.pickerEntries(active = false).first { it.name == model }
+
+    private fun setUpServer(listed: List<String> = listOf("qwen2.5:7b", "gemma3:4b"), model: String = "qwen2.5:7b") {
+        store.saveAddress(ADDRESS)
+        store.confirm(ADDRESS)
+        store.saveServerModels(listed)
+        store.saveModel(model)
+    }
+
+    private companion object {
+        const val ADDRESS = "http://192.168.1.20:11434"
     }
 }

@@ -12,6 +12,7 @@ import com.yomu.app.service.ModelManager
 import com.yomu.app.service.ModelSlotSelection
 import com.yomu.app.service.PageRecallStore
 import com.yomu.app.service.TranslatorChoice
+import com.yomu.app.translation.TranslatorSettingsRow
 import com.yomu.app.translation.ResourceLimit
 import com.yomu.app.translation.TranslationModelSelection
 import com.yomu.core.Constants
@@ -87,6 +88,9 @@ class SettingsViewModel @Inject constructor(
     }
 
     override fun onCleared() = sharedPreferences.unregisterOnSharedPreferenceChangeListener(preferenceListener)
+
+    /** The rows registered translators add to Settings (#534). */
+    fun translatorRows(): List<TranslatorSettingsRow> = translatorChoice.settingsRows()
 
     fun setTheme(theme: String) {
         require(theme in listOf("system", "day", "night"))

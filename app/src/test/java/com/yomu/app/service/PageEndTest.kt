@@ -1,5 +1,8 @@
 package com.yomu.app.service
 
+import com.yomu.app.translation.AppDestination
+import com.yomu.app.translation.ReaderAction
+import com.yomu.app.translation.ReaderMessage
 import com.yomu.app.translation.Translator
 import com.yomu.core.ERROR_MODEL_MISSING
 import com.yomu.core.TranslationOutcome
@@ -18,7 +21,10 @@ import org.mockito.Mockito
 class PageEndTest {
     private val third = Translator(
         "third", "Third", { true }, lazyOf(Mockito.mock(TranslationSlot::class.java)),
-        readerMessages = mapOf("third_quota" to "Third is out of quota for today")
+        readerMessages = mapOf(
+            "third_quota" to ReaderMessage("Third is out of quota for today"),
+            "third_signed_out" to ReaderMessage("Third signed you out", ReaderAction("Tap to sign in", AppDestination("settings/third")))
+        )
     )
     private val onDevice = Translator.onDevice(Mockito.mock(LlamaTranslationBridge::class.java))
 
@@ -40,6 +46,23 @@ class PageEndTest {
 
         assertSame(page, end.shown)
         assertEquals("Third is out of quota for today", end.statusLine)
+    }
+
+    @Test
+    fun `a message with an action leaves its label on the status line and the action to tap`() {
+        val failed = pageEnd(page(TranslationOutcome.ERROR, "third_signed_out", answered = false), third)
+        val drawn = pageEnd(page(TranslationOutcome.ERROR, "third_signed_out", answered = true), third)
+
+        assertEquals("Failed: Third signed you out\nTap to sign in", failed.statusLine)
+        assertEquals("Third signed you out\nTap to sign in", drawn.statusLine)
+        assertEquals(ReaderAction("Tap to sign in", AppDestination("settings/third")), failed.action)
+        assertEquals(failed.action, drawn.action)
+    }
+
+    @Test
+    fun `a message without an action, or a page with no failure, has nothing to tap`() {
+        assertNull(pageEnd(page(TranslationOutcome.ERROR, "third_quota", answered = false), third).action)
+        assertNull(pageEnd(page(TranslationOutcome.SUCCESS, null, answered = true), third).action)
     }
 
     @Test
