@@ -1,8 +1,8 @@
 package com.yomu.app.translation
 
 /**
- * A screen of the app a translator's entry opens, named by its navigation route (#534). The app resolves it, so a
- * translator names its own screens without knowing how the app shows them.
+ * A screen a translator's entry opens, named by its navigation route (#534). The translator's module brings the screen
+ * itself as a `TranslatorScreen`, and the app opens it wherever the destination is named.
  */
 @JvmInline
 value class AppDestination(val route: String)

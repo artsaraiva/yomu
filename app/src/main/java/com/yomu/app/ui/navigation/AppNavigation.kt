@@ -29,6 +29,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.yomu.app.translation.AppDestination
 import com.yomu.app.ui.home.HomeViewModel
 import com.yomu.app.ui.home.SetupScreen
 import com.yomu.app.ui.theme.PaperLoading
@@ -37,8 +38,6 @@ import androidx.navigation.compose.navigation
 import com.yomu.app.ui.settings.AppearanceSettings
 import com.yomu.app.ui.settings.PerformanceSettings
 import com.yomu.app.ui.settings.PipelineSettings
-import com.yomu.app.translation.NetworkTranslatorEntries
-import com.yomu.app.ui.settings.ProvidersSettings
 import com.yomu.app.ui.settings.SettingsScreen
 import com.yomu.app.ui.settings.LanguageOfferDialog
 import com.yomu.app.ui.settings.NameGlossarySettings
@@ -63,7 +62,8 @@ fun AppNavigation(
     languageRequest: TargetLanguage? = null,
     onLanguageRequestHandled: () -> Unit = {},
     routeRequest: String? = null,
-    onRouteRequestHandled: () -> Unit = {}
+    onRouteRequestHandled: () -> Unit = {},
+    translatorScreens: Set<TranslatorScreen> = emptySet()
 ) {
     val viewModel: HomeViewModel = hiltViewModel()
     val state by viewModel.uiState.collectAsState()
@@ -93,6 +93,11 @@ fun AppNavigation(
     val navController = rememberNavController()
     val scheme = MaterialTheme.colorScheme
     val reduceMotion = rememberReduceMotion()
+    // Every destination a translator names opens here; one no screen claims is dropped, since a status line's comes from
+    // outside the app (#534).
+    val openDestination: (AppDestination) -> Unit = {
+        if (navController.graph.hasRoute(it.route)) navController.navigate(it.route) { launchSingleTop = true }
+    }
     Scaffold(
         bottomBar = {
             Surface(shadowElevation = 2.dp, color = scheme.surface) {
@@ -143,7 +148,7 @@ fun AppNavigation(
                     HomeScreen(
                         viewModel, hiltViewModel(), onRequestScreenCapture,
                         onOpenSettings = { navController.navigate(it.route) { launchSingleTop = true } },
-                        onOpenDestination = { navController.navigate(it.route) { launchSingleTop = true } }
+                        onOpenDestination = openDestination
                     )
                 }
                 navigation(startDestination = SETTINGS_ROOT, route = Screen.Settings.route) {
@@ -153,12 +158,12 @@ fun AppNavigation(
                         SettingsScreen(
                             translatorRows = remember(settings) { settings.translatorRows() },
                             onOpen = { navController.navigate(it.route) { launchSingleTop = true } },
-                            onOpenDestination = { navController.navigate(it.route) { launchSingleTop = true } }
+                            onOpenDestination = openDestination
                         )
                     }
-                    // The network translator's screen, which its picker entry, Settings row and failures open (#534).
-                    composable(NetworkTranslatorEntries.PROVIDERS.route) {
-                        ProvidersSettings(hiltViewModel()) { navController.popBackStack() }
+                    // The screens translators bring, which their picker entries, Settings rows and failures open (#534).
+                    translatorScreens.forEach { screen ->
+                        composable(screen.destination.route) { screen.content { navController.popBackStack() } }
                     }
                     SettingsSection.entries.forEach { section ->
                         composable(section.route) { entry ->
@@ -178,11 +183,9 @@ fun AppNavigation(
                     }
                 }
             }
-            // A screen the overlay asked for, such as the one a status-line action opens (#534). An unknown route is
-            // dropped, since the intent's extra can come from outside the app.
+            // A screen the overlay asked for, such as the one a status-line action opens (#534).
             LaunchedEffect(routeRequest) {
-                val route = routeRequest ?: return@LaunchedEffect
-                if (navController.graph.hasRoute(route)) navController.navigate(route) { launchSingleTop = true }
+                routeRequest?.let { openDestination(AppDestination(it)) }
                 onRouteRequestHandled()
             }
         }

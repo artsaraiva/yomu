@@ -20,12 +20,14 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import com.yomu.app.service.OverlayService
 import com.yomu.app.ui.navigation.AppNavigation
+import com.yomu.app.ui.navigation.TranslatorScreen
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
     @Inject lateinit var sharedPreferences: SharedPreferences
+    @Inject lateinit var translatorScreens: Set<@JvmSuppressWildcards TranslatorScreen>
 
     /** A language the overlay's switch asked for, waiting for Home to offer the model it needs (#338). */
     private var languageRequest by mutableStateOf<TargetLanguage?>(null)
@@ -110,7 +112,8 @@ class MainActivity : ComponentActivity() {
                     languageRequest = languageRequest,
                     onLanguageRequestHandled = { languageRequest = null },
                     routeRequest = routeRequest,
-                    onRouteRequestHandled = { routeRequest = null }
+                    onRouteRequestHandled = { routeRequest = null },
+                    translatorScreens = translatorScreens
                 )
             }
         }

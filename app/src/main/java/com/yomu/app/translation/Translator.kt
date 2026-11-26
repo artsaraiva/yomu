@@ -14,7 +14,8 @@ import okhttp3.OkHttpClient
  *
  * The slot is built on first use, so a translator the reader never picks costs nothing. Each translator
  * explains its own error codes to the reader (#509), so the pipeline need not know them, and supplies its own
- * picker entries and Settings row (#534), so the screens that show them need not know it.
+ * picker entries and Settings row (#534), so the screens that show them need not know it. The screens those entries
+ * open come from the translator's module too, as `TranslatorScreen`s.
  */
 class Translator(
     val id: String,
