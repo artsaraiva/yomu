@@ -52,6 +52,9 @@ class TranslatorChoice @Inject constructor(
         return result
     }
 
+    /** Whether the phone's own model takes the next page, and so is needed (#536). */
+    fun phoneTranslates(): Boolean = translation.phoneTranslates()
+
     /** The server model that takes the next page, or null while the on-device translator does. */
     fun activeServerModel(): String? = forPage().serverModel
 
@@ -68,7 +71,8 @@ class TranslatorChoice @Inject constructor(
      */
     suspend fun pickPhoneModel(id: String, status: ModelStatus?, totalMemBytes: Long): Boolean {
         if (!slots.pick(ModelType.LLM, id, status, totalMemBytes)) return false
-        if (slots.selectedId(ModelType.LLM) != null) translation.selectOnDevice() else slots.phoneTakesOverWith(id)
+        slots.phoneTakesOver = id.takeIf { slots.selectedId(ModelType.LLM) == null }
+        if (slots.phoneTakesOver == null) translation.selectOnDevice()
         return true
     }
 }

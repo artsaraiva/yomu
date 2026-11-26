@@ -1,5 +1,6 @@
 package com.yomu.app.ui.navigation
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -14,6 +15,7 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.yomu.app.ui.theme.rememberReduceMotion
@@ -37,6 +39,7 @@ import androidx.navigation.compose.navigation
 import com.yomu.app.ui.settings.AppearanceSettings
 import com.yomu.app.ui.settings.PerformanceSettings
 import com.yomu.app.ui.settings.PipelineSettings
+import com.yomu.app.translation.AppDestination
 import com.yomu.app.translation.NetworkTranslatorEntries
 import com.yomu.app.ui.settings.ProvidersSettings
 import com.yomu.app.ui.settings.SettingsScreen
@@ -83,10 +86,19 @@ fun AppNavigation(
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
+    var setupRoute by rememberSaveable { mutableStateOf<String?>(null) }
     if (state.modelsLoading || state.setupVisible) {
         ChromeContent(Modifier.safeDrawingPadding()) {
-            if (state.modelsLoading) PaperLoading("Getting Yomu ready…")
-            else SetupScreen(state, viewModel)
+            // A translator's screen setup opened, such as Providers (#536); closing it returns to setup.
+            val destination = setupRoute?.let(::AppDestination)
+            when {
+                state.modelsLoading -> PaperLoading("Getting Yomu ready…")
+                destination != null -> {
+                    BackHandler { setupRoute = null }
+                    TranslatorScreen(destination) { setupRoute = null }
+                }
+                else -> SetupScreen(state, viewModel) { setupRoute = it.route }
+            }
         }
         return
     }
@@ -158,7 +170,7 @@ fun AppNavigation(
                     }
                     // The network translator's screen, which its picker entry, Settings row and failures open (#534).
                     composable(NetworkTranslatorEntries.PROVIDERS.route) {
-                        ProvidersSettings(hiltViewModel()) { navController.popBackStack() }
+                        TranslatorScreen(NetworkTranslatorEntries.PROVIDERS) { navController.popBackStack() }
                     }
                     SettingsSection.entries.forEach { section ->
                         composable(section.route) { entry ->
@@ -191,3 +203,12 @@ fun AppNavigation(
 
 /** Whether [route] names a destination anywhere in this graph, nested graphs included. */
 private fun NavGraph.hasRoute(route: String): Boolean = any { it.route == route || (it as? NavGraph)?.hasRoute(route) == true }
+
+/** A screen a translator names by [destination], shown from Settings or over setup; one the app doesn't know closes at once. */
+@Composable
+private fun TranslatorScreen(destination: AppDestination, onBack: () -> Unit) {
+    when (destination) {
+        NetworkTranslatorEntries.PROVIDERS -> ProvidersSettings(hiltViewModel(), onBack)
+        else -> LaunchedEffect(destination) { onBack() }
+    }
+}
