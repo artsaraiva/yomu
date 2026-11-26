@@ -29,6 +29,9 @@ class TranslationModelSelection @Inject constructor(
     /** The translator that takes the next page: the one the reader chose, or the on-device one when that can't run. */
     fun activeTranslator(): Translator = translators[storedTranslatorId()]?.takeIf { it.canRun() } ?: onDevice
 
+    /** Every registered translator, in the order they were registered. */
+    fun translators(): Collection<Translator> = translators.values
+
     /** The registered translator with [id], or null when none is. */
     fun translator(id: String): Translator? = translators[id]
 

@@ -15,8 +15,12 @@ class TranslationStatusOverlay(
     private val windowManager: WindowManager
 ) {
     private var statusView: TextView? = null
+    private var params: WindowManager.LayoutParams? = null
 
-    fun showOrUpdate(message: String) {
+    /** Shows [message]; with [onTap], the line takes touches and runs it when tapped, else touches pass through to the app below. */
+    fun showOrUpdate(message: String, onTap: (() -> Unit)? = null) {
+        val flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+            (if (onTap == null) WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE else 0)
         if (statusView == null) {
             val params = WindowManager.LayoutParams(
                 WindowManager.LayoutParams.WRAP_CONTENT,
@@ -25,7 +29,7 @@ class TranslationStatusOverlay(
                     WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
                 else
                     WindowManager.LayoutParams.TYPE_PHONE,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
+                flags,
                 PixelFormat.TRANSLUCENT
             ).apply {
                 gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
@@ -42,12 +46,26 @@ class TranslationStatusOverlay(
                 val horizontalPadding = (12 * context.resources.displayMetrics.density).toInt()
                 val verticalPadding = (8 * context.resources.displayMetrics.density).toInt()
                 setPadding(horizontalPadding, verticalPadding, horizontalPadding, verticalPadding)
+                setTapAction(onTap)
             }
+            this.params = params
             windowManager.addView(statusView, params)
             return
         }
 
-        statusView?.text = message
+        statusView?.apply {
+            text = message
+            setTapAction(onTap)
+        }
+        params?.takeIf { it.flags != flags }?.let {
+            it.flags = flags
+            windowManager.updateViewLayout(statusView, it)
+        }
+    }
+
+    private fun TextView.setTapAction(onTap: (() -> Unit)?) {
+        setOnClickListener(onTap?.let { tap -> android.view.View.OnClickListener { tap() } })
+        isClickable = onTap != null
     }
 
     fun updateAppearance() {
@@ -60,6 +78,7 @@ class TranslationStatusOverlay(
     fun remove() {
         statusView?.let { windowManager.removeView(it) }
         statusView = null
+        params = null
     }
 
     /** Returns the status view’s bounds in screen pixels, or null when no status view is shown. */

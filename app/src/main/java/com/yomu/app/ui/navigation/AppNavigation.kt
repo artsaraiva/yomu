@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import com.yomu.app.ui.theme.rememberReduceMotion
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination.Companion.hierarchy
+import androidx.navigation.NavGraph
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -36,6 +37,7 @@ import androidx.navigation.compose.navigation
 import com.yomu.app.ui.settings.AppearanceSettings
 import com.yomu.app.ui.settings.PerformanceSettings
 import com.yomu.app.ui.settings.PipelineSettings
+import com.yomu.app.translation.NetworkTranslatorEntries
 import com.yomu.app.ui.settings.ProvidersSettings
 import com.yomu.app.ui.settings.SettingsScreen
 import com.yomu.app.ui.settings.LanguageOfferDialog
@@ -59,7 +61,9 @@ val bottomNavItems = listOf(Screen.Home, Screen.Settings)
 fun AppNavigation(
     onRequestScreenCapture: () -> Unit = {},
     languageRequest: TargetLanguage? = null,
-    onLanguageRequestHandled: () -> Unit = {}
+    onLanguageRequestHandled: () -> Unit = {},
+    routeRequest: String? = null,
+    onRouteRequestHandled: () -> Unit = {}
 ) {
     val viewModel: HomeViewModel = hiltViewModel()
     val state by viewModel.uiState.collectAsState()
@@ -136,13 +140,25 @@ fun AppNavigation(
                 }
             ) {
                 composable(Screen.Home.route) {
-                    HomeScreen(viewModel, hiltViewModel(), onRequestScreenCapture) { section ->
-                        navController.navigate(section.route) { launchSingleTop = true }
-                    }
+                    HomeScreen(
+                        viewModel, hiltViewModel(), onRequestScreenCapture,
+                        onOpenSettings = { navController.navigate(it.route) { launchSingleTop = true } },
+                        onOpenDestination = { navController.navigate(it.route) { launchSingleTop = true } }
+                    )
                 }
                 navigation(startDestination = SETTINGS_ROOT, route = Screen.Settings.route) {
-                    composable(SETTINGS_ROOT) {
-                        SettingsScreen(onOpen = { navController.navigate(it.route) { launchSingleTop = true } })
+                    composable(SETTINGS_ROOT) { entry ->
+                        val parent = remember(entry) { navController.getBackStackEntry(Screen.Settings.route) }
+                        val settings: SettingsViewModel = hiltViewModel(parent)
+                        SettingsScreen(
+                            translatorRows = remember(settings) { settings.translatorRows() },
+                            onOpen = { navController.navigate(it.route) { launchSingleTop = true } },
+                            onOpenDestination = { navController.navigate(it.route) { launchSingleTop = true } }
+                        )
+                    }
+                    // The network translator's screen, which its picker entry, Settings row and failures open (#534).
+                    composable(NetworkTranslatorEntries.PROVIDERS.route) {
+                        ProvidersSettings(hiltViewModel()) { navController.popBackStack() }
                     }
                     SettingsSection.entries.forEach { section ->
                         composable(section.route) { entry ->
@@ -157,12 +173,21 @@ fun AppNavigation(
                                 SettingsSection.Typesetting -> TypesettingSettings(settings, onBack)
                                 SettingsSection.Performance -> PerformanceSettings(settings, onBack)
                                 SettingsSection.Appearance -> AppearanceSettings(settings, onBack)
-                                SettingsSection.Providers -> ProvidersSettings(hiltViewModel(), onBack)
                             }
                         }
                     }
                 }
             }
+            // A screen the overlay asked for, such as the one a status-line action opens (#534). An unknown route is
+            // dropped, since the intent's extra can come from outside the app.
+            LaunchedEffect(routeRequest) {
+                val route = routeRequest ?: return@LaunchedEffect
+                if (navController.graph.hasRoute(route)) navController.navigate(route) { launchSingleTop = true }
+                onRouteRequestHandled()
+            }
         }
     }
 }
+
+/** Whether [route] names a destination anywhere in this graph, nested graphs included. */
+private fun NavGraph.hasRoute(route: String): Boolean = any { it.route == route || (it as? NavGraph)?.hasRoute(route) == true }

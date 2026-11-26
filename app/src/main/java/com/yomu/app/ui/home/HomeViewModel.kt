@@ -16,8 +16,11 @@ import com.yomu.app.service.LanguageSwitch
 import com.yomu.app.service.ModelManager
 import com.yomu.app.service.ModelSlotSelection
 import com.yomu.app.service.OverlayService
-import com.yomu.app.service.ServerPick
+import com.yomu.app.service.PickerGroup
 import com.yomu.app.service.TranslatorChoice
+import com.yomu.app.translation.AppDestination
+import com.yomu.app.translation.TranslatorPick
+import com.yomu.app.translation.TranslatorPickerEntry
 import com.yomu.core.TargetLanguage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -171,19 +174,26 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    /** A server model from the picker; the first one waits on the reader to accept the notice (ADR-0023). */
-    fun pickServerModel(model: String) {
-        val notice = translatorChoice.pickServerModel(model) as? ServerPick.Notice
-        _uiState.update { it.copy(serverNotice = notice).withSlots() }
+    /**
+     * A translator's entry from the picker. Returns the screen to open when the translator names one, else null;
+     * a pick that asks first waits on the reader in [HomeUiState.translatorConfirm].
+     */
+    fun pickTranslatorEntry(group: PickerGroup, entry: TranslatorPickerEntry): AppDestination? =
+        settle(group.translatorId, translatorChoice.pick(group.translatorId, entry.pick))
+
+    /** The reader agreed to the waiting pick; returns the screen to open when the translator names one, else null. */
+    fun acceptTranslatorConfirm(): AppDestination? {
+        val waiting = _uiState.value.translatorConfirm ?: return null
+        return settle(waiting.translatorId, translatorChoice.pick(waiting.translatorId, waiting.confirm.accept))
     }
 
-    fun acceptServerNotice() {
-        val notice = _uiState.value.serverNotice ?: return
-        translatorChoice.acceptNotice(notice)
-        _uiState.update { it.copy(serverNotice = null).withSlots() }
-    }
+    fun declineTranslatorConfirm() = _uiState.update { it.copy(translatorConfirm = null) }
 
-    fun declineServerNotice() = _uiState.update { it.copy(serverNotice = null) }
+    private fun settle(translatorId: String, pick: TranslatorPick): AppDestination? {
+        val confirm = (pick as? TranslatorPick.Confirm)?.let { TranslatorConfirm(translatorId, it) }
+        _uiState.update { it.copy(translatorConfirm = confirm).withSlots() }
+        return (pick as? TranslatorPick.Open)?.destination
+    }
 
     /** From the quick-settings chip here, or from the overlay's when its switch needs the model offer (#338). */
     fun chooseLanguage(language: TargetLanguage) {
@@ -224,8 +234,7 @@ class HomeViewModel @Inject constructor(
         // With the slots, since a download that never completes can return the language to English.
         targetLanguage = slotSelection.targetLanguage(),
         // Read from the stored settings, so opening the picker never contacts the server.
-        serverModels = translatorChoice.serverModels(),
-        activeServerModel = translatorChoice.activeServerModel(),
+        translatorGroups = translatorChoice.pickerGroups(),
         setupDownloadBytes = slotSelection.downloadBytes(models.associate { it.id to it.status })
     )
 

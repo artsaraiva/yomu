@@ -32,7 +32,7 @@ internal fun connectFailureMessage(failure: ConnectFailure): String = when (fail
 @Composable
 fun ProvidersSettings(viewModel: ProvidersViewModel, onBack: () -> Unit) {
     val state by viewModel.state.collectAsState()
-    SettingsPage(SettingsSection.Providers.title, SettingsSection.Providers.description, onBack) {
+    SettingsPage("Providers", "A server you run, or a hosted API you have a key for.", onBack) {
         ServerPanel(state, viewModel::editAddress, viewModel::editApiKey, { viewModel.connect() })
         (state.connection as? ServerConnection.Connected)?.let { ModelPanel(it.models, state.model, viewModel::pickModel) }
     }

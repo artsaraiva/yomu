@@ -19,6 +19,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import com.yomu.app.ui.settings.SaveToRecentViewModel
+import com.yomu.app.translation.AppDestination
 import com.yomu.app.ui.settings.SettingsSection
 import com.yomu.app.ui.theme.*
 import com.yomu.core.TargetLanguage
@@ -31,7 +32,8 @@ fun HomeScreen(
     viewModel: HomeViewModel,
     saveToRecent: SaveToRecentViewModel,
     onRequestScreenCapture: () -> Unit,
-    onOpenSettings: (SettingsSection) -> Unit
+    onOpenSettings: (SettingsSection) -> Unit,
+    onOpenDestination: (AppDestination) -> Unit
 ) {
     val state by viewModel.uiState.collectAsState()
     val saving by saveToRecent.enabled.collectAsState()
@@ -51,7 +53,9 @@ fun HomeScreen(
     }
     // Home leaves composition while Settings is open, and returning there doesn't resume the activity.
     LaunchedEffect(Unit) { viewModel.refreshSlots() }
-    state.serverNotice?.let { ServerNoticeDialog(it.address, viewModel::acceptServerNotice, viewModel::declineServerNotice) }
+    state.translatorConfirm?.let {
+        TranslatorConfirmDialog(it.confirm, { viewModel.acceptTranslatorConfirm()?.let(onOpenDestination) }, viewModel::declineTranslatorConfirm)
+    }
     LazyColumn(
         state = scroll,
         modifier = Modifier.fillMaxSize(),
@@ -99,7 +103,13 @@ fun HomeScreen(
             )
             if (readingStatus != ReadingStatus.NotReady) {
                 Spacer(Modifier.height(12.dp))
-                QuickSettingsStrip(state, viewModel::pickTranslationModel, viewModel::pickServerModel, onOpenSettings, viewModel::chooseLanguage)
+                QuickSettingsStrip(
+                    state,
+                    viewModel::pickTranslationModel,
+                    { group, entry -> viewModel.pickTranslatorEntry(group, entry)?.let(onOpenDestination) },
+                    onOpenSettings,
+                    viewModel::chooseLanguage
+                )
             }
         }
         state.confirmation?.let { message -> item { PaperSuccess(message, viewModel::dismissConfirmation) } }

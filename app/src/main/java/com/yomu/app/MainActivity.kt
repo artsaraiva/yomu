@@ -29,6 +29,7 @@ class MainActivity : ComponentActivity() {
 
     /** A language the overlay's switch asked for, waiting for Home to offer the model it needs (#338). */
     private var languageRequest by mutableStateOf<TargetLanguage?>(null)
+    private var routeRequest by mutableStateOf<String?>(null)
 
     private val screenCaptureLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -82,7 +83,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        if (savedInstanceState == null) languageRequest = intent.languageRequest()
+        if (savedInstanceState == null) {
+            languageRequest = intent.languageRequest()
+            routeRequest = intent.getStringExtra(EXTRA_ROUTE)
+        }
 
         setContent {
             var theme by remember { mutableStateOf(sharedPreferences.getString(Constants.PREF_THEME, "system") ?: "system") }
@@ -104,7 +108,9 @@ class MainActivity : ComponentActivity() {
                 AppNavigation(
                     onRequestScreenCapture = { launchScreenCaptureConsent() },
                     languageRequest = languageRequest,
-                    onLanguageRequestHandled = { languageRequest = null }
+                    onLanguageRequestHandled = { languageRequest = null },
+                    routeRequest = routeRequest,
+                    onRouteRequestHandled = { routeRequest = null }
                 )
             }
         }
@@ -113,11 +119,15 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         languageRequest = intent.languageRequest()
+        routeRequest = intent.getStringExtra(EXTRA_ROUTE)
     }
 
     private fun Intent.languageRequest(): TargetLanguage? = TargetLanguage.fromCode(getStringExtra(EXTRA_TARGET_LANGUAGE))
 
     companion object {
         const val EXTRA_TARGET_LANGUAGE = "target_language"
+
+        /** A screen to open, by navigation route, such as the one a status-line action names (#534). */
+        const val EXTRA_ROUTE = "route"
     }
 }

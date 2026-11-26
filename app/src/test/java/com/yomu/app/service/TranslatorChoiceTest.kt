@@ -2,12 +2,17 @@ package com.yomu.app.service
 
 import com.yomu.app.db.entities.ModelStatus
 import com.yomu.app.db.entities.ModelType
+import com.yomu.app.translation.AppDestination
 import com.yomu.app.translation.LlmModelCatalog
 import com.yomu.app.translation.MapSharedPreferences
+import com.yomu.app.translation.NetworkTranslatorEntries
 import com.yomu.app.translation.ServerSettingsStore
 import com.yomu.app.translation.TargetLanguageStore
 import com.yomu.app.translation.TranslationModelSelection
 import com.yomu.app.translation.Translator
+import com.yomu.app.translation.TranslatorPick
+import com.yomu.app.translation.TranslatorPickerEntry
+import com.yomu.app.translation.TranslatorSettingsRow
 import com.yomu.core.Constants
 import com.yomu.core.TargetLanguage
 import com.yomu.core.TranslationSlot
@@ -29,7 +34,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.mockito.Mockito
 
-/** Choosing between the phone's models and the server's in the model picker (#490, ADR-0023). */
+/** Choosing between the phone's models and the registered translators' entries in the model picker (#490, #534). */
 class TranslatorChoiceTest {
     private val prefs = MapSharedPreferences()
     private val key = KeyGenerator.getInstance("AES").apply { init(256) }.generateKey()
@@ -55,88 +60,53 @@ class TranslatorChoiceTest {
     private val choice = TranslatorChoice(translation, store, slots)
 
     @Test
-    fun `the server group lists nothing until the server is set up`() {
-        assertNull(choice.serverModels())
+    fun `the picker lists each translator that offers entries, under its name`() {
+        val groups = choice.pickerGroups()
 
-        store.saveAddress(ADDRESS)
-        store.confirm(ADDRESS)
-        store.saveServerModels(listOf("qwen2.5:7b", "gemma3:4b"))
-        assertNull("connected, but no model picked yet", choice.serverModels())
-
-        store.saveModel("qwen2.5:7b")
-        assertEquals(listOf("qwen2.5:7b", "gemma3:4b"), choice.serverModels())
+        assertEquals(listOf(Translator.NETWORK_ID), groups.map { it.translatorId })
+        assertEquals("Your server", groups.single().name)
+        assertEquals(listOf("Set up your server"), groups.single().entries.map { it.name })
+        assertEquals("the group of a translator added beside them", listOf("Fourth"), withFourth().pickerGroups().drop(1).map { it.name })
     }
 
     @Test
-    fun `a server that keeps no list shows its typed model name`() {
-        setUpServer(listed = emptyList(), model = "qwen2.5:7b-instruct")
-
-        assertEquals(listOf("qwen2.5:7b-instruct"), choice.serverModels())
-    }
-
-    @Test
-    fun `the first server pick asks for the notice and changes nothing until it is accepted`() {
+    fun `an entry that asks first changes nothing, and accepting it selects its translator`() {
         setUpServer()
 
-        val notice = choice.pickServerModel("gemma3:4b")
+        val confirm = choice.pick(Translator.NETWORK_ID, entry("gemma3:4b").pick)
 
-        assertEquals(ServerPick.Notice("gemma3:4b", ADDRESS), notice)
-        assertNull(choice.activeServerModel())
-        assertEquals("qwen2.5:7b", store.model())
-
-        assertTrue(choice.acceptNotice(notice as ServerPick.Notice))
-
+        assertTrue(confirm is TranslatorPick.Confirm)
+        assertEquals(Translator.ON_DEVICE_ID, translation.activeTranslator().id)
+        assertEquals(TranslatorPick.Select, choice.pick(Translator.NETWORK_ID, (confirm as TranslatorPick.Confirm).accept))
         assertEquals("gemma3:4b", choice.activeServerModel())
-        assertEquals("gemma3:4b", store.model())
-        assertEquals(Translator.NETWORK_ID, translation.activeTranslator().id)
+        assertEquals(listOf(false, true), choice.pickerGroups().single().entries.map { it.checked })
     }
 
     @Test
-    fun `declining the notice leaves the phone in use, and the next server pick asks again`() {
-        setUpServer()
-
-        choice.pickServerModel("gemma3:4b")
+    fun `an entry that opens a screen or is refused leaves the phone in use`() {
+        assertEquals(TranslatorPick.Open(NetworkTranslatorEntries.PROVIDERS), choice.pick(Translator.NETWORK_ID, entry("Set up your server").pick))
+        assertEquals(TranslatorPick.Refused, choice.pick(Translator.NETWORK_ID) { TranslatorPick.Refused })
 
         assertEquals(Translator.ON_DEVICE_ID, translation.activeTranslator().id)
-        assertEquals(ServerPick.Notice("gemma3:4b", ADDRESS), choice.pickServerModel("gemma3:4b"))
     }
 
     @Test
-    fun `once the notice is accepted, a server pick takes the next page at once`() {
-        setUpServer()
-        choice.acceptNotice(choice.pickServerModel("gemma3:4b") as ServerPick.Notice)
+    fun `a pick for a translator that isn't registered is refused`() {
+        assertEquals(TranslatorPick.Refused, choice.pick("gone") { TranslatorPick.Select })
 
-        assertEquals(ServerPick.Done, choice.pickServerModel("qwen2.5:7b"))
-
-        assertEquals("qwen2.5:7b", choice.activeServerModel())
-    }
-
-    @Test
-    fun `a server model can't be picked while the server isn't set up, nor one the server doesn't list`() {
-        store.acceptNotice()
-        assertEquals(ServerPick.Refused, choice.pickServerModel("qwen2.5:7b"))
-
-        setUpServer()
-        assertEquals(ServerPick.Refused, choice.pickServerModel("llama3.1:70b"))
-        assertNull(choice.activeServerModel())
-    }
-
-    @Test
-    fun `a notice for an address the reader has since changed is refused`() {
-        setUpServer()
-        val notice = choice.pickServerModel("gemma3:4b") as ServerPick.Notice
-        store.saveAddress("http://192.168.1.21:11434")
-
-        assertFalse(choice.acceptNotice(notice))
-
-        assertFalse(store.noticeAccepted())
         assertEquals(Translator.ON_DEVICE_ID, translation.activeTranslator().id)
+    }
+
+    @Test
+    fun `Settings lists the row of each translator that supplies one`() {
+        assertEquals(listOf("Providers"), choice.settingsRows().map { it.title })
+        assertEquals(listOf("Providers", "Fourth"), withFourth().settingsRows().map { it.title })
     }
 
     @Test
     fun `changing the server's address switches back to the phone until a server model is picked again`() {
         setUpServer()
-        choice.acceptNotice(choice.pickServerModel("gemma3:4b") as ServerPick.Notice)
+        pickOnServer("gemma3:4b")
 
         store.saveAddress("http://192.168.1.21:11434")
         store.confirm("http://192.168.1.21:11434")
@@ -145,14 +115,14 @@ class TranslatorChoiceTest {
 
         assertNull("set up again in Providers, but not picked", choice.activeServerModel())
         assertEquals(Translator.ON_DEVICE_ID, translation.activeTranslator().id)
-        assertEquals(ServerPick.Done, choice.pickServerModel("llama3.1:8b"))
+        assertEquals(TranslatorPick.Select, choice.pick(Translator.NETWORK_ID, entry("llama3.1:8b").pick))
         assertEquals("llama3.1:8b", choice.activeServerModel())
     }
 
     @Test
     fun `saving the same address again keeps the server in use`() {
         setUpServer()
-        choice.acceptNotice(choice.pickServerModel("gemma3:4b") as ServerPick.Notice)
+        pickOnServer("gemma3:4b")
 
         store.saveAddress(" $ADDRESS ")
 
@@ -162,19 +132,19 @@ class TranslatorChoiceTest {
     @Test
     fun `a phone pick switches back to the phone and keeps the server's settings`() = runTest {
         setUpServer()
-        choice.acceptNotice(choice.pickServerModel("gemma3:4b") as ServerPick.Notice)
+        pickOnServer("gemma3:4b")
 
         assertTrue(choice.pickPhoneModel(LlmModelCatalog.DEFAULT.id, ModelStatus.READY, EIGHT_GB))
 
         assertEquals(Translator.ON_DEVICE_ID, translation.activeTranslator().id)
         assertNull(choice.activeServerModel())
-        assertEquals(listOf("qwen2.5:7b", "gemma3:4b"), choice.serverModels())
+        assertEquals(listOf("qwen2.5:7b", "gemma3:4b"), choice.pickerGroups().single().entries.map { it.name })
     }
 
     @Test
     fun `a phone pick the slot refuses leaves the server in use`() = runTest {
         setUpServer()
-        choice.acceptNotice(choice.pickServerModel("gemma3:4b") as ServerPick.Notice)
+        pickOnServer("gemma3:4b")
         TargetLanguageStore(prefs).save(TargetLanguage.FRENCH)
 
         assertFalse(choice.pickPhoneModel(Constants.CAT_TRANSLATION_MODEL_ID, ModelStatus.READY, EIGHT_GB))
@@ -186,7 +156,7 @@ class TranslatorChoiceTest {
     fun `while a server model is picked, any language is set even with an English-only phone model`() = runTest {
         slots.pick(ModelType.LLM, Constants.CAT_TRANSLATION_MODEL_ID, ModelStatus.READY, EIGHT_GB)
         setUpServer()
-        choice.acceptNotice(choice.pickServerModel("gemma3:4b") as ServerPick.Notice)
+        pickOnServer("gemma3:4b")
 
         assertEquals(LanguageSwitch.Done, slots.switchLanguage(TargetLanguage.FRENCH))
 
@@ -198,11 +168,31 @@ class TranslatorChoiceTest {
         assertEquals("nothing chosen", PageTranslator(Translator.ON_DEVICE_ID, null), choice.forPage())
 
         setUpServer()
-        choice.acceptNotice(choice.pickServerModel("gemma3:4b") as ServerPick.Notice)
+        pickOnServer("gemma3:4b")
         assertEquals(PageTranslator(Translator.NETWORK_ID, "gemma3:4b"), choice.forPage())
 
         translation.selectTranslator(third)
         assertEquals(PageTranslator("third", null), choice.forPage())
+    }
+
+    private fun entry(name: String): TranslatorPickerEntry = choice.pickerGroups().single().entries.first { it.name == name }
+
+    /** Picks [model] in the server's group and accepts the notice when it is asked. */
+    private fun pickOnServer(model: String) {
+        val pick = choice.pick(Translator.NETWORK_ID, entry(model).pick)
+        if (pick is TranslatorPick.Confirm) choice.pick(Translator.NETWORK_ID, pick.accept)
+    }
+
+    private fun withFourth(): TranslatorChoice {
+        val fourth = Translator(
+            "fourth", "Fourth", { true }, lazyOf(Mockito.mock(TranslationSlot::class.java)),
+            pickerEntries = { active -> listOf(TranslatorPickerEntry("Fourth model", "Hosted", active) { TranslatorPick.Select }) },
+            settingsRow = TranslatorSettingsRow("Fourth", { "Signed in" }, AppDestination("settings/fourth"))
+        )
+        val selection = TranslationModelSelection(
+            llama, prefs, File("models"), translators = setOf(Translator.onDevice(llama), Translator.network(store, prefs, OkHttpClient()), fourth)
+        )
+        return TranslatorChoice(selection, store, slots)
     }
 
     private fun setUpServer(listed: List<String> = listOf("qwen2.5:7b", "gemma3:4b"), model: String = "qwen2.5:7b") {

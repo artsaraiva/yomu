@@ -13,6 +13,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.yomu.app.translation.AppDestination
+import com.yomu.app.translation.TranslatorSettingsRow
 import com.yomu.app.ui.theme.*
 
 enum class SettingsSection(val route: String, val title: String, val description: String) {
@@ -21,19 +23,27 @@ enum class SettingsSection(val route: String, val title: String, val description
     Pipeline("settings/pipeline", "Pipeline", "The models that find the speech bubbles and read the Japanese."),
     Typesetting("settings/typesetting", "Typesetting", "How translated text is set inside the bubbles."),
     Performance("settings/performance", "Performance", "What translation costs this phone, and how much the model may use."),
-    Appearance("settings/appearance", "Appearance", "How Yomu looks."),
-    Providers("settings/providers", "Providers", "A server you run, or a hosted API you have a key for.")
+    Appearance("settings/appearance", "Appearance", "How Yomu looks.")
 }
 
+/** The Settings list: Yomu's own sections, then the rows registered translators add (#534), whose summaries are read on opening. */
 @Composable
-fun SettingsScreen(onOpen: (SettingsSection) -> Unit) {
+fun SettingsScreen(
+    translatorRows: List<TranslatorSettingsRow>,
+    onOpen: (SettingsSection) -> Unit,
+    onOpenDestination: (AppDestination) -> Unit
+) {
     val context = LocalContext.current
     val version = remember { context.packageManager.getPackageInfo(context.packageName, 0).versionName.orEmpty() }
+    val summaries = remember(translatorRows) { translatorRows.map { it.summary() } }
     SettingsPage("Settings") {
         PaperSurface(Modifier.fillMaxWidth()) {
             Column {
                 SettingsSection.entries.forEach { section ->
                     SettingsEntry(section.title, section.description, onClick = { onOpen(section) })
+                }
+                translatorRows.zip(summaries).forEach { (row, summary) ->
+                    SettingsEntry(row.title, summary, onClick = { onOpenDestination(row.destination) })
                 }
                 SettingsEntry("About", "Yomu v$version")
             }
