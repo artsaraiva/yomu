@@ -14,7 +14,7 @@ import okhttp3.OkHttpClient
  *
  * The slot is built on first use, so a translator the reader never picks costs nothing. Each translator
  * explains its own error codes to the reader (#509), so the pipeline need not know them, and supplies its own
- * picker entries and Settings row (#534), so the screens that show them need not know it. The screens those entries
+ * picker entries, Settings row (#534) and Home action, so the screens that show them need not know it. The screens those entries
  * open come from the translator's module too, as `TranslatorScreen`s.
  */
 class Translator(
@@ -25,13 +25,17 @@ class Translator(
     private val readerMessages: Map<String, ReaderMessage> = emptyMap(),
     private val pickerEntries: (active: Boolean) -> List<TranslatorPickerEntry> = { emptyList() },
     /** The row this translator adds to Settings, or null for none. */
-    val settingsRow: TranslatorSettingsRow? = null
+    val settingsRow: TranslatorSettingsRow? = null,
+    private val homeAction: (chosen: Boolean) -> TranslatorHomeAction? = { null }
 ) {
     /** What to tell the reader about a page that ended with [errorCode], or null when this translator has nothing to say. */
     fun readerMessage(errorCode: String): ReaderMessage? = readerMessages[errorCode]
 
     /** The rows this translator adds to the model picker; [active] says whether it takes the next page. Empty for none. */
     fun pickerEntries(active: Boolean): List<TranslatorPickerEntry> = pickerEntries.invoke(active)
+
+    /** The action this translator puts on Home, or null for none; [chosen] says whether the reader chose it, even if it can't run. */
+    fun homeAction(chosen: Boolean): TranslatorHomeAction? = homeAction.invoke(chosen)
 
     /** Whether this translator can take a page now; checked before every page, so it must be cheap. */
     fun canRun(): Boolean = canRun.invoke()
@@ -66,7 +70,8 @@ class Translator(
                 },
                 readerMessages = NetworkTranslatorEntries.readerMessages,
                 pickerEntries = { active -> NetworkTranslatorEntries.pickerEntries(store, active) },
-                settingsRow = NetworkTranslatorEntries.settingsRow(store)
+                settingsRow = NetworkTranslatorEntries.settingsRow(store),
+                homeAction = { chosen -> NetworkTranslatorEntries.homeAction(store, chosen) }
             )
 
         // No address, so the slot fails the page before any request: canRun said yes, then the address changed.

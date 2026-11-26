@@ -13,6 +13,9 @@ data class ReaderMessage(val text: String, val action: ReaderAction? = null)
 /** A reader message's way out: tapping the status line, which shows [label], opens [destination]. */
 data class ReaderAction(val label: String, val destination: AppDestination)
 
+/** An action a translator puts on Home while it needs the reader, such as a server to set up; tapping [label] opens [destination]. */
+data class TranslatorHomeAction(val label: String, val destination: AppDestination)
+
 /** A row a translator adds to Settings; [summary] is read each time Settings opens, so it can say how things stand. */
 class TranslatorSettingsRow(val title: String, val summary: () -> String, val destination: AppDestination)
 

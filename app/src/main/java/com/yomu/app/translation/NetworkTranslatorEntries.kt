@@ -7,7 +7,7 @@ import com.yomu.core.ERROR_SERVER_MODEL_NOT_FOUND
 import com.yomu.core.ERROR_SERVER_TIMEOUT
 import com.yomu.core.ERROR_SERVER_UNREACHABLE
 
-/** The network translator's picker group, Settings row and failure messages (ADR-0023, #534), all read from [ServerSettingsStore]. */
+/** The network translator's picker group, Settings row, Home action and failure messages (ADR-0023, #534), all read from [ServerSettingsStore]. */
 internal object NetworkTranslatorEntries {
     val PROVIDERS = AppDestination("settings/providers")
 
@@ -29,6 +29,10 @@ internal object NetworkTranslatorEntries {
         { if (store.isSetUp()) "Connected to ${store.address()}" else "$PROVIDERS_SUMMARY." },
         PROVIDERS
     )
+
+    /** While the reader chose the server but it isn't set up, such as after its address changed, Home points to Providers. */
+    fun homeAction(store: ServerSettingsStore, chosen: Boolean): TranslatorHomeAction? =
+        TranslatorHomeAction("Set up server", PROVIDERS).takeIf { chosen && !store.isSetUp() }
 
     // A server failure is never retried on the phone (ADR-0023), so each names its cause and where to pick a phone model.
     val readerMessages: Map<String, ReaderMessage> = mapOf(

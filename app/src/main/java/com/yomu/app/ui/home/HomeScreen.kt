@@ -1,18 +1,22 @@
 package com.yomu.app.ui.home
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
@@ -63,7 +67,10 @@ fun HomeScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
-            Text("Home", style = MaterialTheme.typography.headlineLarge)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Home", style = MaterialTheme.typography.headlineLarge, modifier = Modifier.weight(1f))
+                state.homeAction?.let { HomeActionPill(it.label) { onOpenDestination(it.destination) } }
+            }
             Spacer(Modifier.height(16.dp))
             val label = when (readingStatus) {
                 ReadingStatus.On -> "Reading is ON"
@@ -175,6 +182,30 @@ fun HomeScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+/** A translator's Home action: a small accent pill beside the title (#541). */
+@Composable
+private fun HomeActionPill(label: String, onClick: () -> Unit) {
+    val colors = LocalYomuColors.current
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.defaultMinSize(minHeight = 48.dp),
+        shape = RoundedCornerShape(percent = 50),
+        color = Color(colors.accent),
+        contentColor = Color(colors.onAccent),
+        border = BorderStroke(1.dp, Color(colors.inkMuted)),
+        shadowElevation = 2.dp
+    ) {
+        Row(
+            Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Icon(Icons.Default.Star, contentDescription = null, modifier = Modifier.size(18.dp))
+            Text(label, style = MaterialTheme.typography.labelLarge)
         }
     }
 }
