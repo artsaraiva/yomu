@@ -2,7 +2,7 @@
 
 **Status:** accepted, 2026-09-15. Decides [#222](https://github.com/artsaraiva/yomu/issues/222). Supersedes in part [ADR-0008](0008-translation-model-selection.md): its "OPUS-MT and ML Kit stay as optional floor engines" clause.
 
-> **Amended by [ADR-0023](0023-network-translator-on-a-server-the-reader-chooses.md) (2026-11-23).** A translator fills the translation slot, and a network translator can be one. The on-device translator still runs an LLM deliverable, and Yomu is still not ready until that deliverable is downloaded.
+> **Amended by [ADR-0023](0023-network-translator-on-a-server-the-reader-chooses.md) (2026-11-23).** A translator fills the translation slot, and a network translator can be one. The on-device translator still runs an LLM deliverable. Since [#536](https://github.com/artsaraiva/yomu/issues/536), Yomu needs that deliverable downloaded only while the on-device translator takes the pages; a reader translating on their own server needn't download a model they never use.
 
 Yomu removes the ML Kit and OPUS-MT floor engines. A curated LLM deliverable is the only thing that fills the translation slot. Setup downloads the selected curated LLM deliverable, which on a fresh install is the default. Yomu is not ready until the selected deliverable is downloaded, and the translation model is chosen only in Settings. The engine type, the engine role and the stored engine preference go away. What was the engine selection now holds only the LLM deliverable choice and the generation profile. The `TranslationSlot` seam from [ADR-0012](0012-page-translation-slot.md) stays.
 
@@ -24,6 +24,6 @@ ADR-0008 kept the floors for devices that cannot run an LLM. Neither floor deliv
 
 **ONNX Runtime stays.** Detection and OCR still use it. The DJL tokenizer dependency, which only OPUS-MT used, is removed.
 
-**A device that cannot fit any curated deliverable has no translator.** The fit budget still gates which deliverables are offered, and the default is sized to fit every supported device (ADR-0010).
+**A device that cannot fit any curated deliverable has no translator.** The fit budget still gates which deliverables are offered, and the default is sized to fit every supported device (ADR-0010). (Since [#536](https://github.com/artsaraiva/yomu/issues/536), such a device can still translate on a server the reader chooses, ADR-0023.)
 
 **Older ADRs and benchmark records stay as history.** ADR-0008 keeps its text, with a status line pointing here.

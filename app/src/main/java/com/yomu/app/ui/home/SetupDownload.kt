@@ -1,7 +1,6 @@
 package com.yomu.app.ui.home
 
 import com.yomu.app.db.entities.ModelStatus
-import com.yomu.app.db.entities.ModelType
 import com.yomu.app.service.ModelManager
 import com.yomu.app.service.ModelSlotSelection
 import kotlinx.coroutines.CancellationException
@@ -10,7 +9,7 @@ import kotlinx.coroutines.flow.update
 
 /**
  * Setup's Download button (#464): fetches each slot's chosen model in turn and picks it, reporting every
- * step through [state].
+ * step through [state]. The translation model is left out while another translator will take the pages (#536).
  */
 internal class SetupDownload(
     private val modelManager: ModelManager,
@@ -25,7 +24,7 @@ internal class SetupDownload(
         var current: String? = null
         try {
             modelManager.refreshModelList()
-            for (type in ModelType.entries) {
+            for (type in state.value.setupTypes) {
                 val id = slotSelection.chosenId(type)
                 // Refused before downloading: pick would turn it down afterwards, leaving a download that never takes over.
                 // Its row already says it is too big, so setup just returns to the Download button.

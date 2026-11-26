@@ -11,7 +11,7 @@ class ReadingStateTest {
     private val translator = Constants.QWEN25_15B_MODEL_ID
 
     private fun readiness(models: Map<String, ModelStatus>, permission: Boolean) =
-        resolveReadiness(models, detector, reader, translator, permission)
+        resolveReadiness(models, detector, reader, translator, permission, phoneTranslates = true)
 
     @Test
     fun `reading is on only when ready and service is running`() {
@@ -66,9 +66,9 @@ class ReadingStateTest {
             reader to ModelStatus.READY,
             translator to ModelStatus.READY
         )
-        assertEquals(Readiness.NeedsModels, resolveReadiness(ready, detector, reader, null, true))
-        assertEquals(Readiness.NeedsModels, resolveReadiness(ready, null, reader, translator, true))
-        assertEquals(Readiness.NeedsBoth, resolveReadiness(ready, detector, null, translator, false))
+        assertEquals(Readiness.NeedsModels, resolveReadiness(ready, detector, reader, null, true, phoneTranslates = true))
+        assertEquals(Readiness.NeedsModels, resolveReadiness(ready, null, reader, translator, true, phoneTranslates = true))
+        assertEquals(Readiness.NeedsBoth, resolveReadiness(ready, detector, null, translator, false, phoneTranslates = true))
     }
 
     @Test
@@ -76,5 +76,22 @@ class ReadingStateTest {
         val readers = mapOf(detector to ModelStatus.READY, reader to ModelStatus.READY)
         assertEquals(Readiness.NeedsModels, readiness(readers, true))
         assertEquals(Readiness.NeedsModels, readiness(readers + (translator to ModelStatus.DOWNLOADING), true))
+    }
+
+    @Test
+    fun `no translation model is needed while another translator takes the pages`() {
+        val readers = mapOf(detector to ModelStatus.READY, reader to ModelStatus.READY)
+
+        assertEquals(Readiness.Ready, resolveReadiness(readers, detector, reader, null, true, phoneTranslates = false))
+        assertEquals(Readiness.NeedsPermission, resolveReadiness(readers, detector, reader, translator, false, phoneTranslates = false))
+        assertEquals(Readiness.NeedsModels, resolveReadiness(readers, detector, reader, null, true, phoneTranslates = true))
+    }
+
+    @Test
+    fun `detection and OCR stay required whichever translator takes the pages`() {
+        val detectorOnly = mapOf(detector to ModelStatus.READY)
+
+        assertEquals(Readiness.NeedsModels, resolveReadiness(detectorOnly, detector, reader, null, true, phoneTranslates = false))
+        assertEquals(Readiness.NeedsBoth, resolveReadiness(detectorOnly, detector, null, null, false, phoneTranslates = false))
     }
 }

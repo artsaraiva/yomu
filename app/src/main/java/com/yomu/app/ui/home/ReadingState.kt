@@ -12,14 +12,20 @@ fun resolveReadingStatus(isReady: Boolean, isServiceRunning: Boolean): ReadingSt
     else -> ReadingStatus.Off
 }
 
+/**
+ * Detection and OCR always run on the phone. The phone's translation model is needed only while [phoneTranslates],
+ * since a reader whose pages go to another translator, such as their own server, never uses it (#536).
+ */
 fun resolveReadiness(
     models: Map<String, ModelStatus>,
     detectionModelId: String?,
     ocrModelId: String?,
     translationModelId: String?,
-    hasOverlayPermission: Boolean
+    hasOverlayPermission: Boolean,
+    phoneTranslates: Boolean
 ): Readiness {
-    val modelsReady = listOf(detectionModelId, ocrModelId, translationModelId).all { models[it] == ModelStatus.READY }
+    val required = listOf(detectionModelId, ocrModelId) + listOf(translationModelId).filter { phoneTranslates }
+    val modelsReady = required.all { models[it] == ModelStatus.READY }
     return when {
         modelsReady && hasOverlayPermission -> Readiness.Ready
         modelsReady -> Readiness.NeedsPermission

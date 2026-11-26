@@ -106,23 +106,7 @@ class HomeViewModel @Inject constructor(
         refreshEnvironment()
     }
 
-    private fun refreshReadiness() {
-        val permission = Settings.canDrawOverlays(context)
-        _uiState.update { state ->
-            val readiness = resolveReadiness(
-                state.models.associate { it.id to it.status },
-                slotSelection.selectedId(ModelType.DETECTION),
-                slotSelection.selectedId(ModelType.OCR),
-                slotSelection.selectedId(ModelType.LLM),
-                permission
-            )
-            state.copy(
-                readiness = readiness,
-                setupVisible = state.setupVisible ||
-                    (state.readiness == Readiness.Ready && readiness != Readiness.Ready)
-            )
-        }
-    }
+    private fun refreshReadiness() = _uiState.update { it.withSlots() }
 
     @Suppress("DEPRECATION")
     fun refreshEnvironment() {
@@ -147,12 +131,15 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    /** Re-reads the picks, which Settings and Providers change while Home is off screen. */
+    /** Re-reads the picks, and readiness with them, which Settings and Providers change while Home is off screen. */
     fun refreshSlots() = _uiState.update { it.withSlots() }
 
     fun openSetup() = _uiState.update { it.copy(setupVisible = true) }
 
     fun dismissSetup() = _uiState.update { it.copy(setupVisible = false) }
+
+    /** Setup hands the pages to [translatorId] in place of the phone model, which it then skips; null takes the phone model back. */
+    fun setupWith(translatorId: String?) = _uiState.update { it.copy(setupTranslatorId = translatorId) }
 
     /** Setup only records the choice; its Download button fetches every slot's choice at once. */
     fun pickSetupModel(type: ModelType, id: String) {
@@ -227,16 +214,28 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun HomeUiState.withSlots(): HomeUiState = copy(
-        chosenIds = ModelType.entries.associateWith(slotSelection::chosenId),
-        translationSelectedId = slotSelection.selectedId(ModelType.LLM),
-        translationPendingId = slotSelection.pendingId(ModelType.LLM),
-        // With the slots, since a download that never completes can return the language to English.
-        targetLanguage = slotSelection.targetLanguage(),
-        // Read from the stored settings, so opening the picker never contacts the server.
-        translatorGroups = translatorChoice.pickerGroups(),
-        setupDownloadBytes = slotSelection.downloadBytes(models.associate { it.id to it.status })
-    )
+    /** The picks, and readiness with them: whether the phone model is needed follows the translator that takes the pages (#536). */
+    private fun HomeUiState.withSlots(): HomeUiState {
+        val phoneTranslates = translatorChoice.phoneTranslates()
+        val ready = resolveReadiness(
+            models.associate { it.id to it.status },
+            slotSelection.selectedId(ModelType.DETECTION), slotSelection.selectedId(ModelType.OCR), slotSelection.selectedId(ModelType.LLM),
+            Settings.canDrawOverlays(context), phoneTranslates
+        )
+        return copy(
+            readiness = ready,
+            phoneTranslates = phoneTranslates,
+            // Losing readiness brings setup back, such as the server's address changing with no phone model.
+            setupVisible = setupVisible || (readiness == Readiness.Ready && ready != Readiness.Ready),
+            chosenIds = ModelType.entries.associateWith(slotSelection::chosenId),
+            translationSelectedId = slotSelection.selectedId(ModelType.LLM),
+            translationPendingId = slotSelection.pendingId(ModelType.LLM),
+            // With the slots, since a download that never completes can return the language to English.
+            targetLanguage = slotSelection.targetLanguage(),
+            // Read from the stored settings, so opening the picker never contacts the server.
+            translatorGroups = translatorChoice.pickerGroups()
+        )
+    }
 
     fun prepareSetup() {
         if (setupJob?.isActive == true) return

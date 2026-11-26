@@ -46,7 +46,7 @@ The text leaving the phone is the reader's choice, made per install, to an addre
 
 **Page recall and page reports.** The page's settings gain the translator and, for the network translator, the server's model name. Both are part of the page-recall key and appear in a page report. The server's address is in neither.
 
-**An on-device model is still required.** Yomu is not ready until the selected deliverable is downloaded, whichever translator is chosen.
+**The phone model is needed only while the phone translates.** Bubble detection and OCR always run on the phone, so Yomu is never ready without them. The selected phone deliverable is required only while the on-device translator takes the pages. A reader who translates on their own server would otherwise download a model of about 940 MB they never use, and a phone that can't run any phone model couldn't use Yomu at all. Setup offers the server in place of the translation model: it downloads detection and OCR only, opens Providers, and finishes once a server model is picked. Deleting the phone model while a server model is picked leaves reading on. If the server stops being set up, pages go back to the phone as before, and with no phone model Yomu is not ready until one is downloaded. *Amended by [#536](https://github.com/artsaraiva/yomu/issues/536): an on-device model was first required whichever translator was chosen.*
 
 ## Considered Options
 
@@ -59,7 +59,7 @@ The text leaving the phone is the reader's choice, made per install, to an addre
 - **Fall back to the phone when the server fails.** Rejected. The reader would get a different translator's output without knowing, and the page would be recalled under the wrong settings.
 - **Plain http to any address, or https only.** Both rejected. The first sends a key in the clear over the internet. The second makes every home server need a certificate.
 - **`androidx.security:security-crypto` for the key.** Rejected. Its APIs are deprecated, and the fork's use of it fell back to an unencrypted file without telling the reader.
-- **Let the network translator replace the on-device model.** Not now. Readiness, setup and ADR-0016 all assume a downloaded deliverable. It can be its own issue.
+- **Keep the on-device model required whichever translator is chosen.** First chosen, since readiness, setup and ADR-0016 all assumed a downloaded deliverable, then dropped by [#536](https://github.com/artsaraiva/yomu/issues/536): a reader translating on their own server downloaded a model they never used, and a phone that can't run any phone model couldn't read at all. Nothing needs that model while the server takes the pages, since a failed server page is never retried on the phone.
 
 ## Consequences
 

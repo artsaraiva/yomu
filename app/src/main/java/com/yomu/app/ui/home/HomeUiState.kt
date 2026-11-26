@@ -41,7 +41,10 @@ data class HomeUiState(
     val translatorGroups: List<PickerGroup> = emptyList(),
     /** A translator's pick waiting on the reader to agree, such as the first server pick's notice, or null. */
     val translatorConfirm: TranslatorConfirm? = null,
-    val setupDownloadBytes: Long = 0L,
+    /** Whether the phone's own model takes the next page; while another translator does, setup leaves that model out (#536). */
+    val phoneTranslates: Boolean = true,
+    /** The translator setup hands the pages to in place of the phone model, or null for the phone model. */
+    val setupTranslatorId: String? = null,
     val fitBudget: FitBudget = FitBudget(0L, LlmModelCatalog.DEFAULT_FIT_BUDGET_PERCENT, RuntimeLimits.DEFAULT_CONTEXT_TOKENS),
     val onMeteredNetwork: Boolean = false,
     val pagesTranslatedToday: Int = 0,
