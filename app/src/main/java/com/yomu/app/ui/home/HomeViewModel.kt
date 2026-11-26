@@ -233,7 +233,8 @@ class HomeViewModel @Inject constructor(
             // With the slots, since a download that never completes can return the language to English.
             targetLanguage = slotSelection.targetLanguage(),
             // Read from the stored settings, so opening the picker never contacts the server.
-            translatorGroups = translatorChoice.pickerGroups()
+            translatorGroups = translatorChoice.pickerGroups(),
+            homeAction = translatorChoice.homeAction()
         )
     }
 

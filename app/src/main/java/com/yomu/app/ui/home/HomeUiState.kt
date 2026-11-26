@@ -1,5 +1,6 @@
 package com.yomu.app.ui.home
 
+import com.yomu.app.translation.TranslatorHomeAction
 import com.yomu.app.db.entities.ModelEntity
 import com.yomu.app.db.entities.ModelStatus
 import com.yomu.app.db.entities.ModelType
@@ -39,6 +40,8 @@ data class HomeUiState(
     val languageOffer: LanguageSwitch.Offer? = null,
     /** The registered translators' groups, listed in the picker after the phone's (#534). */
     val translatorGroups: List<PickerGroup> = emptyList(),
+    /** The one action a translator puts on Home, such as a server to set up, or null for none. */
+    val homeAction: TranslatorHomeAction? = null,
     /** A translator's pick waiting on the reader to agree, such as the first server pick's notice, or null. */
     val translatorConfirm: TranslatorConfirm? = null,
     /** Whether the phone's own model takes the next page; while another translator does, setup leaves that model out (#536). */
