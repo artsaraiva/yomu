@@ -1,15 +1,12 @@
 package com.yomu.app.ui.home
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -17,6 +14,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
@@ -69,7 +69,7 @@ fun HomeScreen(
         item {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("Home", style = MaterialTheme.typography.headlineLarge, modifier = Modifier.weight(1f))
-                state.homeAction?.let { HomeActionPill(it.label) { onOpenDestination(it.destination) } }
+                state.homeAction?.let { HomeAction(it.label) { onOpenDestination(it.destination) } }
             }
             Spacer(Modifier.height(16.dp))
             val label = when (readingStatus) {
@@ -186,26 +186,29 @@ fun HomeScreen(
     }
 }
 
-/** A translator's Home action: a small accent pill beside the title (#541). */
+/** A translator's Home action: quiet accent text beside the title, so the Reading switch stays the strong control (#543). */
 @Composable
-private fun HomeActionPill(label: String, onClick: () -> Unit) {
-    val colors = LocalYomuColors.current
-    Surface(
+private fun HomeAction(label: String, onClick: () -> Unit) {
+    val accent = Color(LocalYomuColors.current.accent)
+    TextButton(
         onClick = onClick,
         modifier = Modifier.defaultMinSize(minHeight = 48.dp),
-        shape = RoundedCornerShape(percent = 50),
-        color = Color(colors.accent),
-        contentColor = Color(colors.onAccent),
-        border = BorderStroke(1.dp, Color(colors.inkMuted)),
-        shadowElevation = 2.dp
+        colors = ButtonDefaults.textButtonColors(contentColor = accent)
     ) {
-        Row(
-            Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            Icon(Icons.Default.Star, contentDescription = null, modifier = Modifier.size(18.dp))
-            Text(label, style = MaterialTheme.typography.labelLarge)
-        }
+        Icon(Sparkle, contentDescription = null, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(6.dp))
+        Text(label, style = MaterialTheme.typography.titleMedium)
     }
 }
+
+/** A four-point sparkle with concave sides; Material's core icons have none. */
+private val Sparkle: ImageVector = ImageVector.Builder("Sparkle", 24.dp, 24.dp, 24f, 24f).apply {
+    path(fill = SolidColor(Color.Black)) {
+        moveTo(12f, 2f)
+        quadTo(12.6f, 11.4f, 22f, 12f)
+        quadTo(12.6f, 12.6f, 12f, 22f)
+        quadTo(11.4f, 12.6f, 2f, 12f)
+        quadTo(11.4f, 11.4f, 12f, 2f)
+        close()
+    }
+}.build()
