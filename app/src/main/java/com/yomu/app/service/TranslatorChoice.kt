@@ -19,8 +19,8 @@ data class PageTranslator(val translator: String, val serverModel: String?)
 
 /**
  * Which translator the model picker has chosen: a model on the phone, or an entry another registered
- * translator offers, such as a model on the reader's server (ADR-0023, #534). The phone model stays selected
- * meanwhile, since it is still required and is what translates when that translator can't run.
+ * translator offers, such as a model on the reader's server (ADR-0023, #534). A selected phone model stays selected
+ * meanwhile and translates when that translator can't run, but none is required while it can (#536).
  */
 @Singleton
 class TranslatorChoice @Inject constructor(
@@ -52,6 +52,9 @@ class TranslatorChoice @Inject constructor(
         return result
     }
 
+    /** Whether the phone's own model takes the next page, and so is needed (#536). */
+    fun phoneTranslates(): Boolean = translation.phoneTranslates()
+
     /** The server model that takes the next page, or null while the on-device translator does. */
     fun activeServerModel(): String? = forPage().serverModel
 
@@ -61,10 +64,15 @@ class TranslatorChoice @Inject constructor(
         return PageTranslator(id, server.model().takeIf { id == Translator.NETWORK_ID })
     }
 
-    /** Picks a phone model as [ModelSlotSelection.pick] does; once it is accepted, the on-device translator takes the next page. */
+    /**
+     * Picks a phone model as [ModelSlotSelection.pick] does; once it is accepted, the on-device translator takes the
+     * next page. With no phone model to translate meanwhile (#536), the translator in use keeps the pages until the
+     * picked one is downloaded.
+     */
     suspend fun pickPhoneModel(id: String, status: ModelStatus?, totalMemBytes: Long): Boolean {
         if (!slots.pick(ModelType.LLM, id, status, totalMemBytes)) return false
-        translation.translator(Translator.ON_DEVICE_ID)?.let(translation::selectTranslator)
+        slots.phoneTakesOver = id.takeIf { slots.selectedId(ModelType.LLM) == null }
+        if (slots.phoneTakesOver == null) translation.selectOnDevice()
         return true
     }
 }

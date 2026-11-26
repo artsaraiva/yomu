@@ -22,17 +22,27 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import com.yomu.app.db.entities.ModelType
+import com.yomu.app.service.PickerGroup
+import com.yomu.app.translation.AppDestination
+import com.yomu.app.translation.TranslatorPickerEntry
 import com.yomu.app.ui.settings.SlotPickerSheet
 import com.yomu.app.ui.theme.*
 
 @Composable
-fun SetupScreen(state: HomeUiState, viewModel: HomeViewModel) {
+fun SetupScreen(state: HomeUiState, viewModel: HomeViewModel, onOpenDestination: (AppDestination) -> Unit) {
     val context = LocalContext.current
     val rows = state.setupRows()
     val steps = state.setupSteps()
     val downloaded = steps.first().done
     val running = state.setupRunning
+    // The translator setup hands the pages to, until it takes them.
+    val translatorGroup = state.setupTranslatorGroup()?.takeIf { state.phoneTranslates }
     var changing by rememberSaveable { mutableStateOf<ModelType?>(null) }
+    // Providers and Settings change which translator takes the pages, and with it whether the phone model is needed.
+    LaunchedEffect(Unit) { viewModel.refreshSlots() }
+    state.translatorConfirm?.let {
+        TranslatorConfirmDialog(it.confirm, { viewModel.acceptTranslatorConfirm()?.let(onOpenDestination) }, viewModel::declineTranslatorConfirm)
+    }
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical = 24.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp)
@@ -45,6 +55,7 @@ fun SetupScreen(state: HomeUiState, viewModel: HomeViewModel) {
                     rows.forEach { row -> SetupModelRowView(row, running, canChange = !running) { changing = row.type } }
                 }
             }
+            if (!state.setupStarted) SetupTranslatorChoice(state, viewModel::setupWith)
         }
         when {
             state.setupError -> PaperError("Download failed. Check your connection and storage.", viewModel::prepareSetup)
@@ -58,6 +69,9 @@ fun SetupScreen(state: HomeUiState, viewModel: HomeViewModel) {
                 )
             }
             running -> Text("Keep Yomu open until this finishes.", style = MaterialTheme.typography.bodySmall)
+            translatorGroup != null -> SetupTranslatorCard(translatorGroup) { group, entry ->
+                viewModel.pickTranslatorEntry(group, entry)?.let(onOpenDestination)
+            }
             state.readiness != Readiness.Ready -> SetupCard("Allow display over other apps", "Yomu draws its button and translations over your manga app.", "Open settings") {
                 context.startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}")))
             }
@@ -84,6 +98,36 @@ fun SetupScreen(state: HomeUiState, viewModel: HomeViewModel) {
             onDelete = viewModel::deleteModel,
             onDismiss = { changing = null }
         )
+    }
+}
+
+/** Offers each other translator in place of the phone model, or the phone model back once one is chosen (#536). */
+@Composable
+private fun SetupTranslatorChoice(state: HomeUiState, onChoose: (String?) -> Unit) {
+    val textColors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)
+    Column {
+        state.setupTranslatorOffers().forEach { group ->
+            TextButton(colors = textColors, onClick = { onChoose(group.translatorId) }) {
+                Text("Translate on ${group.name.replaceFirstChar(Char::lowercase)} instead")
+            }
+        }
+        if (state.setupTranslatorId != null) {
+            Text("No translation model is downloaded to this phone.", style = MaterialTheme.typography.bodySmall)
+            TextButton(colors = textColors, onClick = { onChoose(null) }) { Text("Translate on this phone instead") }
+        }
+    }
+}
+
+/** The chosen translator's picker entries: one that isn't set up opens its screen, and picking a model finishes this step. */
+@Composable
+private fun SetupTranslatorCard(group: PickerGroup, onPick: (PickerGroup, TranslatorPickerEntry) -> Unit) {
+    PaperSurface(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(group.name, style = MaterialTheme.typography.titleLarge)
+            group.entries.forEach { entry ->
+                PaperButton(entry.subtitle?.let { "${entry.name} · $it" } ?: entry.name, { onPick(group, entry) }, Modifier.fillMaxWidth())
+            }
+        }
     }
 }
 

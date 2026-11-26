@@ -1,5 +1,6 @@
 package com.yomu.app.ui.navigation
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -14,6 +15,7 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.yomu.app.ui.theme.rememberReduceMotion
@@ -83,10 +85,19 @@ fun AppNavigation(
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
+    var setupRoute by rememberSaveable { mutableStateOf<String?>(null) }
     if (state.modelsLoading || state.setupVisible) {
         ChromeContent(Modifier.safeDrawingPadding()) {
-            if (state.modelsLoading) PaperLoading("Getting Yomu ready…")
-            else SetupScreen(state, viewModel)
+            // A translator's screen setup opened, such as Providers (#536); closing it returns to setup.
+            val destination = setupRoute?.let(::AppDestination)
+            when {
+                state.modelsLoading -> PaperLoading("Getting Yomu ready…")
+                destination != null -> {
+                    BackHandler { setupRoute = null }
+                    SetupTranslatorScreen(translatorScreens, destination) { setupRoute = null }
+                }
+                else -> SetupScreen(state, viewModel) { setupRoute = it.route }
+            }
         }
         return
     }
@@ -194,3 +205,10 @@ fun AppNavigation(
 
 /** Whether [route] names a destination anywhere in this graph, nested graphs included. */
 private fun NavGraph.hasRoute(route: String): Boolean = any { it.route == route || (it as? NavGraph)?.hasRoute(route) == true }
+
+/** The screen a translator brought for [destination], shown over setup; one no translator brought closes at once. */
+@Composable
+private fun SetupTranslatorScreen(screens: Set<TranslatorScreen>, destination: AppDestination, onBack: () -> Unit) {
+    val screen = screens.find { it.destination == destination }
+    if (screen != null) screen.content(onBack) else LaunchedEffect(destination) { onBack() }
+}

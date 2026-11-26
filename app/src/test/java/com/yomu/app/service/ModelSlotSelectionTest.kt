@@ -266,17 +266,12 @@ class ModelSlotSelectionTest {
     }
 
     @Test
-    fun `the download size counts each slot's chosen model that isn't downloaded`() = runTest {
+    fun `setup chooses each slot's waiting pick before its selection`() = runTest {
         selection.pick(ModelType.LLM, Constants.CAT_TRANSLATION_MODEL_ID, ModelStatus.AVAILABLE, eightGb)
-        val size = { id: String -> ModelType.entries.flatMap(selection::deliverables).single { it.id == id }.sizeBytes }
 
         assertEquals(
             listOf(Constants.BUBBLE_DETECTION_MODEL_ID, Constants.HAYAI_OCR_MODEL_ID, Constants.CAT_TRANSLATION_MODEL_ID),
             ModelType.entries.map(selection::chosenId)
-        )
-        assertEquals(
-            size(Constants.HAYAI_OCR_MODEL_ID) + size(Constants.CAT_TRANSLATION_MODEL_ID),
-            selection.downloadBytes(mapOf(Constants.BUBBLE_DETECTION_MODEL_ID to ModelStatus.READY))
         )
     }
 
@@ -287,10 +282,6 @@ class ModelSlotSelectionTest {
 
         assertNull(selection.selectedId(ModelType.LLM))
         assertEquals(LlmModelCatalog.DEFAULT.id, selection.chosenId(ModelType.LLM))
-        assertEquals(
-            LlmModelCatalog.DEFAULT.sizeBytes,
-            selection.downloadBytes(mapOf(Constants.BUBBLE_DETECTION_MODEL_ID to ModelStatus.READY, Constants.HAYAI_OCR_MODEL_ID to ModelStatus.READY))
-        )
     }
 
     private fun deleted(id: String): Boolean =

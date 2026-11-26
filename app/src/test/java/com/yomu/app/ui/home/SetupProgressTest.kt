@@ -4,9 +4,13 @@ import com.yomu.app.db.entities.ModelEntity
 import com.yomu.app.db.entities.ModelStatus
 import com.yomu.app.db.entities.ModelType
 import com.yomu.app.service.ModelManager
+import com.yomu.app.service.PickerGroup
 import com.yomu.app.service.SlotDeliverable
 import com.yomu.app.translation.FitBudget
 import com.yomu.app.translation.LlmModelCatalog
+import com.yomu.app.translation.Translator
+import com.yomu.app.translation.TranslatorPick
+import com.yomu.app.translation.TranslatorPickerEntry
 import com.yomu.core.Constants
 import com.yomu.core.RuntimeLimits
 import org.junit.Assert.assertEquals
@@ -30,6 +34,11 @@ class SetupProgressTest {
         ),
         chosenIds = mapOf(ModelType.DETECTION to detector.id, ModelType.OCR to reader.id, ModelType.LLM to translator.id),
         fitBudget = eightGb
+    )
+
+    private val server = PickerGroup(
+        Translator.NETWORK_ID, "Your server",
+        listOf(TranslatorPickerEntry("Set up your server", null, checked = false) { TranslatorPick.Refused })
     )
 
     private fun model(id: String, type: ModelType, status: ModelStatus) =
@@ -116,7 +125,10 @@ class SetupProgressTest {
 
     @Test
     fun `the first step names what is left to download until every model is done`() {
-        val missing = fresh.copy(setupDownloadBytes = 900 * mb)
+        val missing = fresh.copy(models = listOf(
+            model(detector.id, ModelType.DETECTION, ModelStatus.READY),
+            model(reader.id, ModelType.OCR, ModelStatus.READY)
+        ))
         val done = fresh.copy(models = listOf(
             model(detector.id, ModelType.DETECTION, ModelStatus.READY),
             model(reader.id, ModelType.OCR, ModelStatus.READY),
@@ -143,5 +155,41 @@ class SetupProgressTest {
         assertTrue(fresh.copy(setupStarted = true).setupRunning)
         assertFalse(fresh.copy(setupStarted = true, setupError = true).setupRunning)
         assertFalse(fresh.copy(setupStarted = true, setupDownloadsReady = true).setupRunning)
+    }
+
+    @Test
+    fun `setup that hands the pages to another translator lists only the reading models`() {
+        val state = fresh.copy(translatorGroups = listOf(server), setupTranslatorId = server.translatorId)
+
+        assertEquals(listOf("Detection", "OCR"), state.setupRows().map { it.slot })
+        assertEquals(SetupStep("Download models · 140.00 MB", done = false), state.setupSteps()[0])
+    }
+
+    @Test
+    fun `a translator already taking the pages leaves the phone model out of setup`() {
+        val state = fresh.copy(phoneTranslates = false)
+
+        assertEquals(listOf("Detection", "OCR"), state.setupRows().map { it.slot })
+    }
+
+    @Test
+    fun `setup on another translator adds its step, done once it takes the pages`() {
+        val state = fresh.copy(translatorGroups = listOf(server), setupTranslatorId = server.translatorId)
+
+        assertEquals(
+            listOf("Download models · 140.00 MB", "Set up your server", "Allow display over other apps"),
+            state.setupSteps().map { it.label }
+        )
+        assertFalse(state.setupSteps()[1].done)
+        assertTrue(state.copy(phoneTranslates = false).setupSteps()[1].done)
+    }
+
+    @Test
+    fun `setup offers each translator with picker entries in place of the phone model`() {
+        val state = fresh.copy(translatorGroups = listOf(server))
+
+        assertEquals(listOf(server), state.setupTranslatorOffers())
+        assertEquals(server, state.copy(setupTranslatorId = server.translatorId).setupTranslatorGroup())
+        assertTrue("nothing to offer once one is chosen", state.copy(setupTranslatorId = server.translatorId).setupTranslatorOffers().isEmpty())
     }
 }
