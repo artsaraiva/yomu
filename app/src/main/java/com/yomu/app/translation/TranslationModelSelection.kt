@@ -29,6 +29,9 @@ class TranslationModelSelection @Inject constructor(
     /** The translator that takes the next page: the one the reader chose, or the on-device one when that can't run. */
     fun activeTranslator(): Translator = translators[storedTranslatorId()]?.takeIf { it.canRun() } ?: onDevice
 
+    /** Whether the reader chose [translator], even while it can't run and the on-device one takes the pages. */
+    fun isChosen(translator: Translator): Boolean = (storedTranslatorId() ?: Translator.ON_DEVICE_ID) == translator.id
+
     /** Whether the phone's own model takes the next page; while another translator does, that model isn't needed (#536). */
     fun phoneTranslates(): Boolean = activeTranslator() === onDevice
 

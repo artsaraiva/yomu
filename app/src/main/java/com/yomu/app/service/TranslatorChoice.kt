@@ -5,6 +5,7 @@ import com.yomu.app.db.entities.ModelType
 import com.yomu.app.translation.ServerSettingsStore
 import com.yomu.app.translation.TranslationModelSelection
 import com.yomu.app.translation.Translator
+import com.yomu.app.translation.TranslatorHomeAction
 import com.yomu.app.translation.TranslatorPick
 import com.yomu.app.translation.TranslatorPickerEntry
 import com.yomu.app.translation.TranslatorSettingsRow
@@ -37,6 +38,9 @@ class TranslatorChoice @Inject constructor(
                 ?.let { PickerGroup(translator.id, translator.displayName, it) }
         }
     }
+
+    /** The one action Home shows: the first a registered translator offers, in the picker's order, or null for none. */
+    fun homeAction(): TranslatorHomeAction? = translation.translators().firstNotNullOfOrNull { it.homeAction(translation.isChosen(it)) }
 
     /** The rows registered translators add to Settings, in registration order. */
     fun settingsRows(): List<TranslatorSettingsRow> = translation.translators().mapNotNull { it.settingsRow }

@@ -10,6 +10,7 @@ import com.yomu.app.translation.ServerSettingsStore
 import com.yomu.app.translation.TargetLanguageStore
 import com.yomu.app.translation.TranslationModelSelection
 import com.yomu.app.translation.Translator
+import com.yomu.app.translation.TranslatorHomeAction
 import com.yomu.app.translation.TranslatorPick
 import com.yomu.app.translation.TranslatorPickerEntry
 import com.yomu.app.translation.TranslatorSettingsRow
@@ -101,6 +102,23 @@ class TranslatorChoiceTest {
     fun `Settings lists the row of each translator that supplies one`() {
         assertEquals(listOf("Providers"), choice.settingsRows().map { it.title })
         assertEquals(listOf("Providers", "Fourth"), withFourth().settingsRows().map { it.title })
+    }
+
+    @Test
+    fun `Home offers Set up server only while the server is chosen and not set up`() {
+        assertNull("the phone is chosen", choice.homeAction())
+
+        setUpServer()
+        pickOnServer("gemma3:4b")
+        assertNull("the server is chosen and set up", choice.homeAction())
+
+        // Connect again, as Providers does, and the server no longer lists the chosen model.
+        store.saveServerModels(listOf("llama3.1:8b"))
+        store.saveModel("")
+        assertEquals(TranslatorHomeAction("Set up server", AppDestination("settings/providers")), choice.homeAction())
+
+        translation.selectOnDevice()
+        assertNull("the phone is chosen again", choice.homeAction())
     }
 
     @Test
