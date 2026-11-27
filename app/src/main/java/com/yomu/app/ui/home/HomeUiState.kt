@@ -88,13 +88,17 @@ data class HomeUiState(
     /** The translator entry that takes the next page, or null while the phone does. */
     private fun checkedTranslatorEntry(): TranslatorPickerEntry? = translatorGroups.flatMap { it.entries }.firstOrNull { it.checked }
 
-    fun languageChipLabel(): String = "Japanese → ${targetLanguage.promptName}"
+    fun languageRowLabel(): String = "Japanese → ${targetLanguage.promptName}"
 
-    fun translationChipLabel(): String {
-        checkedTranslatorEntry()?.let { return it.name }
+    /** What translates the next page and where it runs: a translator's entry with its group, or the phone's model. */
+    fun translatorRowLabel(): String {
+        translatorGroups.forEach { group ->
+            group.entries.firstOrNull { it.checked }?.let { return "${it.name} · ${group.name}" }
+        }
         val options = deliverables[ModelType.LLM].orEmpty()
-        val selected = options.firstOrNull { it.id == translationSelectedId }?.name ?: "No model selected"
-        return options.firstOrNull { it.id == translationPendingId }?.let { "$selected · ${it.name} when downloaded" } ?: selected
+        val selected = options.firstOrNull { it.id == translationSelectedId }?.name ?: return "No model selected"
+        val pending = options.firstOrNull { it.id == translationPendingId }?.let { "${it.name} when downloaded" }
+        return listOfNotNull(selected, "on this phone", pending).joinToString(" · ")
     }
 }
 

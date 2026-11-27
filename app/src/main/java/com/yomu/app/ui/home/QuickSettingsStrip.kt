@@ -43,7 +43,7 @@ internal fun QuickSettingsStrip(
         Box(Modifier.weight(1f, fill = false)) {
             AssistChip(
                 onClick = { open = true },
-                label = { Text(state.translationChipLabel(), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                label = { Text(state.translatorRowLabel(), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) }
             )
             DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
@@ -94,7 +94,7 @@ internal fun QuickSettingsStrip(
         Box {
             AssistChip(
                 onClick = { languagesOpen = true },
-                label = { Text(state.languageChipLabel(), maxLines = 1) },
+                label = { Text(state.languageRowLabel(), maxLines = 1) },
                 trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) }
             )
             DropdownMenu(expanded = languagesOpen, onDismissRequest = { languagesOpen = false }) {
