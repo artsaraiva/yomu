@@ -32,6 +32,7 @@ internal fun SlotPicker(
     fits: (SlotDeliverable) -> Boolean,
     needsSlowWarning: (SlotDeliverable) -> Boolean,
     languageBlock: (SlotDeliverable) -> String?,
+    phoneModelIdle: Boolean,
     onPick: (String) -> Unit,
     onCancel: (String) -> Unit,
     onDelete: (String) -> Unit
@@ -56,7 +57,7 @@ internal fun SlotPicker(
         }
     }
     if (open) SlotPickerSheet(
-        title, deliverables, selectedId, pendingId, statuses, downloads, fits, needsSlowWarning, languageBlock,
+        title, deliverables, selectedId, pendingId, statuses, downloads, fits, needsSlowWarning, languageBlock, phoneModelIdle,
         onPick, onCancel, onDelete, onDismiss = { open = false }
     )
 }
@@ -74,6 +75,7 @@ internal fun SlotPickerSheet(
     fits: (SlotDeliverable) -> Boolean,
     needsSlowWarning: (SlotDeliverable) -> Boolean,
     languageBlock: (SlotDeliverable) -> String?,
+    phoneModelIdle: Boolean,
     onPick: (String) -> Unit,
     onCancel: (String) -> Unit,
     onDelete: (String) -> Unit,
@@ -104,10 +106,11 @@ internal fun SlotPickerSheet(
         }
     }
     confirmDelete?.let { id ->
+        val prompt = deleteSelectedPrompt(phoneModelIdle)
         AlertDialog(
             onDismissRequest = { confirmDelete = null },
-            title = { Text("Delete the model in use?") },
-            text = { Text("Yomu can't translate or read until you pick and download a model.") },
+            title = { Text(prompt.title) },
+            text = { Text(prompt.text) },
             confirmButton = {
                 TextButton(onClick = {
                     confirmDelete = null
@@ -126,6 +129,22 @@ internal fun SlotPickerSheet(
             onDismiss = { confirmSlow = null }
         )
     }
+}
+
+internal data class DeletePrompt(val title: String, val text: String)
+
+/**
+ * What deleting a slot's selected model asks. While [phoneModelIdle], another translator takes the pages and the
+ * slot's model is only its fallback, so reading stays on without it (#536).
+ */
+internal fun deleteSelectedPrompt(phoneModelIdle: Boolean): DeletePrompt = if (phoneModelIdle) {
+    DeletePrompt(
+        "Delete this model?",
+        "It isn't translating now, so reading stays on. If the server stops being set up, its pages go to the " +
+            "phone, and Yomu can't translate until you pick and download a model."
+    )
+} else {
+    DeletePrompt("Delete the model in use?", "Yomu can't translate or read until you pick and download a model.")
 }
 
 /** Every surface that picks a model asks the same thing, so a Slow pick reads the same wherever it starts. */

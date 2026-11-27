@@ -220,6 +220,7 @@ class SettingsViewModel @Inject constructor(
         // With the slots, since a download that never completes can return the language to English.
         targetLanguage = slotSelection.targetLanguage(),
         translatesOnServer = translatorChoice.activeServerModel() != null,
+        phoneTranslates = translatorChoice.phoneTranslates(),
         selectedIds = ModelType.entries.mapNotNull { type -> slotSelection.selectedId(type)?.let { type to it } }.toMap(),
         pendingIds = ModelType.entries.mapNotNull { type -> slotSelection.pendingId(type)?.let { type to it } }.toMap()
     ).withGenerationProfile()

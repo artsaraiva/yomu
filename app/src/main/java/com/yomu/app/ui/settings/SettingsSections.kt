@@ -153,6 +153,7 @@ private fun ModelSlot(state: SettingsUiState, viewModel: SettingsViewModel, type
         fits = state::fits,
         needsSlowWarning = state::needsSlowWarning,
         languageBlock = state::languageBlock,
+        phoneModelIdle = type == ModelType.LLM && !state.phoneTranslates,
         onPick = { viewModel.pickModel(type, it) },
         onCancel = viewModel::cancelDownload,
         onDelete = viewModel::deleteModel
