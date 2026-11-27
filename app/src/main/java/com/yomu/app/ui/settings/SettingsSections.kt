@@ -19,6 +19,7 @@ import com.yomu.core.TargetLanguage
 fun TranslationSettings(viewModel: SettingsViewModel, saveToRecent: SaveToRecentViewModel, onBack: () -> Unit) {
     val state by viewModel.uiState.collectAsState()
     val saving by saveToRecent.enabled.collectAsState()
+    LaunchedEffect(Unit) { viewModel.refreshSlots() }
     SettingsPage(SettingsSection.Translation.title, SettingsSection.Translation.description, onBack) {
         TargetLanguagePanel(state.targetLanguage, state::languageUnavailable, viewModel::setTargetLanguage)
         state.languageOffer?.let {
