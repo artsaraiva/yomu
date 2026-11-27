@@ -101,7 +101,7 @@ The app's own managed screens — Home and Settings — rendered in Compose. The
 _Avoid_: main UI, app screens, the app
 
 **Overlay control**:
-An interactive element drawn over live manga to operate translation — floating button, quick-settings popup, status toast. Governed by the paper-mâché visual system, but its legibility over arbitrary artwork is a constraint, not a cosmetic choice.
+An interactive element drawn over live manga to operate translation — floating button, reading panel, status toast. Governed by the paper-mâché visual system, but its legibility over arbitrary artwork is a constraint, not a cosmetic choice.
 _Avoid_: overlay UI, HUD, widget
 
 **Typeset bubble**:

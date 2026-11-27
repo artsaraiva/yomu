@@ -2,6 +2,8 @@ package com.yomu.app.overlay
 
 import android.content.Context
 import android.content.res.ColorStateList
+import android.graphics.Typeface
+import android.view.Gravity
 import android.view.View
 import android.widget.LinearLayout
 import android.widget.RadioButton
@@ -12,7 +14,7 @@ import com.yomu.app.ui.theme.paperBackground
 import com.yomu.core.TargetLanguage
 
 /**
- * The quick-settings language chip, drawn like the one on Home; tapping it unfolds the languages below it (#338).
+ * The reading panel's language button; tapping it unfolds the languages below it (#338).
  * [onChosen] decides what a choice does, then calls [update] once a language is set.
  */
 class OverlayLanguageSwitch(
@@ -26,18 +28,21 @@ class OverlayLanguageSwitch(
     private val radioButtons = mutableListOf<RadioButton>()
     private val density = context.resources.displayMetrics.density
 
-    /** Built afresh each time the popup opens, so it shows the language as it is now. */
+    /** Built afresh each time the panel opens, so it shows the language as it is now. */
     fun createView(): LinearLayout = LinearLayout(context).apply {
         orientation = LinearLayout.VERTICAL
         radioButtons.clear()
         val languages = languageOptions()
         addView(TextView(context).apply {
             text = chipText()
-            textSize = 13f
+            textSize = 16f
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER_VERTICAL
+            minHeight = dp(48)
             background = context.paperBackground()
-            setPadding(dp(12), dp(6), dp(12), dp(6))
+            setPadding(dp(16), 0, dp(16), 0)
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-                .apply { topMargin = dp(12) }
+                .apply { bottomMargin = dp(4) }
             setOnClickListener { languages.visibility = if (languages.visibility == View.VISIBLE) View.GONE else View.VISIBLE }
             chip = this
         })
@@ -51,11 +56,11 @@ class OverlayLanguageSwitch(
     }
 
     fun applyColors(colors: YomuColors) {
-        chip?.setTextColor(colors.inkMuted)
+        chip?.setTextColor(colors.ink)
         val text = ColorStateList(arrayOf(intArrayOf(-android.R.attr.state_enabled), intArrayOf()), intArrayOf(colors.inkMuted, colors.ink))
         radioButtons.forEach {
             it.setTextColor(text)
-            it.buttonTintList = ColorStateList.valueOf(colors.accent)
+            it.buttonTintList = ColorStateList.valueOf(colors.ink)
         }
     }
 

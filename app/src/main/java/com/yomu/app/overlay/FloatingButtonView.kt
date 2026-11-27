@@ -44,7 +44,7 @@ class FloatingButtonView(context: Context) : View(context) {
     }
 
     fun updateAppearance() {
-        contentDescription = if (currentState == State.IDLE) "Translate screen. Hold for quick settings." else "Stop translating"
+        contentDescription = if (currentState == State.IDLE) "Translate screen. Hold for the reading panel." else "Stop translating"
         if (currentState == State.TRANSLATING && isAttachedToWindow && ValueAnimator.areAnimatorsEnabled()) {
             if (animator == null) {
                 animator = ValueAnimator.ofFloat(0f, 1f).apply {
