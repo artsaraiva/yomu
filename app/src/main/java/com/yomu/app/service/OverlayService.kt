@@ -32,6 +32,7 @@ import com.yomu.app.overlay.TranslationRenderOverlay
 import com.yomu.app.overlay.TranslationStatusOverlay
 import com.yomu.app.overlay.boundsOnScreen
 import com.yomu.app.overlay.stageMessage
+import com.yomu.app.overlay.stageStep
 import com.yomu.app.db.entities.ModelType
 import com.yomu.app.translation.ResourceLimitsStore
 import com.yomu.app.translation.NameGlossaryStore
@@ -227,7 +228,7 @@ class OverlayService : Service() {
     }
 
     private fun updateOverlayAppearance() {
-        floatingButton?.updateAppearance()
+        floatingButtonOverlay.updateAppearance()
         quickSettingsPopup?.updateAppearance()
         statusOverlay.updateAppearance()
     }
@@ -413,6 +414,7 @@ class OverlayService : Service() {
     private fun cancelTranslation() {
         translationJob?.cancel()
         translationRenderOverlay.remove()
+        floatingButtonOverlay.hideProgress()
         statusOverlay.remove()
         floatingButton?.setState(FloatingButtonView.State.IDLE)
     }
@@ -437,7 +439,7 @@ class OverlayService : Service() {
                 return@launch
             }
 
-            updateStatus(job, "Capturing screen")
+            // Nothing is shown before the capture is in: a capsule on screen would cover part of the page it reads.
             if (!screenCaptureManager.isProjectionActive) {
                 failTranslation(job, "No active MediaProjection")
                 return@launch
@@ -472,22 +474,24 @@ class OverlayService : Service() {
             }
 
             val callback = object : TranslationPipeline.PipelineCallback {
-                /** Logs pipeline progress and posts the stage message while the translation job is active. */
+                /** Logs pipeline progress and shows the stage beside the floating button while the translation job is active. */
                 override fun onStageProgress(stage: TranslationPipeline.Stage, progress: Float) {
                     Log.i(TAG, "Pipeline progress stage=$stage progress=$progress")
-                    updateStatus(job, stageMessage(stage, onServer = settings.translator == Translator.NETWORK_ID))
+                    val message = stageMessage(stage, onServer = settings.translator == Translator.NETWORK_ID)
+                    mainScope.launch {
+                        if (job.isActive) floatingButtonOverlay.showProgress(message, stageStep(stage))
+                    }
                 }
 
                 /** Logs a pipeline error and posts its message while the translation job is active. */
                 override fun onError(stage: TranslationPipeline.Stage, message: String) {
                     Log.e(TAG, "Pipeline error stage=$stage message=$message")
-                    updateStatus(job, "Failed: $message")
+                    showFailure(job, message)
                 }
 
-                /** Logs the completed page’s bubble count and timing, then posts the drawing status. */
+                /** Logs the completed page’s bubble count and timing. */
                 override fun onComplete(result: PipelineResult) {
                     Log.i(TAG, "Pipeline complete bubbles=${result.typesetBubbles.size} timeMs=${result.totalTimeMs}")
-                    updateStatus(job, "Drawing translation")
                 }
             }
 
@@ -535,6 +539,7 @@ class OverlayService : Service() {
             }
             val noticeMs = if (end.failure != null) FAILURE_NOTICE_MS else NOTICE_MS
             withContext(Dispatchers.Main) {
+                floatingButtonOverlay.hideProgress()
                 if (shown != null) {
                     showFinishedPage(shown, end.statusLine, noticeMs, tapAction(end.action))
                 } else {
@@ -638,7 +643,7 @@ class OverlayService : Service() {
 
     private suspend fun failTranslation(job: Job, reason: String) {
         Log.e(TAG, reason)
-        updateStatus(job, "Failed: $reason")
+        showFailure(job, reason)
         withContext(Dispatchers.Main) {
             delay(1500)
             statusOverlay.remove()
@@ -655,9 +660,13 @@ class OverlayService : Service() {
             .apply()
     }
 
-    private fun updateStatus(job: Job, message: String) {
+    /** Ends the progress capsule and puts [reason] on the status line, unless the reader already cancelled [job]. */
+    private fun showFailure(job: Job, reason: String) {
         mainScope.launch {
-            if (job.isActive) statusOverlay.showOrUpdate(message)
+            if (job.isActive) {
+                floatingButtonOverlay.hideProgress()
+                statusOverlay.showOrUpdate("Failed: $reason")
+            }
         }
     }
 
