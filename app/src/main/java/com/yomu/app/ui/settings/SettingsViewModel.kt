@@ -44,7 +44,7 @@ class SettingsViewModel @Inject constructor(
     private val detectionThresholdStore = DetectionThresholdStore(sharedPreferences)
     private val pageRecallStore = PageRecallStore(sharedPreferences)
     private val resourceMonitor = ResourceMonitor(context)
-    // Held in a field: SharedPreferences keeps listeners weakly. The overlay's quick settings flip recall while this screen may be open (#401).
+    // Held in a field: SharedPreferences keeps listeners weakly. The overlay's reading panel flips recall while this screen may be open (#401).
     private val preferenceListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         if (key == PageRecallStore.KEY) _uiState.update { it.copy(pageRecall = pageRecallStore.load()) }
     }

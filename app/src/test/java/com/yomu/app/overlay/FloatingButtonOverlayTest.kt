@@ -53,7 +53,7 @@ class FloatingButtonOverlayTest {
         assertEquals(View.GONE, layer.visibility)
     }
 
-    /** Quick settings must close on touch-down, a frame or more before a tap starts a capture that could still show it. */
+    /** The reading panel must close on touch-down, a frame or more before a tap starts a capture that could still show it. */
     @Test
     fun pressReportsTouchDownBeforeTheGestureEnds() {
         var presses = 0

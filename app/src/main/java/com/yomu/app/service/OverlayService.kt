@@ -27,7 +27,7 @@ import com.yomu.app.overlay.OverlayBounds
 import com.yomu.app.overlay.OverlayBubbleState
 import com.yomu.app.overlay.OverlayLanguageSwitch
 import com.yomu.app.overlay.OverlayRecallSwitch
-import com.yomu.app.overlay.QuickSettingsPopup
+import com.yomu.app.overlay.ReadingPanel
 import com.yomu.app.overlay.TranslationRenderOverlay
 import com.yomu.app.overlay.TranslationStatusOverlay
 import com.yomu.app.overlay.boundsOnScreen
@@ -82,7 +82,7 @@ class OverlayService : Service() {
     @Volatile private var lastPage: PageRecord? = null
         set(value) {
             field = value
-            mainScope.launch { quickSettingsPopup?.refreshLastPageAvailability() }
+            mainScope.launch { readingPanel?.refreshLastPageAvailability() }
         }
 
     private lateinit var windowManager: WindowManager
@@ -91,7 +91,7 @@ class OverlayService : Service() {
     private lateinit var translationRenderOverlay: TranslationRenderOverlay
     private var floatingButton: FloatingButtonView? = null
     private lateinit var statusOverlay: TranslationStatusOverlay
-    private var quickSettingsPopup: QuickSettingsPopup? = null
+    private var readingPanel: ReadingPanel? = null
     private val preferenceListener = SharedPreferences.OnSharedPreferenceChangeListener { preferences, key ->
         when (key) {
             Constants.PREF_THEME -> updateOverlayAppearance()
@@ -221,14 +221,14 @@ class OverlayService : Service() {
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
-        removeQuickSettingsPopup()
+        removeReadingPanel()
         floatingButtonOverlay.keepInBounds()
         updateOverlayAppearance()
     }
 
     private fun updateOverlayAppearance() {
         floatingButton?.updateAppearance()
-        quickSettingsPopup?.updateAppearance()
+        readingPanel?.updateAppearance()
         statusOverlay.updateAppearance()
     }
 
@@ -242,7 +242,7 @@ class OverlayService : Service() {
         }
         pageRecall.clear()
         lastPage = null
-        removeQuickSettingsPopup()
+        removeReadingPanel()
         removeFloatingButton()
         translationRenderOverlay.remove()
         statusOverlay.remove()
@@ -300,8 +300,8 @@ class OverlayService : Service() {
                 }
             },
             onDragEnd = { x, y -> persistButtonPosition(x, y) },
-            onLongPress = { showQuickSettings() },
-            onPress = ::removeQuickSettingsPopup
+            onLongPress = { showReadingPanel() },
+            onPress = ::removeReadingPanel
         )
     }
 
@@ -319,12 +319,12 @@ class OverlayService : Service() {
         )
     }
 
-    // The preference listener turns the recall off, so the quick switch forgets pages exactly as the Settings one does.
+    // The preference listener turns the recall off, so the panel's switch forgets pages exactly as the Settings one does.
     private val recallSwitch by lazy { OverlayRecallSwitch(this) { PageRecallStore(sharedPreferences).save(it) } }
 
-    private fun showQuickSettings() {
+    private fun showReadingPanel() {
         val thresholdStore = DetectionThresholdStore(sharedPreferences)
-        val popup = quickSettingsPopup ?: QuickSettingsPopup(
+        val panel = readingPanel ?: ReadingPanel(
             context = this,
             windowManager = windowManager,
             modelName = ::translationModelName,
@@ -341,14 +341,14 @@ class OverlayService : Service() {
             onStopRequested = { stopSelf() },
             blockTouchesBelow = floatingButtonOverlay::blockTouchesBelow,
             unblockTouchesBelow = floatingButtonOverlay::unblockTouchesBelow
-        ).also { quickSettingsPopup = it }
+        ).also { readingPanel = it }
         // The app can change any of these while the service runs, so re-read them on every long-press.
-        popup.updateFontSizeScale(
+        panel.updateFontSizeScale(
             sharedPreferences.getFloat(Constants.PREF_FONT_SIZE_SCALE, Constants.DEFAULT_FONT_SIZE_SCALE)
         )
-        popup.updateThreshold(thresholdStore.load())
+        panel.updateThreshold(thresholdStore.load())
         recallSwitch.update(PageRecallStore(sharedPreferences).load())
-        popup.show(buttonPositionX, buttonPositionY)
+        panel.show(buttonPositionX)
     }
 
     /** Sets [language], or opens the app to offer the model it needs when the one in use writes English only (#338). */
@@ -356,7 +356,7 @@ class OverlayService : Service() {
         // On the main thread, like the app's screens, since the slot selection's pending picks are not shared across threads.
         scope.launch(Dispatchers.Main) {
             if (slotSelection.switchLanguage(language) is LanguageSwitch.Offer) {
-                removeQuickSettingsPopup()
+                removeReadingPanel()
                 openApp(language)
             } else {
                 languageSwitch.update()
@@ -405,9 +405,9 @@ class OverlayService : Service() {
         ?: slotSelection.selectedId(ModelType.LLM)?.let { id -> slotSelection.deliverables(ModelType.LLM).firstOrNull { it.id == id }?.name }
         ?: "No model selected"
 
-    private fun removeQuickSettingsPopup() {
-        quickSettingsPopup?.remove()
-        quickSettingsPopup = null
+    private fun removeReadingPanel() {
+        readingPanel?.remove()
+        readingPanel = null
     }
 
     private fun cancelTranslation() {
@@ -426,7 +426,7 @@ class OverlayService : Service() {
     private fun startTranslation(recall: Boolean = true) {
         // A cancelled job is no longer active; the new one queues behind it on the pipeline's lock.
         if (translationJob?.isActive == true) return
-        removeQuickSettingsPopup()
+        removeReadingPanel()
         floatingButton?.setState(FloatingButtonView.State.TRANSLATING)
 
         translationJob = scope.launch {

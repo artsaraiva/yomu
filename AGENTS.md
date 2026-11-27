@@ -70,7 +70,7 @@ do not use "that's phase N" as a reason to defer something.
 
 ### Device Testing
 
-Use `adb` on a connected phone or emulator. Yomu's overlays (floating button, quick settings, drawn page) are their own windows, so a plain `uiautomator dump` misses them; use `uiautomator dump --windows`.
+Use `adb` on a connected phone or emulator. Yomu's overlays (floating button, reading panel, drawn page) are their own windows, so a plain `uiautomator dump` misses them; use `uiautomator dump --windows`.
 
 To check a pipeline or rendering change, run `scripts/page-report.py <page.jpg> <out-dir>` once on `main` and once on the branch, then `scripts/page-report.py --compare <before> <after>`. It translates one page in Google Photos and pulls its page report; `--help` lists what it needs.
 

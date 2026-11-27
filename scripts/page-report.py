@@ -28,7 +28,7 @@ from pathlib import Path
 
 APP = "com.yomu.app"
 PHOTOS = "com.google.android.apps.photos"
-REPORT_BUTTON = "Report last page"
+REPORT_BUTTON = "Report page"
 # Any error the service logs ends the page without a report; the two successes are a run and a recall.
 PAGE_ENDED = re.compile(r"Pipeline complete|Page recall hit=true| E OverlayService")
 PAGE_TIMEOUT_S = 300
@@ -99,9 +99,9 @@ def node_centre(attribute: str, value: str) -> tuple[int, int] | None:
 
 
 def clear_overlay(button: tuple[int, int]) -> None:
-    """Closes quick settings and dismisses a drawn page, either of which eats the next tap."""
+    """Closes the reading panel and dismisses a drawn page, either of which eats the next tap."""
     for _ in range(3):
-        close = node_centre("content-desc", "Close quick settings")
+        close = node_centre("content-desc", "Close reading panel")
         if close:
             adb("shell", f"input tap {close[0]} {close[1]}")
         elif page_drawn():
@@ -109,7 +109,7 @@ def clear_overlay(button: tuple[int, int]) -> None:
         else:
             return
         time.sleep(1)
-    fail("quick settings or a drawn page would not go away")
+    fail("the reading panel or a drawn page would not go away")
 
 
 def reports() -> list[str]:
@@ -144,7 +144,7 @@ def translate(page: str, out: Path) -> None:
     out.mkdir(parents=True, exist_ok=True)
     (out / "done.png").write_bytes(adb_bytes("exec-out", "screencap", "-p"))
 
-    # While a page is drawn, the first long-press only dismisses it; the next opens quick settings.
+    # While a page is drawn, the first long-press only dismisses it; the next opens the reading panel.
     button = None
     for _ in range(3):
         adb("shell", f"input swipe {x} {y} {x} {y} 1500")
@@ -153,7 +153,7 @@ def translate(page: str, out: Path) -> None:
         if button:
             break
     if not button:
-        fail("quick settings never showed the report button")
+        fail("the reading panel never showed the report button")
     before = set(reports())
     adb("shell", f"input tap {button[0]} {button[1]}")
     for _ in range(10):

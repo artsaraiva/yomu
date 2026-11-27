@@ -114,7 +114,7 @@ class ScreenCaptureManager @Inject constructor(
 
     /**
      * Hands [onBitmapReady] a frame drawn after this call. The reader still holds the newest frame from before
-     * it, which can show an overlay removed just now, such as quick settings closed by "Translate again" (#402).
+     * it, which can show an overlay removed just now, such as the reading panel closed by "Translate again" (#402).
      * If nothing is drawn within [FRESH_FRAME_WAIT_MS] the screen has not changed, so that frame is current.
      */
     fun captureScreen(onBitmapReady: (Bitmap?) -> Unit) {
