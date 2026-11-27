@@ -29,7 +29,7 @@ class FloatingButtonOverlayTest {
         val button = overlay.show(0, 0, onTap = {}, onDragEnd = { _, _ -> })
 
         val (layer, layerParams) = addedWindows()[0]
-        assertSame(button, addedWindows()[1].first)
+        assertSame(button, addedWindows()[2].first)
         assertEquals(WindowManager.LayoutParams.MATCH_PARENT, layerParams.width)
         assertEquals(WindowManager.LayoutParams.MATCH_PARENT, layerParams.height)
         assertEquals(View.GONE, layer.visibility)
@@ -65,13 +65,72 @@ class FloatingButtonOverlayTest {
         assertEquals(0, taps)
     }
 
+    /** The capsule goes in under the button, so the button stays the stop target, and lets every touch through (#552). */
+    @Test
+    fun progressCapsuleWaitsHiddenUnderTheButtonAndTakesNoTouches() {
+        overlay.show(0, 0, onTap = {}, onDragEnd = { _, _ -> })
+
+        val (capsule, capsuleParams) = addedWindows()[1]
+        assertEquals(View.GONE, capsule.visibility)
+        assertTrue(capsuleParams.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE != 0)
+    }
+
+    @Test
+    fun progressShowsBesideTheButtonAndIsAnnouncedPolitely() {
+        overlay.show(0, 200, onTap = {}, onDragEnd = { _, _ -> })
+        val (capsule, capsuleParams) = addedWindows()[1]
+        val buttonParams = addedWindows()[2].second
+
+        overlay.showProgress("Reading Japanese text", step = 2)
+
+        assertEquals(View.VISIBLE, capsule.visibility)
+        assertEquals("Reading Japanese text. Step 2 of 3", capsule.contentDescription)
+        assertEquals(View.ACCESSIBILITY_LIVE_REGION_POLITE, capsule.accessibilityLiveRegion)
+        assertEquals(buttonParams.x, capsuleParams.x)
+        assertEquals(buttonParams.y, capsuleParams.y)
+        assertTrue(capsuleParams.width > buttonParams.width)
+    }
+
+    @Test
+    fun hiddenProgressLeavesNoCapsule() {
+        overlay.show(0, 200, onTap = {}, onDragEnd = { _, _ -> })
+        overlay.showProgress("Translating", step = 3)
+
+        overlay.hideProgress()
+
+        assertEquals(View.GONE, addedWindows()[1].first.visibility)
+    }
+
+    @Test
+    fun capsuleFollowsTheButtonWhileItIsDragged() {
+        val button = overlay.show(0, 200, onTap = {}, onDragEnd = { _, _ -> })
+        val capsuleParams = addedWindows()[1].second
+        overlay.showProgress("Translating", step = 3)
+
+        button.dispatchTouchEvent(touch(MotionEvent.ACTION_DOWN))
+        button.dispatchTouchEvent(touch(MotionEvent.ACTION_MOVE, y = 400f))
+
+        assertEquals(addedWindows()[2].second.y, capsuleParams.y)
+        assertEquals(300, capsuleParams.y)
+    }
+
+    @Test
+    fun removingTheButtonRemovesItsCapsule() {
+        overlay.show(0, 200, onTap = {}, onDragEnd = { _, _ -> })
+        val capsule = addedWindows()[1].first
+
+        overlay.remove()
+
+        verify(windowManager).removeView(capsule)
+    }
+
     private fun addedWindows(): List<Pair<View, WindowManager.LayoutParams>> {
         val views = ArgumentCaptor.forClass(View::class.java)
         val params = ArgumentCaptor.forClass(WindowManager.LayoutParams::class.java)
-        verify(windowManager, times(2)).addView(views.capture(), params.capture())
+        verify(windowManager, times(3)).addView(views.capture(), params.capture())
         return views.allValues.zip(params.allValues)
     }
 
-    private fun touch(action: Int): MotionEvent =
-        SystemClock.uptimeMillis().let { MotionEvent.obtain(it, it, action, 200f, 300f, 0) }
+    private fun touch(action: Int, y: Float = 300f): MotionEvent =
+        SystemClock.uptimeMillis().let { MotionEvent.obtain(it, it, action, 200f, y, 0) }
 }
