@@ -96,9 +96,9 @@ data class HomeUiState(
             group.entries.firstOrNull { it.checked }?.let { return "${it.name} · ${group.name}" }
         }
         val options = deliverables[ModelType.LLM].orEmpty()
-        val selected = options.firstOrNull { it.id == translationSelectedId }?.name ?: return "No model selected"
+        val selected = options.firstOrNull { it.id == translationSelectedId }?.name
         val pending = options.firstOrNull { it.id == translationPendingId }?.let { "${it.name} when downloaded" }
-        return listOfNotNull(selected, "on this phone", pending).joinToString(" · ")
+        return listOfNotNull(selected ?: "No model selected", "on this phone".takeIf { selected != null }, pending).joinToString(" · ")
     }
 }
 
