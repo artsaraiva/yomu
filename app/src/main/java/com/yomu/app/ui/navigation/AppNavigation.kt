@@ -7,24 +7,14 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.safeDrawingPadding
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import com.yomu.app.ui.theme.rememberReduceMotion
-import androidx.compose.ui.unit.dp
-import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.yomu.app.ui.theme.ChromeContent
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -36,6 +26,7 @@ import com.yomu.app.ui.home.HomeViewModel
 import com.yomu.app.ui.home.SetupScreen
 import com.yomu.app.ui.theme.PaperLoading
 import com.yomu.app.ui.home.HomeScreen
+import com.yomu.app.ui.home.RecentScreen
 import androidx.navigation.compose.navigation
 import com.yomu.app.ui.settings.AppearanceSettings
 import com.yomu.app.ui.settings.PerformanceSettings
@@ -51,12 +42,9 @@ import com.yomu.core.TargetLanguage
 
 private const val SETTINGS_ROOT = "settings/root"
 
-sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
-    data object Home : Screen("home", "Home", Icons.Default.Home)
-    data object Settings : Screen("settings", "Settings", Icons.Default.Settings)
-}
-
-val bottomNavItems = listOf(Screen.Home, Screen.Settings)
+private const val HOME = "home"
+private const val SETTINGS = "settings"
+private const val RECENT = "recent"
 
 @Composable
 fun AppNavigation(
@@ -102,103 +90,73 @@ fun AppNavigation(
         return
     }
     val navController = rememberNavController()
-    val scheme = MaterialTheme.colorScheme
     val reduceMotion = rememberReduceMotion()
     // Every destination a translator names opens here; one no screen claims is dropped, since a status line's comes from
     // outside the app (#534).
     val openDestination: (AppDestination) -> Unit = {
         if (navController.graph.hasRoute(it.route)) navController.navigate(it.route) { launchSingleTop = true }
     }
-    Scaffold(
-        bottomBar = {
-            Surface(shadowElevation = 2.dp, color = scheme.surface) {
-                NavigationBar(
-                    modifier = Modifier.heightIn(min = 80.dp * LocalDensity.current.fontScale.coerceAtLeast(1f)),
-                    containerColor = scheme.surface, tonalElevation = 0.dp
-                ) {
-                    val navBackStackEntry by navController.currentBackStackEntryAsState()
-                    val currentDestination = navBackStackEntry?.destination
-                    bottomNavItems.forEach { screen ->
-                        NavigationBarItem(
-                            icon = { Icon(screen.icon, contentDescription = null) },
-                            label = { Text(screen.title, style = MaterialTheme.typography.labelMedium) },
-                            selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = scheme.onPrimary,
-                                selectedTextColor = scheme.onSurface,
-                                indicatorColor = scheme.primary,
-                                unselectedIconColor = scheme.onSurfaceVariant,
-                                unselectedTextColor = scheme.onSurfaceVariant
-                            ),
-                            onClick = {
-                                navController.navigate(screen.route) {
-                                    popUpTo(Screen.Home.route)
-                                    launchSingleTop = true
-                                }
-                            }
-                        )
-                    }
-                }
+    // No navigation bar: Home is the app, Settings and the whole of Recent open from it and return with back (#546).
+    ChromeContent(Modifier.safeDrawingPadding()) {
+        NavHost(
+            navController = navController,
+            startDestination = HOME,
+            enterTransition = {
+                if (reduceMotion) fadeIn(tween(180))
+                else fadeIn(tween(180)) + slideInHorizontally(tween(200)) { it / 12 }
+            },
+            exitTransition = {
+                if (reduceMotion) fadeOut(tween(180))
+                else fadeOut(tween(180)) + slideOutHorizontally(tween(200)) { -it / 12 }
             }
-        }
-    ) { innerPadding ->
-        ChromeContent(Modifier.padding(innerPadding)) {
-            NavHost(
-                navController = navController,
-                startDestination = Screen.Home.route,
-                enterTransition = {
-                    if (reduceMotion) fadeIn(tween(180))
-                    else fadeIn(tween(180)) + slideInHorizontally(tween(200)) { it / 12 }
-                },
-                exitTransition = {
-                    if (reduceMotion) fadeOut(tween(180))
-                    else fadeOut(tween(180)) + slideOutHorizontally(tween(200)) { -it / 12 }
-                }
-            ) {
-                composable(Screen.Home.route) {
-                    HomeScreen(
-                        viewModel, hiltViewModel(), onRequestScreenCapture,
-                        onOpenSettings = { navController.navigate(it.route) { launchSingleTop = true } },
+        ) {
+            composable(HOME) {
+                HomeScreen(
+                    viewModel, hiltViewModel(), onRequestScreenCapture,
+                    onOpenSettings = { navController.navigate(SETTINGS) { launchSingleTop = true } },
+                    onOpenSection = { navController.navigate(it.route) { launchSingleTop = true } },
+                    onOpenRecent = { navController.navigate(RECENT) { launchSingleTop = true } },
+                    onOpenDestination = openDestination
+                )
+            }
+            composable(RECENT) { RecentScreen(viewModel) { navController.popBackStack() } }
+            navigation(startDestination = SETTINGS_ROOT, route = SETTINGS) {
+                composable(SETTINGS_ROOT) { entry ->
+                    val parent = remember(entry) { navController.getBackStackEntry(SETTINGS) }
+                    val settings: SettingsViewModel = hiltViewModel(parent)
+                    SettingsScreen(
+                        translatorRows = remember(settings) { settings.translatorRows() },
+                        onBack = { navController.popBackStack() },
+                        onOpen = { navController.navigate(it.route) { launchSingleTop = true } },
                         onOpenDestination = openDestination
                     )
                 }
-                navigation(startDestination = SETTINGS_ROOT, route = Screen.Settings.route) {
-                    composable(SETTINGS_ROOT) { entry ->
-                        val parent = remember(entry) { navController.getBackStackEntry(Screen.Settings.route) }
+                // The screens translators bring, which their picker entries, Settings rows and failures open (#534).
+                translatorScreens.forEach { screen ->
+                    composable(screen.destination.route) { screen.content { navController.popBackStack() } }
+                }
+                SettingsSection.entries.forEach { section ->
+                    composable(section.route) { entry ->
+                        // One ViewModel for the whole settings graph, so a download survives leaving its sub-screen.
+                        val parent = remember(entry) { navController.getBackStackEntry(SETTINGS) }
                         val settings: SettingsViewModel = hiltViewModel(parent)
-                        SettingsScreen(
-                            translatorRows = remember(settings) { settings.translatorRows() },
-                            onOpen = { navController.navigate(it.route) { launchSingleTop = true } },
-                            onOpenDestination = openDestination
-                        )
-                    }
-                    // The screens translators bring, which their picker entries, Settings rows and failures open (#534).
-                    translatorScreens.forEach { screen ->
-                        composable(screen.destination.route) { screen.content { navController.popBackStack() } }
-                    }
-                    SettingsSection.entries.forEach { section ->
-                        composable(section.route) { entry ->
-                            // One ViewModel for the whole settings graph, so a download survives leaving its sub-screen.
-                            val parent = remember(entry) { navController.getBackStackEntry(Screen.Settings.route) }
-                            val settings: SettingsViewModel = hiltViewModel(parent)
-                            val onBack: () -> Unit = { navController.popBackStack() }
-                            when (section) {
-                                SettingsSection.Translation -> TranslationSettings(settings, hiltViewModel(), onBack)
-                                SettingsSection.NameGlossary -> NameGlossarySettings(hiltViewModel(), onBack)
-                                SettingsSection.Pipeline -> PipelineSettings(settings, onBack)
-                                SettingsSection.Typesetting -> TypesettingSettings(settings, onBack)
-                                SettingsSection.Performance -> PerformanceSettings(settings, onBack)
-                                SettingsSection.Appearance -> AppearanceSettings(settings, onBack)
-                            }
+                        val onBack: () -> Unit = { navController.popBackStack() }
+                        when (section) {
+                            SettingsSection.Translation -> TranslationSettings(settings, hiltViewModel(), onBack)
+                            SettingsSection.NameGlossary -> NameGlossarySettings(hiltViewModel(), onBack)
+                            SettingsSection.Pipeline -> PipelineSettings(settings, onBack)
+                            SettingsSection.Typesetting -> TypesettingSettings(settings, onBack)
+                            SettingsSection.Performance -> PerformanceSettings(settings, onBack)
+                            SettingsSection.Appearance -> AppearanceSettings(settings, onBack)
                         }
                     }
                 }
             }
-            // A screen the overlay asked for, such as the one a status-line action opens (#534).
-            LaunchedEffect(routeRequest) {
-                routeRequest?.let { openDestination(AppDestination(it)) }
-                onRouteRequestHandled()
-            }
+        }
+        // A screen the overlay asked for, such as the one a status-line action opens (#534).
+        LaunchedEffect(routeRequest) {
+            routeRequest?.let { openDestination(AppDestination(it)) }
+            onRouteRequestHandled()
         }
     }
 }
