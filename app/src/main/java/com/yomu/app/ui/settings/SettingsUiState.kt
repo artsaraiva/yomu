@@ -47,7 +47,9 @@ data class SettingsUiState(
     /** One message naming every stored value that was recovered to its default, or null. */
     val recoveryWarning: String? = null,
     /** Whether a server model takes the next page, which lifts the phone models' English-only rule (ADR-0023). */
-    val translatesOnServer: Boolean = false
+    val translatesOnServer: Boolean = false,
+    /** Whether the phone's own model takes the next page; while it doesn't, deleting it leaves reading on (#536). */
+    val phoneTranslates: Boolean = true
 ) {
     val generationOverridden: Boolean
         get() = GenerationBound.entries.any { it.read(generation) != it.read(generationDefaults) }

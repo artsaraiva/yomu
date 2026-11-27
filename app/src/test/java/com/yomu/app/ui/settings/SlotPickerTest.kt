@@ -32,4 +32,24 @@ class SlotPickerTest {
             deliverableDetail(cat, fits = true, languageBlock = "Can't write Spanish")
         )
     }
+
+    @Test
+    fun `deleting the model in use warns that reading stops while the phone translates`() {
+        assertEquals(
+            DeletePrompt("Delete the model in use?", "Yomu can't translate or read until you pick and download a model."),
+            deleteSelectedPrompt(phoneModelIdle = false)
+        )
+    }
+
+    @Test
+    fun `deleting the phone model while a server translates says reading stays on`() {
+        assertEquals(
+            DeletePrompt(
+                "Delete this model?",
+                "It isn't translating now, so reading stays on. If the server stops being set up, its pages go to the " +
+                    "phone, and Yomu can't translate until you pick and download a model."
+            ),
+            deleteSelectedPrompt(phoneModelIdle = true)
+        )
+    }
 }

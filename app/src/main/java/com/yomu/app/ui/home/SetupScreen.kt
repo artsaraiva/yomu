@@ -90,6 +90,7 @@ fun SetupScreen(state: HomeUiState, viewModel: HomeViewModel, onOpenDestination:
             fits = state::fits,
             needsSlowWarning = state::needsSlowWarning,
             languageBlock = state::languageBlock,
+            phoneModelIdle = row.type == ModelType.LLM && !state.phoneTranslates,
             onPick = {
                 viewModel.pickSetupModel(row.type, it)
                 changing = null

@@ -220,9 +220,13 @@ class SettingsViewModel @Inject constructor(
         // With the slots, since a download that never completes can return the language to English.
         targetLanguage = slotSelection.targetLanguage(),
         translatesOnServer = translatorChoice.activeServerModel() != null,
+        phoneTranslates = translatorChoice.phoneTranslates(),
         selectedIds = ModelType.entries.mapNotNull { type -> slotSelection.selectedId(type)?.let { type to it } }.toMap(),
         pendingIds = ModelType.entries.mapNotNull { type -> slotSelection.pendingId(type)?.let { type to it } }.toMap()
     ).withGenerationProfile()
+
+    /** Re-reads what a translator's own screen may have changed since this was built, such as which one takes the pages. */
+    fun refreshSlots() = _uiState.update { it.withSlots() }
 
     fun setFontSizeScale(scale: Float) {
         sharedPreferences.edit().putFloat(Constants.PREF_FONT_SIZE_SCALE, scale).apply()
