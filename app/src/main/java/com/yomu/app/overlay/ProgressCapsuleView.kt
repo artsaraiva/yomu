@@ -2,6 +2,7 @@ package com.yomu.app.overlay
 
 import android.animation.ValueAnimator
 import android.content.Context
+import android.content.res.Configuration
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Point
@@ -76,6 +77,12 @@ class ProgressCapsuleView(context: Context) : View(context) {
         val width = ceil(content + (OUTER_PADDING_DP + BUTTON_PADDING_DP) * density).toInt()
         val height = ceil(lineHeight(titlePaint) + lineHeight(captionPaint) + (LINE_GAP_DP + 2 * VERTICAL_PADDING_DP) * density).toInt()
         return Point(minOf(width, maxWidth), height)
+    }
+
+    /** A day or night switch repaints the capsule, which reads its colours as it draws. */
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        invalidate()
     }
 
     override fun onDetachedFromWindow() {

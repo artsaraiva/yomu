@@ -5,6 +5,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -89,6 +90,44 @@ class FloatingButtonOverlayTest {
         assertEquals(buttonParams.x, capsuleParams.x)
         assertEquals(buttonParams.y, capsuleParams.y)
         assertTrue(capsuleParams.width > buttonParams.width)
+    }
+
+    /** 320 px wide here: a button at the right edge has its room on the left, so the text must keep clear of the right end. */
+    @Test
+    fun capsuleGrowsLeftFromAButtonAtTheRightEdge() {
+        overlay.show(1000, 200, onTap = {}, onDragEnd = { _, _ -> })
+        val (capsule, capsuleParams) = addedWindows()[1]
+        val buttonParams = addedWindows()[2].second
+
+        overlay.showProgress("Translating", step = 3)
+
+        assertEquals(buttonParams.x + buttonParams.width, capsuleParams.x + capsuleParams.width)
+        assertTrue(capsuleParams.x < buttonParams.x)
+        assertTrue((capsule as ProgressCapsuleView).buttonAtRight)
+    }
+
+    /** A right-to-left locale counts both windows' x from the right edge, so the same numbers put the button on the left end. */
+    @Test
+    @Config(sdk = [28], qualifiers = "ar")
+    fun capsuleReadsClearOfTheButtonInARightToLeftLocale() {
+        overlay.show(1000, 200, onTap = {}, onDragEnd = { _, _ -> })
+        val capsule = addedWindows()[1].first as ProgressCapsuleView
+
+        overlay.showProgress("Translating", step = 3)
+
+        assertFalse(capsule.buttonAtRight)
+    }
+
+    @Test
+    fun aRepeatedStageIsNotLaidOutAgain() {
+        overlay.show(0, 200, onTap = {}, onDragEnd = { _, _ -> })
+        val capsule = addedWindows()[1].first
+
+        overlay.showProgress("Reading Japanese text", step = 2)
+        overlay.showProgress("Reading Japanese text", step = 2)
+        overlay.showProgress("Translating", step = 3)
+
+        verify(windowManager, times(2)).updateViewLayout(org.mockito.Mockito.eq(capsule), org.mockito.Mockito.any())
     }
 
     @Test

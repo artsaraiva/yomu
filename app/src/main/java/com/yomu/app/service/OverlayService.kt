@@ -228,7 +228,7 @@ class OverlayService : Service() {
     }
 
     private fun updateOverlayAppearance() {
-        floatingButtonOverlay.updateAppearance()
+        floatingButton?.updateAppearance()
         quickSettingsPopup?.updateAppearance()
         statusOverlay.updateAppearance()
     }
@@ -483,7 +483,7 @@ class OverlayService : Service() {
                     }
                 }
 
-                /** Logs a pipeline error and posts its message while the translation job is active. */
+                /** Logs a pipeline error and, while the translation job is active, swaps the progress capsule for its message. */
                 override fun onError(stage: TranslationPipeline.Stage, message: String) {
                     Log.e(TAG, "Pipeline error stage=$stage message=$message")
                     showFailure(job, message)
