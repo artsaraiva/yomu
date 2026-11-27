@@ -231,7 +231,8 @@ class ReadingPanel(
     }
 
     private fun lastPageButton(label: String, action: () -> Unit): Button = shapedButton(label) { remove(); action() }.apply {
-        layoutParams = weighted()
+        // As tall as its neighbour, whose label may wrap at a large font scale.
+        layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
         lastPageButtons.add(this)
     }
 
