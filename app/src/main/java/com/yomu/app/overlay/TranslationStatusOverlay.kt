@@ -97,3 +97,13 @@ fun stageMessage(stage: TranslationPipeline.Stage, onServer: Boolean): String = 
     TranslationPipeline.Stage.DONE -> "Drawing translation"
     TranslationPipeline.Stage.ERROR -> "Failed"
 }
+
+/** How many steps the progress capsule counts a page's run in: finding the text, reading it, translating it. */
+const val PROGRESS_STEPS = 3
+
+/** The step of [PROGRESS_STEPS] that [stage] belongs to; everything after reading counts as translating. */
+fun stageStep(stage: TranslationPipeline.Stage): Int = when (stage) {
+    TranslationPipeline.Stage.BUBBLE_DETECTION -> 1
+    TranslationPipeline.Stage.OCR -> 2
+    else -> PROGRESS_STEPS
+}
