@@ -51,19 +51,6 @@ data class SlotDeliverable(
     }
 }
 
-/** What choosing a target language does (#338). */
-sealed interface LanguageSwitch {
-    /** The language is set. */
-    data object Done : LanguageSwitch
-
-    /**
-     * [current] writes English only, so the language stays as it is unless the reader switches to [model].
-     * [downloadBytes] is what that switch downloads, 0 when [model] is already downloaded.
-     */
-    data class Offer(val language: TargetLanguage, val current: SlotDeliverable, val model: SlotDeliverable, val downloadBytes: Long) :
-        LanguageSwitch
-}
-
 /**
  * Which curated model fills each slot, and which one is waiting to take over. A model picked before it is READY is
  * held as pending, so the stored selection, and the model already working, stay put until its download completes.
@@ -159,6 +146,9 @@ class ModelSlotSelection @Inject constructor(
     }
 
     fun targetLanguage(): TargetLanguage = languages.load()
+
+    /** The language setup shows as chosen: the one waiting on an accepted offer's model, else the one in use. */
+    fun chosenLanguage(): TargetLanguage = pendingLanguage?.second ?: languages.load()
 
     /**
      * Sets [language] unless the translation model in use, or the one waiting to take over, writes English only;

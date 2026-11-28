@@ -143,6 +143,17 @@ class LanguageSwitchTest {
     }
 
     @Test
+    fun `the chosen language is the one waiting on the accepted default`() = runTest {
+        val selection = newSelection().withCat()
+        assertEquals(TargetLanguage.ENGLISH, selection.chosenLanguage())
+
+        selection.accept(selection.switchLanguage(TargetLanguage.SPANISH) as LanguageSwitch.Offer, eightGb)
+
+        assertEquals(TargetLanguage.SPANISH, selection.chosenLanguage())
+        assertEquals(TargetLanguage.ENGLISH, selection.targetLanguage())
+    }
+
+    @Test
     fun `another pick replacing the accepted default drops the language waiting on it`() = runTest {
         val qwen35 = Constants.QWEN35_2B_MODEL_ID
         val selection = newSelection().withCat()
