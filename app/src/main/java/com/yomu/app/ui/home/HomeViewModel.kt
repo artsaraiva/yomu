@@ -182,7 +182,7 @@ class HomeViewModel @Inject constructor(
         return (pick as? TranslatorPick.Open)?.destination
     }
 
-    /** From the quick-settings chip here, or from the overlay's when its switch needs the model offer (#338). */
+    /** From Home's language sheet, or from the overlay's when its switch needs the model offer (#338). */
     fun chooseLanguage(language: TargetLanguage) {
         viewModelScope.launch {
             val switch = slotSelection.switchLanguage(language)

@@ -16,27 +16,27 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class QuickSettingsTest {
+class ReadingChoicesTest {
     private val qwen = SlotDeliverable("qwen", "Qwen2.5 1.5B Instruct", 1L, "Apache-2.0", multilingual = true)
     private val cat = SlotDeliverable("cat", "CAT-Translate 1.4B", 1L, "MIT", multilingual = false)
     private val state = HomeUiState(deliverables = mapOf(ModelType.LLM to listOf(qwen, cat)))
 
     @Test
-    fun `the model chip names the selected translation model`() {
-        assertEquals("Qwen2.5 1.5B Instruct", state.copy(translationSelectedId = "qwen").translationChipLabel())
+    fun `the translator row names the selected model and says it runs on this phone`() {
+        assertEquals("Qwen2.5 1.5B Instruct · on this phone", state.copy(translationSelectedId = "qwen").translatorRowLabel())
     }
 
     @Test
     fun `a pending pick names the model that takes over when its download finishes`() {
         assertEquals(
-            "Qwen2.5 1.5B Instruct · CAT-Translate 1.4B when downloaded",
-            state.copy(translationSelectedId = "qwen", translationPendingId = "cat").translationChipLabel()
+            "Qwen2.5 1.5B Instruct · on this phone · CAT-Translate 1.4B when downloaded",
+            state.copy(translationSelectedId = "qwen", translationPendingId = "cat").translatorRowLabel()
         )
     }
 
     @Test
     fun `an empty translation slot says no model is selected`() {
-        assertEquals("No model selected", state.translationChipLabel())
+        assertEquals("No model selected", state.translatorRowLabel())
     }
 
     @Test
@@ -55,10 +55,10 @@ class QuickSettingsTest {
     }
 
     @Test
-    fun `while a translator's entry is checked the chip names it and no phone row is checked`() {
+    fun `while a translator's entry is checked the row names it and its group, and no phone row is checked`() {
         val onServer = state.copy(translationSelectedId = "qwen", translatorGroups = listOf(server(checked = "gemma3:4b")))
 
-        assertEquals("gemma3:4b", onServer.translationChipLabel())
+        assertEquals("gemma3:4b · Your server", onServer.translatorRowLabel())
         assertFalse("the phone model stays selected but doesn't take the page", onServer.checked(qwen))
     }
 
@@ -68,7 +68,7 @@ class QuickSettingsTest {
 
         assertTrue(onPhone.checked(qwen))
         assertFalse(onPhone.checked(cat))
-        assertEquals("Qwen2.5 1.5B Instruct", onPhone.translationChipLabel())
+        assertEquals("Qwen2.5 1.5B Instruct · on this phone", onPhone.translatorRowLabel())
     }
 
     @Test
@@ -89,9 +89,9 @@ class QuickSettingsTest {
     }
 
     @Test
-    fun `the language chip names the target language`() {
-        assertEquals("Japanese → English", state.languageChipLabel())
-        assertEquals("Japanese → Spanish", state.copy(targetLanguage = TargetLanguage.SPANISH).languageChipLabel())
+    fun `the language row names the target language`() {
+        assertEquals("Japanese → English", state.languageRowLabel())
+        assertEquals("Japanese → Spanish", state.copy(targetLanguage = TargetLanguage.SPANISH).languageRowLabel())
     }
 
     @Test
@@ -104,7 +104,7 @@ class QuickSettingsTest {
     }
 
     @Test
-    fun `the language chip offers only English when no Multilingual model fits`() {
+    fun `the language sheet offers only English when no Multilingual model fits`() {
         val englishOnly = state.copy(deliverables = mapOf(ModelType.LLM to listOf(cat)))
 
         assertEquals(ModelSlotSelection.NO_MULTILINGUAL_FIT, englishOnly.languageUnavailable(TargetLanguage.FRENCH))

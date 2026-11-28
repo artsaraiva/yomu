@@ -30,13 +30,14 @@ enum class SettingsSection(val route: String, val title: String, val description
 @Composable
 fun SettingsScreen(
     translatorRows: List<TranslatorSettingsRow>,
+    onBack: () -> Unit,
     onOpen: (SettingsSection) -> Unit,
     onOpenDestination: (AppDestination) -> Unit
 ) {
     val context = LocalContext.current
     val version = remember { context.packageManager.getPackageInfo(context.packageName, 0).versionName.orEmpty() }
     val summaries = remember(translatorRows) { translatorRows.map { it.summary() } }
-    SettingsPage("Settings") {
+    SettingsPage("Settings", onBack = onBack) {
         PaperSurface(Modifier.fillMaxWidth()) {
             Column {
                 SettingsSection.entries.forEach { section ->
