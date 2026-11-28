@@ -305,9 +305,32 @@ class TranslatorChoiceTest {
         setUpServer()
         pickOnServer("gemma3:4b")
 
-        assertTrue(choice.selectPhone(mapOf(LlmModelCatalog.DEFAULT.id to ModelStatus.READY)))
+        assertTrue(choice.selectPhone(ModelStatus.READY, EIGHT_GB))
 
         assertTrue(choice.phoneTranslates())
+    }
+
+    @Test
+    fun `turning to the phone's side leaves the server in use while the phone's model can't write the language`() = runTest {
+        slots.pick(ModelType.LLM, Constants.CAT_TRANSLATION_MODEL_ID, ModelStatus.READY, EIGHT_GB)
+        setUpServer()
+        pickOnServer("gemma3:4b")
+        TargetLanguageStore(prefs).save(TargetLanguage.FRENCH)
+
+        assertFalse(choice.selectPhone(ModelStatus.READY, EIGHT_GB))
+
+        assertEquals("gemma3:4b", choice.activeServerModel())
+    }
+
+    @Test
+    fun `turning to the phone's side leaves the server in use while the phone's model doesn't fit`() = runTest {
+        slots.pick(ModelType.LLM, Constants.CAT_TRANSLATION_MODEL_ID, ModelStatus.READY, EIGHT_GB)
+        setUpServer()
+        pickOnServer("gemma3:4b")
+
+        assertFalse(choice.selectPhone(ModelStatus.READY, totalMemBytes = 0L))
+
+        assertEquals("gemma3:4b", choice.activeServerModel())
     }
 
     @Test
@@ -315,7 +338,7 @@ class TranslatorChoiceTest {
         setUpServer()
         pickOnServer("gemma3:4b")
 
-        assertFalse(choice.selectPhone(mapOf(LlmModelCatalog.DEFAULT.id to ModelStatus.AVAILABLE)))
+        assertFalse(choice.selectPhone(ModelStatus.AVAILABLE, EIGHT_GB))
 
         assertEquals("gemma3:4b", choice.activeServerModel())
     }
@@ -326,7 +349,7 @@ class TranslatorChoiceTest {
         pickOnServer("gemma3:4b")
         slots.delete(LlmModelCatalog.DEFAULT.id)
 
-        assertFalse(choice.selectPhone(mapOf(LlmModelCatalog.DEFAULT.id to ModelStatus.READY)))
+        assertFalse(choice.selectPhone(ModelStatus.READY, EIGHT_GB))
 
         assertEquals("gemma3:4b", choice.activeServerModel())
     }

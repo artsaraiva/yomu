@@ -32,7 +32,7 @@ fun TranslatorSettings(settings: SettingsViewModel, server: ProvidersViewModel, 
     val serverState by server.state.collectAsState()
     // Held once the page opens: a new server address hands the pages back to the phone, and the fields must stay put.
     var side by rememberSaveable { mutableStateOf(openOn ?: activeSide(state.translatesOnServer)) }
-    // The server's fields decide who translates as they change: a new address hands the pages back to the phone.
+    // The server's fields decide who translates as they change, so each change re-reads who has the pages.
     LaunchedEffect(serverState) { settings.refreshSlots() }
     SettingsPage(SettingsSection.Translator.title, "What turns the Japanese into ${state.targetLanguage.promptName}.", onBack) {
         PaperSegments(TranslatorSide.entries, side, TranslatorSide::label) {

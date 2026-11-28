@@ -44,7 +44,8 @@ private const val OFFERED = 3
 
 /**
  * Groups [deliverables]. A downloaded model stays downloaded even when it no longer [fits], so it can still be
- * deleted. A model in [busy] (downloading, or waiting to take over) or whose download failed is never folded away.
+ * deleted. A model in [busy] (downloading, or waiting to take over) or whose download failed is never folded away,
+ * even if it stopped fitting meanwhile, so its Cancel stays in reach.
  */
 internal fun phoneModels(
     deliverables: List<SlotDeliverable>,
@@ -53,7 +54,7 @@ internal fun phoneModels(
     fits: (SlotDeliverable) -> Boolean
 ): PhoneModels {
     val (downloaded, rest) = deliverables.partition { statuses[it.id] == ModelStatus.READY }
-    val (fitting, tooBig) = rest.partition(fits)
+    val (fitting, tooBig) = rest.partition { fits(it) || it.id in busy }
     val offered = fitting.take(OFFERED).mapTo(mutableSetOf()) { it.id }
     val (toDownload, more) = fitting.partition { it.id in offered || it.id in busy || statuses[it.id] == ModelStatus.ERROR }
     return PhoneModels(downloaded, toDownload, more, tooBig)

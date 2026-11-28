@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 
 enum class PaperElevation(val offset: Int) { Page(0), Card(3), Popup(5), OverlayControl(1) }
 
+/** A raised sheet of paper; [selected] outlines it in ink, for the picked one of a set. */
 @Composable
 fun PaperSurface(
     modifier: Modifier = Modifier,
@@ -41,7 +42,6 @@ fun PaperSurface(
         },
         color = Color(if (page) colors.paper else colors.paperRaised), contentColor = Color(colors.ink),
         shape = shape,
-        // The picked one of a set of cards is outlined in ink.
         border = if (page) null else BorderStroke(if (selected) 2.dp else 1.dp, Color(if (selected) colors.ink else colors.edge)),
         content = content
     )

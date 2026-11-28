@@ -51,6 +51,14 @@ class TranslatorModelsTest {
     }
 
     @Test
+    fun `a model that stops fitting while it downloads keeps its row, and with it Cancel`() {
+        val groups = group(busy = setOf("f"), tooBig = setOf("f"))
+
+        assertEquals(listOf("a", "b", "c", "f"), groups.toDownload.map { it.id })
+        assertEquals(emptyList<String>(), groups.tooBig.map { it.id })
+    }
+
+    @Test
     fun `every model is in exactly one group`() {
         val groups = group(statuses = mapOf("b" to ModelStatus.READY, "d" to ModelStatus.DOWNLOADING), busy = setOf("d"), tooBig = setOf("e"))
 

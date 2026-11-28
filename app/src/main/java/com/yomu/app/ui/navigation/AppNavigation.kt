@@ -47,6 +47,7 @@ private const val SETTINGS_ROOT = "settings/root"
 private const val HOME = "home"
 private const val SETTINGS = "settings"
 private const val RECENT = "recent"
+private const val PHONE_MODELS = "settings/translator/phone"
 
 @Composable
 fun AppNavigation(
@@ -118,7 +119,10 @@ fun AppNavigation(
                 HomeScreen(
                     viewModel, hiltViewModel(), onRequestScreenCapture,
                     onOpenSettings = { navController.navigate(SETTINGS) { launchSingleTop = true } },
-                    onOpenSection = { navController.navigate(it.route) { launchSingleTop = true } },
+                    // Home asks for a section only from its phone models' "More models" row, so Translator opens on that side.
+                    onOpenSection = {
+                        navController.navigate(if (it == SettingsSection.Translator) PHONE_MODELS else it.route) { launchSingleTop = true }
+                    },
                     onOpenRecent = { navController.navigate(RECENT) { launchSingleTop = true } },
                     onOpenDestination = openDestination
                 )
@@ -138,9 +142,11 @@ fun AppNavigation(
                 // Inside Settings the server's screen is the Translator page turned to its server side (#548); setup,
                 // which has its own step for the phone's model, shows the screen its module brings instead.
                 val server = NetworkTranslatorEntries.PROVIDERS
-                composable(server.route) { entry ->
-                    val parent = remember(entry) { navController.getBackStackEntry(SETTINGS) }
-                    TranslatorSettings(hiltViewModel(parent), hiltViewModel(), TranslatorSide.Server) { navController.popBackStack() }
+                mapOf(server.route to TranslatorSide.Server, PHONE_MODELS to TranslatorSide.Phone).forEach { (route, side) ->
+                    composable(route) { entry ->
+                        val parent = remember(entry) { navController.getBackStackEntry(SETTINGS) }
+                        TranslatorSettings(hiltViewModel(parent), hiltViewModel(), side) { navController.popBackStack() }
+                    }
                 }
                 // The screens translators bring, which their picker entries, Settings rows and failures open (#534).
                 translatorScreens.filterNot { it.destination == server }.forEach { screen ->

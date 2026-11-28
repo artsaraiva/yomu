@@ -96,8 +96,12 @@ class SettingsViewModel @Inject constructor(
 
     /** The Translator page turned to the phone: its selected model takes the next page, once it is downloaded (#548). */
     fun usePhone() {
-        translatorChoice.selectPhone(_uiState.value.models.associate { it.id to it.status })
-        refreshSlots()
+        // Asked of the store, not the state: the model list may not have arrived when the page first opens.
+        viewModelScope.launch {
+            val status = slotSelection.selectedId(ModelType.LLM)?.let { modelManager.getModel(it)?.status }
+            translatorChoice.selectPhone(status, _uiState.value.deviceTotalMemBytes)
+            refreshSlots()
+        }
     }
 
     /** The Translator page turned to the server: it takes the next page once set up; the first time waits in [SettingsUiState.translatorConfirm]. */

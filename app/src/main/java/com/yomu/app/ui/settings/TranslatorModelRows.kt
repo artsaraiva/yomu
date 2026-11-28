@@ -28,9 +28,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -134,10 +134,11 @@ private fun DownloadButton(model: SlotDeliverable, onClick: () -> Unit, enabled:
 internal fun TooBigCard(models: List<SlotDeliverable>, open: Boolean, onToggle: () -> Unit, onMore: (SlotDeliverable) -> Unit) {
     val edge = Color(LocalYomuColors.current.inkMuted)
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val shape = MaterialTheme.shapes.medium
     Column(
-        Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium).drawBehind {
+        Modifier.fillMaxWidth().clip(shape).drawBehind {
             val dash = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx()))
-            drawRoundRect(edge, cornerRadius = CornerRadius(20.dp.toPx()), style = Stroke(1.dp.toPx(), pathEffect = dash))
+            drawOutline(shape.createOutline(size, layoutDirection, this), edge, style = Stroke(1.dp.toPx(), pathEffect = dash))
         }
     ) {
         FoldRow(tooBigLabel(models.size), open, onToggle)
