@@ -10,24 +10,18 @@ private val BUBBLE_START = Regex("""^\[[^\]]+] """)
 private const val ARROW = " → "
 
 /**
- * The bubbles of a saved page, which is stored as one `[id] Japanese → translation` line per bubble. A line that
- * opens no bubble continues the one before it, so a translation with line breaks stays whole.
+ * The bubbles of a saved page, which is stored as one `[id] Japanese → translation` entry per bubble. A line that
+ * opens no bubble continues the one before it, so Japanese or a translation with line breaks stays whole.
  */
 fun recentBubbles(saved: String): List<RecentBubble> {
-    val bubbles = mutableListOf<RecentBubble>()
+    val entries = mutableListOf<String>()
     saved.lines().forEach { line ->
-        val start = BUBBLE_START.find(line)
-        val last = bubbles.lastOrNull()
-        when {
-            start != null && ARROW in line -> {
-                val body = line.substring(start.range.last + 1)
-                bubbles += RecentBubble(body.substringBefore(ARROW), body.substringAfter(ARROW))
-            }
-            last != null -> bubbles[bubbles.lastIndex] = last.copy(translated = "${last.translated}\n$line")
-            else -> bubbles += RecentBubble("", line)
-        }
+        if (entries.isEmpty() || BUBBLE_START.containsMatchIn(line)) entries += line else entries[entries.lastIndex] += "\n$line"
     }
-    return bubbles
+    return entries.map { entry ->
+        val body = entry.replaceFirst(BUBBLE_START, "")
+        if (ARROW in body) RecentBubble(body.substringBefore(ARROW), body.substringAfter(ARROW)) else RecentBubble("", entry)
+    }
 }
 
 /** The translations of a saved page as one run of text, for a row that shows its first lines. */

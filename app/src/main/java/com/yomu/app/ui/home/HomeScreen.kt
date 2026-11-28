@@ -54,7 +54,8 @@ fun HomeScreen(
         item {
             Row(Modifier.heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 YomuMark(36.dp)
-                Text("Yomu", style = MaterialTheme.typography.headlineMedium, maxLines = 1, modifier = Modifier.weight(1f).semantics { heading() })
+                Text("Yomu", style = MaterialTheme.typography.headlineMedium, maxLines = 1, modifier = Modifier.semantics { heading() })
+                Spacer(Modifier.weight(1f))
                 state.homeAction?.let { HomeAction(it.label) { onOpenDestination(it.destination) } }
                 IconButton(onClick = onOpenSettings) { Icon(Icons.Default.Settings, contentDescription = "Settings") }
             }

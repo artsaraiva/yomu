@@ -96,6 +96,8 @@ fun AppNavigation(
     val openDestination: (AppDestination) -> Unit = {
         if (navController.graph.hasRoute(it.route)) navController.navigate(it.route) { launchSingleTop = true }
     }
+    // Never past Home: a second tap on a back arrow mid-transition would otherwise pop Home and leave nothing drawn.
+    val backToHome: () -> Unit = { navController.popBackStack(HOME, inclusive = false) }
     // No navigation bar: Home is the app, Settings and the whole of Recent open from it and return with back (#546).
     ChromeContent(Modifier.safeDrawingPadding()) {
         NavHost(
@@ -119,14 +121,14 @@ fun AppNavigation(
                     onOpenDestination = openDestination
                 )
             }
-            composable(RECENT) { RecentScreen(viewModel) { navController.popBackStack() } }
+            composable(RECENT) { RecentScreen(viewModel, backToHome) }
             navigation(startDestination = SETTINGS_ROOT, route = SETTINGS) {
                 composable(SETTINGS_ROOT) { entry ->
                     val parent = remember(entry) { navController.getBackStackEntry(SETTINGS) }
                     val settings: SettingsViewModel = hiltViewModel(parent)
                     SettingsScreen(
                         translatorRows = remember(settings) { settings.translatorRows() },
-                        onBack = { navController.popBackStack() },
+                        onBack = backToHome,
                         onOpen = { navController.navigate(it.route) { launchSingleTop = true } },
                         onOpenDestination = openDestination
                     )

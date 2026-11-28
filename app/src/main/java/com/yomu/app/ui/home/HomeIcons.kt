@@ -9,7 +9,7 @@ import androidx.compose.ui.graphics.vector.PathBuilder
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
 
-// Home's line icons; Material's core set has no globe, phone outline or stop square.
+// The icons Home draws itself; Material's core set has no globe, phone outline, stop square or sparkle.
 
 private fun lineIcon(name: String, block: PathBuilder.() -> Unit): ImageVector = ImageVector.Builder(name, 24.dp, 24.dp, 24f, 24f).apply {
     path(

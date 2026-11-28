@@ -29,6 +29,14 @@ class RecentTextTest {
     }
 
     @Test
+    fun `Japanese read over several lines stays in its bubble too`() {
+        assertEquals(
+            listOf(RecentBubble("開ける\nな", "Don't open it."), RecentBubble("い", "Yes.")),
+            recentBubbles("[0] 開ける\nな → Don't open it.\n[1] い → Yes.")
+        )
+    }
+
+    @Test
     fun `text that isn't in the saved form is shown as it is`() {
         assertEquals(listOf(RecentBubble("", "Just some text")), recentBubbles("Just some text"))
     }

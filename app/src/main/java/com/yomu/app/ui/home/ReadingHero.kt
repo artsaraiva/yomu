@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -56,14 +57,14 @@ internal fun ReadingHero(state: HomeUiState, onStart: () -> Unit, onStop: () -> 
 
 @Composable
 private fun ReadingOff(language: String, onStart: () -> Unit) {
-    val state = "Reading is off"
+    val status = "Reading is off"
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Overline(state)
+        Overline(status)
         Text("Read any manga app in $language", style = MaterialTheme.typography.headlineMedium)
     }
     PaperAction(
         onClick = onStart, accented = true,
-        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).semantics { role = Role.Switch; stateDescription = state }
+        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).semantics { role = Role.Switch; stateDescription = status }
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Icon(Icons.Default.PlayArrow, contentDescription = null)
@@ -95,26 +96,26 @@ private fun ReadingOff(language: String, onStart: () -> Unit) {
 @Composable
 private fun ReadingOn(onStop: () -> Unit) {
     val colors = LocalYomuColors.current
-    val state = "Reading is on"
+    val status = "Reading is on"
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Icon(Icons.Default.Check, contentDescription = null, tint = Color(colors.success), modifier = Modifier.size(20.dp))
-            Overline(state, Color(colors.success))
+            Overline(status, Color(colors.success))
         }
         Text("Open your manga app", style = MaterialTheme.typography.headlineMedium)
         Text("The 読 button is waiting on top of it.", style = MaterialTheme.typography.bodyMedium)
     }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Gesture("Tap", " to translate the page") { YomuMark(32.dp) }
-        Gesture("Hold", " for language, text size and more") {
+        Gesture("Tap", " to translate the page", "Tap 読 to translate the page") { YomuMark(32.dp) }
+        Gesture("Hold", " for language, text size and more", "Hold 読 for language, text size and more") {
             Box(Modifier.border(2.dp, Color(colors.inkMuted), CircleShape).padding(4.dp)) { YomuMark(32.dp) }
         }
-        Gesture("Tap a bubble", " to see the Japanese") {
+        Gesture("Tap a bubble", " to see the Japanese", "Tap a bubble to see the Japanese") {
             val bubble = RoundedCornerShape(50)
             Box(Modifier.size(32.dp, 26.dp).background(Color.White, bubble).border(2.dp, Color(colors.ink), bubble))
         }
     }
-    PaperAction(onClick = onStop, modifier = Modifier.fillMaxWidth().semantics { role = Role.Switch; stateDescription = state }) {
+    PaperAction(onClick = onStop, modifier = Modifier.fillMaxWidth().semantics { role = Role.Switch; stateDescription = status }) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Icon(StopSquare, contentDescription = null, modifier = Modifier.size(20.dp))
             Text("Stop reading", style = MaterialTheme.typography.labelLarge)
@@ -137,11 +138,17 @@ private fun NotReady(readiness: Readiness, onFinishSetup: () -> Unit) {
     PaperButton("Finish setup", onFinishSetup, Modifier.fillMaxWidth())
 }
 
-/** One overlay gesture: its picture in a column as wide as the widest one, then what it does. */
+/**
+ * One overlay gesture: its picture in a column as wide as the widest one, then what it does. TalkBack reads [spoken],
+ * which names what the picture shows.
+ */
 @Composable
-private fun Gesture(action: String, effect: String, picture: @Composable () -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Box(Modifier.width(44.dp).clearAndSetSemantics {}, contentAlignment = Alignment.Center) { picture() }
+private fun Gesture(action: String, effect: String, spoken: String, picture: @Composable () -> Unit) {
+    Row(
+        Modifier.clearAndSetSemantics { contentDescription = spoken },
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Box(Modifier.width(44.dp), contentAlignment = Alignment.Center) { picture() }
         Text(
             buildAnnotatedString {
                 withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(action) }
