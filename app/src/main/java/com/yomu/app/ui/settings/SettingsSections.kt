@@ -11,7 +11,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.yomu.app.db.entities.ModelType
-import com.yomu.app.detection.DetectionThresholdStore
 import com.yomu.app.ui.theme.*
 import com.yomu.core.TargetLanguage
 
@@ -25,15 +24,12 @@ fun TranslationSettings(viewModel: SettingsViewModel, saveToRecent: SaveToRecent
         state.languageOffer?.let {
             LanguageOfferDialog(it, state.targetLanguage, viewModel::acceptLanguageOffer, viewModel::declineLanguageOffer)
         }
-        ModelSlot(state, viewModel, ModelType.LLM, "Model", "The on-device model that translates each bubble.")
-        state.recoveryWarning?.let { RecoveryWarning(it) }
-        AdvancedGenerationPanel(
-            generation = state.generation,
-            defaults = state.generationDefaults,
-            overridden = state.generationOverridden,
-            onChange = viewModel::setGeneration,
-            onReset = viewModel::resetGeneration
-        )
+        PaperSurface(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp)) {
+                ModelSlot(state, viewModel, ModelType.LLM, "Model", "The on-device model that translates each bubble.")
+            }
+        }
+        state.modelRecoveryWarning?.let { RecoveryWarning(it) }
         SwitchPanel(
             "Page recall",
             "Shows a page already translated while reading at once, instead of translating it again.",
@@ -104,45 +100,9 @@ internal fun SwitchPanel(title: String, description: String, enabled: Boolean, o
     }
 }
 
+/** One slot's picker row; the caller supplies the surface it sits on. */
 @Composable
-fun PipelineSettings(viewModel: SettingsViewModel, onBack: () -> Unit) {
-    val state by viewModel.uiState.collectAsState()
-    SettingsPage(SettingsSection.Pipeline.title, SettingsSection.Pipeline.description, onBack) {
-        ModelSlot(state, viewModel, ModelType.DETECTION, "Detection", "Finds the speech bubbles on the page.")
-        DetectionThresholdPanel(state.detectionThreshold, viewModel::setDetectionThreshold, viewModel::resetDetectionThreshold)
-        ModelSlot(state, viewModel, ModelType.OCR, "OCR", "Reads the Japanese inside each bubble.")
-    }
-}
-
-@Composable
-private fun DetectionThresholdPanel(stored: Float, onChange: (Float) -> Unit, onReset: () -> Unit) {
-    // Local while dragging; saved once on release, like the generation sliders.
-    var value by remember(stored) { mutableFloatStateOf(stored) }
-    PaperSurface(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp)) {
-            SettingRow(
-                "Detection threshold",
-                "%.2f (default %.2f). Lower finds fainter bubbles, higher skips doubtful ones. Applied on the next capture."
-                    .format(value, DetectionThresholdStore.DEFAULT)
-            ) {
-                Slider(
-                    value = value,
-                    onValueChange = { value = DetectionThresholdStore.snap(it) },
-                    onValueChangeFinished = { onChange(value) },
-                    valueRange = DetectionThresholdStore.MIN..DetectionThresholdStore.MAX,
-                    steps = DetectionThresholdStore.STEPS - 1,
-                    colors = SliderDefaults.colors(inactiveTrackColor = MaterialTheme.colorScheme.onSurfaceVariant),
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-            Spacer(Modifier.height(12.dp))
-            PaperButton("Reset to default", onReset, enabled = stored != DetectionThresholdStore.DEFAULT)
-        }
-    }
-}
-
-@Composable
-private fun ModelSlot(state: SettingsUiState, viewModel: SettingsViewModel, type: ModelType, title: String, description: String) {
+internal fun ModelSlot(state: SettingsUiState, viewModel: SettingsViewModel, type: ModelType, title: String, description: String) {
     SlotPicker(
         title = title,
         description = description,

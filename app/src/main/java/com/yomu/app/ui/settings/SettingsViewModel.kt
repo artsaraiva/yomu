@@ -68,7 +68,7 @@ class SettingsViewModel @Inject constructor(
             resourceLimits = storedResourceLimits()
         ).withSlots()
         // The warning is now on screen; forget the bad values so it does not return on every visit.
-        if (_uiState.value.recoveryWarning != null) modelSelection.clearRecovered()
+        if (_uiState.value.run { generationRecoveryWarning ?: modelRecoveryWarning } != null) modelSelection.clearRecovered()
         sharedPreferences.registerOnSharedPreferenceChangeListener(preferenceListener)
 
         viewModelScope.launch {
@@ -201,13 +201,11 @@ class SettingsViewModel @Inject constructor(
 
     private fun SettingsUiState.withGenerationProfile(): SettingsUiState {
         val loaded = modelSelection.generationProfile()
-        val recovered = loaded.recovered.map { it.label } +
-            if (modelSelection.storedLlmModelRecovered()) listOf("Model") else emptyList()
         return copy(
             generation = loaded.params,
             generationDefaults = modelSelection.generationDefaults(),
-            recoveryWarning = recovered.takeIf { it.isNotEmpty() }
-                ?.let { "Some saved settings were invalid and are using their defaults: ${it.joinToString()}." }
+            generationRecoveryWarning = recoveryWarning(loaded.recovered.map { it.label }),
+            modelRecoveryWarning = recoveryWarning(listOf("Model").filter { modelSelection.storedLlmModelRecovered() })
         )
     }
 

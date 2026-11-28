@@ -28,9 +28,8 @@ import com.yomu.app.ui.theme.PaperLoading
 import com.yomu.app.ui.home.HomeScreen
 import com.yomu.app.ui.home.RecentScreen
 import androidx.navigation.compose.navigation
+import com.yomu.app.ui.settings.AdvancedSettings
 import com.yomu.app.ui.settings.AppearanceSettings
-import com.yomu.app.ui.settings.PerformanceSettings
-import com.yomu.app.ui.settings.PipelineSettings
 import com.yomu.app.ui.settings.SettingsScreen
 import com.yomu.app.ui.settings.LanguageOfferDialog
 import com.yomu.app.ui.settings.NameGlossarySettings
@@ -146,10 +145,9 @@ fun AppNavigation(
                         when (section) {
                             SettingsSection.Translation -> TranslationSettings(settings, hiltViewModel(), onBack)
                             SettingsSection.NameGlossary -> NameGlossarySettings(hiltViewModel(), onBack)
-                            SettingsSection.Pipeline -> PipelineSettings(settings, onBack)
                             SettingsSection.Typesetting -> TypesettingSettings(settings, onBack)
-                            SettingsSection.Performance -> PerformanceSettings(settings, onBack)
                             SettingsSection.Appearance -> AppearanceSettings(settings, onBack)
+                            SettingsSection.Advanced -> AdvancedSettings(settings, onBack)
                         }
                     }
                 }

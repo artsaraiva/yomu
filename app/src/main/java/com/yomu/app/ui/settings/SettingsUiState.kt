@@ -42,10 +42,12 @@ data class SettingsUiState(
     val resourceLimits: Map<ResourceLimit, Int> = ResourceLimit.entries.associateWith { it.default },
     /** Why the last limit change was refused, or null. */
     val limitRefusal: LimitRefusal? = null,
-    /** What the app is using right now; null until the Performance screen first samples it. */
+    /** What the app is using right now; null until Advanced's Live usage section first samples it. */
     val resources: ResourceReadout? = null,
-    /** One message naming every stored value that was recovered to its default, or null. */
-    val recoveryWarning: String? = null,
+    /** Names the sampler values that were recovered to their defaults, or null; shown in Advanced's Generation section. */
+    val generationRecoveryWarning: String? = null,
+    /** Says the stored translation model was recovered to the default, or null; shown beside the model slot. */
+    val modelRecoveryWarning: String? = null,
     /** Whether a server model takes the next page, which lifts the phone models' English-only rule (ADR-0023). */
     val translatesOnServer: Boolean = false,
     /** Whether the phone's own model takes the next page; while it doesn't, deleting it leaves reading on (#536). */

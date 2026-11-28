@@ -20,10 +20,9 @@ import com.yomu.app.ui.theme.*
 enum class SettingsSection(val route: String, val title: String, val description: String) {
     Translation("settings/translation", "Translation", "How Yomu translates the Japanese into your language."),
     NameGlossary("settings/name-glossary", "Name glossary", "Names Yomu always translates the same way."),
-    Pipeline("settings/pipeline", "Pipeline", "The models that find the speech bubbles and read the Japanese."),
     Typesetting("settings/typesetting", "Typesetting", "How translated text is set inside the bubbles."),
-    Performance("settings/performance", "Performance", "What translation costs this phone, and how much the model may use."),
-    Appearance("settings/appearance", "Appearance", "How Yomu looks.")
+    Appearance("settings/appearance", "Appearance", "How Yomu looks."),
+    Advanced("settings/advanced", "Advanced", "Bubble finding, text reading, sampler, memory.")
 }
 
 /** The Settings list: Yomu's own sections, then the rows registered translators add (#534), whose summaries are read on opening. */

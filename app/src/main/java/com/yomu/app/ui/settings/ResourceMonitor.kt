@@ -21,7 +21,7 @@ data class ResourceReadout(
 
 private const val STALE_BASELINE_MS = 5_000L
 
-/** Samples this process for the Performance screen (#79). The overlay runs in the same process, so it is counted. */
+/** Samples this process for Advanced's Live usage section (#79). The overlay runs in the same process, so it is counted. */
 class ResourceMonitor(private val context: Context) {
 
     private var previousCpuMs = 0L
