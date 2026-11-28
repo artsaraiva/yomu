@@ -4,19 +4,19 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
-import android.graphics.PixelFormat
 import android.graphics.Typeface
-import android.os.Build
 import android.util.Log
 import android.util.Size
-import android.view.WindowInsets
 import android.view.WindowManager
 import android.widget.FrameLayout
+import com.yomu.core.TargetLanguage
 import com.yomu.pipeline.typesetting.TypesetBubble
 
 class TranslationRenderOverlay(
     private val context: Context,
     private val windowManager: WindowManager,
+    /** Saves a name a bubble card adds to the glossary; false when it was refused. */
+    private val saveName: (term: String, rendering: String) -> Boolean,
     /** The display's current size in pixels, which a captured page is stretched over; while null, a page is drawn at its captured size. */
     private val displaySize: () -> Size?
 ) {
@@ -32,15 +32,19 @@ class TranslationRenderOverlay(
     private var pageHeight: Int = 0
     private var bubbleStates: List<OverlayBubbleState> = emptyList()
 
-    /** Replaces the preview with the finished page in the supplied bubble order, enabling dismissal gestures. */
+    /**
+     * Replaces the preview with the finished page in the supplied bubble order, enabling dismissal gestures.
+     * [language] is the one the page was translated into, which its bubble cards name.
+     */
     fun show(
         bubbles: List<TypesetBubble>,
         pageWidth: Int,
-        pageHeight: Int
+        pageHeight: Int,
+        language: TargetLanguage
     ) {
         remove()
 
-        val params = createLayoutParams()
+        val params = translatedPageWindowParams()
         overlayView = object : TranslatedPageLayout(context) {
             private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
             private val screenLocation = IntArray(2)
@@ -66,12 +70,22 @@ class TranslationRenderOverlay(
                     TranslatedPageGestures.Outcome.CloseCard -> {
                         card?.let(::removeView)
                         card = null
+                        typing = false
+                        windowManager.setTyping(this, params, typing = false)
                     }
                     is TranslatedPageGestures.Outcome.OpenCard -> {
                         val tapped = drawnBounds[outcome.bubbleIndex]
                         // The card takes the half of the page away from the bubble, so the reader still sees it.
                         val cardAtTop = (tapped.top + tapped.bottom) / 2 > height / 2
-                        card = bubbleCard(context, bubbles[outcome.bubbleIndex], cardAtTop).also(::addView)
+                        val host = BubbleCardHost(
+                            saveName = saveName,
+                            setTyping = {
+                                typing = it
+                                windowManager.setTyping(this, params, it)
+                            },
+                            close = { onGesture(TranslatedPageGestures.Outcome.CloseCard) }
+                        )
+                        card = bubbleCard(context, bubbles[outcome.bubbleIndex], cardAtTop, language, host).also(::addView)
                     }
                 }
             }
@@ -96,7 +110,7 @@ class TranslationRenderOverlay(
             return
         }
 
-        val params = createLayoutParams().apply {
+        val params = translatedPageWindowParams().apply {
             // A live preview sits above the floating button: taking touches would swallow the cancel tap (#76).
             flags = flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
         }
@@ -160,28 +174,6 @@ class TranslationRenderOverlay(
         canvas.width.toFloat(),
         canvas.height.toFloat()
     )
-
-    /** Creates a transparent, full-screen overlay window that does not take input focus. */
-    private fun createLayoutParams(): WindowManager.LayoutParams {
-        return WindowManager.LayoutParams(
-            WindowManager.LayoutParams.MATCH_PARENT,
-            WindowManager.LayoutParams.MATCH_PARENT,
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-            else
-                WindowManager.LayoutParams.TYPE_PHONE,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-            PixelFormat.TRANSPARENT
-        ).apply {
-            // A reader that hides the status bar puts bubbles beside the camera cutout (#377). Bars are
-            // fitted only while shown, so a bubble card never sits under the clock.
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                fitInsetsTypes = WindowInsets.Type.systemBars()
-                layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
-            }
-        }
-    }
 
     private fun drawTypesetBubble(
         canvas: Canvas,

@@ -8,8 +8,8 @@ import android.os.SystemClock
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Button
 import android.widget.ScrollView
+import com.yomu.core.TargetLanguage
 import com.yomu.pipeline.typesetting.TypesetBubble
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -40,7 +40,7 @@ class TranslatedPageLayoutTest {
             assertTrue(card.top >= 0)
             assertTrue(card.bottom <= page.height)
             assertTrue(card.canScrollVertically(1))
-            val buttons = buttons(card)
+            val buttons = copyButtons(card)
             assertEquals(listOf("Copy Japanese", "Copy English"), buttons.map { it.contentDescription })
             card.isSmoothScrollingEnabled = false
             card.fullScroll(View.FOCUS_DOWN)
@@ -57,7 +57,7 @@ class TranslatedPageLayoutTest {
             val outcomes = mutableListOf<TranslatedPageGestures.Outcome>()
             page.onGesture = { outcomes.add(it) }
             val card = page.card as ScrollView
-            val button = buttons(card)[index]
+            val button = copyButtons(card)[index]
             val content = card.getChildAt(0) as ViewGroup
             val visible = Rect()
             button.getDrawingRect(visible)
@@ -99,11 +99,28 @@ class TranslatedPageLayoutTest {
         assertTrue(outcomes.none { it == TranslatedPageGestures.Outcome.DismissPage })
     }
 
+    @Test
+    fun `a drag inside the card keeps the page while a name is being typed`() {
+        val page = page()
+        val outcomes = mutableListOf<TranslatedPageGestures.Outcome>()
+        page.onGesture = { outcomes.add(it) }
+        page.typing = true
+        val card = checkNotNull(page.card)
+        val x = card.width / 2f
+        val y = card.top + card.height / 2f
+
+        touch(page, MotionEvent.ACTION_DOWN, x, y)
+        touch(page, MotionEvent.ACTION_MOVE, x - 100, y)
+        touch(page, MotionEvent.ACTION_UP, x - 100, y)
+
+        assertEquals(emptyList<TranslatedPageGestures.Outcome>(), outcomes)
+    }
+
     private fun page(longText: Boolean = false, atTop: Boolean = true): TranslatedPageLayout {
         val text = if (longText) "Long bubble text\n".repeat(300) else "Text"
         val bubble = TypesetBubble(1, text, text, 16f, listOf(text), floatArrayOf(0f, 0f, 100f, 100f))
         return TranslatedPageLayout(context).apply {
-            card = bubbleCard(context, bubble, atTop).also(::addView)
+            card = bubbleCard(context, bubble, atTop, TargetLanguage.ENGLISH, BubbleCardHost({ _, _ -> true }, {}, {})).also(::addView)
             activity.get().setContentView(this)
             shadowOf(Looper.getMainLooper()).idle()
             measure(View.MeasureSpec.makeMeasureSpec(1080, View.MeasureSpec.EXACTLY),
@@ -112,10 +129,12 @@ class TranslatedPageLayoutTest {
         }
     }
 
-    private fun buttons(view: ViewGroup): List<Button> = (0 until view.childCount).flatMap { index ->
-        when (val child = view.getChildAt(index)) {
-            is Button -> listOf(child)
-            is ViewGroup -> buttons(child)
+    /** The card's two copy buttons, Japanese first. */
+    private fun copyButtons(view: ViewGroup): List<View> = (0 until view.childCount).flatMap { index ->
+        val child = view.getChildAt(index)
+        when {
+            child.contentDescription?.startsWith("Copy") == true -> listOf(child)
+            child is ViewGroup -> copyButtons(child)
             else -> emptyList()
         }
     }

@@ -32,6 +32,16 @@ class NameGlossaryViewModelTest {
     }
 
     @Test
+    fun `a name added from a bubble card shows once the screen is back`() {
+        val viewModel = NameGlossaryViewModel(store)
+        store.save("ルフィ", "Luffy")
+
+        viewModel.refresh()
+
+        assertEquals(listOf(GlossaryEntry("ルフィ", "Luffy")), viewModel.entries.value)
+    }
+
+    @Test
     fun `a refused entry reports it was not saved`() {
         assertFalse(NameGlossaryViewModel(store).save(" ", "Luffy", replacing = null))
     }

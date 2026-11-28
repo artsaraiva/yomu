@@ -150,7 +150,9 @@ class OverlayService : Service() {
             // A page captured before the turn has the old screen's shape, so its bubbles would land in the wrong places.
             if (screenCaptureManager.resizeTo(size)) cancelTranslation()
         }
-        translationRenderOverlay = TranslationRenderOverlay(this, windowManager, displayProbe::size)
+        translationRenderOverlay = TranslationRenderOverlay(
+            this, windowManager, { term, rendering -> NameGlossaryStore(sharedPreferences).save(term, rendering) }, displayProbe::size
+        )
         statusOverlay = TranslationStatusOverlay(this, windowManager)
         sharedPreferences.registerOnSharedPreferenceChangeListener(preferenceListener)
         createNotificationChannel()
@@ -568,7 +570,7 @@ class OverlayService : Service() {
         if (page.typesetBubbles.isEmpty()) {
             translationRenderOverlay.remove()
         } else {
-            translationRenderOverlay.show(page.typesetBubbles, page.pageWidth, page.pageHeight)
+            translationRenderOverlay.show(page.typesetBubbles, page.pageWidth, page.pageHeight, page.translationResult.targetLanguage)
         }
         statusOverlay.remove()
         // Not a toast: Android drops toasts from a background app without notification permission.
