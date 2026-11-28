@@ -105,8 +105,7 @@ class ModelSlotSelection @Inject constructor(
 
     /** Refuses a model outside the fit budget, and an English-only one while the language is not English. */
     suspend fun pick(type: ModelType, id: String, status: ModelStatus?, totalMemBytes: Long): Boolean {
-        val deliverable = deliverables(type).firstOrNull { it.id == id } ?: return false
-        if (!fits(id, fitBudget(totalMemBytes)) || languageBlock(deliverable, languages.load()) != null) return false
+        if (!pickable(type, id, totalMemBytes)) return false
         if (type == ModelType.LLM && pendingLanguage?.first != id) pendingLanguage = null
         when {
             id == selectedId(type) -> pending.remove(type)
@@ -117,6 +116,12 @@ class ModelSlotSelection @Inject constructor(
             else -> pending[type] = id
         }
         return true
+    }
+
+    /** Whether [id] may fill [type]'s slot now: it is in the catalog, inside the fit budget and can write the language. */
+    fun pickable(type: ModelType, id: String, totalMemBytes: Long): Boolean {
+        val deliverable = deliverables(type).firstOrNull { it.id == id } ?: return false
+        return fits(id, fitBudget(totalMemBytes)) && languageBlock(deliverable, languages.load()) == null
     }
 
     fun fitBudget(totalMemBytes: Long): FitBudget = FitBudget(

@@ -56,6 +56,29 @@ class TranslatorChoice @Inject constructor(
         return result
     }
 
+    /**
+     * The reader turned to the phone's side of the Translator page (#548): its selected model takes the next page.
+     * False, changing nothing, unless that model, whose download stands at [status], is downloaded and could be
+     * picked now: a phone left with no model it can run would stop translating, so the pages move once one is
+     * picked (#536).
+     */
+    fun selectPhone(status: ModelStatus?, totalMemBytes: Long): Boolean {
+        val selected = slots.selectedId(ModelType.LLM) ?: return false
+        if (status != ModelStatus.READY || !slots.pickable(ModelType.LLM, selected, totalMemBytes)) return false
+        translation.selectOnDevice()
+        return true
+    }
+
+    /**
+     * The reader turned to the server's side of the Translator page (#548): picks the server's stored model as its
+     * picker entry would, so the first time asks before any text leaves the phone. Refused until the server is set up.
+     */
+    fun selectServer(): TranslatorPick {
+        val network = translation.translator(Translator.NETWORK_ID)?.takeIf { server.isSetUp() } ?: return TranslatorPick.Refused
+        val stored = network.pickerEntries(translation.activeTranslator() === network).firstOrNull { it.name == server.model() }
+        return pick(Translator.NETWORK_ID, stored?.pick ?: { TranslatorPick.Refused })
+    }
+
     /** Whether the phone's own model takes the next page, and so is needed (#536). */
     fun phoneTranslates(): Boolean = translation.phoneTranslates()
 

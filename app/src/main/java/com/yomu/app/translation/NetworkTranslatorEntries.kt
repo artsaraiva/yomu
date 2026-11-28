@@ -7,15 +7,16 @@ import com.yomu.core.ERROR_SERVER_MODEL_NOT_FOUND
 import com.yomu.core.ERROR_SERVER_TIMEOUT
 import com.yomu.core.ERROR_SERVER_UNREACHABLE
 
-/** The network translator's picker group, Settings row, Home action and failure messages (ADR-0023, #534), all read from [ServerSettingsStore]. */
+/** The network translator's picker group, Home action and failure messages (ADR-0023, #534), all read from [ServerSettingsStore]. */
 internal object NetworkTranslatorEntries {
+    /** The server's setup: the Translator page's server side in Settings (#548), a screen of its own in first-run setup. */
     val PROVIDERS = AppDestination("settings/providers")
 
     private const val PROVIDERS_SUMMARY = "A server you run, or a hosted API you have a key for"
 
     /**
      * The server models from the last Connect, or the typed name when the server keeps no list; the stored model is
-     * checked while the network translator is [active]. Until the server is set up, its one entry opens Providers.
+     * checked while the network translator is [active]. Until the server is set up, its one entry opens its setup.
      */
     fun pickerEntries(store: ServerSettingsStore, active: Boolean): List<TranslatorPickerEntry> {
         if (!store.isSetUp()) {
@@ -24,13 +25,7 @@ internal object NetworkTranslatorEntries {
         return models(store).map { model -> TranslatorPickerEntry(model, null, active && model == store.model()) { pick(store, model) } }
     }
 
-    fun settingsRow(store: ServerSettingsStore): TranslatorSettingsRow = TranslatorSettingsRow(
-        "Providers",
-        { if (store.isSetUp()) "Connected to ${store.address()}" else "$PROVIDERS_SUMMARY." },
-        PROVIDERS
-    )
-
-    /** While the reader chose the server but it isn't set up, such as after its address changed, Home points to Providers. */
+    /** While the reader chose the server but it isn't set up, such as after its address changed, Home points to its setup. */
     fun homeAction(store: ServerSettingsStore, chosen: Boolean): TranslatorHomeAction? =
         TranslatorHomeAction("Set up server", PROVIDERS).takeIf { chosen && !store.isSetUp() }
 
@@ -43,7 +38,7 @@ internal object NetworkTranslatorEntries {
         ERROR_SERVER_HTTPS_REQUIRED to "Your server's address needs https://",
         ERROR_SERVER_FAILED to "Your server couldn't translate the page"
     ).mapValues { (_, cause) ->
-        ReaderMessage("$cause — or pick a phone model in the model picker on Home", ReaderAction("Tap to open Providers", PROVIDERS))
+        ReaderMessage("$cause — or pick a phone model in the model picker on Home", ReaderAction("Tap to open Translator", PROVIDERS))
     }
 
     private fun models(store: ServerSettingsStore): List<String> = store.serverModels().orEmpty().ifEmpty { listOf(store.model()) }

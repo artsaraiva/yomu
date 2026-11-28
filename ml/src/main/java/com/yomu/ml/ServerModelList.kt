@@ -46,7 +46,7 @@ enum class ConnectFailure {
 
 /**
  * Connect's one request: asks the reader's server for its `/v1/models` list (ADR-0023). Nothing else on
- * the Providers screen contacts the server.
+ * the server's setup contacts the server.
  */
 class ServerModelList(client: OkHttpClient) {
     // ADR-0023's limit for reaching the server: an address with no machine behind it fails in seconds.

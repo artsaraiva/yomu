@@ -31,7 +31,7 @@ private enum class Choice { Language, Translator }
  * The Language row and the Translator row, each opening a sheet. The translator sheet lists the phone's models, then
  * a group for each registered translator that offers entries (#534), and the checked row is the one that translates
  * the next page (ADR-0023). The phone's group holds only the models on the phone; the rest of the catalog is in
- * Settings › Translation.
+ * Settings › Translator.
  */
 @Composable
 internal fun ReadingChoices(
@@ -69,7 +69,7 @@ internal fun ReadingChoices(
                     if (slow) confirmSlow = id else onPickTranslationModel(id)
                 },
                 onPickEntry = { group, entry -> close(); onPickTranslatorEntry(group, entry) },
-                onMoreModels = { close(); onOpenSettings(SettingsSection.Translation) }
+                onMoreModels = { close(); onOpenSettings(SettingsSection.Translator) }
             )
         }
         null -> Unit

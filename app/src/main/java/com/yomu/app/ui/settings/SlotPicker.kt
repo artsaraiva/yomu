@@ -102,18 +102,13 @@ internal fun SlotPickerSheet(
         }
     }
     confirmDelete?.let { id ->
-        val prompt = deleteSelectedPrompt(phoneModelIdle)
-        AlertDialog(
-            onDismissRequest = { confirmDelete = null },
-            title = { Text(prompt.title) },
-            text = { Text(prompt.text) },
-            confirmButton = {
-                TextButton(onClick = {
-                    confirmDelete = null
-                    onDelete(id)
-                }) { Text("Delete") }
+        DeleteSelectedDialog(
+            phoneModelIdle,
+            onDelete = {
+                confirmDelete = null
+                onDelete(id)
             },
-            dismissButton = { TextButton(onClick = { confirmDelete = null }) { Text("Keep") } }
+            onKeep = { confirmDelete = null }
         )
     }
     confirmSlow?.let { id ->
@@ -141,6 +136,19 @@ internal fun deleteSelectedPrompt(phoneModelIdle: Boolean): DeletePrompt = if (p
     )
 } else {
     DeletePrompt("Delete the model in use?", "Yomu can't translate or read until you pick and download a model.")
+}
+
+/** Asked before a slot's selected model is deleted, wherever the delete starts; see [deleteSelectedPrompt]. */
+@Composable
+internal fun DeleteSelectedDialog(phoneModelIdle: Boolean, onDelete: () -> Unit, onKeep: () -> Unit) {
+    val prompt = deleteSelectedPrompt(phoneModelIdle)
+    AlertDialog(
+        onDismissRequest = onKeep,
+        title = { Text(prompt.title) },
+        text = { Text(prompt.text) },
+        confirmButton = { TextButton(onClick = onDelete) { Text("Delete") } },
+        dismissButton = { TextButton(onClick = onKeep) { Text("Keep") } }
+    )
 }
 
 /** Every surface that picks a model asks the same thing, so a Slow pick reads the same wherever it starts. */

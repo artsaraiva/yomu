@@ -77,7 +77,6 @@ class Translator(
                 },
                 readerMessages = NetworkTranslatorEntries.readerMessages,
                 pickerEntries = { active -> NetworkTranslatorEntries.pickerEntries(store, active) },
-                settingsRow = NetworkTranslatorEntries.settingsRow(store),
                 homeAction = { chosen -> NetworkTranslatorEntries.homeAction(store, chosen) }
             )
 

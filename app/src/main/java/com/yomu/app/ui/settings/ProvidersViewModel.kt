@@ -16,7 +16,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-/** What the Providers screen shows. */
+/** What the server's setup shows, on the Translator page and in first-run setup. */
 data class ProvidersUiState(
     /** The address field, as typed. */
     val address: String,
@@ -27,7 +27,10 @@ data class ProvidersUiState(
     val connection: ServerConnection = ServerConnection.NotConnected,
     /** The Keystore refused to save the key: it works until the app closes, and must then be entered again. */
     val keyNotSaved: Boolean = false
-)
+) {
+    /** Whether the server could take a page: Connect confirmed the address on screen and a model is set. */
+    val ready: Boolean get() = connection is ServerConnection.Connected && model.isNotBlank()
+}
 
 /** Where Connect stands for the address on screen. */
 sealed interface ServerConnection {
@@ -47,7 +50,7 @@ sealed interface ServerConnection {
 }
 
 /**
- * The Providers screen, which sets up the network translator's server (ADR-0023). Typing changes only
+ * The server's setup, which readies the network translator's server (ADR-0023). Typing changes only
  * the fields; Connect is the one thing that contacts the server.
  */
 @HiltViewModel

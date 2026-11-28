@@ -109,7 +109,7 @@ class NetworkTranslatorTest {
     }
 
     @Test
-    fun `it names each server failure, points to a phone model on Home, and opens Providers`() {
+    fun `it names each server failure, points to a phone model on Home, and opens the Translator page`() {
         val expected = mapOf(
             ERROR_SERVER_UNREACHABLE to "Can't reach your server",
             ERROR_SERVER_KEY_REJECTED to "Your server rejected the key",
@@ -122,13 +122,13 @@ class NetworkTranslatorTest {
         for ((code, cause) in expected) {
             val message = translator.readerMessage(code)
             assertEquals(code, "$cause \u2014 or pick a phone model in the model picker on Home", message?.text)
-            assertEquals(code, ReaderAction("Tap to open Providers", NetworkTranslatorEntries.PROVIDERS), message?.action)
+            assertEquals(code, ReaderAction("Tap to open Translator", NetworkTranslatorEntries.PROVIDERS), message?.action)
         }
         assertNull("not one of its codes", translator.readerMessage(ERROR_MODEL_MISSING))
     }
 
     @Test
-    fun `until the server is set up, its one picker entry opens Providers`() {
+    fun `until the server is set up, its one picker entry opens its setup`() {
         val entry = translator.pickerEntries(active = false).single()
 
         assertEquals("Set up your server", entry.name)
@@ -205,27 +205,19 @@ class NetworkTranslatorTest {
     }
 
     @Test
-    fun `its Settings row opens Providers and says whether the server is set up`() {
-        val row = translator.settingsRow
-
-        assertEquals("Providers", row?.title)
-        assertEquals(NetworkTranslatorEntries.PROVIDERS, row?.destination)
-        assertEquals("A server you run, or a hosted API you have a key for.", row?.summary?.invoke())
-
-        setUpServer()
-        assertEquals("Connected to $ADDRESS", row?.summary?.invoke())
+    fun `it adds no row to Settings, where the Translator page holds its setup`() {
+        assertNull(translator.settingsRow)
     }
 
     @Test
     fun `its module brings the one screen its entries open`() {
         val opened = buildSet {
             add((translator.pickerEntries(active = false).single().pick() as TranslatorPick.Open).destination)
-            translator.settingsRow?.let { add(it.destination) }
             listOf(ERROR_SERVER_UNREACHABLE, ERROR_SERVER_FAILED).forEach { code -> translator.readerMessage(code)?.action?.let { add(it.destination) } }
         }
 
         assertEquals(setOf(AppDestination("settings/providers")), opened)
-        assertEquals(opened, setOf(NetworkTranslatorModule.provideProvidersScreen().destination))
+        assertEquals(opened, setOf(NetworkTranslatorModule.provideServerSetupScreen().destination))
     }
 
     private fun entry(model: String) = translator.pickerEntries(active = false).first { it.name == model }

@@ -25,7 +25,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
-/** The Providers screen: Connect is the only thing that contacts the server (#489, ADR-0023). */
+/** The server's setup: Connect is the only thing that contacts the server (#489, ADR-0023). */
 @OptIn(ExperimentalCoroutinesApi::class)
 class ProvidersViewModelTest {
     private val server = MockWebServer()
@@ -92,12 +92,14 @@ class ProvidersViewModelTest {
     fun `picking a listed model stores it and the server is set up`() = runTest {
         server.enqueue(MockResponse().setBody(TWO_MODELS))
         val viewModel = connected()
+        assertFalse("connected, but no model yet", viewModel.state.value.ready)
 
         viewModel.pickModel("gemma3:4b")
 
         assertEquals("gemma3:4b", store.model())
         assertEquals("gemma3:4b", viewModel.state.value.model)
         assertTrue(store.isSetUp())
+        assertTrue(viewModel.state.value.ready)
     }
 
     @Test
@@ -125,6 +127,7 @@ class ProvidersViewModelTest {
         assertEquals("", store.model())
         assertEquals(ServerConnection.NotConnected, viewModel.state.value.connection)
         assertEquals("", viewModel.state.value.model)
+        assertFalse(viewModel.state.value.ready)
         assertEquals(1, server.requestCount)
     }
 

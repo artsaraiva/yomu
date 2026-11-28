@@ -22,6 +22,7 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.yomu.app.translation.AppDestination
+import com.yomu.app.translation.NetworkTranslatorEntries
 import com.yomu.app.ui.home.HomeViewModel
 import com.yomu.app.ui.home.SetupScreen
 import com.yomu.app.ui.theme.PaperLoading
@@ -36,6 +37,8 @@ import com.yomu.app.ui.settings.NameGlossarySettings
 import com.yomu.app.ui.settings.SettingsSection
 import com.yomu.app.ui.settings.SettingsViewModel
 import com.yomu.app.ui.settings.TranslationSettings
+import com.yomu.app.ui.settings.TranslatorSettings
+import com.yomu.app.ui.settings.TranslatorSide
 import com.yomu.app.ui.settings.TypesettingSettings
 import com.yomu.core.TargetLanguage
 
@@ -44,6 +47,7 @@ private const val SETTINGS_ROOT = "settings/root"
 private const val HOME = "home"
 private const val SETTINGS = "settings"
 private const val RECENT = "recent"
+private const val PHONE_MODELS = "settings/translator/phone"
 
 @Composable
 fun AppNavigation(
@@ -75,7 +79,7 @@ fun AppNavigation(
     var setupRoute by rememberSaveable { mutableStateOf<String?>(null) }
     if (state.modelsLoading || state.setupVisible) {
         ChromeContent(Modifier.safeDrawingPadding()) {
-            // A translator's screen setup opened, such as Providers (#536); closing it returns to setup.
+            // A translator's screen setup opened, such as the server's (#536); closing it returns to setup.
             val destination = setupRoute?.let(::AppDestination)
             when {
                 state.modelsLoading -> PaperLoading("Getting Yomu ready…")
@@ -115,7 +119,10 @@ fun AppNavigation(
                 HomeScreen(
                     viewModel, hiltViewModel(), onRequestScreenCapture,
                     onOpenSettings = { navController.navigate(SETTINGS) { launchSingleTop = true } },
-                    onOpenSection = { navController.navigate(it.route) { launchSingleTop = true } },
+                    // Home asks for a section only from its phone models' "More models" row, so Translator opens on that side.
+                    onOpenSection = {
+                        navController.navigate(if (it == SettingsSection.Translator) PHONE_MODELS else it.route) { launchSingleTop = true }
+                    },
                     onOpenRecent = { navController.navigate(RECENT) { launchSingleTop = true } },
                     onOpenDestination = openDestination
                 )
@@ -132,8 +139,17 @@ fun AppNavigation(
                         onOpenDestination = openDestination
                     )
                 }
+                // Inside Settings the server's screen is the Translator page turned to its server side (#548); setup,
+                // which has its own step for the phone's model, shows the screen its module brings instead.
+                val server = NetworkTranslatorEntries.PROVIDERS
+                mapOf(server.route to TranslatorSide.Server, PHONE_MODELS to TranslatorSide.Phone).forEach { (route, side) ->
+                    composable(route) { entry ->
+                        val parent = remember(entry) { navController.getBackStackEntry(SETTINGS) }
+                        TranslatorSettings(hiltViewModel(parent), hiltViewModel(), side) { navController.popBackStack() }
+                    }
+                }
                 // The screens translators bring, which their picker entries, Settings rows and failures open (#534).
-                translatorScreens.forEach { screen ->
+                translatorScreens.filterNot { it.destination == server }.forEach { screen ->
                     composable(screen.destination.route) { screen.content { navController.popBackStack() } }
                 }
                 SettingsSection.entries.forEach { section ->
@@ -143,6 +159,7 @@ fun AppNavigation(
                         val settings: SettingsViewModel = hiltViewModel(parent)
                         val onBack: () -> Unit = { navController.popBackStack() }
                         when (section) {
+                            SettingsSection.Translator -> TranslatorSettings(settings, hiltViewModel(), openOn = null, onBack)
                             SettingsSection.Translation -> TranslationSettings(settings, hiltViewModel(), onBack)
                             SettingsSection.NameGlossary -> NameGlossarySettings(hiltViewModel(), onBack)
                             SettingsSection.Typesetting -> TypesettingSettings(settings, onBack)

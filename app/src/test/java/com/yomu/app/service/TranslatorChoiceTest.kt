@@ -100,8 +100,8 @@ class TranslatorChoiceTest {
 
     @Test
     fun `Settings lists the row of each translator that supplies one`() {
-        assertEquals(listOf("Providers"), choice.settingsRows().map { it.title })
-        assertEquals(listOf("Providers", "Fourth"), withFourth().settingsRows().map { it.title })
+        assertEquals("the server's setup is on the Translator page", emptyList<String>(), choice.settingsRows().map { it.title })
+        assertEquals(listOf("Fourth"), withFourth().settingsRows().map { it.title })
     }
 
     @Test
@@ -112,7 +112,7 @@ class TranslatorChoiceTest {
         pickOnServer("gemma3:4b")
         assertNull("the server is chosen and set up", choice.homeAction())
 
-        // Connect again, as Providers does, and the server no longer lists the chosen model.
+        // Connect again, as the server's setup does, and the server no longer lists the chosen model.
         store.saveServerModels(listOf("llama3.1:8b"))
         store.saveModel("")
         assertEquals(TranslatorHomeAction("Set up server", AppDestination("settings/providers")), choice.homeAction())
@@ -151,7 +151,7 @@ class TranslatorChoiceTest {
         store.saveServerModels(listOf("llama3.1:8b"))
         store.saveModel("llama3.1:8b")
 
-        assertNull("set up again in Providers, but not picked", choice.activeServerModel())
+        assertNull("set up again, but not picked", choice.activeServerModel())
         assertEquals(Translator.ON_DEVICE_ID, translation.activeTranslator().id)
         assertEquals(TranslatorPick.Select, choice.pick(Translator.NETWORK_ID, entry("llama3.1:8b").pick))
         assertEquals("llama3.1:8b", choice.activeServerModel())
@@ -272,6 +272,84 @@ class TranslatorChoiceTest {
 
         slots.pick(ModelType.LLM, LlmModelCatalog.DEFAULT.id, ModelStatus.AVAILABLE, EIGHT_GB)
         slots.commitPending(mapOf(LlmModelCatalog.DEFAULT.id to ModelStatus.READY))
+
+        assertEquals("gemma3:4b", choice.activeServerModel())
+    }
+
+    @Test
+    fun `turning to the server's side picks its stored model, asking first the first time`() {
+        setUpServer(model = "gemma3:4b")
+
+        val confirm = choice.selectServer()
+
+        assertTrue(confirm is TranslatorPick.Confirm)
+        assertNull("nothing leaves the phone before the reader agrees", choice.activeServerModel())
+        assertEquals(TranslatorPick.Select, choice.pick(Translator.NETWORK_ID, (confirm as TranslatorPick.Confirm).accept))
+        assertEquals("gemma3:4b", choice.activeServerModel())
+
+        translation.selectOnDevice()
+        assertEquals("the notice is asked once", TranslatorPick.Select, choice.selectServer())
+        assertEquals("gemma3:4b", choice.activeServerModel())
+    }
+
+    @Test
+    fun `turning to the server's side before it is set up leaves the phone in use`() {
+        assertEquals(TranslatorPick.Refused, choice.selectServer())
+
+        assertEquals(Translator.ON_DEVICE_ID, translation.activeTranslator().id)
+        assertNull("the server was not chosen, so Home offers no setup", choice.homeAction())
+    }
+
+    @Test
+    fun `turning to the phone's side hands the pages to its selected model`() {
+        setUpServer()
+        pickOnServer("gemma3:4b")
+
+        assertTrue(choice.selectPhone(ModelStatus.READY, EIGHT_GB))
+
+        assertTrue(choice.phoneTranslates())
+    }
+
+    @Test
+    fun `turning to the phone's side leaves the server in use while the phone's model can't write the language`() = runTest {
+        slots.pick(ModelType.LLM, Constants.CAT_TRANSLATION_MODEL_ID, ModelStatus.READY, EIGHT_GB)
+        setUpServer()
+        pickOnServer("gemma3:4b")
+        TargetLanguageStore(prefs).save(TargetLanguage.FRENCH)
+
+        assertFalse(choice.selectPhone(ModelStatus.READY, EIGHT_GB))
+
+        assertEquals("gemma3:4b", choice.activeServerModel())
+    }
+
+    @Test
+    fun `turning to the phone's side leaves the server in use while the phone's model doesn't fit`() = runTest {
+        slots.pick(ModelType.LLM, Constants.CAT_TRANSLATION_MODEL_ID, ModelStatus.READY, EIGHT_GB)
+        setUpServer()
+        pickOnServer("gemma3:4b")
+
+        assertFalse(choice.selectPhone(ModelStatus.READY, totalMemBytes = 0L))
+
+        assertEquals("gemma3:4b", choice.activeServerModel())
+    }
+
+    @Test
+    fun `turning to the phone's side while its selected model isn't downloaded leaves the server in use`() {
+        setUpServer()
+        pickOnServer("gemma3:4b")
+
+        assertFalse(choice.selectPhone(ModelStatus.AVAILABLE, EIGHT_GB))
+
+        assertEquals("gemma3:4b", choice.activeServerModel())
+    }
+
+    @Test
+    fun `turning to the phone's side with no phone model leaves the server in use`() = runTest {
+        setUpServer()
+        pickOnServer("gemma3:4b")
+        slots.delete(LlmModelCatalog.DEFAULT.id)
+
+        assertFalse(choice.selectPhone(ModelStatus.READY, EIGHT_GB))
 
         assertEquals("gemma3:4b", choice.activeServerModel())
     }

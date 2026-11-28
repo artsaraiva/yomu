@@ -24,12 +24,6 @@ fun TranslationSettings(viewModel: SettingsViewModel, saveToRecent: SaveToRecent
         state.languageOffer?.let {
             LanguageOfferDialog(it, state.targetLanguage, viewModel::acceptLanguageOffer, viewModel::declineLanguageOffer)
         }
-        PaperSurface(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp)) {
-                ModelSlot(state, viewModel, ModelType.LLM, "Model", "The on-device model that translates each bubble.")
-            }
-        }
-        state.modelRecoveryWarning?.let { RecoveryWarning(it) }
         SwitchPanel(
             "Page recall",
             "Shows a page already translated while reading at once, instead of translating it again.",
@@ -100,7 +94,7 @@ internal fun SwitchPanel(title: String, description: String, enabled: Boolean, o
     }
 }
 
-/** One slot's picker row; the caller supplies the surface it sits on. */
+/** One reading slot's picker row; the caller supplies the surface it sits on. The translation models have the Translator page (#548). */
 @Composable
 internal fun ModelSlot(state: SettingsUiState, viewModel: SettingsViewModel, type: ModelType, title: String, description: String) {
     SlotPicker(
@@ -114,7 +108,7 @@ internal fun ModelSlot(state: SettingsUiState, viewModel: SettingsViewModel, typ
         fits = state::fits,
         needsSlowWarning = state::needsSlowWarning,
         languageBlock = state::languageBlock,
-        phoneModelIdle = type == ModelType.LLM && !state.phoneTranslates,
+        phoneModelIdle = false,
         onPick = { viewModel.pickModel(type, it) },
         onCancel = viewModel::cancelDownload,
         onDelete = viewModel::deleteModel
