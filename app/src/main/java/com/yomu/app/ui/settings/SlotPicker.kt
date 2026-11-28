@@ -39,20 +39,16 @@ internal fun SlotPicker(
 ) {
     var open by rememberSaveable { mutableStateOf(false) }
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
-    PaperSurface(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp)) {
-            SettingRow(title, description) {
-                Surface(onClick = { open = true }, color = Color.Transparent, shape = MaterialTheme.shapes.medium) {
-                    Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text(deliverables.firstOrNull { it.id == selectedId }?.name ?: "No model selected", style = MaterialTheme.typography.titleSmall)
-                            deliverables.firstOrNull { it.id == pendingId }?.let {
-                                Text("Switches to ${it.name} when its download finishes", style = MaterialTheme.typography.bodySmall, color = muted)
-                            }
-                        }
-                        Icon(Icons.Default.KeyboardArrowRight, contentDescription = null)
+    SettingRow(title, description) {
+        Surface(onClick = { open = true }, color = Color.Transparent, shape = MaterialTheme.shapes.medium) {
+            Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(deliverables.firstOrNull { it.id == selectedId }?.name ?: "No model selected", style = MaterialTheme.typography.titleSmall)
+                    deliverables.firstOrNull { it.id == pendingId }?.let {
+                        Text("Switches to ${it.name} when its download finishes", style = MaterialTheme.typography.bodySmall, color = muted)
                     }
                 }
+                Icon(Icons.Default.KeyboardArrowRight, contentDescription = null)
             }
         }
     }

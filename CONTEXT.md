@@ -23,7 +23,7 @@ A curated [[deliverable]] added on desk research and not yet confirmed on the re
 _Avoid_: beta model, preview model, untested model
 
 **Fit budget**:
-The RAM a deliverable must fit inside to be offered on a given device — its file size plus a fixed resident-overhead estimate, against a fraction of the device's total memory. Estimated from measurement, never from parsing a file Yomu has not downloaded.
+The RAM a deliverable must fit inside to be offered on a given device — its file size plus a fixed resident-overhead estimate, against a fraction of the device's total memory. Estimated from measurement, never from parsing a file Yomu has not downloaded. Settings › Advanced labels the reader's fraction "Memory budget".
 _Avoid_: RAM gate, memory limit, device tier
 
 **Language label**:
