@@ -27,6 +27,12 @@ class PageEndTest {
         )
     )
     private val onDevice = Translator.onDevice(Mockito.mock(LlamaTranslationBridge::class.java))
+    private var asked = 0
+    private val noting = Translator(
+        "noting", "Noting", { true }, lazyOf(Mockito.mock(TranslationSlot::class.java)),
+        readerMessages = mapOf("noting_down" to ReaderMessage("Noting is down")),
+        pageNote = { "Noting answered from its cache".also { asked++ } }
+    )
 
     @Test
     fun `a page another translator failed shows that translator's message`() {
@@ -81,6 +87,44 @@ class PageEndTest {
 
         assertSame(page, end.shown)
         assertEquals("1 of 2 bubbles not translated", end.statusLine)
+    }
+
+    @Test
+    fun `a translated page shows its translator's note`() {
+        val page = page(TranslationOutcome.SUCCESS, null, answered = true)
+
+        val end = pageEnd(page, noting)
+
+        assertSame(page, end.shown)
+        assertEquals("Noting answered from its cache", end.statusLine)
+        assertNull(end.failure)
+        assertEquals(1, asked)
+    }
+
+    @Test
+    fun `a note sits under the untranslated count`() {
+        val end = pageEnd(page(TranslationOutcome.SUCCESS, null, answered = true, unanswered = 1), noting)
+
+        assertEquals("1 of 2 bubbles not translated\nNoting answered from its cache", end.statusLine)
+    }
+
+    @Test
+    fun `a failed page shows only its failure, drawn or not, and asks for no note`() {
+        val failed = pageEnd(page(TranslationOutcome.ERROR, "noting_down", answered = false), noting)
+        val drawn = pageEnd(page(TranslationOutcome.ERROR, "noting_down", answered = true), noting)
+
+        assertEquals("Failed: Noting is down", failed.statusLine)
+        assertEquals("Noting is down", drawn.statusLine)
+        assertEquals(0, asked)
+    }
+
+    @Test
+    fun `a translator with no note leaves a translated page's status line empty`() {
+        val page = page(TranslationOutcome.SUCCESS, null, answered = true)
+
+        assertNull(pageEnd(page, third).statusLine)
+        assertNull(pageEnd(page, onDevice).statusLine)
+        assertNull(pageEnd(page, null).statusLine)
     }
 
     private fun page(outcome: TranslationOutcome, errorCode: String?, answered: Boolean, unanswered: Int = 0): PipelineResult {

@@ -18,7 +18,8 @@ internal data class PageEnd(val shown: PipelineResult?, val failure: String?, va
  * How [result] ends on screen. Its failure is the message [translator], the translator that took the page, gives
  * for its error code, whatever the outcome, else the phone's own message (#509). A failed page is drawn only when
  * at least one bubble was answered, as a server that failed mid-reply keeps the bubbles it streamed. A message with an
- * action puts its label on the status line's last line (#534).
+ * action puts its label on the status line's last line (#534). A page with no failure also carries [translator]'s
+ * note, on its own line under the untranslated count (#557); a failure keeps the status line to itself.
  */
 internal fun pageEnd(result: PipelineResult?, translator: Translator?): PageEnd {
     val translation = result?.translationResult
@@ -26,7 +27,8 @@ internal fun pageEnd(result: PipelineResult?, translator: Translator?): PageEnd 
     val failure = translation?.let { page -> message?.text ?: page.readerFailure() }
     val shown = result?.takeIf { failure == null || it.translationResult.translations.any { bubble -> bubble.answered } }
     val statusLine = when {
-        shown != null -> failure ?: shown.translationResult.untranslatedNotice()
+        shown != null -> failure
+            ?: listOfNotNull(shown.translationResult.untranslatedNotice(), translator?.pageNote()).joinToString("\n").ifEmpty { null }
         // A null result has no failure here: the pipeline already put its own "Failed: …" on the status line.
         else -> failure?.let { "Failed: $it" }
     }

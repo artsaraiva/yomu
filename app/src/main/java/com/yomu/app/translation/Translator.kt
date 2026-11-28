@@ -15,7 +15,7 @@ import okhttp3.OkHttpClient
  * The slot is built on first use, so a translator the reader never picks costs nothing. Each translator
  * explains its own error codes to the reader (#509), so the pipeline need not know them, and supplies its own
  * picker entries, Settings row (#534) and Home action, so the screens that show them need not know it. The screens those entries
- * open come from the translator's module too, as `TranslatorScreen`s.
+ * open come from the translator's module too, as `TranslatorScreen`s. It may also leave a note on a page it translated (#557).
  */
 class Translator(
     val id: String,
@@ -26,10 +26,17 @@ class Translator(
     private val pickerEntries: (active: Boolean) -> List<TranslatorPickerEntry> = { emptyList() },
     /** The row this translator adds to Settings, or null for none. */
     val settingsRow: TranslatorSettingsRow? = null,
-    private val homeAction: (chosen: Boolean) -> TranslatorHomeAction? = { null }
+    private val homeAction: (chosen: Boolean) -> TranslatorHomeAction? = { null },
+    private val pageNote: () -> String? = { null }
 ) {
     /** What to tell the reader about a page that ended with [errorCode], or null when this translator has nothing to say. */
     fun readerMessage(errorCode: String): ReaderMessage? = readerMessages[errorCode]
+
+    /**
+     * What this translator wants the reader to know after a page it translated, or null for nothing (#557). Asked once
+     * for each finished page that has no failure, so a translator with something to say once returns it once.
+     */
+    fun pageNote(): String? = pageNote.invoke()
 
     /** The rows this translator adds to the model picker; [active] says whether it takes the next page. Empty for none. */
     fun pickerEntries(active: Boolean): List<TranslatorPickerEntry> = pickerEntries.invoke(active)
