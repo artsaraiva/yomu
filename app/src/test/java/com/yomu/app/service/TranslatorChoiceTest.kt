@@ -276,6 +276,51 @@ class TranslatorChoiceTest {
         assertEquals("gemma3:4b", choice.activeServerModel())
     }
 
+    @Test
+    fun `turning to the server's side picks its stored model, asking first the first time`() {
+        setUpServer(model = "gemma3:4b")
+
+        val confirm = choice.selectServer()
+
+        assertTrue(confirm is TranslatorPick.Confirm)
+        assertNull("nothing leaves the phone before the reader agrees", choice.activeServerModel())
+        assertEquals(TranslatorPick.Select, choice.pick(Translator.NETWORK_ID, (confirm as TranslatorPick.Confirm).accept))
+        assertEquals("gemma3:4b", choice.activeServerModel())
+
+        translation.selectOnDevice()
+        assertEquals("the notice is asked once", TranslatorPick.Select, choice.selectServer())
+        assertEquals("gemma3:4b", choice.activeServerModel())
+    }
+
+    @Test
+    fun `turning to the server's side before it is set up leaves the phone in use`() {
+        assertEquals(TranslatorPick.Refused, choice.selectServer())
+
+        assertEquals(Translator.ON_DEVICE_ID, translation.activeTranslator().id)
+        assertNull("the server was not chosen, so Home offers no setup", choice.homeAction())
+    }
+
+    @Test
+    fun `turning to the phone's side hands the pages to its selected model`() {
+        setUpServer()
+        pickOnServer("gemma3:4b")
+
+        assertTrue(choice.selectPhone())
+
+        assertTrue(choice.phoneTranslates())
+    }
+
+    @Test
+    fun `turning to the phone's side with no phone model leaves the server in use`() = runTest {
+        setUpServer()
+        pickOnServer("gemma3:4b")
+        slots.delete(LlmModelCatalog.DEFAULT.id)
+
+        assertFalse(choice.selectPhone())
+
+        assertEquals("gemma3:4b", choice.activeServerModel())
+    }
+
     private fun entry(name: String): TranslatorPickerEntry = choice.pickerGroups().single().entries.first { it.name == name }
 
     /** Picks [model] in the server's group and accepts the notice when it is asked. */
