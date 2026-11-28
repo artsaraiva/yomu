@@ -27,7 +27,7 @@ class TranslationRenderOverlayTest {
     @Test
     fun firstPreviewCanBeTypesetOnSingleBubblePage() {
         val windowManager = mock(WindowManager::class.java)
-        val overlay = TranslationRenderOverlay(RuntimeEnvironment.getApplication(), windowManager) { null }
+        val overlay = TranslationRenderOverlay(RuntimeEnvironment.getApplication(), windowManager, { _, _ -> true }) { null }
         val bounds = OverlayBounds(10f, 10f, 110f, 70f)
         overlay.showOcrBubbles(listOf(OverlayBubbleState(1, bounds, "OCR")), 120, 80)
 
@@ -52,7 +52,7 @@ class TranslationRenderOverlayTest {
     @Test
     fun shapedBubblePaintsItsOvalAndGlyphBox() {
         val windowManager = mock(WindowManager::class.java)
-        val overlay = TranslationRenderOverlay(RuntimeEnvironment.getApplication(), windowManager) { null }
+        val overlay = TranslationRenderOverlay(RuntimeEnvironment.getApplication(), windowManager, { _, _ -> true }) { null }
         overlay.showOcrBubbles(listOf(OverlayBubbleState(1, OverlayBounds(10f, 10f, 110f, 70f), "OCR")), 120, 80)
         val viewCaptor = ArgumentCaptor.forClass(View::class.java)
         verify(windowManager).addView(viewCaptor.capture(), any(WindowManager.LayoutParams::class.java))

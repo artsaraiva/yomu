@@ -8,8 +8,8 @@ import android.os.SystemClock
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Button
 import android.widget.ScrollView
+import com.yomu.core.TargetLanguage
 import com.yomu.pipeline.typesetting.TypesetBubble
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -103,7 +103,7 @@ class TranslatedPageLayoutTest {
         val text = if (longText) "Long bubble text\n".repeat(300) else "Text"
         val bubble = TypesetBubble(1, text, text, 16f, listOf(text), floatArrayOf(0f, 0f, 100f, 100f))
         return TranslatedPageLayout(context).apply {
-            card = bubbleCard(context, bubble, atTop).also(::addView)
+            card = bubbleCard(context, bubble, atTop, TargetLanguage.ENGLISH, BubbleCardHost({ _, _ -> true }, {}, {})).also(::addView)
             activity.get().setContentView(this)
             shadowOf(Looper.getMainLooper()).idle()
             measure(View.MeasureSpec.makeMeasureSpec(1080, View.MeasureSpec.EXACTLY),
@@ -112,10 +112,12 @@ class TranslatedPageLayoutTest {
         }
     }
 
-    private fun buttons(view: ViewGroup): List<Button> = (0 until view.childCount).flatMap { index ->
-        when (val child = view.getChildAt(index)) {
-            is Button -> listOf(child)
-            is ViewGroup -> buttons(child)
+    /** The card's two copy buttons, Japanese first. */
+    private fun buttons(view: ViewGroup): List<View> = (0 until view.childCount).flatMap { index ->
+        val child = view.getChildAt(index)
+        when {
+            child.contentDescription?.startsWith("Copy") == true -> listOf(child)
+            child is ViewGroup -> buttons(child)
             else -> emptyList()
         }
     }

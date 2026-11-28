@@ -2,6 +2,7 @@ package com.yomu.app.overlay
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
@@ -48,6 +49,13 @@ internal open class TranslatedPageLayout(context: Context) : FrameLayout(context
         val handled = super.dispatchTouchEvent(event)
         if (outcome != TranslatedPageGestures.Outcome.None) onGesture(outcome)
         return handled
+    }
+
+    /** Back closes an open card. Keys only reach the page while a card's fields hold the keyboard. */
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (event.keyCode != KeyEvent.KEYCODE_BACK || card == null) return super.dispatchKeyEvent(event)
+        if (event.action == KeyEvent.ACTION_UP) onGesture(TranslatedPageGestures.Outcome.CloseCard)
+        return true
     }
 
     override fun onInterceptTouchEvent(event: MotionEvent): Boolean =
