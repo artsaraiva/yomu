@@ -58,10 +58,11 @@ class TranslatorChoice @Inject constructor(
 
     /**
      * The reader turned to the phone's side of the Translator page (#548): its selected model takes the next page.
-     * False, changing nothing, when no phone model is selected; then the pages move once one is picked (#536).
+     * False, changing nothing, unless [statuses] has that model downloaded: a phone with no model to run would stop
+     * translating, so the pages move once one is picked (#536).
      */
-    fun selectPhone(): Boolean {
-        if (slots.selectedId(ModelType.LLM) == null) return false
+    fun selectPhone(statuses: Map<String, ModelStatus>): Boolean {
+        if (slots.selectedId(ModelType.LLM)?.let(statuses::get) != ModelStatus.READY) return false
         translation.selectOnDevice()
         return true
     }

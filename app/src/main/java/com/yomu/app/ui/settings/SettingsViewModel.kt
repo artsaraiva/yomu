@@ -94,9 +94,9 @@ class SettingsViewModel @Inject constructor(
     /** The rows registered translators add to Settings (#534). */
     fun translatorRows(): List<TranslatorSettingsRow> = translatorChoice.settingsRows()
 
-    /** The Translator page turned to the phone: its selected model takes the next page, when there is one (#548). */
+    /** The Translator page turned to the phone: its selected model takes the next page, once it is downloaded (#548). */
     fun usePhone() {
-        translatorChoice.selectPhone()
+        translatorChoice.selectPhone(_uiState.value.models.associate { it.id to it.status })
         refreshSlots()
     }
 

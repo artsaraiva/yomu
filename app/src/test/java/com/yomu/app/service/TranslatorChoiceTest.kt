@@ -305,9 +305,19 @@ class TranslatorChoiceTest {
         setUpServer()
         pickOnServer("gemma3:4b")
 
-        assertTrue(choice.selectPhone())
+        assertTrue(choice.selectPhone(mapOf(LlmModelCatalog.DEFAULT.id to ModelStatus.READY)))
 
         assertTrue(choice.phoneTranslates())
+    }
+
+    @Test
+    fun `turning to the phone's side while its selected model isn't downloaded leaves the server in use`() {
+        setUpServer()
+        pickOnServer("gemma3:4b")
+
+        assertFalse(choice.selectPhone(mapOf(LlmModelCatalog.DEFAULT.id to ModelStatus.AVAILABLE)))
+
+        assertEquals("gemma3:4b", choice.activeServerModel())
     }
 
     @Test
@@ -316,7 +326,7 @@ class TranslatorChoiceTest {
         pickOnServer("gemma3:4b")
         slots.delete(LlmModelCatalog.DEFAULT.id)
 
-        assertFalse(choice.selectPhone())
+        assertFalse(choice.selectPhone(mapOf(LlmModelCatalog.DEFAULT.id to ModelStatus.READY)))
 
         assertEquals("gemma3:4b", choice.activeServerModel())
     }

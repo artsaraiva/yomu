@@ -30,14 +30,13 @@ import com.yomu.app.ui.theme.PaperSegments
 fun TranslatorSettings(settings: SettingsViewModel, server: ProvidersViewModel, openOn: TranslatorSide?, onBack: () -> Unit) {
     val state by settings.uiState.collectAsState()
     val serverState by server.state.collectAsState()
-    // Null until the reader turns the control, so the page opens on whichever side has the pages.
-    var turnedTo by rememberSaveable { mutableStateOf(openOn) }
-    val side = turnedTo ?: activeSide(state.translatesOnServer)
+    // Held once the page opens: a new server address hands the pages back to the phone, and the fields must stay put.
+    var side by rememberSaveable { mutableStateOf(openOn ?: activeSide(state.translatesOnServer)) }
     // The server's fields decide who translates as they change: a new address hands the pages back to the phone.
     LaunchedEffect(serverState) { settings.refreshSlots() }
     SettingsPage(SettingsSection.Translator.title, "What turns the Japanese into ${state.targetLanguage.promptName}.", onBack) {
         PaperSegments(TranslatorSide.entries, side, TranslatorSide::label) {
-            turnedTo = it
+            side = it
             if (it == TranslatorSide.Phone) settings.usePhone() else settings.useServer()
         }
         sideNote(side, state.phoneTranslates, state.translatesOnServer, serverState.ready)?.let { note ->
