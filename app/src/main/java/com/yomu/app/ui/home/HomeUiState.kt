@@ -24,6 +24,8 @@ data class HomeUiState(
     val modelsLoading: Boolean = true,
     val setupComplete: Boolean = false,
     val setupVisible: Boolean = false,
+    /** Whether the reader confirmed the language setup opens on; Change on that step clears it (#547). */
+    val setupLanguageChosen: Boolean = false,
     val setupStarted: Boolean = false,
     val setupDownloadsReady: Boolean = false,
     val setupError: Boolean = false,
