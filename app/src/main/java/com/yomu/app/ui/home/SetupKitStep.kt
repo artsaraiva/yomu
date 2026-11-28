@@ -141,7 +141,12 @@ private fun KitRow(row: SetupModelRow, canChange: Boolean, onChange: () -> Unit)
                 )
             }
         }
-        if (canChange) TextButton(onClick = onChange, modifier = Modifier.semantics { contentDescription = "Change translator" }) { Text("Change") }
+        if (canChange) {
+            TextButton(
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
+                onClick = onChange, modifier = Modifier.semantics { contentDescription = "Change translator" }
+            ) { Text("Change") }
+        }
     }
 }
 
