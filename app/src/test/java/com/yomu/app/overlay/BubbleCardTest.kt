@@ -1,9 +1,11 @@
 package com.yomu.app.overlay
 
 import android.app.Activity
+import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.TextView
 import com.yomu.core.TargetLanguage
 import com.yomu.pipeline.typesetting.TypesetBubble
@@ -74,6 +76,18 @@ class BubbleCardTest {
     }
 
     @Test
+    fun `before Android 11 the fields go to the top, clear of the keyboard`() {
+        val card = card()
+        fun gravity() = (card.layoutParams as FrameLayout.LayoutParams).gravity and Gravity.VERTICAL_GRAVITY_MASK
+
+        labelled(card, "Add a name from this bubble").performClick()
+        assertEquals(Gravity.TOP, gravity())
+
+        labelled(card, "Cancel").performClick()
+        assertEquals(Gravity.BOTTOM, gravity())
+    }
+
+    @Test
     fun `a blank name cannot be saved`() {
         val card = card()
         labelled(card, "Add a name from this bubble").performClick()
@@ -117,7 +131,7 @@ class BubbleCardTest {
             setTyping = { typing += it },
             close = { closes++ }
         )
-        return (bubbleCard(activity.get(), bubble, atTop = false, language, host) as ViewGroup).also(activity.get()::setContentView)
+        return (bubbleCard(activity.get(), bubble, atTop = false, language, host) as ViewGroup).also { FrameLayout(activity.get()).apply { addView(it); activity.get().setContentView(this) } }
     }
 
     private fun views(view: View): List<View> =

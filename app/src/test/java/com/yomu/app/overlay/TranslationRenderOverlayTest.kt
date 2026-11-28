@@ -33,6 +33,8 @@ import org.robolectric.annotation.GraphicsMode
 @Config(sdk = [28])
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class TranslationRenderOverlayTest {
+    private val saved = mutableListOf<Pair<String, String>>()
+
     /** Verifies the first OCR preview survives window creation and changes to the typeset background on arrival. */
     @Test
     fun firstPreviewCanBeTypesetOnSingleBubblePage() {
@@ -127,8 +129,6 @@ class TranslationRenderOverlayTest {
         assertFalse(focusable(page, windowManager))
     }
 
-    private val saved = mutableListOf<Pair<String, String>>()
-
     /** A drawn Spanish page of one bubble, laid out at the size it was captured. */
     private fun finishedPage(windowManager: WindowManager): ViewGroup {
         val overlay = TranslationRenderOverlay(RuntimeEnvironment.getApplication(), windowManager, { term, rendering -> saved.add(term to rendering) }) { null }
@@ -143,6 +143,7 @@ class TranslationRenderOverlayTest {
                 View.MeasureSpec.makeMeasureSpec(80, View.MeasureSpec.EXACTLY)
             )
             layout(0, 0, 120, 80)
+            // Bubbles can be tapped only once a draw has placed them.
             pixelAt(this, 0, 0)
         }
     }

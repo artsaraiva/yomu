@@ -8,6 +8,8 @@ import android.graphics.Typeface
 import android.os.Build
 import android.view.Gravity
 import android.view.View
+import android.view.accessibility.AccessibilityNodeInfo
+import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.ImageView
@@ -42,10 +44,17 @@ internal fun bubbleCard(context: Context, bubble: TypesetBubble, atTop: Boolean,
         background = context.paperBackground()
         elevation = density
         setPadding(2 * margin, margin, margin, 2 * margin)
+        fun dock(top: Boolean) = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            Gravity.CENTER_HORIZONTAL or if (top) Gravity.TOP else Gravity.BOTTOM
+        ).apply { setMargins(margin, margin, margin, margin) }
         lateinit var texts: View
         fun show(content: View, typing: Boolean) {
             removeAllViews()
             addView(content)
+            // Before Android 11 an overlay window cannot be fitted above the keyboard, so the fields go to the top, clear of it.
+            layoutParams = dock(atTop || typing && Build.VERSION.SDK_INT < Build.VERSION_CODES.R)
             host.setTyping(typing)
             if (typing) content.requestFocus()
         }
@@ -53,11 +62,7 @@ internal fun bubbleCard(context: Context, bubble: TypesetBubble, atTop: Boolean,
             show(bubbleNameFields(context, bubble.originalText, host.saveName) { show(texts, typing = false) }, typing = true)
         }
         addView(texts)
-        layoutParams = FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.MATCH_PARENT,
-            FrameLayout.LayoutParams.WRAP_CONTENT,
-            Gravity.CENTER_HORIZONTAL or if (atTop) Gravity.TOP else Gravity.BOTTOM
-        ).apply { setMargins(margin, margin, margin, margin) }
+        layoutParams = dock(atTop)
     }
 }
 
@@ -94,6 +99,13 @@ private fun bubbleTexts(context: Context, bubble: TypesetBubble, language: Strin
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
                 .apply { setMargins(0, dp(12), dp(8), 0) }
             setOnClickListener { onAddName() }
+            accessibilityDelegate = object : View.AccessibilityDelegate() {
+                override fun onInitializeAccessibilityNodeInfo(host: View, info: AccessibilityNodeInfo) {
+                    super.onInitializeAccessibilityNodeInfo(host, info)
+                    // A row of icon and text, so a screen reader has to be told it is a button.
+                    info.className = Button::class.java.name
+                }
+            }
             addView(ImageView(context).apply {
                 setImageResource(R.drawable.ic_glossary)
                 imageTintList = ColorStateList.valueOf(colors.ink)

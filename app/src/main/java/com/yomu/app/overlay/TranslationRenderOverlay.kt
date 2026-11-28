@@ -70,6 +70,7 @@ class TranslationRenderOverlay(
                     TranslatedPageGestures.Outcome.CloseCard -> {
                         card?.let(::removeView)
                         card = null
+                        typing = false
                         windowManager.setTyping(this, params, typing = false)
                     }
                     is TranslatedPageGestures.Outcome.OpenCard -> {
@@ -78,7 +79,10 @@ class TranslationRenderOverlay(
                         val cardAtTop = (tapped.top + tapped.bottom) / 2 > height / 2
                         val host = BubbleCardHost(
                             saveName = saveName,
-                            setTyping = { windowManager.setTyping(this, params, it) },
+                            setTyping = {
+                                typing = it
+                                windowManager.setTyping(this, params, it)
+                            },
                             close = { onGesture(TranslatedPageGestures.Outcome.CloseCard) }
                         )
                         card = bubbleCard(context, bubbles[outcome.bubbleIndex], cardAtTop, language, host).also(::addView)

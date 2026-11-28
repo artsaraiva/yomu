@@ -12,6 +12,9 @@ import kotlin.math.hypot
 
 internal open class TranslatedPageLayout(context: Context) : FrameLayout(context) {
     var card: View? = null
+
+    /** While the card's fields are being typed in, a drag that starts on it edits text and dismisses nothing (#553). */
+    var typing = false
     var drawnBounds: List<OverlayBounds> = emptyList()
     var onGesture: (TranslatedPageGestures.Outcome) -> Unit = {}
 
@@ -20,6 +23,7 @@ internal open class TranslatedPageLayout(context: Context) : FrameLayout(context
     private var outcome: TranslatedPageGestures.Outcome = TranslatedPageGestures.Outcome.None
     private var downX = 0f
     private var downY = 0f
+    private var editingCard = false
     private var canScrollCard = false
     private var scrollingCard = false
     private var directionChosen = false
@@ -31,6 +35,7 @@ internal open class TranslatedPageLayout(context: Context) : FrameLayout(context
         if (event.actionMasked == MotionEvent.ACTION_DOWN) {
             downX = event.x
             downY = event.y
+            editingCard = typing && openCard?.contains(downX, downY) == true
             canScrollCard = openCard?.contains(downX, downY) == true &&
                 card?.let { it.canScrollVertically(-1) || it.canScrollVertically(1) } == true
             scrollingCard = false
@@ -42,7 +47,7 @@ internal open class TranslatedPageLayout(context: Context) : FrameLayout(context
             scrollingCard = canScrollCard && abs(dy) > abs(dx)
             directionChosen = true
         }
-        outcome = if (scrollingCard) TranslatedPageGestures.Outcome.None else
+        outcome = if (scrollingCard || editingCard) TranslatedPageGestures.Outcome.None else
             gestures.onTouch(event.actionMasked, event.x, event.y, drawnBounds, openCard)
         if (outcome == TranslatedPageGestures.Outcome.DismissPage) requestDisallowInterceptTouchEvent(false)
         // Dispatch cancellation to a pressed child before the callback removes the window.
