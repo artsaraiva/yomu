@@ -3,6 +3,7 @@ package com.yomu.app.overlay
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.PixelFormat
+import android.graphics.Point
 import android.os.Build
 import android.view.Gravity
 import android.view.MotionEvent
@@ -17,6 +18,10 @@ class FloatingButtonOverlay(
     private var buttonView: FloatingButtonView? = null
     private var buttonParams: WindowManager.LayoutParams? = null
     private var touchLayer: View? = null
+    private var capsuleView: ProgressCapsuleView? = null
+    private var capsuleParams: WindowManager.LayoutParams? = null
+    private var progress: Pair<String, Int>? = null
+    private val margin = (8 * context.resources.displayMetrics.density).toInt()
 
     fun show(
         initialX: Int,
@@ -29,9 +34,7 @@ class FloatingButtonOverlay(
         buttonView?.let { return it }
 
         val sizePx = (56 * context.resources.displayMetrics.density).toInt()
-        val displayMetrics = context.resources.displayMetrics
         val available = overlayControlSize(context, windowManager)
-        val margin = (8 * displayMetrics.density).toInt()
         val maxX = (available.x - sizePx - margin).coerceAtLeast(margin)
         val maxY = (available.y - sizePx - margin).coerceAtLeast(margin)
 
@@ -75,6 +78,7 @@ class FloatingButtonOverlay(
                             params.x = (startX + dx).coerceIn(margin, (currentSize.x - sizePx - margin).coerceAtLeast(margin))
                             params.y = (startY + dy).coerceIn(margin, (currentSize.y - sizePx - margin).coerceAtLeast(margin))
                             windowManager.updateViewLayout(touchedView, params)
+                            placeCapsule()
                         }
                     }
 
@@ -90,7 +94,7 @@ class FloatingButtonOverlay(
             }
         }
 
-        // Overlay windows stack in the order they are added; the layer goes first so the button stays above it.
+        // Overlay windows stack in the order they are added; the layer and the capsule go first so the button stays above them.
         val layer = View(context).apply { visibility = View.GONE }
         windowManager.addView(layer, WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
@@ -105,6 +109,17 @@ class FloatingButtonOverlay(
                 layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
             }
         })
+        val capsule = ProgressCapsuleView(context)
+        val capsuleLayout = WindowManager.LayoutParams(
+            sizePx,
+            sizePx,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
+            PixelFormat.TRANSLUCENT
+        ).apply { gravity = Gravity.TOP or Gravity.START }
+        windowManager.addView(capsule, capsuleLayout)
+        capsuleView = capsule
+        capsuleParams = capsuleLayout
         touchLayer = layer
         buttonParams = params
         buttonView = view
@@ -128,21 +143,60 @@ class FloatingButtonOverlay(
         touchLayer?.visibility = View.GONE
     }
 
+    /**
+     * Shows [message] as step [step] of the run in a capsule that grows out of the button to the side with room.
+     * The capsule takes no touches: the button on its end stays the stop target.
+     */
+    fun showProgress(message: String, step: Int) {
+        // The pipeline reports a stage once per bubble; only a new message needs a new layout.
+        if (progress == message to step) return
+        progress = message to step
+        capsuleView?.show(message, step)
+        placeCapsule()
+    }
+
+    fun hideProgress() {
+        progress = null
+        capsuleView?.hide()
+    }
+
+    /** Lays the shown capsule over the button where it is now; a hidden capsule waits for its next message. */
+    private fun placeCapsule() {
+        val capsule = capsuleView?.takeIf { it.visibility == View.VISIBLE } ?: return
+        val layout = capsuleParams ?: return
+        val button = buttonParams ?: return
+        val placement = capsulePlacement(
+            Point(button.x, button.y), button.width, overlayControlSize(context, windowManager), margin, capsule::sizeWithin
+        )
+        // Gravity.START counts x from the right edge in a right-to-left locale, which mirrors both windows.
+        val mirrored = context.resources.configuration.layoutDirection == View.LAYOUT_DIRECTION_RTL
+        capsule.buttonAtRight = placement.growsLeft != mirrored
+        layout.x = placement.x
+        layout.y = placement.y
+        layout.width = placement.width
+        layout.height = placement.height
+        windowManager.updateViewLayout(capsule, layout)
+    }
+
     fun keepInBounds() {
         val view = buttonView ?: return
         val params = buttonParams ?: return
         val available = overlayControlSize(context, windowManager)
-        val margin = (8 * context.resources.displayMetrics.density).toInt()
         params.x = params.x.coerceIn(margin, (available.x - params.width - margin).coerceAtLeast(margin))
         params.y = params.y.coerceIn(margin, (available.y - params.height - margin).coerceAtLeast(margin))
         windowManager.updateViewLayout(view, params)
+        placeCapsule()
     }
 
     fun remove() {
         buttonView?.let { windowManager.removeView(it) }
         touchLayer?.let { windowManager.removeView(it) }
+        capsuleView?.let { windowManager.removeView(it) }
         buttonView = null
         buttonParams = null
         touchLayer = null
+        capsuleView = null
+        capsuleParams = null
+        progress = null
     }
 }

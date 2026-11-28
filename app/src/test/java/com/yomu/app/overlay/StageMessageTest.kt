@@ -24,4 +24,17 @@ class StageMessageTest {
         }
         assertEquals("Finding text bubbles", stageMessage(Stage.BUBBLE_DETECTION, onServer = true))
     }
+
+    @Test
+    fun `finding, reading and translating are steps one to three of the run`() {
+        assertEquals(1, stageStep(Stage.BUBBLE_DETECTION))
+        assertEquals(2, stageStep(Stage.OCR))
+        assertEquals(3, stageStep(Stage.TRANSLATION))
+        assertEquals(3, PROGRESS_STEPS)
+    }
+
+    @Test
+    fun `preparing the prompt belongs to the translating step`() {
+        assertEquals(3, stageStep(Stage.CONTEXT_ASSEMBLY))
+    }
 }
