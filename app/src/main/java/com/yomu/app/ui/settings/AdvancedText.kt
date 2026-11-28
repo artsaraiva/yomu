@@ -5,6 +5,7 @@ import com.yomu.app.detection.DetectionThresholdStore
 import com.yomu.app.translation.ResourceLimit
 import com.yomu.core.GenerationBound
 import com.yomu.core.RuntimeLimits
+import kotlin.math.abs
 
 /** The Advanced page's sections, in the order it lists them (#549). */
 internal enum class AdvancedSection(val title: String, val appliedNote: String? = null) {
@@ -63,10 +64,16 @@ internal fun limitText(limit: ResourceLimit, value: Int, cores: Int = RuntimeLim
 
 internal fun thresholdText(value: Float): SliderText = sliderText(value, DetectionThresholdStore.DEFAULT) { "%.2f".format(it) }
 
-/** [default] is the selected model's own sampling, not the bound's, since each model's maker recommends its own. */
+/**
+ * [default] is the selected model's own sampling, not the bound's, since each model's maker recommends its own. It may
+ * sit between two steps (a 0.05 temperature on a 0.1 slider), where it is written out in full so it never reads the
+ * same as the value beside it; and a step computed as `min + n × step` may miss it by float error, which is no change.
+ */
 internal fun generationText(bound: GenerationBound, value: Float, default: Float): SliderText {
     val decimals = bound.step.toString().substringAfter('.', "").trimEnd('0').length
-    return sliderText(value, default) { "%.${decimals}f".format(it) }
+    val shown = "%.${decimals}f".format(value)
+    if (abs(value - default) < bound.step / 100) return SliderText(shown, default = null)
+    return SliderText(shown, "%.${decimals}f".format(default).takeIf { it != shown } ?: default.toString())
 }
 
 /** "TOP_K" → "Top-k". Rendered from the bound so a new entry needs no label literal (#196). */

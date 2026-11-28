@@ -16,6 +16,7 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import kotlin.math.roundToInt
 
 /**
  * A section that opens in place (#549). The header toggles it; Reset shows only while open, so a closed list reads as
@@ -86,7 +87,7 @@ internal fun SliderRow(label: String, text: SliderText, consequence: String, sli
 internal fun SteppedSlider(position: Int, positions: Int, onMove: (Int) -> Unit, onRelease: () -> Unit) {
     Slider(
         value = position.toFloat(),
-        onValueChange = { onMove(Math.round(it)) },
+        onValueChange = { onMove(it.roundToInt()) },
         onValueChangeFinished = onRelease,
         valueRange = 0f..positions.toFloat(),
         steps = positions - 1,

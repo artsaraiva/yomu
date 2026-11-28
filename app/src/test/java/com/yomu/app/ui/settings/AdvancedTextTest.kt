@@ -42,6 +42,16 @@ class AdvancedTextTest {
         assertEquals(SliderText("0.95", default = "0.90"), generationText(GenerationBound.TOP_P, 0.95f, default = 0.9f))
     }
 
+    @Test
+    fun `a model default between two steps still shows once the slider leaves it`() {
+        assertEquals(SliderText("0.1", default = "0.05"), generationText(GenerationBound.TEMPERATURE, 0.1f, default = 0.05f))
+    }
+
+    @Test
+    fun `a sampler value a rounding error away from its default counts as the default`() {
+        assertEquals(SliderText("0.9", default = null), generationText(GenerationBound.TEMPERATURE, 9 * 0.1f, default = 0.9f))
+    }
+
     private val state = SettingsUiState(
         deliverables = mapOf(
             ModelType.DETECTION to listOf(SlotDeliverable("det", "Comic text detector", 1, "MIT")),

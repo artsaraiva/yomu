@@ -66,8 +66,8 @@ class SettingsViewModel @Inject constructor(
             detectionThreshold = detectionThresholdStore.load(),
             pageRecall = pageRecallStore.load(),
             resourceLimits = storedResourceLimits()
-        ).withSlots()
-        // The warning is now on screen; forget the bad values so it does not return on every visit.
+        ).withSlots().withRecoveryWarnings()
+        // The warnings are held in the state now; forget the bad values so they do not return on every visit.
         if (_uiState.value.run { generationRecoveryWarning ?: modelRecoveryWarning } != null) modelSelection.clearRecovered()
         sharedPreferences.registerOnSharedPreferenceChangeListener(preferenceListener)
 
@@ -199,15 +199,17 @@ class SettingsViewModel @Inject constructor(
     private fun storedResourceLimits(): Map<ResourceLimit, Int> =
         ResourceLimit.entries.associateWith(modelSelection::resourceLimit)
 
-    private fun SettingsUiState.withGenerationProfile(): SettingsUiState {
-        val loaded = modelSelection.generationProfile()
-        return copy(
-            generation = loaded.params,
-            generationDefaults = modelSelection.generationDefaults(),
-            generationRecoveryWarning = recoveryWarning(loaded.recovered.map { it.label }),
-            modelRecoveryWarning = recoveryWarning(listOf("Model").filter { modelSelection.storedLlmModelRecovered() })
-        )
-    }
+    private fun SettingsUiState.withGenerationProfile(): SettingsUiState =
+        copy(generation = modelSelection.generationProfile().params, generationDefaults = modelSelection.generationDefaults())
+
+    /**
+     * Read once, when Settings opens: the bad values are forgotten straight after, so a later re-read finds nothing
+     * and would drop a warning the reader has not reached yet.
+     */
+    private fun SettingsUiState.withRecoveryWarnings(): SettingsUiState = copy(
+        generationRecoveryWarning = recoveryWarning(modelSelection.generationProfile().recovered.map { it.label }),
+        modelRecoveryWarning = recoveryWarning(listOfNotNull("Model".takeIf { modelSelection.storedLlmModelRecovered() }))
+    )
 
     /**
      * Which model sits in each slot — and, with it, the generation profile, because the selected

@@ -22,17 +22,8 @@ fun AdvancedSettings(viewModel: SettingsViewModel, onBack: () -> Unit) {
     var open by rememberSaveable {
         mutableStateOf(setOfNotNull(AdvancedSection.Generation.takeIf { state.generationRecoveryWarning != null }))
     }
-    val section: @Composable (AdvancedSection, (() -> Unit)?, @Composable ColumnScope.() -> Unit) -> Unit = { section, onReset, content ->
-        val isOpen = section in open
-        CollapsibleSection(
-            title = section.title,
-            subtitle = section.appliedNote.takeIf { isOpen } ?: state.summary(section),
-            open = isOpen,
-            onToggle = { open = if (isOpen) open - section else open + section },
-            onReset = onReset,
-            resetEnabled = state.canReset(section),
-            content = content
-        )
+    val section: @Composable (AdvancedSection, (() -> Unit)?, @Composable ColumnScope.() -> Unit) -> Unit = { which, onReset, content ->
+        Section(which, state, isOpen = which in open, onToggle = { open = if (which in open) open - which else open + which }, onReset, content)
     }
     SettingsPage(SettingsSection.Advanced.title, "The defaults suit most pages. Change these only when something looks off.", onBack) {
         PaperSurface(Modifier.fillMaxWidth()) {
@@ -61,6 +52,27 @@ fun AdvancedSettings(viewModel: SettingsViewModel, onBack: () -> Unit) {
             section(AdvancedSection.LiveUsage, null) { LiveUsage(state.resources, viewModel::refreshResources) }
         }
     }
+}
+
+@Composable
+private fun Section(
+    section: AdvancedSection,
+    state: SettingsUiState,
+    isOpen: Boolean,
+    onToggle: () -> Unit,
+    onReset: (() -> Unit)?,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    CollapsibleSection(
+        title = section.title,
+        // Open, the controls show the state themselves, so the line says when a change takes hold instead.
+        subtitle = section.appliedNote.takeIf { isOpen } ?: state.summary(section),
+        open = isOpen,
+        onToggle = onToggle,
+        onReset = onReset,
+        resetEnabled = state.canReset(section),
+        content = content
+    )
 }
 
 @Composable
