@@ -50,7 +50,7 @@ internal fun KitStep(
     val kit = state.setupKit()
     // The translator setup hands the pages to, until it takes them (#536).
     val waitingOn = state.setupTranslatorGroup()?.takeIf { state.phoneTranslates && kit.downloaded }
-    var inside by rememberSaveable { mutableStateOf(false) }
+    var contentsOpen by rememberSaveable { mutableStateOf(false) }
     ActiveStep(2, KIT_TITLE, KIT_CAPTION) {
         KitProgress(kit)
         when {
@@ -70,8 +70,8 @@ internal fun KitStep(
         }
         Divider()
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            InsideHeader(inside) { inside = !inside }
-            if (inside) {
+            ContentsHeader(contentsOpen) { contentsOpen = !contentsOpen }
+            if (contentsOpen) {
                 kit.rows.forEach { row -> KitRow(row, canChange = row.type == ModelType.LLM && !kit.running, onChangeTranslator) }
                 if (!kit.running) TranslatorChoice(state, onChooseTranslator)
             }
@@ -104,7 +104,7 @@ private fun KitProgress(kit: SetupKit) {
 }
 
 @Composable
-private fun InsideHeader(open: Boolean, onToggle: () -> Unit) {
+private fun ContentsHeader(open: Boolean, onToggle: () -> Unit) {
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     Row(
         Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onToggle).heightIn(min = 48.dp)

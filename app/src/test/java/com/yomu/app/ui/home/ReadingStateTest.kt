@@ -94,4 +94,10 @@ class ReadingStateTest {
         assertEquals(Readiness.NeedsModels, resolveReadiness(detectorOnly, detector, reader, null, true, phoneTranslates = false))
         assertEquals(Readiness.NeedsBoth, resolveReadiness(detectorOnly, detector, null, null, false, phoneTranslates = false))
     }
+
+    @Test
+    fun `readiness says which half is in place`() {
+        assertEquals(listOf(true, false, true, false), Readiness.entries.map { it.modelsReady })
+        assertEquals(listOf(true, true, false, false), Readiness.entries.map { it.hasOverlayPermission })
+    }
 }

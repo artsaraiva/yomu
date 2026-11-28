@@ -162,6 +162,8 @@ class ModelSlotSelection @Inject constructor(
             .mapNotNull { id -> options.firstOrNull { it.id == id } }
             .firstOrNull { languageBlock(it, language) != null }
         if (englishOnly == null) {
+            // A language still waiting on an accepted offer's model would otherwise overwrite this one when it lands.
+            pendingLanguage = null
             languages.save(language)
             return LanguageSwitch.Done
         }

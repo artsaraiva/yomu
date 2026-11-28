@@ -33,7 +33,7 @@ internal fun ActiveStep(number: Int, title: String, caption: String, content: @C
     PaperSurface(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                StepBadge(number, SetupPhase.Active)
+                StepBadge(SetupPhase.Active, number)
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
                         title,
@@ -60,7 +60,7 @@ internal fun DoneStep(label: String, value: String, action: @Composable () -> Un
                 Modifier.weight(1f).semantics(mergeDescendants = true) { stateDescription = "Done" },
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                StepBadge(0, SetupPhase.Done)
+                StepBadge(SetupPhase.Done)
                 Column {
                     Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(value, style = MaterialTheme.typography.titleMedium)
@@ -83,7 +83,7 @@ internal fun LaterStep(number: Int, title: String, caption: String) {
             Modifier.padding(horizontal = 16.dp, vertical = 12.dp).semantics(mergeDescendants = true) { stateDescription = "Not started" },
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            StepBadge(number, SetupPhase.Later)
+            StepBadge(SetupPhase.Later, number)
             Column {
                 Text(title, style = MaterialTheme.typography.titleMedium, color = muted)
                 Text(caption, style = MaterialTheme.typography.bodySmall, color = muted)
@@ -92,9 +92,9 @@ internal fun LaterStep(number: Int, title: String, caption: String) {
     }
 }
 
-/** The step's number in a circle: filled with ink while open, outlined while waiting, a tick on green once done. */
+/** The step's [number] in a circle: filled with ink while open, outlined while waiting. A done step shows a tick on green instead. */
 @Composable
-private fun StepBadge(number: Int, phase: SetupPhase) {
+private fun StepBadge(phase: SetupPhase, number: Int? = null) {
     val colors = LocalYomuColors.current
     val size = 28.dp * LocalDensity.current.fontScale.coerceAtLeast(1f)
     val shape = when (phase) {
@@ -108,7 +108,7 @@ private fun StepBadge(number: Int, phase: SetupPhase) {
             Icon(Icons.Default.Check, contentDescription = null, tint = Color(colors.paperRaised), modifier = Modifier.size(18.dp))
         } else {
             Text(
-                "$number", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                "${number ?: ""}", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
                 color = Color(if (phase == SetupPhase.Active) colors.paperRaised else colors.inkMuted)
             )
         }

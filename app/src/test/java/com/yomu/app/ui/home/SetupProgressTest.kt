@@ -180,6 +180,7 @@ class SetupProgressTest {
         )
 
         assertEquals(huge, state.setupKit().tooBig?.deliverable)
+        assertEquals("Reading kit, a model is too big for this phone", state.setupKit().announcement())
         assertEquals(null, fresh.setupKit().tooBig)
     }
 

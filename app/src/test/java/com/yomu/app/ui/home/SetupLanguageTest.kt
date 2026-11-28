@@ -49,13 +49,9 @@ class SetupLanguageTest {
     private val language = SetupLanguage(slots, prefs, state)
 
     @Test
-    fun `setup starts on English with the default translator in the kit`() {
-        assertEquals(TargetLanguage.ENGLISH, slots.chosenLanguage())
-        assertEquals(LlmModelCatalog.DEFAULT.id, slots.chosenId(ModelType.LLM))
-    }
-
-    @Test
     fun `a language the kit's translator can write is set and the translator kept`() = runTest {
+        assertEquals(TargetLanguage.ENGLISH, slots.chosenLanguage())
+
         language.choose(TargetLanguage.BRAZILIAN_PORTUGUESE)
 
         assertEquals(TargetLanguage.BRAZILIAN_PORTUGUESE, slots.targetLanguage())

@@ -15,6 +15,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
@@ -36,8 +37,17 @@ private const val PERMISSION_TITLE = "Let Yomu draw over your manga app"
 fun SetupScreen(state: HomeUiState, viewModel: HomeViewModel, onStartReading: () -> Unit, onOpenDestination: (AppDestination) -> Unit) {
     val context = LocalContext.current
     val phases = state.setupPhases()
+    val allDone = phases.values.all { it == SetupPhase.Done }
     val textColors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)
     var changingTranslator by rememberSaveable { mutableStateOf(false) }
+    // The kit's own live region goes when its step collapses, so the end of the download is announced from here.
+    val view = LocalView.current
+    val kitDone = phases.getValue(SetupStepId.Kit) == SetupPhase.Done
+    var wasRunning by remember { mutableStateOf(false) }
+    LaunchedEffect(state.setupRunning, kitDone) {
+        if (wasRunning && kitDone) view.announceForAccessibility("Reading kit downloaded")
+        wasRunning = state.setupRunning
+    }
     // Providers and Settings change which translator takes the pages, and with it whether the phone model is needed.
     LaunchedEffect(Unit) { viewModel.refreshSlots() }
     state.translatorConfirm?.let {
@@ -78,7 +88,7 @@ fun SetupScreen(state: HomeUiState, viewModel: HomeViewModel, onStartReading: ()
             }
             SetupPhase.Later -> LaterStep(3, PERMISSION_TITLE, "Opens Android settings. Then you can start reading.")
         }
-        if (state.setupAllDone) {
+        if (allDone) {
             PaperAction(onClick = { if (viewModel.completeSetup()) onStartReading() }, accented = true, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Icon(Icons.Default.PlayArrow, contentDescription = null)
@@ -92,7 +102,7 @@ fun SetupScreen(state: HomeUiState, viewModel: HomeViewModel, onStartReading: ()
         }
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             // With every step done there is nothing to finish later, so the quiet way out completes setup too.
-            if (state.setupAllDone) TextButton(colors = textColors, onClick = { viewModel.completeSetup() }) { Text("Go to Home") }
+            if (allDone) TextButton(colors = textColors, onClick = { viewModel.completeSetup() }) { Text("Go to Home") }
             else TextButton(colors = textColors, onClick = viewModel::dismissSetup) { Text("Finish later") }
         }
     }

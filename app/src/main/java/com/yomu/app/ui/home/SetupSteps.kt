@@ -11,16 +11,14 @@ enum class SetupPhase { Done, Active, Later }
  * model keeps the step open until it is set up (#536).
  */
 private val HomeUiState.setupKitDone: Boolean
-    get() = setupKit().downloaded &&
-        (readiness == Readiness.Ready || readiness == Readiness.NeedsPermission) &&
-        (setupTranslatorGroup() == null || !phoneTranslates)
+    get() = setupKit().downloaded && readiness.modelsReady && (setupTranslatorGroup() == null || !phoneTranslates)
 
 /** Each step's phase: the first one not done is the open one. */
 fun HomeUiState.setupPhases(): Map<SetupStepId, SetupPhase> {
     val done = mapOf(
         SetupStepId.Language to setupLanguageChosen,
         SetupStepId.Kit to setupKitDone,
-        SetupStepId.Permission to (readiness == Readiness.Ready || readiness == Readiness.NeedsModels)
+        SetupStepId.Permission to readiness.hasOverlayPermission
     )
     val active = SetupStepId.entries.firstOrNull { !done.getValue(it) }
     return SetupStepId.entries.associateWith {
