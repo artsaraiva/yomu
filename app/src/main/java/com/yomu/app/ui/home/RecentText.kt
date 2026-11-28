@@ -1,7 +1,6 @@
 package com.yomu.app.ui.home
 
 import com.yomu.core.TargetLanguage
-import java.io.File
 
 /** One bubble of a saved page: the Japanese Yomu read and what it became. */
 data class RecentBubble(val original: String, val translated: String)
@@ -35,6 +34,3 @@ fun recentDetail(time: String, bubbleCount: Int, languageCode: String): String =
 ).joinToString(" · ")
 
 fun pagesTodayLabel(pages: Int): String = "$pages ${if (pages == 1) "page" else "pages"} today"
-
-/** The page image saved at [path], or null when the page has none or its file is gone. */
-fun pageImage(path: String): File? = File(path).takeIf { path.isNotBlank() && it.isFile }

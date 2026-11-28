@@ -1,15 +1,9 @@
 package com.yomu.app.ui.home
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
-import org.junit.Rule
 import org.junit.Test
-import org.junit.rules.TemporaryFolder
 
 class RecentTextTest {
-    @get:Rule
-    val folder = TemporaryFolder()
-
     @Test
     fun `a saved page reads back as its bubbles, Japanese beside translation`() {
         val saved = "[0] 開けるなと言っただろ → I told you not to open that door.\n[1] もう遅い → It's too late."
@@ -65,14 +59,5 @@ class RecentTextTest {
         assertEquals("12 pages today", pagesTodayLabel(12))
         assertEquals("1 page today", pagesTodayLabel(1))
         assertEquals("0 pages today", pagesTodayLabel(0))
-    }
-
-    @Test
-    fun `a page has an image only while its file still exists`() {
-        val image = folder.newFile("page.jpg")
-
-        assertEquals(image, pageImage(image.path))
-        assertNull(pageImage(folder.root.resolve("gone.jpg").path))
-        assertNull("pages saved without an image carry an empty path", pageImage(""))
     }
 }
