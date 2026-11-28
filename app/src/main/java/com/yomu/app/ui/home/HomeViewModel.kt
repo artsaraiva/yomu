@@ -29,6 +29,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -46,12 +47,11 @@ class HomeViewModel @Inject constructor(
 ) : ViewModel() {
     private companion object {
         const val SETUP_COMPLETE = "reading_setup_complete"
-        const val HAS_READ = "has_read"
     }
 
     private val _uiState = MutableStateFlow(HomeUiState(
         setupComplete = sharedPreferences.getBoolean(SETUP_COMPLETE, false),
-        hasRead = sharedPreferences.getBoolean(HAS_READ, false),
+        hasRead = sharedPreferences.getBoolean(RecentHistory.HAS_READ, false),
         deliverables = ModelType.entries.associateWith(slotSelection::deliverables),
         fitBudget = slotSelection.fitBudget(modelManager.deviceTotalMemBytes())
     ).withSlots())
@@ -60,6 +60,8 @@ class HomeViewModel @Inject constructor(
     private var countJob: Job? = null
     private var setupJob: Job? = null
     private val setupDownload = SetupDownload(modelManager, slotSelection, _uiState)
+    private val setupLanguage = SetupLanguage(slotSelection, sharedPreferences, _uiState)
+    private val recentHistory = RecentHistory(historyDao, sharedPreferences, _uiState)
 
     private val serviceStateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -76,6 +78,7 @@ class HomeViewModel @Inject constructor(
     }
 
     init {
+        _uiState.update { it.copy(setupLanguageChosen = it.setupComplete || setupLanguage.wasChosen()) }
         ContextCompat.registerReceiver(context, serviceStateReceiver, IntentFilter().apply {
             addAction(OverlayService.ACTION_SERVICE_STARTED)
             addAction(OverlayService.ACTION_SERVICE_STOPPED)
@@ -140,6 +143,18 @@ class HomeViewModel @Inject constructor(
 
     /** Setup hands the pages to [translatorId] in place of the phone model, which it then skips; null takes the phone model back. */
     fun setupWith(translatorId: String?) = _uiState.update { it.copy(setupTranslatorId = translatorId) }
+
+    /** Setup's language, which may change the translator in the kit (#547). */
+    fun chooseSetupLanguage(language: TargetLanguage) {
+        viewModelScope.launch {
+            setupLanguage.choose(language)
+            _uiState.update { it.withSlots() }
+        }
+    }
+
+    fun confirmSetupLanguage() = setupLanguage.confirm()
+
+    fun reopenSetupLanguage() = setupLanguage.reopen()
 
     /** Setup only records the choice; its Download button fetches every slot's choice at once. */
     fun pickSetupModel(type: ModelType, id: String) {
@@ -232,6 +247,7 @@ class HomeViewModel @Inject constructor(
             translationPendingId = slotSelection.pendingId(ModelType.LLM),
             // With the slots, since a download that never completes can return the language to English.
             targetLanguage = slotSelection.targetLanguage(),
+            setupLanguage = slotSelection.chosenLanguage(),
             // Read from the stored settings, so opening the picker never contacts the server.
             translatorGroups = translatorChoice.pickerGroups(),
             homeAction = translatorChoice.homeAction()
@@ -242,46 +258,28 @@ class HomeViewModel @Inject constructor(
         if (setupJob?.isActive == true) return
         setupJob = viewModelScope.launch {
             if (!setupDownload.run()) return@launch
-            refreshReadiness()
-            _uiState.update { it.copy(setupDownloadsReady = true) }
+            // Read here rather than awaited from the collector, so the kit shows downloaded the moment it stops running.
+            val models = modelManager.getAllModels().first()
+            _uiState.update { it.copy(models = models, setupDownloadsReady = true).withSlots() }
         }
     }
 
-    fun completeSetup() {
+    /** Closes setup for good once every step is done; false while one is left. */
+    fun completeSetup(): Boolean {
         refreshReadiness()
-        if (_uiState.value.readiness != Readiness.Ready || !_uiState.value.setupDownloadsReady) return
+        if (!_uiState.value.setupAllDone) return false
         sharedPreferences.edit().putBoolean(SETUP_COMPLETE, true).apply()
         _uiState.update { it.copy(setupComplete = true, setupVisible = false, setupStarted = false) }
+        return true
     }
 
     fun loadRecentHistory() {
         historyJob?.cancel()
-        _uiState.update { it.copy(historyLoading = true, historyError = false) }
-        historyJob = viewModelScope.launch {
-            historyDao.getAllTranslations()
-                .catch { _uiState.update { it.copy(historyLoading = false, historyError = true) } }
-                .collect { translations ->
-                    if (translations.isNotEmpty() && !_uiState.value.hasRead) {
-                        sharedPreferences.edit().putBoolean(HAS_READ, true).apply()
-                    }
-                    _uiState.update {
-                        it.copy(translations = translations, hasRead = it.hasRead || translations.isNotEmpty(), historyLoading = false)
-                    }
-                }
-        }
+        historyJob = viewModelScope.launch { recentHistory.load() }
     }
 
     fun clearHistory() {
-        viewModelScope.launch {
-            try {
-                historyDao.clearHistory()
-                _uiState.update { it.copy(confirmation = "Recent translations cleared", clearError = false) }
-            } catch (cancelled: CancellationException) {
-                throw cancelled
-            } catch (_: Exception) {
-                _uiState.update { it.copy(clearError = true) }
-            }
-        }
+        viewModelScope.launch { recentHistory.clear() }
     }
 
     fun dismissConfirmation() = _uiState.update { it.copy(confirmation = null) }

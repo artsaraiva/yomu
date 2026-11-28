@@ -38,6 +38,8 @@ data class HomeUiState(
     val translationSelectedId: String? = null,
     val translationPendingId: String? = null,
     val targetLanguage: TargetLanguage = TargetLanguage.ENGLISH,
+    /** The language setup shows as chosen, which may still wait on its translator's download (#547). */
+    val setupLanguage: TargetLanguage = TargetLanguage.ENGLISH,
     /** The model switch a language choice is waiting on the reader to accept or decline (#338), or null. */
     val languageOffer: LanguageSwitch.Offer? = null,
     /** The registered translators' groups, listed in the picker after the phone's (#534). */

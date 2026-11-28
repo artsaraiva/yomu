@@ -5,39 +5,39 @@ import android.net.Uri
 import android.provider.Settings
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.semantics.LiveRegionMode
-import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import com.yomu.app.db.entities.ModelType
-import com.yomu.app.service.PickerGroup
 import com.yomu.app.translation.AppDestination
-import com.yomu.app.translation.TranslatorPickerEntry
 import com.yomu.app.ui.settings.SlotPickerSheet
 import com.yomu.app.ui.theme.*
+import com.yomu.core.TargetLanguage
 
+private const val PERMISSION_TITLE = "Let Yomu draw over your manga app"
+
+/**
+ * First-run setup as one stepper (#547): the language, the reading kit, then permission to draw over other apps. The
+ * step whose turn it is opens in place; once all three are done the screen's one action starts reading.
+ */
 @Composable
-fun SetupScreen(state: HomeUiState, viewModel: HomeViewModel, onOpenDestination: (AppDestination) -> Unit) {
+fun SetupScreen(state: HomeUiState, viewModel: HomeViewModel, onStartReading: () -> Unit, onOpenDestination: (AppDestination) -> Unit) {
     val context = LocalContext.current
-    val rows = state.setupRows()
-    val steps = state.setupSteps()
-    val downloaded = steps.first().done
-    val running = state.setupRunning
-    // The translator setup hands the pages to, until it takes them.
-    val translatorGroup = state.setupTranslatorGroup()?.takeIf { state.phoneTranslates }
-    var changing by rememberSaveable { mutableStateOf<ModelType?>(null) }
+    val phases = state.setupPhases()
+    val textColors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)
+    var changingTranslator by rememberSaveable { mutableStateOf(false) }
     // Providers and Settings change which translator takes the pages, and with it whether the phone model is needed.
     LaunchedEffect(Unit) { viewModel.refreshSlots() }
     state.translatorConfirm?.let {
@@ -45,151 +45,101 @@ fun SetupScreen(state: HomeUiState, viewModel: HomeViewModel, onOpenDestination:
     }
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text("Setup", style = MaterialTheme.typography.headlineLarge)
-        SetupChecklist(steps)
-        if (!state.setupDownloadsReady) {
-            PaperSurface(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    rows.forEach { row -> SetupModelRowView(row, running, canChange = !running) { changing = row.type } }
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            YomuMark(48.dp)
+            Text("Let's get you reading", style = MaterialTheme.typography.headlineLarge, modifier = Modifier.semantics { heading() })
+            Text(if (state.setupSkipsPhoneModel) "Three steps." else "Three steps. After that, translation runs on this phone.")
+        }
+        when (phases.getValue(SetupStepId.Language)) {
+            SetupPhase.Done -> DoneStep("Translate into", state.setupLanguage.promptName) {
+                // Not mid-download: another language can swap the translator being fetched.
+                if (!state.setupRunning) {
+                    TextButton(colors = textColors, onClick = viewModel::reopenSetupLanguage, modifier = Modifier.semantics { contentDescription = "Change language" }) { Text("Change") }
                 }
             }
-            if (!state.setupStarted) SetupTranslatorChoice(state, viewModel::setupWith)
+            else -> LanguageStep(state, viewModel::chooseSetupLanguage, viewModel::confirmSetupLanguage)
         }
-        when {
-            state.setupError -> PaperError("Download failed. Check your connection and storage.", viewModel::prepareSetup)
-            !state.setupStarted -> Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                if (state.onMeteredNetwork && !downloaded) Text("You're on mobile data.")
-                PaperButton(
-                    if (downloaded) "Continue" else "Download",
-                    viewModel::prepareSetup,
-                    Modifier.fillMaxWidth(),
-                    enabled = rows.none { it.state == SetupModelState.TooBig }
-                )
-            }
-            running -> Text("Keep Yomu open until this finishes.", style = MaterialTheme.typography.bodySmall)
-            translatorGroup != null -> SetupTranslatorCard(translatorGroup) { group, entry ->
-                viewModel.pickTranslatorEntry(group, entry)?.let(onOpenDestination)
-            }
-            state.readiness != Readiness.Ready -> SetupCard("Allow display over other apps", "Yomu draws its button and translations over your manga app.", "Open settings") {
-                context.startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}")))
-            }
-            else -> SetupCard("Ready", "Android asks to share your screen each time you turn reading on.", "Go to Home", viewModel::completeSetup)
+        when (phases.getValue(SetupStepId.Kit)) {
+            SetupPhase.Done -> DoneStep("Reading kit", state.setupKit().progressText())
+            SetupPhase.Active -> KitStep(
+                state, viewModel::prepareSetup, { changingTranslator = true }, viewModel::setupWith,
+                { group, entry -> viewModel.pickTranslatorEntry(group, entry)?.let(onOpenDestination) }
+            )
+            SetupPhase.Later -> LaterStep(2, KIT_TITLE, KIT_CAPTION)
         }
-        TextButton(colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface), onClick = viewModel::dismissSetup) { Text("Back to Home") }
+        when (phases.getValue(SetupStepId.Permission)) {
+            SetupPhase.Done -> DoneStep("Draw over your manga app", "Allowed")
+            SetupPhase.Active -> ActiveStep(3, PERMISSION_TITLE, "Yomu draws its button and translations on top of the page you're reading.") {
+                PaperButton("Open Android settings", {
+                    context.startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}")))
+                }, Modifier.fillMaxWidth())
+            }
+            SetupPhase.Later -> LaterStep(3, PERMISSION_TITLE, "Opens Android settings. Then you can start reading.")
+        }
+        if (state.setupAllDone) {
+            PaperAction(onClick = { if (viewModel.completeSetup()) onStartReading() }, accented = true, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Default.PlayArrow, contentDescription = null)
+                    Text("Start reading", style = MaterialTheme.typography.titleLarge)
+                }
+            }
+            Text(
+                "Android asks to share your screen each time you turn reading on.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            // With every step done there is nothing to finish later, so the quiet way out completes setup too.
+            if (state.setupAllDone) TextButton(colors = textColors, onClick = { viewModel.completeSetup() }) { Text("Go to Home") }
+            else TextButton(colors = textColors, onClick = viewModel::dismissSetup) { Text("Finish later") }
+        }
     }
-    rows.firstOrNull { it.type == changing }?.let { row ->
+    if (changingTranslator) {
         SlotPickerSheet(
-            title = row.slot,
-            deliverables = state.deliverables[row.type].orEmpty(),
-            selectedId = state.chosenIds[row.type],
+            title = "Translator",
+            deliverables = state.deliverables[ModelType.LLM].orEmpty(),
+            selectedId = state.chosenIds[ModelType.LLM],
             pendingId = null,
             statuses = state.models.associate { it.id to it.status },
             downloads = emptyMap(),
             fits = state::fits,
             needsSlowWarning = state::needsSlowWarning,
             languageBlock = state::languageBlock,
-            phoneModelIdle = row.type == ModelType.LLM && !state.phoneTranslates,
+            phoneModelIdle = !state.phoneTranslates,
             onPick = {
-                viewModel.pickSetupModel(row.type, it)
-                changing = null
+                viewModel.pickSetupModel(ModelType.LLM, it)
+                changingTranslator = false
             },
             onCancel = {},
             onDelete = viewModel::deleteModel,
-            onDismiss = { changing = null }
+            onDismiss = { changingTranslator = false }
         )
     }
 }
 
-/** Offers each other translator in place of the phone model, or the phone model back once one is chosen (#536). */
+/** Setup's open first step: the language comes before the download because it decides which translator the kit carries. */
 @Composable
-private fun SetupTranslatorChoice(state: HomeUiState, onChoose: (String?) -> Unit) {
-    val textColors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)
-    Column {
-        state.setupTranslatorOffers().forEach { group ->
-            TextButton(colors = textColors, onClick = { onChoose(group.translatorId) }) {
-                Text("Translate on ${group.name.replaceFirstChar(Char::lowercase)} instead")
-            }
-        }
-        if (state.setupTranslatorId != null) {
-            Text("No translation model is downloaded to this phone.", style = MaterialTheme.typography.bodySmall)
-            TextButton(colors = textColors, onClick = { onChoose(null) }) { Text("Translate on this phone instead") }
-        }
-    }
-}
-
-/** The chosen translator's picker entries: one that isn't set up opens its screen, and picking a model finishes this step. */
-@Composable
-private fun SetupTranslatorCard(group: PickerGroup, onPick: (PickerGroup, TranslatorPickerEntry) -> Unit) {
-    PaperSurface(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(group.name, style = MaterialTheme.typography.titleLarge)
-            group.entries.forEach { entry ->
-                PaperButton(entry.subtitle?.let { "${entry.name} · $it" } ?: entry.name, { onPick(group, entry) }, Modifier.fillMaxWidth())
-            }
-        }
-    }
-}
-
-@Composable
-private fun SetupChecklist(steps: List<SetupStep>) {
+private fun LanguageStep(state: HomeUiState, onChoose: (TargetLanguage) -> Unit, onConfirm: () -> Unit) {
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        steps.forEachIndexed { index, step ->
-            Row(
-                Modifier.semantics(mergeDescendants = true) { stateDescription = if (step.done) "Done" else "Not done" },
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
-                    if (step.done) Icon(Icons.Default.Check, contentDescription = null)
-                    else Text("${index + 1}.", style = MaterialTheme.typography.titleMedium)
+    ActiveStep(1, "Translate into", "Yomu reads Japanese. Pick the language you read in.") {
+        Column {
+            TargetLanguage.entries.forEach { language ->
+                val reason = state.languageUnavailable(language)
+                val selected = language == state.setupLanguage
+                Row(
+                    Modifier.fillMaxWidth().selectable(selected, enabled = reason == null, role = Role.RadioButton) { onChoose(language) }.heightIn(min = 48.dp),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    RadioButton(selected, onClick = null, enabled = reason == null, colors = RadioButtonDefaults.colors(selectedColor = MaterialTheme.colorScheme.onSurface))
+                    Column {
+                        Text(language.promptName, style = MaterialTheme.typography.titleSmall, color = if (reason == null) LocalContentColor.current else muted)
+                        reason?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = muted) }
+                    }
                 }
-                Text(step.label, style = MaterialTheme.typography.titleMedium, color = if (step.done) muted else LocalContentColor.current)
             }
         }
-    }
-}
-
-@Composable
-private fun SetupModelRowView(row: SetupModelRow, running: Boolean, canChange: Boolean, onChange: () -> Unit) {
-    val muted = MaterialTheme.colorScheme.onSurfaceVariant
-    val alarming = row.state == SetupModelState.Failed || row.state == SetupModelState.TooBig
-    Column {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(
-                Modifier.weight(1f).clearAndSetSemantics {
-                    contentDescription = row.announcement()
-                    liveRegion = LiveRegionMode.Polite
-                }
-            ) {
-                Text(row.slot, style = MaterialTheme.typography.labelMedium, color = muted)
-                Text(row.deliverable.name, style = MaterialTheme.typography.titleSmall)
-                Text(row.statusText(running), style = MaterialTheme.typography.bodySmall, color = if (alarming) MaterialTheme.colorScheme.error else muted)
-            }
-            if (canChange) {
-                TextButton(onClick = onChange, modifier = Modifier.semantics { contentDescription = "Change ${row.slot} model" }) { Text("Change") }
-            }
-        }
-        (row.state as? SetupModelState.Downloading)?.let {
-            LinearProgressIndicator(
-                progress = if (it.totalBytes > 0) it.bytesDownloaded.toFloat() / it.totalBytes else 0f,
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                // The default track is the card's own colour, which hides how much is left.
-                trackColor = MaterialTheme.colorScheme.outlineVariant
-            )
-        }
-    }
-}
-
-@Composable
-private fun SetupCard(title: String, body: String, action: String, onAction: () -> Unit) {
-    PaperSurface(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(title, style = MaterialTheme.typography.titleLarge)
-            Text(body)
-            PaperButton(action, onAction)
-        }
+        PaperButton("Continue", onConfirm, Modifier.fillMaxWidth())
     }
 }

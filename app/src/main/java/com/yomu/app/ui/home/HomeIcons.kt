@@ -9,7 +9,7 @@ import androidx.compose.ui.graphics.vector.PathBuilder
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
 
-// The icons Home draws itself; Material's core set has no globe, phone outline, stop square or sparkle.
+// The icons Home and setup draw themselves; Material's core set has no globe, phone outline, stop square, sparkle or download arrow.
 
 private fun lineIcon(name: String, block: PathBuilder.() -> Unit): ImageVector = ImageVector.Builder(name, 24.dp, 24.dp, 24f, 24f).apply {
     path(
@@ -71,3 +71,13 @@ internal val Sparkle: ImageVector = ImageVector.Builder("Sparkle", 24.dp, 24.dp,
         close()
     }
 }.build()
+
+internal val DownloadArrow: ImageVector = lineIcon("DownloadArrow") {
+    moveTo(12f, 4f)
+    verticalLineToRelative(11f)
+    moveTo(7f, 11f)
+    lineToRelative(5f, 5f)
+    lineToRelative(5f, -5f)
+    moveTo(5f, 20f)
+    horizontalLineToRelative(14f)
+}

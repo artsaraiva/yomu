@@ -110,6 +110,18 @@ class SetupProgressTest {
     }
 
     @Test
+    fun `a row says where its model stands, the same however many bytes have arrived`() {
+        val row = fresh.setupRows()[2]
+
+        assertEquals("Not downloaded", row.spokenState())
+        assertEquals("Downloading", row.copy(state = SetupModelState.Downloading(1 * mb, 900 * mb)).spokenState())
+        assertEquals("Downloading", row.copy(state = SetupModelState.Downloading(800 * mb, 900 * mb)).spokenState())
+        assertEquals("Downloaded", row.copy(state = SetupModelState.Done).spokenState())
+        assertEquals("Failed", row.copy(state = SetupModelState.Failed).spokenState())
+        assertEquals("Too big for this phone", row.copy(state = SetupModelState.TooBig).spokenState())
+    }
+
+    @Test
     fun `the kit is one download, counting finished models whole and the running one by its bytes`() {
         val state = fresh.copy(
             setupStarted = true,
