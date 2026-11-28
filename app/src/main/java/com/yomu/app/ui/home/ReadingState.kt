@@ -2,7 +2,15 @@ package com.yomu.app.ui.home
 
 import com.yomu.app.db.entities.ModelStatus
 
-enum class Readiness { Ready, NeedsModels, NeedsPermission, NeedsBoth }
+enum class Readiness {
+    Ready, NeedsModels, NeedsPermission, NeedsBoth;
+
+    /** Every model the next page needs is downloaded. */
+    val modelsReady: Boolean get() = this == Ready || this == NeedsPermission
+
+    /** Yomu may draw over other apps. */
+    val hasOverlayPermission: Boolean get() = this == Ready || this == NeedsModels
+}
 
 enum class ReadingStatus { Off, On, NotReady }
 

@@ -15,37 +15,72 @@ sealed interface SetupModelState {
     data object TooBig : SetupModelState
 }
 
-/** One slot's row on the setup screen: the model setup downloads for it, and how far that download is. */
+/** One model in the reading kit: the one setup downloads for its slot, and how far that download is. */
 data class SetupModelRow(val type: ModelType, val deliverable: SlotDeliverable, val state: SetupModelState) {
     val slot: String get() = SLOT_NAMES.getValue(type)
 
-    /** [running] turns a missing model's size into "Waiting", since setup will get to it. */
-    fun statusText(running: Boolean): String = when (state) {
-        SetupModelState.Missing -> if (running) "Waiting · ${deliverable.sizeBytes.toFileSizeString()}" else deliverable.sizeBytes.toFileSizeString()
-        is SetupModelState.Downloading -> "${state.bytesDownloaded.toFileSizeString()} of ${state.totalBytes.toFileSizeString()}"
-        SetupModelState.Done -> "Done ✓"
-        SetupModelState.Failed -> "Failed"
-        SetupModelState.TooBig -> "Too big for this phone."
+    /** The line under the row's name: its size, or what went wrong. Only the translator names its model, the one a reader chooses. */
+    fun detail(): String {
+        val status = when (state) {
+            SetupModelState.Failed -> "Failed"
+            SetupModelState.TooBig -> "Too big for this phone"
+            else -> deliverable.sizeBytes.toFileSizeString()
+        }
+        return listOfNotNull(deliverable.name.takeIf { type == ModelType.LLM }, status).joinToString(" · ")
     }
 
-    /** What TalkBack announces. It leaves out the bytes, so a download is announced when it starts and ends, not on every update. */
-    fun announcement(): String {
-        val spoken = when (state) {
-            SetupModelState.Missing -> "not downloaded"
-            is SetupModelState.Downloading -> "downloading"
-            SetupModelState.Done -> "downloaded"
-            SetupModelState.Failed -> "failed"
-            SetupModelState.TooBig -> "too big for this phone"
-        }
-        return "$slot, ${deliverable.name}, $spoken"
+    /** The row's state as TalkBack says it. */
+    fun spokenState(): String = when (state) {
+        SetupModelState.Missing -> "Not downloaded"
+        is SetupModelState.Downloading -> "Downloading"
+        SetupModelState.Done -> "Downloaded"
+        SetupModelState.Failed -> "Failed"
+        SetupModelState.TooBig -> "Too big for this phone"
     }
 
     private companion object {
-        val SLOT_NAMES = mapOf(ModelType.DETECTION to "Detection", ModelType.OCR to "OCR", ModelType.LLM to "Translation")
+        val SLOT_NAMES = mapOf(ModelType.DETECTION to "Bubble finder", ModelType.OCR to "Japanese reader", ModelType.LLM to "Translator")
     }
 }
 
-data class SetupStep(val label: String, val done: Boolean)
+/** The reading kit (#547): every model setup downloads, shown as one download. */
+data class SetupKit(val rows: List<SetupModelRow>, val running: Boolean, val failed: Boolean) {
+    val totalBytes: Long get() = rows.sumOf { it.deliverable.sizeBytes }
+
+    /** A finished model counts whole and the running one by the bytes that have arrived. */
+    val downloadedBytes: Long
+        get() = rows.sumOf {
+            when (val state = it.state) {
+                SetupModelState.Done -> it.deliverable.sizeBytes
+                is SetupModelState.Downloading -> state.bytesDownloaded
+                else -> 0L
+            }
+        }
+
+    val fraction: Float get() = if (totalBytes > 0) downloadedBytes.toFloat() / totalBytes else 0f
+
+    val downloaded: Boolean get() = rows.isNotEmpty() && rows.all { it.state == SetupModelState.Done }
+
+    /** The chosen model setup refuses to download, or null. */
+    val tooBig: SetupModelRow? get() = rows.firstOrNull { it.state == SetupModelState.TooBig }
+
+    fun progressText(): String = when {
+        downloaded -> "Downloaded · ${totalBytes.toFileSizeString()}"
+        running -> "${downloadedBytes.toFileSizeString()} of ${totalBytes.toFileSizeString()}"
+        else -> totalBytes.toFileSizeString()
+    }
+
+    /** What TalkBack announces. It leaves out the bytes, so the download is announced when it starts and ends, not on every update. */
+    fun announcement(): String = "Reading kit, " + when {
+        tooBig != null -> "a model is too big for this phone"
+        failed -> "download failed"
+        downloaded -> "downloaded"
+        running -> "downloading"
+        else -> "not downloaded"
+    }
+}
+
+fun HomeUiState.setupKit(): SetupKit = SetupKit(setupRows(), setupRunning, setupError)
 
 /** True from tapping Download until every model is in, or one fails. */
 val HomeUiState.setupRunning: Boolean get() = setupStarted && !setupError && !setupDownloadsReady
@@ -74,16 +109,4 @@ fun HomeUiState.setupRows(): List<SetupModelRow> = setupTypes.mapNotNull { type 
         else -> SetupModelState.Missing
     }
     SetupModelRow(type, deliverable, state)
-}
-
-/** The checklist under the title: the models, the chosen translator if any, then permission to draw over other apps. */
-fun HomeUiState.setupSteps(): List<SetupStep> {
-    val rows = setupRows()
-    val downloaded = rows.isNotEmpty() && rows.all { it.state == SetupModelState.Done }
-    val left = rows.filter { it.state != SetupModelState.Done }.sumOf { it.deliverable.sizeBytes }
-    return listOfNotNull(
-        SetupStep(if (downloaded) "Models downloaded" else "Download models · ${left.toFileSizeString()}", downloaded),
-        setupTranslatorGroup()?.let { SetupStep("Set up ${it.name.replaceFirstChar(Char::lowercase)}", !phoneTranslates) },
-        SetupStep("Allow display over other apps", readiness == Readiness.Ready || readiness == Readiness.NeedsModels)
-    )
 }

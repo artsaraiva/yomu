@@ -24,6 +24,8 @@ data class HomeUiState(
     val modelsLoading: Boolean = true,
     val setupComplete: Boolean = false,
     val setupVisible: Boolean = false,
+    /** Whether the reader confirmed the language setup opens on; Change on that step clears it (#547). */
+    val setupLanguageChosen: Boolean = false,
     val setupStarted: Boolean = false,
     val setupDownloadsReady: Boolean = false,
     val setupError: Boolean = false,
@@ -36,6 +38,8 @@ data class HomeUiState(
     val translationSelectedId: String? = null,
     val translationPendingId: String? = null,
     val targetLanguage: TargetLanguage = TargetLanguage.ENGLISH,
+    /** The language setup shows as chosen, which may still wait on its translator's download (#547). */
+    val setupLanguage: TargetLanguage = TargetLanguage.ENGLISH,
     /** The model switch a language choice is waiting on the reader to accept or decline (#338), or null. */
     val languageOffer: LanguageSwitch.Offer? = null,
     /** The registered translators' groups, listed in the picker after the phone's (#534). */

@@ -84,7 +84,7 @@ fun AppNavigation(
                     BackHandler { setupRoute = null }
                     SetupTranslatorScreen(translatorScreens, destination) { setupRoute = null }
                 }
-                else -> SetupScreen(state, viewModel) { setupRoute = it.route }
+                else -> SetupScreen(state, viewModel, onRequestScreenCapture) { setupRoute = it.route }
             }
         }
         return
