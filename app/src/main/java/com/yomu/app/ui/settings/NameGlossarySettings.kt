@@ -5,7 +5,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.yomu.app.ui.theme.PaperButton
 import com.yomu.app.ui.theme.PaperSurface
 import com.yomu.core.GlossaryEntry
@@ -16,6 +19,14 @@ fun NameGlossarySettings(viewModel: NameGlossaryViewModel, onBack: () -> Unit) {
     val entries by viewModel.entries.collectAsState()
     // The entry being edited; a blank term opens the dialog for a new one.
     var editing by remember { mutableStateOf<GlossaryEntry?>(null) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, viewModel) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) viewModel.refresh()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
     SettingsPage(SettingsSection.NameGlossary.title, SettingsSection.NameGlossary.description, onBack) {
         SwitchPanel("Use the glossary", "Off, pages translate as if the list were empty. The names stay.", enabled, viewModel::setEnabled)
         PaperButton("Add name", { editing = GlossaryEntry("", "") })
@@ -23,7 +34,7 @@ fun NameGlossarySettings(viewModel: NameGlossaryViewModel, onBack: () -> Unit) {
             Column {
                 if (entries.isEmpty()) {
                     Text(
-                        "No names yet. Copy the Japanese from a bubble card, then add it here with the name you want.",
+                        "No names yet. Add one here, or tap a bubble on a translated page and choose Add a name from this bubble.",
                         Modifier.padding(16.dp),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant

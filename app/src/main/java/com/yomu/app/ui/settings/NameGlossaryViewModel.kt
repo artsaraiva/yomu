@@ -33,7 +33,8 @@ class NameGlossaryViewModel @Inject constructor(private val store: NameGlossaryS
         refresh()
     }
 
-    private fun refresh() {
+    /** Rereads the entries, which a bubble card may have added to while the screen was away (#553). */
+    fun refresh() {
         _entries.value = store.load()
     }
 }
