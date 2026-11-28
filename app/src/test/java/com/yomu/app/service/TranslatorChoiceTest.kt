@@ -100,8 +100,8 @@ class TranslatorChoiceTest {
 
     @Test
     fun `Settings lists the row of each translator that supplies one`() {
-        assertEquals(listOf("Providers"), choice.settingsRows().map { it.title })
-        assertEquals(listOf("Providers", "Fourth"), withFourth().settingsRows().map { it.title })
+        assertEquals("the server's setup is on the Translator page", emptyList<String>(), choice.settingsRows().map { it.title })
+        assertEquals(listOf("Fourth"), withFourth().settingsRows().map { it.title })
     }
 
     @Test
@@ -112,7 +112,7 @@ class TranslatorChoiceTest {
         pickOnServer("gemma3:4b")
         assertNull("the server is chosen and set up", choice.homeAction())
 
-        // Connect again, as Providers does, and the server no longer lists the chosen model.
+        // Connect again, as the server's setup does, and the server no longer lists the chosen model.
         store.saveServerModels(listOf("llama3.1:8b"))
         store.saveModel("")
         assertEquals(TranslatorHomeAction("Set up server", AppDestination("settings/providers")), choice.homeAction())
@@ -151,7 +151,7 @@ class TranslatorChoiceTest {
         store.saveServerModels(listOf("llama3.1:8b"))
         store.saveModel("llama3.1:8b")
 
-        assertNull("set up again in Providers, but not picked", choice.activeServerModel())
+        assertNull("set up again, but not picked", choice.activeServerModel())
         assertEquals(Translator.ON_DEVICE_ID, translation.activeTranslator().id)
         assertEquals(TranslatorPick.Select, choice.pick(Translator.NETWORK_ID, entry("llama3.1:8b").pick))
         assertEquals("llama3.1:8b", choice.activeServerModel())

@@ -18,7 +18,8 @@ import com.yomu.app.translation.TranslatorSettingsRow
 import com.yomu.app.ui.theme.*
 
 enum class SettingsSection(val route: String, val title: String, val description: String) {
-    Translation("settings/translation", "Translation", "How Yomu translates the Japanese into your language."),
+    Translator("settings/translator", "Translator", "A model on this phone, or your own server."),
+    Translation("settings/translation", "Translation", "The language pages are translated into, and the pages Yomu keeps."),
     NameGlossary("settings/name-glossary", "Name glossary", "Names Yomu always translates the same way."),
     Typesetting("settings/typesetting", "Typesetting", "How translated text is set inside the bubbles."),
     Appearance("settings/appearance", "Appearance", "How Yomu looks."),

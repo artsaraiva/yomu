@@ -12,6 +12,8 @@ import com.yomu.app.service.ModelManager
 import com.yomu.app.service.ModelSlotSelection
 import com.yomu.app.service.PageRecallStore
 import com.yomu.app.service.TranslatorChoice
+import com.yomu.app.translation.Translator
+import com.yomu.app.translation.TranslatorPick
 import com.yomu.app.translation.TranslatorSettingsRow
 import com.yomu.app.translation.ResourceLimit
 import com.yomu.app.translation.TranslationModelSelection
@@ -91,6 +93,24 @@ class SettingsViewModel @Inject constructor(
 
     /** The rows registered translators add to Settings (#534). */
     fun translatorRows(): List<TranslatorSettingsRow> = translatorChoice.settingsRows()
+
+    /** The Translator page turned to the phone: its selected model takes the next page, when there is one (#548). */
+    fun usePhone() {
+        translatorChoice.selectPhone()
+        refreshSlots()
+    }
+
+    /** The Translator page turned to the server: it takes the next page once set up; the first time waits in [SettingsUiState.translatorConfirm]. */
+    fun useServer() = settle(translatorChoice.selectServer())
+
+    fun acceptTranslatorConfirm() {
+        val waiting = _uiState.value.translatorConfirm ?: return
+        settle(translatorChoice.pick(Translator.NETWORK_ID, waiting.accept))
+    }
+
+    fun declineTranslatorConfirm() = _uiState.update { it.copy(translatorConfirm = null) }
+
+    private fun settle(pick: TranslatorPick) = _uiState.update { it.copy(translatorConfirm = pick as? TranslatorPick.Confirm).withSlots() }
 
     fun setTheme(theme: String) {
         require(theme in listOf("system", "day", "night"))

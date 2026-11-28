@@ -9,6 +9,7 @@ import com.yomu.app.service.PageRecallStore
 import com.yomu.app.service.SlotDeliverable
 import com.yomu.app.translation.FitBudget
 import com.yomu.app.translation.ResourceLimit
+import com.yomu.app.translation.TranslatorPick
 import com.yomu.core.Constants
 import com.yomu.core.GenerationBound
 import com.yomu.core.GenerationParams
@@ -51,7 +52,9 @@ data class SettingsUiState(
     /** Whether a server model takes the next page, which lifts the phone models' English-only rule (ADR-0023). */
     val translatesOnServer: Boolean = false,
     /** Whether the phone's own model takes the next page; while it doesn't, deleting it leaves reading on (#536). */
-    val phoneTranslates: Boolean = true
+    val phoneTranslates: Boolean = true,
+    /** The server's pick waiting on the reader to agree before any page's text leaves the phone (ADR-0023), or null. */
+    val translatorConfirm: TranslatorPick.Confirm? = null
 ) {
     val generationOverridden: Boolean
         get() = GenerationBound.entries.any { it.read(generation) != it.read(generationDefaults) }

@@ -25,6 +25,7 @@ enum class PaperElevation(val offset: Int) { Page(0), Card(3), Popup(5), Overlay
 fun PaperSurface(
     modifier: Modifier = Modifier,
     elevation: PaperElevation = PaperElevation.Card,
+    selected: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colors = LocalYomuColors.current
@@ -39,7 +40,10 @@ fun PaperSurface(
             }
         },
         color = Color(if (page) colors.paper else colors.paperRaised), contentColor = Color(colors.ink),
-        shape = shape, border = if (page) null else BorderStroke(1.dp, Color(colors.edge)), content = content
+        shape = shape,
+        // The picked one of a set of cards is outlined in ink.
+        border = if (page) null else BorderStroke(if (selected) 2.dp else 1.dp, Color(if (selected) colors.ink else colors.edge)),
+        content = content
     )
 }
 

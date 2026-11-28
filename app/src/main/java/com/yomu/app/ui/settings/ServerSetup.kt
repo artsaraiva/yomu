@@ -29,13 +29,24 @@ internal fun connectFailureMessage(failure: ConnectFailure): String = when (fail
     ConnectFailure.SERVER_ERROR -> "The server answered, but not with a list of models. Check the address points to an OpenAI-compatible server."
 }
 
+/** The server's setup on a screen of its own, which first-run setup opens in place of a phone model (#536). */
 @Composable
-fun ProvidersSettings(viewModel: ProvidersViewModel, onBack: () -> Unit) {
+fun ServerSetupScreen(viewModel: ProvidersViewModel, onBack: () -> Unit) {
     val state by viewModel.state.collectAsState()
-    SettingsPage("Providers", "A server you run, or a hosted API you have a key for.", onBack) {
-        ServerPanel(state, viewModel::editAddress, viewModel::editApiKey, { viewModel.connect() })
-        (state.connection as? ServerConnection.Connected)?.let { ModelPanel(it.models, state.model, viewModel::pickModel) }
+    SettingsPage("Your server", "A server you run, or a hosted API you have a key for.", onBack) {
+        ServerSetup(state, viewModel, onPickListed = viewModel::pickModel)
     }
+}
+
+/**
+ * The address, key, Connect and model of the reader's server (ADR-0023), as setup's screen and the Translator
+ * page's server side both show them. [onPickListed] takes a model picked from the server's list; a typed name is
+ * only stored, since each keystroke changes it.
+ */
+@Composable
+internal fun ServerSetup(state: ProvidersUiState, viewModel: ProvidersViewModel, onPickListed: (String) -> Unit) {
+    ServerPanel(state, viewModel::editAddress, viewModel::editApiKey, { viewModel.connect() })
+    (state.connection as? ServerConnection.Connected)?.let { ModelPanel(it.models, state.model, onPickListed, viewModel::pickModel) }
 }
 
 @Composable
@@ -77,7 +88,7 @@ private fun ServerPanel(state: ProvidersUiState, onAddress: (String) -> Unit, on
 
 /** The server's list to pick from, or a field for the model's name when there's no list to show. */
 @Composable
-private fun ModelPanel(models: List<String>?, model: String, onPick: (String) -> Unit) {
+private fun ModelPanel(models: List<String>?, model: String, onPick: (String) -> Unit, onType: (String) -> Unit) {
     PaperSurface(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Model", style = MaterialTheme.typography.titleSmall)
@@ -89,7 +100,7 @@ private fun ModelPanel(models: List<String>?, model: String, onPick: (String) ->
                 }
                 Text(hint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 OutlinedTextField(
-                    model, onPick, Modifier.fillMaxWidth(),
+                    model, onType, Modifier.fillMaxWidth(),
                     label = { Text("Model name") },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(autoCorrectEnabled = false)

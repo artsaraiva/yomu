@@ -48,7 +48,7 @@ fun SetupScreen(state: HomeUiState, viewModel: HomeViewModel, onStartReading: ()
         if (wasRunning && kitDone) view.announceForAccessibility("Reading kit downloaded")
         wasRunning = state.setupRunning
     }
-    // Providers and Settings change which translator takes the pages, and with it whether the phone model is needed.
+    // The server's setup and Settings change which translator takes the pages, and with it whether the phone model is needed.
     LaunchedEffect(Unit) { viewModel.refreshSlots() }
     state.translatorConfirm?.let {
         TranslatorConfirmDialog(it.confirm, { viewModel.acceptTranslatorConfirm()?.let(onOpenDestination) }, viewModel::declineTranslatorConfirm)
