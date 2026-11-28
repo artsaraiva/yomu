@@ -11,7 +11,7 @@ enum class SetupPhase { Done, Active, Later }
  * model keeps the step open until it is set up (#536).
  */
 private val HomeUiState.setupKitDone: Boolean
-    get() = setupRows().let { rows -> rows.isNotEmpty() && rows.all { it.state == SetupModelState.Done } } &&
+    get() = setupKit().downloaded &&
         (readiness == Readiness.Ready || readiness == Readiness.NeedsPermission) &&
         (setupTranslatorGroup() == null || !phoneTranslates)
 

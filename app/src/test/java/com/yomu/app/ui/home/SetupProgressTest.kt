@@ -50,7 +50,7 @@ class SetupProgressTest {
     fun `setup lists each slot's chosen model in download order`() {
         val rows = fresh.setupRows()
 
-        assertEquals(listOf("Detection", "OCR", "Translation"), rows.map { it.slot })
+        assertEquals(listOf("Bubble finder", "Japanese reader", "Translator"), rows.map { it.slot })
         assertEquals(listOf(detector, reader, translator), rows.map { it.deliverable })
     }
 
@@ -100,53 +100,75 @@ class SetupProgressTest {
     }
 
     @Test
-    fun `a row's status shows the size, then waiting, bytes, done, failed or too big`() {
-        val row = fresh.setupRows()[2]
+    fun `a row shows its size, and the translator its model too`() {
+        val rows = fresh.setupRows()
 
-        assertEquals("900.00 MB", row.statusText(running = false))
-        assertEquals("Waiting · 900.00 MB", row.statusText(running = true))
-        assertEquals("225.00 MB of 900.00 MB", row.copy(state = SetupModelState.Downloading(225 * mb, 900 * mb)).statusText(running = true))
-        assertEquals("Done ✓", row.copy(state = SetupModelState.Done).statusText(running = true))
-        assertEquals("Failed", row.copy(state = SetupModelState.Failed).statusText(running = false))
-        assertEquals("Too big for this phone.", row.copy(state = SetupModelState.TooBig).statusText(running = false))
+        assertEquals("40.00 MB", rows[0].detail())
+        assertEquals("Qwen2.5 1.5B Instruct · 900.00 MB", rows[2].detail())
+        assertEquals("Qwen2.5 1.5B Instruct · Failed", rows[2].copy(state = SetupModelState.Failed).detail())
+        assertEquals("Qwen2.5 1.5B Instruct · Too big for this phone", rows[2].copy(state = SetupModelState.TooBig).detail())
     }
 
     @Test
-    fun `a row's announcement changes when its state changes, not as bytes arrive`() {
-        val row = fresh.setupRows()[2]
-        val early = row.copy(state = SetupModelState.Downloading(1 * mb, 900 * mb))
-        val late = row.copy(state = SetupModelState.Downloading(800 * mb, 900 * mb))
+    fun `the kit is one download, counting finished models whole and the running one by its bytes`() {
+        val state = fresh.copy(
+            setupStarted = true,
+            models = listOf(model(detector.id, ModelType.DETECTION, ModelStatus.READY)),
+            setupDownload = ModelManager.DownloadProgress(reader.id, 25 * mb, 100 * mb, 25)
+        )
+        val kit = state.setupKit()
 
-        assertEquals("Translation, Qwen2.5 1.5B Instruct, not downloaded", row.announcement())
-        assertEquals("Translation, Qwen2.5 1.5B Instruct, downloading", early.announcement())
-        assertEquals(early.announcement(), late.announcement())
-        assertEquals("Translation, Qwen2.5 1.5B Instruct, downloaded", row.copy(state = SetupModelState.Done).announcement())
+        assertEquals(1_040 * mb, kit.totalBytes)
+        assertEquals(65 * mb, kit.downloadedBytes)
+        assertEquals(0.0625f, kit.fraction, 0.0001f)
+        assertEquals("65.00 MB of 1.02 GB", kit.progressText())
+        assertFalse(kit.downloaded)
     }
 
     @Test
-    fun `the first step names what is left to download until every model is done`() {
-        val missing = fresh.copy(models = listOf(
-            model(detector.id, ModelType.DETECTION, ModelStatus.READY),
-            model(reader.id, ModelType.OCR, ModelStatus.READY)
-        ))
+    fun `a kit not started shows its whole size`() {
+        assertEquals("1.02 GB", fresh.setupKit().progressText())
+        assertEquals(0f, fresh.setupKit().fraction, 0f)
+    }
+
+    @Test
+    fun `the kit is downloaded once every model in it is`() {
         val done = fresh.copy(models = listOf(
             model(detector.id, ModelType.DETECTION, ModelStatus.READY),
             model(reader.id, ModelType.OCR, ModelStatus.READY),
             model(translator.id, ModelType.LLM, ModelStatus.READY)
         ))
 
-        assertEquals(SetupStep("Download models · 900.00 MB", done = false), missing.setupSteps()[0])
-        assertEquals(SetupStep("Models downloaded", done = true), done.setupSteps()[0])
+        assertTrue(done.setupKit().downloaded)
+        assertEquals("Downloaded · 1.02 GB", done.setupKit().progressText())
     }
 
     @Test
-    fun `the second step is done once Yomu may draw over other apps`() {
-        val label = "Allow display over other apps"
+    fun `the kit's announcement changes when the download starts and ends, not as bytes arrive`() {
+        val early = fresh.copy(setupStarted = true, setupDownload = ModelManager.DownloadProgress(translator.id, 1 * mb, 900 * mb, 0))
+        val late = fresh.copy(setupStarted = true, setupDownload = ModelManager.DownloadProgress(translator.id, 800 * mb, 900 * mb, 88))
+        val done = fresh.copy(setupStarted = true, setupDownloadsReady = true, models = listOf(
+            model(detector.id, ModelType.DETECTION, ModelStatus.READY),
+            model(reader.id, ModelType.OCR, ModelStatus.READY),
+            model(translator.id, ModelType.LLM, ModelStatus.READY)
+        ))
 
-        assertEquals(SetupStep(label, done = false), fresh.copy(readiness = Readiness.NeedsBoth).setupSteps()[1])
-        assertEquals(SetupStep(label, done = false), fresh.copy(readiness = Readiness.NeedsPermission).setupSteps()[1])
-        assertEquals(SetupStep(label, done = true), fresh.copy(readiness = Readiness.NeedsModels).setupSteps()[1])
-        assertEquals(SetupStep(label, done = true), fresh.copy(readiness = Readiness.Ready).setupSteps()[1])
+        assertEquals("Reading kit, not downloaded", fresh.setupKit().announcement())
+        assertEquals("Reading kit, downloading", early.setupKit().announcement())
+        assertEquals(early.setupKit().announcement(), late.setupKit().announcement())
+        assertEquals("Reading kit, downloaded", done.setupKit().announcement())
+        assertEquals("Reading kit, download failed", fresh.copy(setupStarted = true, setupError = true).setupKit().announcement())
+    }
+
+    @Test
+    fun `the kit names the model too big for this phone`() {
+        val state = fresh.copy(
+            chosenIds = fresh.chosenIds + (ModelType.LLM to huge.id),
+            fitBudget = eightGb.copy(totalMemBytes = 4L * 1024 * mb)
+        )
+
+        assertEquals(huge, state.setupKit().tooBig?.deliverable)
+        assertEquals(null, fresh.setupKit().tooBig)
     }
 
     @Test
@@ -161,27 +183,15 @@ class SetupProgressTest {
     fun `setup that hands the pages to another translator lists only the reading models`() {
         val state = fresh.copy(translatorGroups = listOf(server), setupTranslatorId = server.translatorId)
 
-        assertEquals(listOf("Detection", "OCR"), state.setupRows().map { it.slot })
-        assertEquals(SetupStep("Download models · 140.00 MB", done = false), state.setupSteps()[0])
+        assertEquals(listOf("Bubble finder", "Japanese reader"), state.setupRows().map { it.slot })
+        assertEquals("140.00 MB", state.setupKit().progressText())
     }
 
     @Test
     fun `a translator already taking the pages leaves the phone model out of setup`() {
         val state = fresh.copy(phoneTranslates = false)
 
-        assertEquals(listOf("Detection", "OCR"), state.setupRows().map { it.slot })
-    }
-
-    @Test
-    fun `setup on another translator adds its step, done once it takes the pages`() {
-        val state = fresh.copy(translatorGroups = listOf(server), setupTranslatorId = server.translatorId)
-
-        assertEquals(
-            listOf("Download models · 140.00 MB", "Set up your server", "Allow display over other apps"),
-            state.setupSteps().map { it.label }
-        )
-        assertFalse(state.setupSteps()[1].done)
-        assertTrue(state.copy(phoneTranslates = false).setupSteps()[1].done)
+        assertEquals(listOf("Bubble finder", "Japanese reader"), state.setupRows().map { it.slot })
     }
 
     @Test
